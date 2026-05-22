@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 import axios from "axios";
 
 axios.defaults.withCredentials = true;
-axios.defaults.baseURL = 'https://greencart-yxo9.onrender.com';
+axios.defaults.baseURL = import.meta.env.VITE_BACKEND_URL;
 
 export const AppContext = createContext();
 
