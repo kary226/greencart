@@ -8,18 +8,24 @@ const PaymentError = () => {
     const orderId = searchParams.get('orderId');
 
     useEffect(() => {
+        // Afficher l'erreur
         toast.error('Le paiement a échoué ou a été annulé');
+        
+        // SOLUTION 2 : Vider le token pour forcer une reconnexion propre
+        localStorage.removeItem('token');
+        
+        // Rediriger vers la page d'accueil (au lieu du panier)
         setTimeout(() => {
-            navigate('/cart');
+            navigate('/');
         }, 3000);
-    }, []);
+    }, [navigate, orderId]);
 
     return (
         <div className="mt-16 text-center py-20">
             <div className="text-red-600 text-6xl mb-4">❌</div>
             <h1 className="text-2xl font-bold mb-2">Paiement échoué</h1>
-            <p className="text-gray-500">Veuillez réessayer ou choisir un autre moyen de paiement.</p>
-            <p className="text-gray-400 mt-4">Redirection vers le panier...</p>
+            <p className="text-gray-500">Le paiement a été annulé ou une erreur est survenue.</p>
+            <p className="text-gray-400 mt-4">Redirection vers la page d'accueil...</p>
         </div>
     );
 };

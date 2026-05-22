@@ -5,31 +5,31 @@ import toast from 'react-hot-toast';
 
 const Login = () => {
 
-    const {setShowUserLogin, loginUser, registerUser} = useAppContext()
+    const {setShowUserLogin, setUser, axios, navigate} = useAppContext()
 
     const [state, setState] = React.useState("login");
     const [name, setName] = React.useState("");
     const [email, setEmail] = React.useState("");
     const [password, setPassword] = React.useState("");
-    const [loading, setLoading] = React.useState(false);
 
     const onSubmitHandler = async (event)=>{
-        event.preventDefault();
-        setLoading(true);
-        
-        if (state === "login") {
-            await loginUser(email, password);
-        } else {
-            if (!name) {
-                toast.error("Veuillez entrer votre nom");
-                setLoading(false);
-                return;
+        try {
+            event.preventDefault();
+
+            const {data} = await axios.post(`/api/user/${state}`,{
+                name, email, password
+            });
+            if (data.success){
+                navigate('/')
+                setUser(data.user)
+                setShowUserLogin(false)
+            }else{
+                toast.error(data.message)
             }
-            await registerUser(name, email, password);
+
+        } catch (error) {
+            toast.error(error.message)
         }
-        
-        setLoading(false);
-        setShowUserLogin(false);
     }
 
   return (
@@ -62,6 +62,7 @@ const Login = () => {
                     <p>
                         Create an account? <span onClick={() => setState("register")} className="text-primary cursor-pointer">click here</span>
                     </p>
+                    {/* Lien mot de passe oublié */}
                     <Link 
                         to="/forgot-password" 
                         onClick={() => setShowUserLogin(false)}
@@ -71,8 +72,8 @@ const Login = () => {
                     </Link>
                 </>
             )}
-            <button disabled={loading} className="bg-primary hover:bg-primary-dull transition-all text-white w-full py-2 rounded-md cursor-pointer disabled:opacity-50">
-                {loading ? "Chargement..." : (state === "register" ? "Create Account" : "Login")}
+            <button className="bg-primary hover:bg-primary-dull transition-all text-white w-full py-2 rounded-md cursor-pointer">
+                {state === "register" ? "Create Account" : "Login"}
             </button>
         </form>
     </div>
