@@ -2,6 +2,7 @@ import User from "../models/User.js";
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import { sendPasswordResetEmail } from '../services/emailService.js';
 
 // Register User : /api/user/register
 export const register = async (req, res)=>{
@@ -168,8 +169,7 @@ export const forgotPassword = async (req, res) => {
         user.resetPasswordExpires = resetExpires;
         await user.save();
         
-        // Envoyer l'email
-        const { sendPasswordResetEmail } = await import('../configs/email.js');
+        // Envoyer l'email via EmailJS
         await sendPasswordResetEmail(email, resetToken);
         
         res.json({ success: true, message: "Un email de réinitialisation vous a été envoyé" });

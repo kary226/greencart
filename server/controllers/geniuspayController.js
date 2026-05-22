@@ -2,7 +2,7 @@ import axios from 'axios';
 import mongoose from 'mongoose';
 import Order from '../models/Order.js';
 import User from '../models/User.js';
-import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
+import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../services/emailService.js';
 
 // Initier un paiement GeniusPay (mode checkout)
 export const initiateGeniusPay = async (req, res) => {
@@ -72,20 +72,18 @@ export const initiateGeniusPay = async (req, res) => {
             status: "pending_payment",
         });
 
-        // === ENVOI DES EMAILS (NON BLOQUANT) ===
-        // Les emails sont envoyés en arrière-plan sans bloquer le paiement
+        // === ENVOI DES EMAILS VIA EMAILJS (NON BLOQUANT) ===
         const user = await User.findById(userId);
         if (user && user.email) {
-            // Envoi en parallèle sans await pour ne pas bloquer
             Promise.all([
-                sendOrderConfirmationEmail(user.email, order._id.toString(), Math.round(amount)).catch(err => 
+                sendOrderConfirmationEmail(user.email, order._id.toString(), Math.round(amount), `${completeAddress.firstName} ${completeAddress.lastName}`).catch(err => 
                     console.error("❌ Erreur email confirmation (non bloquante):", err.message)
                 ),
                 sendAdminNotificationEmail(order._id.toString(), Math.round(amount), `${completeAddress.firstName} ${completeAddress.lastName}`, user.email).catch(err => 
                     console.error("❌ Erreur email admin (non bloquante):", err.message)
                 )
             ]);
-            console.log("📧 Emails en cours d'envoi (non bloquant)");
+            console.log("📧 Emails en cours d'envoi via EmailJS (non bloquant)");
         } else {
             console.log("⚠️ Aucun email envoyé: utilisateur non trouvé ou sans email");
         }
