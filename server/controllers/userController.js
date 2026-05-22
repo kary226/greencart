@@ -3,22 +3,6 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 
-// Configuration des cookies cross-origin
-const cookieOptions = {
-    httpOnly: true,
-    secure: true, // HTTPS obligatoire en production
-    sameSite: 'none', // CRUCIAL : permet les connexions depuis différents domaines
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    domain: '.vercel.app' // Permet au cookie d'être partagé entre sous-domaines
-};
-
-const clearCookieOptions = {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'none',
-    domain: '.vercel.app'
-};
-
 // Register User : /api/user/register
 export const register = async (req, res)=>{
     try {
@@ -39,9 +23,7 @@ export const register = async (req, res)=>{
 
         const token = jwt.sign({id: user._id}, process.env.JWT_SECRET, {expiresIn: '7d'});
 
-        res.cookie('token', token, cookieOptions)
-
-        return res.json({success: true, user: {email: user.email, name: user.name}})
+        return res.json({success: true, user: {email: user.email, name: user.name}, token})
     } catch (error) {
         console.log(error.message);
         res.json({ success: false, message: error.message });
@@ -68,9 +50,7 @@ export const login = async (req, res)=>{
 
         const token = jwt.sign({id: user._id}, process.env.JWT_SECRET, {expiresIn: '7d'});
 
-        res.cookie('token', token, cookieOptions)
-
-        return res.json({success: true, user: {email: user.email, name: user.name}})
+        return res.json({success: true, user: {email: user.email, name: user.name}, token})
     } catch (error) {
         console.log(error.message);
         res.json({ success: false, message: error.message });
@@ -92,7 +72,6 @@ export const isAuth = async (req, res)=>{
 // Logout User : /api/user/logout
 export const logout = async (req, res)=>{
     try {
-        res.clearCookie('token', clearCookieOptions);
         return res.json({ success: true, message: "Logged Out" })
     } catch (error) {
         console.log(error.message);
@@ -162,15 +141,13 @@ export const forgotPassword = async (req, res) => {
             return res.json({ success: false, message: "Aucun compte associé à cet email" });
         }
         
-        // Générer un token unique
         const resetToken = crypto.randomBytes(32).toString('hex');
-        const resetExpires = Date.now() + 3600000; // 1 heure
+        const resetExpires = Date.now() + 3600000;
         
         user.resetPasswordToken = resetToken;
         user.resetPasswordExpires = resetExpires;
         await user.save();
         
-        // Envoyer l'email
         const { sendPasswordResetEmail } = await import('../configs/email.js');
         await sendPasswordResetEmail(email, resetToken);
         

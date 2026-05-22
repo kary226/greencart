@@ -4,8 +4,26 @@ import { dummyProducts } from "../assets/assets";
 import toast from "react-hot-toast";
 import axios from "axios";
 
-axios.defaults.withCredentials = true;
+axios.defaults.withCredentials = false; // Plus besoin de cookies
 axios.defaults.baseURL = import.meta.env.VITE_BACKEND_URL;
+
+// Récupérer le token depuis localStorage
+const getToken = () => localStorage.getItem('token');
+
+// Configurer le token dans les headers axios
+const setAuthToken = (token) => {
+    if (token) {
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    } else {
+        delete axios.defaults.headers.common['Authorization'];
+    }
+};
+
+// Initialiser le token au démarrage
+const initialToken = getToken();
+if (initialToken) {
+    setAuthToken(initialToken);
+}
 
 export const AppContext = createContext();
 
@@ -49,7 +67,7 @@ export const AppContextProvider = ({children}) => {
     // Fetch User Auth Status, User Data and Cart Items
     const fetchUser = async () => {
         try {
-            const { data } = await axios.get('api/user/is-auth');
+            const { data } = await axios.get('/api/user/is-auth');
             if (data.success) {
                 setUser(data.user)
                 setCartItems(data.user.cartItems)
@@ -197,15 +215,67 @@ export const AppContextProvider = ({children}) => {
                 totalAmount += itemInfo.offerPrice * cartItems[key];
             }
         }
-        // Si décimal, arrondir à l'entier supérieur
         if (totalAmount % 1 !== 0) {
             return Math.ceil(totalAmount);
         }
         return totalAmount;
     }
 
+    // Fonction de connexion modifiée pour stocker le token
+    const loginUser = async (email, password) => {
+        try {
+            const { data } = await axios.post('/api/user/login', { email, password });
+            if (data.success) {
+                localStorage.setItem('token', data.token);
+                setAuthToken(data.token);
+                setUser(data.user);
+                toast.success("Connexion réussie");
+                navigate('/');
+            } else {
+                toast.error(data.message);
+            }
+        } catch (error) {
+            toast.error(error.message);
+        }
+    };
+
+    // Fonction d'inscription modifiée pour stocker le token
+    const registerUser = async (name, email, password) => {
+        try {
+            const { data } = await axios.post('/api/user/register', { name, email, password });
+            if (data.success) {
+                localStorage.setItem('token', data.token);
+                setAuthToken(data.token);
+                setUser(data.user);
+                toast.success("Inscription réussie");
+                navigate('/');
+            } else {
+                toast.error(data.message);
+            }
+        } catch (error) {
+            toast.error(error.message);
+        }
+    };
+
+    // Fonction de déconnexion
+    const logoutUser = async () => {
+        try {
+            await axios.post('/api/user/logout');
+            localStorage.removeItem('token');
+            setAuthToken(null);
+            setUser(null);
+            setCartItems({});
+            toast.success("Déconnexion réussie");
+            navigate('/');
+        } catch (error) {
+            toast.error(error.message);
+        }
+    };
+
     useEffect(() => {
-        fetchUser();
+        if (getToken()) {
+            fetchUser();
+        }
         fetchSeller();
         fetchProducts();
     }, []);
@@ -216,7 +286,6 @@ export const AppContextProvider = ({children}) => {
         }
     }, [user]);
 
-    // Update Database Cart Items
     useEffect(() => {
         const updateCart = async () => {
             try {
@@ -241,7 +310,7 @@ export const AppContextProvider = ({children}) => {
         searchQuery, setSearchQuery, getCartAmount, getCartCount,
         axios, fetchProducts, setCartItems, getCartKey, getProductIdFromKey,
         wishlist, addToWishlist, removeFromWishlist, isInWishlist, fetchWishlist,
-        fetchUser
+        fetchUser, loginUser, registerUser, logoutUser
     };
 
     return <AppContext.Provider value={value}>
