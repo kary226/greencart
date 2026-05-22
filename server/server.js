@@ -29,25 +29,29 @@ dns.setServers(['1.1.1.1', '8.8.8.8']);
 await connectDB()
 await connectCloudinary()
 
-// Configuration CORS complète
+// Configuration CORS complète (ACCEPTE TOUT LE MONDE)
 const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:5174',
     'https://greencart-pied-six.vercel.app',
     'https://greencart-ci.vercel.app',
-    'https://greencart-five-ochre.vercel.app'
+    'https://greencart-five-ochre.vercel.app',
+    'https://greencart-y.vercel.app'
 ];
 
-// Middleware CORS avant tout
+// Middleware CORS - Version permissive pour permettre à tous les utilisateurs de se connecter
 app.use(cors({
     origin: function(origin, callback) {
-        // Autoriser les requêtes sans origine (comme les appels serveur à serveur)
+        // Autoriser les requêtes sans origine (appels serveur, Postman, etc.)
         if (!origin) return callback(null, true);
+        
+        // En production, on autorise les origines spécifiques
         if (allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true);
         } else {
-            console.log(`Origine bloquée par CORS: ${origin}`);
-            callback(null, true); // Temporairement on autorise toutes
+            // Pour les tests sur mobile ou autres domaines, on autorise aussi
+            console.log(`⚠️ Origine non listée mais autorisée: ${origin}`);
+            callback(null, true);
         }
     },
     credentials: true,
