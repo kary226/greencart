@@ -13,6 +13,7 @@ export const initiateGeniusPay = async (req, res) => {
         console.log("Montant:", amount);
         console.log("Adresse reçue:", address);
         console.log("Clé API présente:", !!process.env.GENIUSPAY_API_KEY);
+        console.log("Clé API (début):", process.env.GENIUSPAY_API_KEY?.substring(0, 15));
         console.log("Base URL:", process.env.GENIUSPAY_BASE_URL);
 
         // Si address est un ID, récupérer l'adresse complète
