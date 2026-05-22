@@ -9,13 +9,6 @@ export const initiateGeniusPay = async (req, res) => {
     try {
         let { userId, items, address, amount } = req.body;
 
-        console.log("=== INITIATION GENIUSPAY ===");
-        console.log("Montant:", amount);
-        console.log("Adresse reçue:", address);
-        console.log("Clé API présente:", !!process.env.GENIUSPAY_API_KEY);
-        console.log("Clé API (début):", process.env.GENIUSPAY_API_KEY?.substring(0, 15));
-        console.log("Base URL:", process.env.GENIUSPAY_BASE_URL);
-
         // Si address est un ID, récupérer l'adresse complète
         let addressDoc = address;
         if (typeof address === 'string') {
@@ -42,8 +35,6 @@ export const initiateGeniusPay = async (req, res) => {
             cityId: addressDoc.cityId
         };
 
-        console.log("Adresse complétée:", completeAddress);
-
         if (!completeAddress.phone) {
             return res.json({ success: false, message: "Téléphone manquant dans l'adresse" });
         }
@@ -61,8 +52,6 @@ export const initiateGeniusPay = async (req, res) => {
             size: item.selectedSize || null,
             priceAtOrder: item.offerPrice
         }));
-
-        console.log("Items formatés:", JSON.stringify(formattedItems, null, 2));
 
         // Créer la commande en base
         const order = await Order.create({
@@ -91,9 +80,8 @@ export const initiateGeniusPay = async (req, res) => {
             phone = `225${phone}`;
         }
         phone = `+${phone}`;
-        console.log("Téléphone formaté GeniusPay:", phone);
 
-        // Préparer la requête vers GeniusPay (SANS METADATA)
+        // Préparer la requête vers GeniusPay
         const geniusPayload = {
             amount: finalAmount,
             description: `Commande #${order._id.toString().slice(-8)}`,
@@ -104,8 +92,6 @@ export const initiateGeniusPay = async (req, res) => {
             success_url: `${process.env.FRONTEND_URL}/payment/success?orderId=${order._id}`,
             error_url: `${process.env.FRONTEND_URL}/payment/error?orderId=${order._id}`,
         };
-
-        console.log("Payload GeniusPay final:", JSON.stringify(geniusPayload, null, 2));
 
         // Appel à l'API GeniusPay
         const response = await axios.post(
@@ -120,8 +106,6 @@ export const initiateGeniusPay = async (req, res) => {
             }
         );
 
-        console.log("Réponse GeniusPay:", response.data);
-
         if (response.data.success) {
             const checkoutUrl = response.data.data.checkout_url;
             
@@ -135,12 +119,11 @@ export const initiateGeniusPay = async (req, res) => {
             return res.json({ success: false, message: response.data.error?.message || "Erreur d'initiation GeniusPay" });
         }
     } catch (error) {
-        console.error("=== ERREUR GENIUSPAY ===");
-        console.error("Message:", error.message);
+        console.error("Erreur GeniusPay:", error.message);
         
         if (error.response) {
             console.error("Status:", error.response.status);
-            console.error("Data:", JSON.stringify(error.response.data, null, 2));
+            console.error("Data:", error.response.data);
         }
         
         res.json({ success: false, message: error.message || "Erreur lors de l'initialisation du paiement" });
@@ -152,10 +135,6 @@ export const geniuspayWebhook = async (req, res) => {
     try {
         const payload = req.body;
         const event = payload.event;
-
-        console.log("=== WEBHOOK GENIUSPAY ===");
-        console.log("Événement:", event);
-        console.log("Payload reçu:", JSON.stringify(payload, null, 2));
 
         if (event === 'payment.success') {
             const transactionData = payload.data;
@@ -169,8 +148,6 @@ export const geniuspayWebhook = async (req, res) => {
             });
 
             await User.findByIdAndUpdate(userId, { cartItems: {} });
-            
-            console.log(`Commande ${orderId} marquée comme payée`);
         }
 
         res.status(200).json({ received: true });

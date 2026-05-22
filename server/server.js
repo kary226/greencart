@@ -29,7 +29,7 @@ dns.setServers(['1.1.1.1', '8.8.8.8']);
 await connectDB()
 await connectCloudinary()
 
-// Configuration CORS complète (ACCEPTE TOUT LE MONDE)
+// Configuration CORS complète
 const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:5174',
@@ -39,17 +39,13 @@ const allowedOrigins = [
     'https://greencart-y.vercel.app'
 ];
 
-// Middleware CORS - Version permissive pour permettre à tous les utilisateurs de se connecter
+// Middleware CORS - Version permissive
 app.use(cors({
     origin: function(origin, callback) {
-        // Autoriser les requêtes sans origine (appels serveur, Postman, etc.)
         if (!origin) return callback(null, true);
-        
-        // En production, on autorise les origines spécifiques
         if (allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true);
         } else {
-            // Pour les tests sur mobile ou autres domaines, on autorise aussi
             console.log(`⚠️ Origine non listée mais autorisée: ${origin}`);
             callback(null, true);
         }
@@ -96,19 +92,13 @@ app.use('/api/delivery', deliveryRouter);
 // Webhook GeniusPay
 app.post('/api/geniuspay/webhook', express.json(), geniuspayWebhook);
 
-// ✅ ROUTE MANQUANTE AJOUTÉE : Initier un paiement GeniusPay
+// Route pour initier un paiement GeniusPay
 app.post('/api/order/geniuspay/initiate', geniuspayInitiate);
 
-// Middleware pour logger les requêtes (optionnel, utile pour debug)
-app.use((req, res, next) => {
-    console.log(`📨 ${req.method} ${req.url}`);
-    next();
-});
-
+// Démarrage du serveur
 app.listen(port, ()=>{
     console.log(`Server is running on http://localhost:${port}`);
-    console.log(`CORS autorisé pour: ${allowedOrigins.join(', ')}`);
 });
 
-// ✅ EXPORT POUR VERCEL (SERVERLESS FUNCTIONS)
+// EXPORT POUR VERCEL (SERVERLESS FUNCTIONS)
 export default app;
