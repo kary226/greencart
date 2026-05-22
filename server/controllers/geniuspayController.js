@@ -48,7 +48,8 @@ export const initiateGeniusPay = async (req, res) => {
             return res.json({ success: false, message: "Téléphone manquant dans l'adresse" });
         }
 
-        if (Math.round(amount) < 200) {
+        const finalAmount = Math.round(amount);
+        if (finalAmount < 200) {
             return res.json({ success: false, message: "Le montant minimum est de 200 FCFA" });
         }
 
@@ -67,7 +68,7 @@ export const initiateGeniusPay = async (req, res) => {
         const order = await Order.create({
             userId,
             items: formattedItems,
-            amount: Math.round(amount),
+            amount: finalAmount,
             address: completeAddress._id,
             paymentType: "GeniusPay",
             status: "pending_payment",
@@ -76,38 +77,35 @@ export const initiateGeniusPay = async (req, res) => {
         // === ENVOI DES EMAILS ===
         const user = await User.findById(userId);
         if (user && user.email) {
-            await sendOrderConfirmationEmail(user.email, order._id.toString(), Math.round(amount));
-            await sendAdminNotificationEmail(order._id.toString(), Math.round(amount), `${completeAddress.firstName} ${completeAddress.lastName}`, user.email);
+            await sendOrderConfirmationEmail(user.email, order._id.toString(), finalAmount);
+            await sendAdminNotificationEmail(order._id.toString(), finalAmount, `${completeAddress.firstName} ${completeAddress.lastName}`, user.email);
         }
 
-        // Formater le téléphone au format international
+        // Formater le téléphone au format international (GENIUSPAY EXIGE +225XXXXXXXXX)
         let phone = completeAddress.phone;
-        if (phone && !phone.startsWith('+')) {
-            phone = phone.replace(/\s/g, '').replace(/-/g, '');
-            if (phone.startsWith('0')) {
-                phone = phone.substring(1);
-            }
-            phone = `+225${phone}`;
+        phone = phone.replace(/\D/g, '');
+        if (phone.startsWith('0')) {
+            phone = phone.substring(1);
         }
-        console.log("Téléphone formaté:", phone);
+        if (!phone.startsWith('225')) {
+            phone = `225${phone}`;
+        }
+        phone = `+${phone}`;
+        console.log("Téléphone formaté GeniusPay:", phone);
 
-        // Préparer la requête vers GeniusPay (VERSION CORRIGÉE)
+        // Préparer la requête vers GeniusPay (SANS METADATA)
         const geniusPayload = {
-            amount: Math.round(amount),
+            amount: finalAmount,
             description: `Commande #${order._id.toString().slice(-8)}`,
             customer: {
                 name: `${completeAddress.firstName} ${completeAddress.lastName}`.substring(0, 100),
-                phone: phone.replace(/\s/g, ''),
+                phone: phone,
             },
-            success_url: process.env.FRONTEND_URL + `/payment/success?orderId=${order._id}`,
-            error_url: process.env.FRONTEND_URL + `/payment/error?orderId=${order._id}`,
-            metadata: {
-                order_id: order._id.toString(),
-                user_id: userId,
-            },
+            success_url: `${process.env.FRONTEND_URL}/payment/success?orderId=${order._id}`,
+            error_url: `${process.env.FRONTEND_URL}/payment/error?orderId=${order._id}`,
         };
 
-        console.log("Payload envoyé à GeniusPay:", JSON.stringify(geniusPayload, null, 2));
+        console.log("Payload GeniusPay final:", JSON.stringify(geniusPayload, null, 2));
 
         // Appel à l'API GeniusPay
         const response = await axios.post(
@@ -142,7 +140,7 @@ export const initiateGeniusPay = async (req, res) => {
         
         if (error.response) {
             console.error("Status:", error.response.status);
-            console.error("Data:", error.response.data);
+            console.error("Data:", JSON.stringify(error.response.data, null, 2));
         }
         
         res.json({ success: false, message: error.message || "Erreur lors de l'initialisation du paiement" });
@@ -157,12 +155,12 @@ export const geniuspayWebhook = async (req, res) => {
 
         console.log("=== WEBHOOK GENIUSPAY ===");
         console.log("Événement:", event);
+        console.log("Payload reçu:", JSON.stringify(payload, null, 2));
 
         if (event === 'payment.success') {
             const transactionData = payload.data;
-            const metadata = transactionData.metadata;
-            const orderId = metadata.order_id;
-            const userId = metadata.user_id;
+            const orderId = transactionData.metadata?.order_id;
+            const userId = transactionData.metadata?.user_id;
 
             await Order.findByIdAndUpdate(orderId, {
                 isPaid: true,
