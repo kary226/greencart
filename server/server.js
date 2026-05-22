@@ -105,3 +105,6 @@ app.listen(port, ()=>{
     console.log(`Server is running on http://localhost:${port}`);
     console.log(`CORS autorisé pour: ${allowedOrigins.join(', ')}`);
 });
+
+// ✅ EXPORT POUR VERCEL (SERVERLESS FUNCTIONS)
+export default app;
