@@ -91,16 +91,16 @@ export const initiateGeniusPay = async (req, res) => {
         }
         console.log("Téléphone formaté:", phone);
 
-        // Préparer la requête vers GeniusPay
+        // Préparer la requête vers GeniusPay (VERSION CORRIGÉE)
         const geniusPayload = {
             amount: Math.round(amount),
             description: `Commande #${order._id.toString().slice(-8)}`,
             customer: {
-                name: `${completeAddress.firstName} ${completeAddress.lastName}`,
-                phone: phone,
+                name: `${completeAddress.firstName} ${completeAddress.lastName}`.substring(0, 100),
+                phone: phone.replace(/\s/g, ''),
             },
-            success_url: `${process.env.FRONTEND_URL}/payment/success?orderId=${order._id}`,
-            error_url: `${process.env.FRONTEND_URL}/payment/error?orderId=${order._id}`,
+            success_url: process.env.FRONTEND_URL + `/payment/success?orderId=${order._id}`,
+            error_url: process.env.FRONTEND_URL + `/payment/error?orderId=${order._id}`,
             metadata: {
                 order_id: order._id.toString(),
                 user_id: userId,
