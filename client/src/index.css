@@ -11,8 +11,16 @@
   --color-primary-dull: #059669;
 }
 
-.no-scrollbar::-webkit-scrollbar{
+/* Cacher la scrollbar pour les sections scrollables */
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+.no-scrollbar,
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 /* Fond moderne */
