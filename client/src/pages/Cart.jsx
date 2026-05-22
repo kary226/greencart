@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom"; // ← AJOUTER CET IMPORT
 import { useAppContext } from "../context/AppContext";
 import { assets } from "../assets/assets";
 import toast from "react-hot-toast";
@@ -6,6 +7,7 @@ import CouponInput from "../components/CouponInput";
 
 const Cart = () => {
     const {products, currency, cartItems, removeFromCart, getCartCount, updateCartItem, navigate, getCartAmount, axios, user, setCartItems, getProductIdFromKey} = useAppContext()
+    const location = useLocation(); // ← AJOUTER CETTE LIGNE
     const [cartArray, setCartArray] = useState([])
     const [addresses, setAddresses] = useState([])
     const [showAddress, setShowAddress] = useState(false)
@@ -128,11 +130,12 @@ const Cart = () => {
         }
     },[products, cartItems])
 
+    // ← MODIFIER CE useEffect POUR PRENDRE EN COMPTE location.search
     useEffect(()=>{
         if(user){
             getUserAddress()
         }
-    },[user])
+    },[user, location.search]) // ← Ajouter location.search comme dépendance
 
     const placeOrder = async ()=>{
         try {

@@ -167,7 +167,8 @@ const AddAddress = () => {
 
             if (data.success){
                 toast.success(data.message)
-                navigate('/cart')
+                // Rediriger vers le panier avec paramètre refresh
+                navigate('/cart?refresh=true')
             }else{
                 toast.error(data.message)
             }
@@ -177,7 +178,7 @@ const AddAddress = () => {
     }
 
     if (!user) {
-        return null; // Ne rien afficher pendant la redirection
+        return null;
     }
 
     return (
@@ -192,7 +193,6 @@ const AddAddress = () => {
                             <InputField handleChange={handleChange} address={address} name='lastName' type="text" placeholder="Nom"/>
                         </div>
 
-                        {/* Ville - Liste déroulante */}
                         <SelectField
                             name="cityId"
                             placeholder="Sélectionner une ville"
@@ -202,7 +202,6 @@ const AddAddress = () => {
                             loading={loadingCities}
                         />
 
-                        {/* Commune - Liste déroulante dépendante */}
                         <SelectField
                             name="communeId"
                             placeholder={address.cityId ? "Sélectionner une commune" : "Sélectionnez d'abord une ville"}
@@ -212,10 +211,8 @@ const AddAddress = () => {
                             loading={loadingCommunes}
                         />
 
-                        {/* Quartier / Rue */}
                         <InputField handleChange={handleChange} address={address} name='street' type="text" placeholder="Quartier / Rue" />
 
-                        {/* Téléphone */}
                         <InputField handleChange={handleChange} address={address} name='phone' type="tel" placeholder="Téléphone" />
 
                         <button className='w-full mt-6 bg-primary text-white py-3 hover:bg-primary-dull transition cursor-pointer uppercase'>
