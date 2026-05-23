@@ -27,7 +27,7 @@ const BestSeller = () => {
     if (loading) {
         return (
             <div className='mt-16'>
-                <p className='text-2xl md:text-3xl font-medium'>Best Sellers</p>
+                <p className='text-2xl md:text-3xl font-medium'>Les plus populaires</p>
                 <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-6 lg:grid-cols-5 mt-6'>
                     {[...Array(5)].map((_, i) => (
                         <div key={i} className='animate-pulse bg-gray-200 h-64 rounded-lg'></div>
@@ -39,7 +39,7 @@ const BestSeller = () => {
 
     return (
         <div className='mt-16'>
-            <p className='text-2xl md:text-3xl font-medium'>Best Sellers</p>
+            <p className='text-2xl md:text-3xl font-medium'>Les plus populaires</p>
             <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-6 lg:grid-cols-5 mt-6'>
                 {bestSellers.slice(0, 5).map((product, index) => (
                     <ProductCard key={index} product={product} />

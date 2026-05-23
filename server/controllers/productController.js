@@ -121,7 +121,7 @@ export const reduceVariantStock = async (productId, color, size, quantity) => {
     await product.save()
 }
 
-// Get Best Sellers : /api/product/bestsellers
+// Get Les plus populaires : /api/product/bestsellers
 export const getBestSellers = async (req, res) => {
     try {
         // Récupérer toutes les commandes payées
