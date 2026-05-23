@@ -74,7 +74,7 @@ const Categories = () => {
 
             <div className='relative mt-6'>
                 
-                {/* Flèche gauche */}
+                {/* Flèche gauche - visible sur TOUS les écrans */}
                 {showLeftArrow && (
                     <button 
                         onClick={scrollLeft}
@@ -84,11 +84,11 @@ const Categories = () => {
                     </button>
                 )}
 
-                {/* Liste des catégories (défilement horizontal TOUJOURS actif) */}
+                {/* Liste des catégories - défilement horizontal TOUJOURS actif */}
                 <div 
                     ref={scrollRef} 
                     onScroll={checkScrollPosition}
-                    className='flex overflow-x-auto gap-3 pb-2 px-8 md:px-8 [&::-webkit-scrollbar]:hidden scroll-smooth'
+                    className='flex overflow-x-auto gap-3 pb-2 px-8 [&::-webkit-scrollbar]:hidden scroll-smooth'
                     style={{ scrollbarWidth: 'none' }}
                 >
                     {categories.map((category, index) => (
@@ -116,7 +116,7 @@ const Categories = () => {
                     ))}
                 </div>
 
-                {/* Flèche droite */}
+                {/* Flèche droite - visible sur TOUS les écrans */}
                 {showRightArrow && (
                     <button 
                         onClick={scrollRight}
