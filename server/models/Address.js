@@ -13,7 +13,9 @@ const addressSchema = new mongoose.Schema({
     phone: {type: String, required: true},
     // Nouveaux champs pour localisation
     cityId: {type: mongoose.Schema.Types.ObjectId, ref: 'city', default: null},
-    communeId: {type: mongoose.Schema.Types.ObjectId, ref: 'commune', default: null}
+    communeId: {type: mongoose.Schema.Types.ObjectId, ref: 'commune', default: null},
+    cityName: {type: String, default: ''},
+    communeName: {type: String, default: ''}
 }, { timestamps: true });
 
 const Address = mongoose.models.address || mongoose.model('address', addressSchema);
