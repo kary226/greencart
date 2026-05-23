@@ -75,7 +75,7 @@ const ProductList = () => {
             })
             if (data.success){
                 toast.success(data.message)
-                await fetchProducts() // Force le rechargement des produits
+                await fetchProducts()
                 setEditProduct(null)
             } else {
                 toast.error(data.message)
@@ -140,82 +140,82 @@ const ProductList = () => {
                 {products.length === 0 ? (
                     <p className="text-gray-500 text-sm">Aucun produit trouvé.</p>
                 ) : (
-                <div className="flex flex-col items-center max-w-4xl w-full overflow-hidden rounded-md bg-white border border-gray-500/20">
-                    <table className="md:table-auto table-fixed w-full overflow-hidden">
-                        <thead className="text-gray-900 text-sm text-left">
-                            <tr>
-                                <th className="px-4 py-3 font-semibold truncate">Produit</th>
-                                <th className="px-4 py-3 font-semibold truncate">Catégorie(s)</th>
-                                <th className="px-4 py-3 font-semibold truncate hidden md:block">Prix</th>
-                                <th className="px-4 py-3 font-semibold truncate">Stock</th>
-                                <th className="px-4 py-3 font-semibold truncate">En vente</th>
-                                <th className="px-4 py-3 font-semibold truncate">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="text-sm text-gray-500">
-                            {products.map((product) => (
-                                <tr key={product._id} className="border-t border-gray-500/20">
-                                    <td className="md:px-4 pl-2 md:pl-4 py-3 flex items-center space-x-3 truncate">
-                                        <div className="border border-gray-300 rounded p-2">
-                                            <img src={product.image[0]} alt="Product" className="w-16" />
-                                        </div>
-                                        <span className="truncate max-sm:hidden w-full">{product.name}</span>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        {product.categories ? (
-                                            <div className="flex flex-wrap gap-1">
-                                                {product.categories.map((cat, idx) => (
-                                                    <span key={idx} className="text-xs bg-gray-100 px-2 py-0.5 rounded-full">
-                                                        {cat}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            product.category || '—'
-                                        )}
-                                    </td>
-                                    <td className="px-4 py-3 max-sm:hidden">{product.offerPrice} {currency}</td>
-                                    <td className="px-4 py-3">
-                                        {product.variants?.length > 0 ? (
-                                            <div className="flex flex-col gap-0.5">
-                                                {product.variants.map((v, i) => (
-                                                    <span key={i} className={`text-xs font-medium ${
-                                                        v.stock === 0 ? 'text-red-500' :
-                                                        v.stock <= 5 ? 'text-orange-500' :
-                                                        'text-green-600'
-                                                    }`}>
-                                                        {v.color || ''}{v.color && v.size ? ' / ' : ''}{v.size || ''} : {v.stock === 0 ? 'Épuisé' : `${v.stock} restants`}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <span className="text-gray-400">—</span>
-                                        )}
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <label className="relative inline-flex items-center cursor-pointer text-gray-900 gap-3">
-                                            <input onClick={()=> toggleStock(product._id, !product.inStock)} checked={product.inStock} type="checkbox" className="sr-only peer" readOnly />
-                                            <div className="w-12 h-7 bg-slate-300 rounded-full peer peer-checked:bg-blue-600 transition-colors duration-200"></div>
-                                            <span className="dot absolute left-1 top-1 w-5 h-5 bg-white rounded-full transition-transform duration-200 ease-in-out peer-checked:translate-x-5"></span>
-                                        </label>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <div className="flex gap-2">
-                                            <button onClick={() => handleEdit(product)}
-                                            className="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded transition">
-                                                ✏️ Modifier
-                                            </button>
-                                            <button onClick={() => handleDelete(product._id)}
-                                            className="text-xs bg-red-50 text-red-500 hover:bg-red-100 px-3 py-1.5 rounded transition">
-                                                🗑️ Supprimer
-                                            </button>
-                                        </div>
-                                    </td>
+                    <div className="flex flex-col items-center max-w-4xl w-full overflow-hidden rounded-md bg-white border border-gray-500/20">
+                        <table className="md:table-auto table-fixed w-full overflow-hidden">
+                            <thead className="text-gray-900 text-sm text-left">
+                                <tr>
+                                    <th className="px-4 py-3 font-semibold truncate">Produit</th>
+                                    <th className="px-4 py-3 font-semibold truncate">Catégorie(s)</th>
+                                    <th className="px-4 py-3 font-semibold truncate hidden md:block">Prix</th>
+                                    <th className="px-4 py-3 font-semibold truncate">Stock</th>
+                                    <th className="px-4 py-3 font-semibold truncate">En vente</th>
+                                    <th className="px-4 py-3 font-semibold truncate">Actions</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                            </thead>
+                            <tbody className="text-sm text-gray-500">
+                                {products.map((product) => (
+                                    <tr key={product._id} className="border-t border-gray-500/20">
+                                        <td className="md:px-4 pl-2 md:pl-4 py-3 flex items-center space-x-3 truncate">
+                                            <div className="border border-gray-300 rounded p-2">
+                                                <img src={product.image[0]} alt="Product" className="w-16" />
+                                            </div>
+                                            <span className="truncate max-sm:hidden w-full">{product.name}</span>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {product.categories ? (
+                                                <div className="flex flex-wrap gap-1">
+                                                    {product.categories.map((cat, idx) => (
+                                                        <span key={idx} className="text-xs bg-gray-100 px-2 py-0.5 rounded-full">
+                                                            {cat}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                product.category || '—'
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-3 max-sm:hidden">{product.offerPrice} {currency}</td>
+                                        <td className="px-4 py-3">
+                                            {product.variants?.length > 0 ? (
+                                                <div className="flex flex-col gap-0.5">
+                                                    {product.variants.map((v, i) => (
+                                                        <span key={i} className={`text-xs font-medium ${
+                                                            v.stock === 0 ? 'text-red-500' :
+                                                            v.stock <= 5 ? 'text-orange-500' :
+                                                            'text-green-600'
+                                                        }`}>
+                                                            {v.color || ''}{v.color && v.size ? ' / ' : ''}{v.size || ''} : {v.stock === 0 ? 'Épuisé' : `${v.stock} restants`}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <span className="text-gray-400">—</span>
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <label className="relative inline-flex items-center cursor-pointer text-gray-900 gap-3">
+                                                <input onClick={()=> toggleStock(product._id, !product.inStock)} checked={product.inStock} type="checkbox" className="sr-only peer" readOnly />
+                                                <div className="w-12 h-7 bg-slate-300 rounded-full peer peer-checked:bg-blue-600 transition-colors duration-200"></div>
+                                                <span className="dot absolute left-1 top-1 w-5 h-5 bg-white rounded-full transition-transform duration-200 ease-in-out peer-checked:translate-x-5"></span>
+                                            </label>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <div className="flex gap-2">
+                                                <button onClick={() => handleEdit(product)}
+                                                className="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded transition">
+                                                    ✏️ Modifier
+                                                </button>
+                                                <button onClick={() => handleDelete(product._id)}
+                                                className="text-xs bg-red-50 text-red-500 hover:bg-red-100 px-3 py-1.5 rounded transition">
+                                                    🗑️ Supprimer
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
             </div>
 
@@ -228,21 +228,18 @@ const ProductList = () => {
                             <button onClick={() => setEditProduct(null)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
                         </div>
 
-                        {/* Nom */}
                         <div className="flex flex-col gap-1">
                             <label className="text-sm font-medium">Nom</label>
                             <input value={editProduct.name} onChange={e => setEditProduct({...editProduct, name: e.target.value})}
                             className="border border-gray-300 rounded px-3 py-2 outline-none text-sm" />
                         </div>
 
-                        {/* Description */}
                         <div className="flex flex-col gap-1">
                             <label className="text-sm font-medium">Description</label>
                             <textarea value={editProduct.description} onChange={e => setEditProduct({...editProduct, description: e.target.value})}
                             rows={3} className="border border-gray-300 rounded px-3 py-2 outline-none text-sm resize-none" />
                         </div>
 
-                        {/* Catégories multiples */}
                         <div className="flex flex-col gap-2">
                             <label className="text-sm font-medium">Catégories (sélection multiple)</label>
                             <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 border border-gray-300 rounded">
@@ -266,7 +263,6 @@ const ProductList = () => {
                             </p>
                         </div>
 
-                        {/* Prix */}
                         <div className="flex gap-4">
                             <div className="flex-1 flex flex-col gap-1">
                                 <label className="text-sm font-medium">Prix original</label>
@@ -280,10 +276,8 @@ const ProductList = () => {
                             </div>
                         </div>
 
-                        {/* Variantes */}
                         <div className="flex flex-col gap-2">
                             <label className="text-sm font-medium">Variantes</label>
-
                             <div className="flex gap-2 flex-wrap">
                                 <input value={colorInput} onChange={e => setColorInput(e.target.value)}
                                 type="text" placeholder="Couleur"
@@ -323,7 +317,7 @@ const ProductList = () => {
                                                         <button type="button" onClick={() => removeVariant(i)}
                                                         className="text-red-400 hover:text-red-600 text-xs">✕</button>
                                                     </td>
-                                                <tr>
+                                                </tr>
                                             ))}
                                         </tbody>
                                     </table>
