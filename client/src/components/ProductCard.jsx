@@ -46,6 +46,17 @@ const ProductCard = ({ product }) => {
     const isOutOfStock = totalStock !== null && totalStock === 0;
     const isMaxReached = totalStock !== null && currentQty >= totalStock;
 
+    // Récupérer la première catégorie pour le lien (compatibilité ancien/nouveau)
+    const getProductCategorySlug = () => {
+        if (product.categories && product.categories.length > 0) {
+            return product.categories[0].toLowerCase();
+        }
+        if (product.category) {
+            return product.category.toLowerCase();
+        }
+        return 'products'; // fallback
+    };
+
     const handleWishlistClick = (e) => {
         e.stopPropagation();
         if (isInWishlist(product._id)) {
@@ -55,11 +66,19 @@ const ProductCard = ({ product }) => {
         }
     };
 
+    // Affichage des catégories pour le badge
+    const displayCategory = () => {
+        if (product.categories && product.categories.length > 0) {
+            return product.categories[0];
+        }
+        return product.category;
+    };
+
     return product && (
         <>
             <div
                 onClick={() => {
-                    navigate(`/products/${product.category.toLowerCase()}/${product._id}`);
+                    navigate(`/products/${getProductCategorySlug()}/${product._id}`);
                     scrollTo(0, 0);
                 }}
                 className="border border-gray-200 rounded-2xl bg-white overflow-hidden w-full hover:shadow-lg transition-all duration-300 cursor-pointer relative flex flex-col h-full"
@@ -88,7 +107,7 @@ const ProductCard = ({ product }) => {
 
                 {/* Contenu */}
                 <div className="p-4 flex flex-col flex-1">
-                    <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">{product.category}</p>
+                    <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">{displayCategory()}</p>
                     <p className="text-gray-800 font-semibold text-base leading-5 line-clamp-2 min-h-[40px]">{product.name}</p>
 
                     {/* Étoiles */}
