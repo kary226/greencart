@@ -15,7 +15,7 @@ const CategoryManager = () => {
     const [imagePreview, setImagePreview] = useState('');
     const [showCropper, setShowCropper] = useState(false);
     const [tempImageFile, setTempImageFile] = useState(null);
-    const [cropShape, setCropShape] = useState('rect'); // 'rect' ou 'round'
+    const [cropShape, setCropShape] = useState('rect');
     const [formData, setFormData] = useState({
         name: '',
         slug: '',
@@ -65,6 +65,21 @@ const CategoryManager = () => {
 
     const generateSlug = (name) => {
         return name.toLowerCase().replace(/\s/g, '-').replace(/[^a-z0-9-]/g, '');
+    };
+
+    // Activer / Désactiver une catégorie
+    const toggleCategoryStatus = async (id, currentStatus) => {
+        try {
+            const { data } = await axios.post('/api/category/toggle-status', { id });
+            if (data.success) {
+                toast.success(data.message);
+                fetchCategories();
+            } else {
+                toast.error(data.message);
+            }
+        } catch (error) {
+            toast.error(error.message);
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -174,7 +189,6 @@ const CategoryManager = () => {
                     <form onSubmit={handleSubmit} className="bg-white border rounded-xl p-6 space-y-4">
                         <h3 className="text-lg font-semibold">{editingCategory ? 'Modifier' : 'Ajouter'} une catégorie</h3>
                         
-                        {/* Type d'image */}
                         <div>
                             <label className="block text-sm font-medium mb-2">Type d'image</label>
                             <div className="flex gap-4">
@@ -205,7 +219,6 @@ const CategoryManager = () => {
                             </div>
                         </div>
 
-                        {/* Upload d'image avec cropper */}
                         {imageType === 'upload' && (
                             <div>
                                 <label className="block text-sm font-medium mb-2">Mode de recadrage</label>
@@ -244,7 +257,6 @@ const CategoryManager = () => {
                             </div>
                         )}
 
-                        {/* Lien URL */}
                         {imageType === 'url' && (
                             <div>
                                 <label className="block text-sm font-medium mb-1">URL de l'image</label>
@@ -259,7 +271,6 @@ const CategoryManager = () => {
                             </div>
                         )}
 
-                        {/* Aperçu */}
                         {imagePreview && (
                             <div>
                                 <label className="block text-sm font-medium mb-1">Aperçu</label>
@@ -335,7 +346,7 @@ const CategoryManager = () => {
                     </form>
                 )}
 
-                {/* Liste des catégories */}
+                {/* Liste des catégories avec bouton Activer/Désactiver */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {categories.map((category) => (
                         <div key={category._id} className="bg-white border rounded-xl overflow-hidden shadow-sm">
@@ -351,18 +362,34 @@ const CategoryManager = () => {
                                     <h3 className="font-semibold text-lg">{category.name}</h3>
                                     <p className="text-xs text-gray-400">slug: {category.slug}</p>
                                     <p className="text-xs text-gray-400">ordre: {category.order}</p>
+                                    <p className="text-xs">
+                                        Statut: 
+                                        <span className={`ml-1 ${category.active ? 'text-green-600' : 'text-red-500'}`}>
+                                            {category.active ? 'Actif' : 'Inactif'}
+                                        </span>
+                                    </p>
                                     <div className="flex items-center gap-2 mt-2">
                                         <div className="w-6 h-6 rounded-full border" style={{ backgroundColor: category.bgColor }}></div>
                                         <span className="text-xs text-gray-500">{category.bgColor}</span>
                                     </div>
                                 </div>
                             </div>
-                            <div className="p-4 border-t flex gap-2">
+                            <div className="p-4 border-t flex gap-2 flex-wrap">
                                 <button
                                     onClick={() => handleEdit(category)}
                                     className="text-sm bg-blue-50 text-blue-600 px-3 py-1.5 rounded hover:bg-blue-100 transition"
                                 >
                                     Modifier
+                                </button>
+                                <button
+                                    onClick={() => toggleCategoryStatus(category._id, category.active)}
+                                    className={`text-sm px-3 py-1.5 rounded transition ${
+                                        category.active 
+                                            ? 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100' 
+                                            : 'bg-green-50 text-green-600 hover:bg-green-100'
+                                    }`}
+                                >
+                                    {category.active ? 'Désactiver' : 'Activer'}
                                 </button>
                                 <button
                                     onClick={() => handleDelete(category._id)}

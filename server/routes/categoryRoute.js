@@ -1,6 +1,6 @@
 import express from 'express';
 import { upload } from '../configs/multer.js';
-import { getCategories, getAllCategories, addCategory, updateCategory, deleteCategory } from '../controllers/categoryController.js';
+import { getCategories, getAllCategories, addCategory, updateCategory, deleteCategory, toggleCategoryStatus } from '../controllers/categoryController.js';
 import authSeller from '../middlewares/authSeller.js';
 
 const categoryRouter = express.Router();
@@ -10,5 +10,6 @@ categoryRouter.get('/admin-list', authSeller, getAllCategories);
 categoryRouter.post('/add', authSeller, upload.single('image'), addCategory);
 categoryRouter.post('/update', authSeller, upload.single('image'), updateCategory);
 categoryRouter.post('/delete', authSeller, deleteCategory);
+categoryRouter.post('/toggle-status', authSeller, toggleCategoryStatus);
 
 export default categoryRouter;

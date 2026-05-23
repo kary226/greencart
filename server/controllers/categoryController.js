@@ -129,3 +129,29 @@ export const deleteCategory = async (req, res) => {
         res.json({ success: false, message: error.message });
     }
 };
+
+// ==================== ACTIVER / DÉSACTIVER UNE CATÉGORIE ====================
+
+// Activer ou désactiver une catégorie : /api/category/toggle-status
+export const toggleCategoryStatus = async (req, res) => {
+    try {
+        const { id } = req.body;
+        
+        const category = await Category.findById(id);
+        if (!category) {
+            return res.json({ success: false, message: "Catégorie non trouvée" });
+        }
+        
+        // Inverser le statut actuel
+        const newStatus = !category.active;
+        await Category.findByIdAndUpdate(id, { active: newStatus });
+        
+        res.json({ 
+            success: true, 
+            message: newStatus ? "Catégorie activée" : "Catégorie désactivée",
+            active: newStatus
+        });
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
+};
