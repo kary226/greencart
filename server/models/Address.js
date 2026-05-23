@@ -1,5 +1,20 @@
 import mongoose from "mongoose";
 
+const AddAddress = () => {
+    const { axios, user, navigate, setShowUserLogin, fetchUser } = useAppContext();
+
+    const [address, setAddress] = useState({
+        firstName: user?.firstName || '',
+        lastName: user?.lastName || '',
+        street: '',
+        cityId: '',
+        communeId: '',
+        phone: user?.phone || '',
+    });
+
+    // ... reste du code identique, plus besoin de getFirstAndLastName()
+};
+
 const addressSchema = new mongoose.Schema({
     userId: {type: String, required: true},
     firstName: {type: String, required: true},

@@ -4,15 +4,16 @@ import { useAppContext } from '../context/AppContext'
 import toast from 'react-hot-toast'
 
 // Input Field Component
-const InputField = ({ type, placeholder, name, handleChange, address })=>(
-    <input className='w-full px-2 py-2.5 border border-gray-500/30 rounded outline-none text-gray-500 focus:border-primary transition'
-    type={type}
-    placeholder={placeholder}
-    onChange={handleChange}
-    name={name}
-    value={address[name] || ''}
-    required
-     />
+const InputField = ({ type, placeholder, name, handleChange, address }) => (
+    <input
+        className='w-full px-2 py-2.5 border border-gray-500/30 rounded outline-none text-gray-500 focus:border-primary transition'
+        type={type}
+        placeholder={placeholder}
+        onChange={handleChange}
+        name={name}
+        value={address[name] || ''}
+        required
+    />
 )
 
 // Select Field Component avec recherche
@@ -20,7 +21,7 @@ const SelectField = ({ name, placeholder, options, value, handleChange, loading 
     const [searchTerm, setSearchTerm] = useState('')
     const [isOpen, setIsOpen] = useState(false)
 
-    const filteredOptions = options.filter(opt => 
+    const filteredOptions = options.filter(opt =>
         opt.name.toLowerCase().includes(searchTerm.toLowerCase())
     )
 
@@ -28,7 +29,7 @@ const SelectField = ({ name, placeholder, options, value, handleChange, loading 
 
     return (
         <div className="relative">
-            <div 
+            <div
                 className="w-full px-2 py-2.5 border border-gray-500/30 rounded outline-none text-gray-500 cursor-pointer flex justify-between items-center"
                 onClick={() => setIsOpen(!isOpen)}
             >
@@ -72,21 +73,11 @@ const SelectField = ({ name, placeholder, options, value, handleChange, loading 
 
 const AddAddress = () => {
 
-    const {axios, user, navigate, setShowUserLogin, fetchUser} = useAppContext();
-
-    // Séparer le nom complet en prénom et nom (si possible)
-    const getFirstAndLastName = () => {
-        if (!user?.name) return { firstName: '', lastName: '' };
-        const nameParts = user.name.split(' ');
-        if (nameParts.length === 1) return { firstName: nameParts[0], lastName: '' };
-        return { firstName: nameParts[0], lastName: nameParts.slice(1).join(' ') };
-    };
-
-    const { firstName: userFirstName, lastName: userLastName } = getFirstAndLastName();
+    const { axios, user, navigate, setShowUserLogin, fetchUser } = useAppContext();
 
     const [address, setAddress] = useState({
-        firstName: userFirstName || '',
-        lastName: userLastName || '',
+        firstName: user?.firstName || '',
+        lastName: user?.lastName || '',
         street: '',
         cityId: '',
         communeId: '',
@@ -100,23 +91,24 @@ const AddAddress = () => {
 
     // Mettre à jour les champs quand l'utilisateur change
     useEffect(() => {
-        const { firstName: newFirstName, lastName: newLastName } = getFirstAndLastName();
-        setAddress(prev => ({
-            ...prev,
-            firstName: newFirstName || prev.firstName,
-            lastName: newLastName || prev.lastName,
-            phone: user?.phone || prev.phone,
-        }));
-    }, [user]);
+        if (user) {
+            setAddress(prev => ({
+                ...prev,
+                firstName: user.firstName || prev.firstName,
+                lastName: user.lastName || prev.lastName,
+                phone: user.phone || prev.phone,
+            }))
+        }
+    }, [user])
 
     // Vérifier si l'utilisateur est connecté
     useEffect(() => {
         if (!user) {
-            toast.error('Veuillez vous connecter pour ajouter une adresse');
-            setShowUserLogin(true);
-            navigate('/');
+            toast.error('Veuillez vous connecter pour ajouter une adresse')
+            setShowUserLogin(true)
+            navigate('/')
         }
-    }, [user, navigate, setShowUserLogin]);
+    }, [user, navigate, setShowUserLogin])
 
     // Charger les villes
     const fetchCities = async () => {
@@ -173,7 +165,7 @@ const AddAddress = () => {
 
     const onSubmitHandler = async (e) => {
         e.preventDefault();
-        
+
         if (!address.cityId) {
             toast.error('Veuillez sélectionner une ville')
             return
@@ -186,9 +178,12 @@ const AddAddress = () => {
         try {
             // 1. Mettre à jour le profil utilisateur si les champs ont changé
             const userUpdateData = {};
-            const fullName = `${address.firstName} ${address.lastName}`.trim();
-            if (fullName !== user.name) {
-                userUpdateData.name = fullName;
+
+            if (address.firstName !== user.firstName) {
+                userUpdateData.firstName = address.firstName;
+            }
+            if (address.lastName !== user.lastName) {
+                userUpdateData.lastName = address.lastName;
             }
             if (address.phone !== user.phone) {
                 userUpdateData.phone = address.phone;
@@ -199,13 +194,13 @@ const AddAddress = () => {
                     userId: user._id,
                     ...userUpdateData
                 });
-                fetchUser(); // Recharger les infos utilisateur
+                await fetchUser(); // Recharger les infos utilisateur
             }
 
             // 2. Ajouter l'adresse
-            const {data} = await axios.post('/api/address/add', {address});
+            const { data } = await axios.post('/api/address/add', { address });
 
-            if (data.success){
+            if (data.success) {
                 toast.success('Adresse ajoutée et profil mis à jour');
                 navigate('/cart?refresh=true');
             } else {
@@ -228,8 +223,8 @@ const AddAddress = () => {
                     <form onSubmit={onSubmitHandler} className='space-y-3 mt-6 text-sm'>
 
                         <div className='grid grid-cols-2 gap-4'>
-                            <InputField handleChange={handleChange} address={address} name='firstName' type="text" placeholder="Prénom"/>
-                            <InputField handleChange={handleChange} address={address} name='lastName' type="text" placeholder="Nom"/>
+                            <InputField handleChange={handleChange} address={address} name='firstName' type="text" placeholder="Prénom" />
+                            <InputField handleChange={handleChange} address={address} name='lastName' type="text" placeholder="Nom" />
                         </div>
 
                         <SelectField

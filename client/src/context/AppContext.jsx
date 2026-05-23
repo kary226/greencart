@@ -4,13 +4,11 @@ import { dummyProducts } from "../assets/assets";
 import toast from "react-hot-toast";
 import axios from "axios";
 
-axios.defaults.withCredentials = false; // Plus besoin de cookies
+axios.defaults.withCredentials = false;
 axios.defaults.baseURL = import.meta.env.VITE_BACKEND_URL;
 
-// Récupérer le token depuis localStorage
 const getToken = () => localStorage.getItem('token');
 
-// Configurer le token dans les headers axios
 const setAuthToken = (token) => {
     if (token) {
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -19,7 +17,6 @@ const setAuthToken = (token) => {
     }
 };
 
-// Initialiser le token au démarrage
 const initialToken = getToken();
 if (initialToken) {
     setAuthToken(initialToken);
@@ -27,85 +24,70 @@ if (initialToken) {
 
 export const AppContext = createContext();
 
-export const AppContextProvider = ({children}) => {
+export const AppContextProvider = ({ children }) => {
 
     const currency = import.meta.env.VITE_CURRENCY;
-
     const navigate = useNavigate();
-    const [user, setUser] = useState(null)
-    const [isSeller, setIsSeller] = useState(false)
-    const [showUserLogin, setShowUserLogin] = useState(false)
-    const [products, setProducts] = useState([])
-    const [cartItems, setCartItems] = useState({})
-    const [searchQuery, setSearchQuery] = useState({})
-    const [wishlist, setWishlist] = useState([])
 
-    // Générer une clé unique pour chaque variant
+    const [user, setUser] = useState(null);
+    const [isSeller, setIsSeller] = useState(false);
+    const [showUserLogin, setShowUserLogin] = useState(false);
+    const [products, setProducts] = useState([]);
+    const [cartItems, setCartItems] = useState({});
+    const [searchQuery, setSearchQuery] = useState({});
+    const [wishlist, setWishlist] = useState([]);
+
     const getCartKey = (productId, color = null, size = null) => {
-        return `${productId}${color ? `_${color}` : ''}${size ? `_${size}` : ''}`
-    }
+        return `${productId}${color ? `_${color}` : ''}${size ? `_${size}` : ''}`;
+    };
 
-    // Extraire le productId depuis une clé de panier
     const getProductIdFromKey = (key) => {
-        return key.split('_')[0]
-    }
+        return key.split('_')[0];
+    };
 
-    // Fetch Seller Status
     const fetchSeller = async () => {
         try {
             const { data } = await axios.get('/api/seller/is-auth');
-            if (data.success) {
-                setIsSeller(true)
-            } else {
-                setIsSeller(false)
-            }
+            if (data.success) setIsSeller(true);
+            else setIsSeller(false);
         } catch (error) {
-            setIsSeller(false)
+            setIsSeller(false);
         }
-    }
+    };
 
-    // Fetch User Auth Status, User Data and Cart Items
     const fetchUser = async () => {
         try {
             const { data } = await axios.get('/api/user/is-auth');
             if (data.success) {
-                setUser(data.user)
-                setCartItems(data.user.cartItems || {}) // ← Assure que c'est un objet
+                setUser(data.user);
+                setCartItems(data.user.cartItems || {});
             }
         } catch (error) {
-            setUser(null)
-            setCartItems({}) // ← Vide le panier en cas d'erreur
+            setUser(null);
+            setCartItems({});
         }
-    }
+    };
 
-    // Fetch All Products
     const fetchProducts = async () => {
         try {
             const { data } = await axios.get('/api/product/list');
-            if (data.success) {
-                setProducts(data.products)
-            } else {
-                setProducts(dummyProducts)
-            }
+            if (data.success) setProducts(data.products);
+            else setProducts(dummyProducts);
         } catch (error) {
-            setProducts(dummyProducts)
+            setProducts(dummyProducts);
         }
-    }
+    };
 
-    // Fetch Wishlist
     const fetchWishlist = async () => {
         if (!user) return;
         try {
             const { data } = await axios.get('/api/wishlist/list');
-            if (data.success) {
-                setWishlist(data.wishlist);
-            }
+            if (data.success) setWishlist(data.wishlist);
         } catch (error) {
             console.error(error);
         }
     };
 
-    // Add to Wishlist
     const addToWishlist = async (productId) => {
         if (!user) {
             setShowUserLogin(true);
@@ -124,7 +106,6 @@ export const AppContextProvider = ({children}) => {
         }
     };
 
-    // Remove from Wishlist
     const removeFromWishlist = async (productId) => {
         try {
             const { data } = await axios.post('/api/wishlist/remove', { productId });
@@ -139,16 +120,13 @@ export const AppContextProvider = ({children}) => {
         }
     };
 
-    // Check if product is in wishlist
     const isInWishlist = (productId) => {
         return wishlist.some(item => item._id === productId);
     };
 
-    // Add Product to Cart avec color et size (1 seule quantité)
     const addToCart = (productId, color = null, size = null) => {
         const key = getCartKey(productId, color, size);
         let cartData = structuredClone(cartItems);
-
         if (cartData[key]) {
             cartData[key] += 1;
         } else {
@@ -156,13 +134,11 @@ export const AppContextProvider = ({children}) => {
         }
         setCartItems(cartData);
         toast.success("Added to Cart");
-    }
+    };
 
-    // Add Product to Cart avec quantité personnalisée (pour le modal)
     const addToCartWithQuantity = (productId, quantity, color = null, size = null) => {
         const key = getCartKey(productId, color, size);
         let cartData = structuredClone(cartItems);
-
         if (cartData[key]) {
             cartData[key] += quantity;
         } else {
@@ -170,9 +146,8 @@ export const AppContextProvider = ({children}) => {
         }
         setCartItems(cartData);
         toast.success(`${quantity} article(s) ajouté(s) au panier`);
-    }
+    };
 
-    // Update Cart Item Quantity
     const updateCartItem = (key, quantity) => {
         let cartData = structuredClone(cartItems);
         if (quantity <= 0) {
@@ -182,9 +157,8 @@ export const AppContextProvider = ({children}) => {
         }
         setCartItems(cartData);
         toast.success("Cart Updated");
-    }
+    };
 
-    // Remove Product from Cart (une unité)
     const removeFromCart = (key) => {
         let cartData = structuredClone(cartItems);
         if (cartData[key]) {
@@ -195,9 +169,8 @@ export const AppContextProvider = ({children}) => {
         }
         toast.success("Removed from Cart");
         setCartItems(cartData);
-    }
+    };
 
-    // Get Cart Item Count
     const getCartCount = () => {
         let totalCount = 0;
         for (const item in cartItems) {
@@ -206,9 +179,8 @@ export const AppContextProvider = ({children}) => {
             }
         }
         return totalCount;
-    }
+    };
 
-    // Get Cart Total Amount
     const getCartAmount = () => {
         let totalAmount = 0;
         for (const key in cartItems) {
@@ -218,13 +190,10 @@ export const AppContextProvider = ({children}) => {
                 totalAmount += itemInfo.offerPrice * cartItems[key];
             }
         }
-        if (totalAmount % 1 !== 0) {
-            return Math.ceil(totalAmount);
-        }
+        if (totalAmount % 1 !== 0) return Math.ceil(totalAmount);
         return totalAmount;
-    }
+    };
 
-    // Fonction de connexion modifiée pour stocker le token
     const loginUser = async (email, password) => {
         try {
             const { data } = await axios.post('/api/user/login', { email, password });
@@ -243,10 +212,14 @@ export const AppContextProvider = ({children}) => {
         }
     };
 
-    // Fonction d'inscription modifiée pour stocker le token
-    const registerUser = async (name, email, password) => {
+    const registerUser = async (firstName, lastName, email, password) => {
         try {
-            const { data } = await axios.post('/api/user/register', { name, email, password });
+            const { data } = await axios.post('/api/user/register', {
+                firstName,
+                lastName,
+                email,
+                password
+            });
             if (data.success) {
                 localStorage.setItem('token', data.token);
                 setAuthToken(data.token);
@@ -262,7 +235,6 @@ export const AppContextProvider = ({children}) => {
         }
     };
 
-    // Fonction de déconnexion
     const logoutUser = async () => {
         try {
             await axios.post('/api/user/logout');
@@ -281,7 +253,6 @@ export const AppContextProvider = ({children}) => {
         if (getToken()) {
             fetchUser();
         } else {
-            // Forcer le panier à vide si utilisateur non connecté
             setCartItems({});
         }
         fetchSeller();
@@ -305,7 +276,6 @@ export const AppContextProvider = ({children}) => {
                 toast.error(error.message);
             }
         };
-
         if (user) {
             updateCart();
         }
@@ -321,9 +291,7 @@ export const AppContextProvider = ({children}) => {
         fetchUser, loginUser, registerUser, logoutUser
     };
 
-    return <AppContext.Provider value={value}>
-        {children}
-    </AppContext.Provider>;
+    return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
 
 export const useAppContext = () => {
