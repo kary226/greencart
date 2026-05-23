@@ -67,14 +67,14 @@ export const changeStock = async (req, res)=>{
 // Update Product : /api/product/update
 export const updateProduct = async (req, res)=>{
     try {
-        const { id, name, description, category, price, offerPrice, variants } = req.body
+        const { id, name, description, categories, price, offerPrice, variants } = req.body
 
         const inStock = variants?.some(v => v.stock > 0) ?? true
 
         await Product.findByIdAndUpdate(id, {
             name,
             description: typeof description === 'string' ? description.split('\n') : description,
-            category,
+            categories: categories, // ← MODIFIÉ : categories (tableau)
             price,
             offerPrice,
             variants: variants || [],

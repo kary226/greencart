@@ -12,7 +12,7 @@ const productSchema = new mongoose.Schema({
     price: { type: Number, required: true },
     offerPrice: { type: Number, required: true },
     image: { type: Array, required: true },
-    category: { type: String, required: true },
+    categories: [{ type: String, required: true }], // ← MODIFIÉ : tableau de catégories
     inStock: { type: Boolean, default: true },
     variants: [variantSchema]
 }, { timestamps: true });
