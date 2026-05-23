@@ -32,11 +32,16 @@ const AllProducts = () => {
             result = result.filter(p => p.offerPrice <= parseInt(maxPrice))
         }
 
-        // 4. Filtre par catégories
+        // 4. Filtre par catégories (support multiple)
         const categoriesParam = searchParams.get('categories')
         if (categoriesParam) {
-            const categories = categoriesParam.split(',')
-            result = result.filter(p => categories.includes(p.category))
+            const categoriesToFilter = categoriesParam.split(',')
+            // Un produit est affiché s'il a au moins une des catégories sélectionnées
+            result = result.filter(product => {
+                // Si le produit a l'ancien format (category) ou le nouveau (categories)
+                const productCategories = product.categories || [product.category]
+                return productCategories.some(cat => categoriesToFilter.includes(cat))
+            })
         }
 
         // 5. Filtre stock (uniquement en stock)

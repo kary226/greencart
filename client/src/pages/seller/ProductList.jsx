@@ -9,6 +9,23 @@ const ProductList = () => {
     const [colorInput, setColorInput] = useState('')
     const [sizeInput, setSizeInput] = useState('')
     const [stockInput, setStockInput] = useState('')
+    const [categoriesList, setCategoriesList] = useState([])
+    const [selectedCategories, setSelectedCategories] = useState([])
+
+    const fetchCategories = async () => {
+        try {
+            const { data } = await axios.get('/api/category/list');
+            if (data.success) {
+                setCategoriesList(data.categories);
+            }
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    React.useEffect(() => {
+        fetchCategories();
+    }, []);
 
     const toggleStock = async (id, inStock)=>{
         try {
@@ -29,11 +46,21 @@ const ProductList = () => {
             ...product,
             description: Array.isArray(product.description) ? product.description.join('\n') : product.description,
             variants: product.variants || [],
+            categories: product.categories || [], // ← Ajout
         })
+        setSelectedCategories(product.categories || [])
         setColorInput('')
         setSizeInput('')
         setStockInput('')
     }
+
+    const handleCategoryToggle = (categorySlug) => {
+        if (selectedCategories.includes(categorySlug)) {
+            setSelectedCategories(selectedCategories.filter(c => c !== categorySlug));
+        } else {
+            setSelectedCategories([...selectedCategories, categorySlug]);
+        }
+    };
 
     const handleUpdate = async () => {
         try {
@@ -41,7 +68,7 @@ const ProductList = () => {
                 id: editProduct._id,
                 name: editProduct.name,
                 description: editProduct.description,
-                category: editProduct.category,
+                categories: selectedCategories, // ← MODIFIÉ : envoie le tableau
                 price: editProduct.price,
                 offerPrice: editProduct.offerPrice,
                 variants: editProduct.variants,
@@ -118,7 +145,7 @@ const ProductList = () => {
                         <thead className="text-gray-900 text-sm text-left">
                             <tr>
                                 <th className="px-4 py-3 font-semibold truncate">Produit</th>
-                                <th className="px-4 py-3 font-semibold truncate">Catégorie</th>
+                                <th className="px-4 py-3 font-semibold truncate">Catégorie(s)</th>
                                 <th className="px-4 py-3 font-semibold truncate hidden md:block">Prix</th>
                                 <th className="px-4 py-3 font-semibold truncate">Stock</th>
                                 <th className="px-4 py-3 font-semibold truncate">En vente</th>
@@ -134,7 +161,19 @@ const ProductList = () => {
                                         </div>
                                         <span className="truncate max-sm:hidden w-full">{product.name}</span>
                                     </td>
-                                    <td className="px-4 py-3">{product.category}</td>
+                                    <td className="px-4 py-3">
+                                        {product.categories ? (
+                                            <div className="flex flex-wrap gap-1">
+                                                {product.categories.map((cat, idx) => (
+                                                    <span key={idx} className="text-xs bg-gray-100 px-2 py-0.5 rounded-full">
+                                                        {cat}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            product.category || '—'
+                                        )}
+                                    </td>
                                     <td className="px-4 py-3 max-sm:hidden">{product.offerPrice} {currency}</td>
                                     <td className="px-4 py-3">
                                         {product.variants?.length > 0 ? (
@@ -203,15 +242,28 @@ const ProductList = () => {
                             rows={3} className="border border-gray-300 rounded px-3 py-2 outline-none text-sm resize-none" />
                         </div>
 
-                        {/* Catégorie */}
-                        <div className="flex flex-col gap-1">
-                            <label className="text-sm font-medium">Catégorie</label>
-                            <select value={editProduct.category} onChange={e => setEditProduct({...editProduct, category: e.target.value})}
-                            className="border border-gray-300 rounded px-3 py-2 outline-none text-sm">
-                                {categories.map((item, index) => (
-                                    <option key={index} value={item.path}>{item.path}</option>
+                        {/* Catégories multiples */}
+                        <div className="flex flex-col gap-2">
+                            <label className="text-sm font-medium">Catégories (sélection multiple)</label>
+                            <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 border border-gray-300 rounded">
+                                {categoriesList.map((cat) => (
+                                    <button
+                                        key={cat._id}
+                                        type="button"
+                                        onClick={() => handleCategoryToggle(cat.slug)}
+                                        className={`px-3 py-1.5 rounded-full text-sm transition ${
+                                            selectedCategories.includes(cat.slug)
+                                                ? 'bg-primary text-white'
+                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        }`}
+                                    >
+                                        {cat.name}
+                                    </button>
                                 ))}
-                            </select>
+                            </div>
+                            <p className="text-xs text-gray-400">
+                                {selectedCategories.length} catégorie(s) sélectionnée(s)
+                            </p>
                         </div>
 
                         {/* Prix */}
@@ -232,7 +284,6 @@ const ProductList = () => {
                         <div className="flex flex-col gap-2">
                             <label className="text-sm font-medium">Variantes</label>
 
-                            {/* Ajouter une variante */}
                             <div className="flex gap-2 flex-wrap">
                                 <input value={colorInput} onChange={e => setColorInput(e.target.value)}
                                 type="text" placeholder="Couleur"
@@ -247,7 +298,6 @@ const ProductList = () => {
                                 className="px-3 py-2 bg-primary text-white rounded text-sm">+</button>
                             </div>
 
-                            {/* Liste variantes modifiables */}
                             {editProduct.variants.length > 0 && (
                                 <div className="border border-gray-200 rounded overflow-hidden">
                                     <table className="w-full text-sm">
@@ -281,7 +331,6 @@ const ProductList = () => {
                             )}
                         </div>
 
-                        {/* Boutons */}
                         <div className="flex gap-3 pt-2">
                             <button onClick={() => setEditProduct(null)}
                             className="flex-1 py-2 border border-gray-300 rounded text-sm text-gray-600 hover:bg-gray-50 transition">

@@ -17,6 +17,14 @@ const ProductDetails = () => {
 
     const product = products.find((item)=> item._id === id);
 
+    // Récupérer la première catégorie pour le breadcrumb (compatibilité ancien/nouveau)
+    const getProductCategory = () => {
+        if (product?.categories && product.categories.length > 0) {
+            return product.categories[0]
+        }
+        return product?.category
+    }
+
     const uniqueColors = product ? [...new Set(product.variants?.map(v => v.color).filter(Boolean))] : []
     const uniqueSizes = product ? [...new Set(product.variants?.map(v => v.size).filter(Boolean))] : []
 
@@ -110,7 +118,19 @@ const ProductDetails = () => {
     useEffect(()=>{
         if(products.length > 0 && product){
             let productsCopy = products.slice();
-            productsCopy = productsCopy.filter((item)=> product.category === item.category)
+            // Filtrer les produits similaires par catégorie (support multiple)
+            const productCategory = getProductCategory()
+            productsCopy = productsCopy.filter((item) => {
+                // Si l'item a l'ancien format (category)
+                if (item.category) {
+                    return item.category === productCategory && item._id !== product._id
+                }
+                // Si l'item a le nouveau format (categories tableau)
+                if (item.categories && item.categories.length > 0) {
+                    return item.categories.includes(productCategory) && item._id !== product._id
+                }
+                return false
+            })
             setRelatedProducts(productsCopy.slice(0,5))
         }
         setSelectedColor(null)
@@ -126,7 +146,7 @@ const ProductDetails = () => {
             <p>
                 <Link to={"/"}>Accueil</Link> /
                 <Link to={"/products"}> Produits</Link> /
-                <Link to={`/products/${product.category.toLowerCase()}`}> {product.category}</Link> /
+                <Link to={`/products/${getProductCategory()?.toLowerCase()}`}> {getProductCategory()}</Link> /
                 <span className="text-primary"> {product.name}</span>
             </p>
 
