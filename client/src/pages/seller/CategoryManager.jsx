@@ -15,6 +15,7 @@ const CategoryManager = () => {
     const [imagePreview, setImagePreview] = useState('');
     const [showCropper, setShowCropper] = useState(false);
     const [tempImageFile, setTempImageFile] = useState(null);
+    const [cropShape, setCropShape] = useState('rect'); // 'rect' ou 'round'
     const [formData, setFormData] = useState({
         name: '',
         slug: '',
@@ -159,6 +160,7 @@ const CategoryManager = () => {
                             setImageUrl('');
                             setImagePreview('');
                             setImageType('url');
+                            setCropShape('rect');
                             setShowForm(!showForm);
                         }}
                         className="bg-primary text-white px-4 py-2 rounded-lg hover:opacity-90 transition"
@@ -206,6 +208,28 @@ const CategoryManager = () => {
                         {/* Upload d'image avec cropper */}
                         {imageType === 'upload' && (
                             <div>
+                                <label className="block text-sm font-medium mb-2">Mode de recadrage</label>
+                                <div className="flex gap-4 mb-3">
+                                    <label className="flex items-center gap-2">
+                                        <input
+                                            type="radio"
+                                            value="rect"
+                                            checked={cropShape === 'rect'}
+                                            onChange={() => setCropShape('rect')}
+                                        />
+                                        <span>Carré (classique)</span>
+                                    </label>
+                                    <label className="flex items-center gap-2">
+                                        <input
+                                            type="radio"
+                                            value="round"
+                                            checked={cropShape === 'round'}
+                                            onChange={() => setCropShape('round')}
+                                        />
+                                        <span>Cercle</span>
+                                    </label>
+                                </div>
+
                                 <label className="block text-sm font-medium mb-1">Image (upload)</label>
                                 <input
                                     type="file"
@@ -214,7 +238,9 @@ const CategoryManager = () => {
                                     className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:border-primary"
                                     required={!editingCategory && imageType === 'upload'}
                                 />
-                                <p className="text-xs text-gray-400 mt-1">L'image sera automatiquement recadrée (format carré)</p>
+                                <p className="text-xs text-gray-400 mt-1">
+                                    {cropShape === 'rect' ? 'Recadrage carré (classique)' : 'Recadrage en cercle (sans fond)'}
+                                </p>
                             </div>
                         )}
 
@@ -237,7 +263,11 @@ const CategoryManager = () => {
                         {imagePreview && (
                             <div>
                                 <label className="block text-sm font-medium mb-1">Aperçu</label>
-                                <img src={imagePreview} alt="Aperçu" className="w-16 h-16 object-cover rounded-lg border" />
+                                <img 
+                                    src={imagePreview} 
+                                    alt="Aperçu" 
+                                    className={`w-16 h-16 object-cover border ${cropShape === 'round' ? 'rounded-full' : 'rounded-lg'}`} 
+                                />
                             </div>
                         )}
 
@@ -311,7 +341,11 @@ const CategoryManager = () => {
                         <div key={category._id} className="bg-white border rounded-xl overflow-hidden shadow-sm">
                             <div className="p-4 flex items-center gap-4">
                                 {category.image && (
-                                    <img src={category.image} alt={category.name} className="w-16 h-16 object-cover rounded-lg" />
+                                    <img 
+                                        src={category.image} 
+                                        alt={category.name} 
+                                        className="w-16 h-16 object-cover rounded-full" 
+                                    />
                                 )}
                                 <div className="flex-1">
                                     <h3 className="font-semibold text-lg">{category.name}</h3>
@@ -346,7 +380,7 @@ const CategoryManager = () => {
                 )}
             </div>
 
-            {/* Cropper modal avec ratio carré pour catégories */}
+            {/* Cropper modal */}
             {showCropper && (
                 <ImageCropper
                     imageFile={tempImageFile}
@@ -356,6 +390,7 @@ const CategoryManager = () => {
                         setTempImageFile(null);
                     }}
                     aspectRatio={1 / 1}
+                    cropShape={cropShape}
                 />
             )}
         </div>

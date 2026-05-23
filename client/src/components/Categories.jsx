@@ -73,7 +73,11 @@ const Categories = () => {
                           <div className='rounded-full w-16 h-16 flex items-center justify-center overflow-hidden'
                           style={{backgroundColor: category.bgColor || '#f0f0f0'}}>
                               {category.image ? (
-                                  <img src={category.image} alt={category.name} className='group-hover:scale-108 transition max-w-12'/>
+                                  <img 
+                                      src={category.image} 
+                                      alt={category.name} 
+                                      className='group-hover:scale-108 transition w-full h-full object-cover'
+                                  />
                               ) : (
                                   <span className="text-2xl">📁</span>
                               )}
@@ -85,7 +89,7 @@ const Categories = () => {
 
                 {/* Flèche droite */}
                 <button onClick={scrollRight}
-                className='md:hidden absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow-md rounded-full w-7 h-7 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition'>
+                className='md:hidden absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow-md rounded-full w-7 h-7 flex items-center center justify-center text-gray-600 hover:bg-gray-100 transition'>
                   ›
                 </button>
 
