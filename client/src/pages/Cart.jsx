@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom"; // ← AJOUTER CET IMPORT
+import { useLocation } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
 import { assets } from "../assets/assets";
 import toast from "react-hot-toast";
@@ -7,7 +7,7 @@ import CouponInput from "../components/CouponInput";
 
 const Cart = () => {
     const {products, currency, cartItems, removeFromCart, getCartCount, updateCartItem, navigate, getCartAmount, axios, user, setCartItems, getProductIdFromKey} = useAppContext()
-    const location = useLocation(); // ← AJOUTER CETTE LIGNE
+    const location = useLocation();
     const [cartArray, setCartArray] = useState([])
     const [addresses, setAddresses] = useState([])
     const [showAddress, setShowAddress] = useState(false)
@@ -21,6 +21,16 @@ const Cart = () => {
     const [selectedDeliveryType, setSelectedDeliveryType] = useState(null)
     const [deliveryPrice, setDeliveryPrice] = useState(0)
     const [loadingDelivery, setLoadingDelivery] = useState(false)
+
+    // Fonction pour formater l'adresse complète
+    const formatAddress = (address) => {
+        if (!address) return "Aucune adresse trouvée";
+        const parts = [];
+        if (address.street) parts.push(address.street);
+        if (address.communeName) parts.push(address.communeName);
+        if (address.city) parts.push(address.city);
+        return parts.join(", ");
+    };
 
     const getCart = ()=>{
         let tempArray = []
@@ -130,12 +140,11 @@ const Cart = () => {
         }
     },[products, cartItems])
 
-    // ← MODIFIER CE useEffect POUR PRENDRE EN COMPTE location.search
     useEffect(()=>{
         if(user){
             getUserAddress()
         }
-    },[user, location.search]) // ← Ajouter location.search comme dépendance
+    },[user, location.search])
 
     const placeOrder = async ()=>{
         try {
@@ -307,7 +316,7 @@ const Cart = () => {
                 <div className="mb-6">
                     <p className="text-sm font-medium uppercase">Adresse de livraison</p>
                     <div className="relative flex justify-between items-start mt-2">
-                        <p className="text-gray-500">{selectedAddress ? `${selectedAddress.street}, ${selectedAddress.city}` : "Aucune adresse trouvée"}</p>
+                        <p className="text-gray-500">{formatAddress(selectedAddress)}</p>
                         <button onClick={() => setShowAddress(!showAddress)} className="text-primary hover:underline cursor-pointer">
                             Changer
                         </button>
@@ -315,7 +324,7 @@ const Cart = () => {
                             <div className="absolute top-12 py-1 bg-white border border-gray-300 text-sm w-full z-10">
                                 {addresses.map((address, index)=>(
                                     <p key={index} onClick={() => {setSelectedAddress(address); setShowAddress(false)}} className="text-gray-500 p-2 hover:bg-gray-100 cursor-pointer">
-                                        {address.street}, {address.city}
+                                        {formatAddress(address)}
                                     </p>
                                 ))}
                                 <p onClick={() => navigate("/add-address")} className="text-primary text-center cursor-pointer p-2 hover:bg-primary/10">
