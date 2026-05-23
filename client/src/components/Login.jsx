@@ -38,7 +38,7 @@ const Login = () => {
 
             <form onSubmit={onSubmitHandler} onClick={(e) => e.stopPropagation()} className="flex flex-col gap-4 m-auto items-start p-8 py-12 w-80 sm:w-[352px] rounded-lg shadow-xl border border-gray-200 bg-white">
                 <p className="text-2xl font-medium m-auto">
-                    <span className="text-primary">User</span> {state === "login" ? "Login" : "Sign Up"}
+                    <span className="text-primary">Utilisateur</span> {state === "login" ? "Login" : "Sign Up"}
                 </p>
                 {state === "register" && (
                     <>
@@ -62,12 +62,12 @@ const Login = () => {
                 </div>
                 {state === "register" ? (
                     <p>
-                        Already have account? <span onClick={() => setState("login")} className="text-primary cursor-pointer">click here</span>
+                        J'ai déja un compte? <span onClick={() => setState("login")} className="text-primary cursor-pointer">click here</span>
                     </p>
                 ) : (
                     <>
                         <p>
-                            Create an account? <span onClick={() => setState("register")} className="text-primary cursor-pointer">click here</span>
+                            Créer un compte? <span onClick={() => setState("register")} className="text-primary cursor-pointer">click here</span>
                         </p>
                         <Link
                             to="/forgot-password"
