@@ -31,7 +31,7 @@ const ProductList = () => {
         try {
             const { data } = await axios.post('/api/product/stock', {id, inStock});
             if (data.success){
-                fetchProducts();
+                await fetchProducts();
                 toast.success(data.message)
             }else{
                 toast.error(data.message)
@@ -46,7 +46,7 @@ const ProductList = () => {
             ...product,
             description: Array.isArray(product.description) ? product.description.join('\n') : product.description,
             variants: product.variants || [],
-            categories: product.categories || [], // ← Ajout
+            categories: product.categories || [],
         })
         setSelectedCategories(product.categories || [])
         setColorInput('')
@@ -68,16 +68,16 @@ const ProductList = () => {
                 id: editProduct._id,
                 name: editProduct.name,
                 description: editProduct.description,
-                categories: selectedCategories, // ← MODIFIÉ : envoie le tableau
+                categories: selectedCategories,
                 price: editProduct.price,
                 offerPrice: editProduct.offerPrice,
                 variants: editProduct.variants,
             })
             if (data.success){
                 toast.success(data.message)
-                fetchProducts()
+                await fetchProducts() // Force le rechargement des produits
                 setEditProduct(null)
-            }else{
+            } else {
                 toast.error(data.message)
             }
         } catch (error) {
@@ -91,8 +91,8 @@ const ProductList = () => {
             const { data } = await axios.post('/api/product/delete', {id})
             if (data.success){
                 toast.success(data.message)
-                fetchProducts()
-            }else{
+                await fetchProducts()
+            } else {
                 toast.error(data.message)
             }
         } catch (error) {
@@ -323,7 +323,7 @@ const ProductList = () => {
                                                         <button type="button" onClick={() => removeVariant(i)}
                                                         className="text-red-400 hover:text-red-600 text-xs">✕</button>
                                                     </td>
-                                                </tr>
+                                                <tr>
                                             ))}
                                         </tbody>
                                     </table>
