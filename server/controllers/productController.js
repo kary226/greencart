@@ -120,3 +120,54 @@ export const reduceVariantStock = async (productId, color, size, quantity) => {
     product.inStock = product.variants.some(v => v.stock > 0)
     await product.save()
 }
+
+// Get Best Sellers : /api/product/bestsellers
+export const getBestSellers = async (req, res) => {
+    try {
+        // Récupérer toutes les commandes payées
+        const Order = await import('../models/Order.js').then(m => m.default);
+        
+        const orders = await Order.find({
+            $or: [{ paymentType: "COD" }, { isPaid: true }]
+        });
+
+        // Compter les ventes par produit
+        const productSales = new Map();
+
+        orders.forEach(order => {
+            order.items.forEach(item => {
+                const productId = item.product.toString();
+                const quantity = item.quantity;
+                
+                if (productSales.has(productId)) {
+                    productSales.set(productId, productSales.get(productId) + quantity);
+                } else {
+                    productSales.set(productId, quantity);
+                }
+            });
+        });
+
+        // Trier par nombre de ventes (décroissant)
+        const sortedProducts = Array.from(productSales.entries())
+            .sort((a, b) => b[1] - a[1])
+            .map(entry => entry[0]);
+
+        // Récupérer les détails des produits
+        const Product = await import('../models/Product.js').then(m => m.default);
+        const bestSellers = await Product.find({
+            _id: { $in: sortedProducts.slice(0, 10) },
+            inStock: true
+        });
+
+        // Garder l'ordre trié
+        const orderedBestSellers = sortedProducts
+            .filter(id => bestSellers.some(p => p._id.toString() === id))
+            .slice(0, 10)
+            .map(id => bestSellers.find(p => p._id.toString() === id));
+
+        res.json({ success: true, products: orderedBestSellers });
+    } catch (error) {
+        console.error(error);
+        res.json({ success: false, message: error.message });
+    }
+};
