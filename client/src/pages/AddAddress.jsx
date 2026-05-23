@@ -72,21 +72,42 @@ const SelectField = ({ name, placeholder, options, value, handleChange, loading 
 
 const AddAddress = () => {
 
-    const {axios, user, navigate, setShowUserLogin} = useAppContext();
+    const {axios, user, navigate, setShowUserLogin, fetchUser} = useAppContext();
+
+    // Séparer le nom complet en prénom et nom (si possible)
+    const getFirstAndLastName = () => {
+        if (!user?.name) return { firstName: '', lastName: '' };
+        const nameParts = user.name.split(' ');
+        if (nameParts.length === 1) return { firstName: nameParts[0], lastName: '' };
+        return { firstName: nameParts[0], lastName: nameParts.slice(1).join(' ') };
+    };
+
+    const { firstName: userFirstName, lastName: userLastName } = getFirstAndLastName();
 
     const [address, setAddress] = useState({
-        firstName: '',
-        lastName: '',
+        firstName: userFirstName || '',
+        lastName: userLastName || '',
         street: '',
         cityId: '',
         communeId: '',
-        phone: '',
+        phone: user?.phone || '',
     })
 
     const [cities, setCities] = useState([])
     const [communes, setCommunes] = useState([])
     const [loadingCities, setLoadingCities] = useState(true)
     const [loadingCommunes, setLoadingCommunes] = useState(false)
+
+    // Mettre à jour les champs quand l'utilisateur change
+    useEffect(() => {
+        const { firstName: newFirstName, lastName: newLastName } = getFirstAndLastName();
+        setAddress(prev => ({
+            ...prev,
+            firstName: newFirstName || prev.firstName,
+            lastName: newLastName || prev.lastName,
+            phone: user?.phone || prev.phone,
+        }));
+    }, [user]);
 
     // Vérifier si l'utilisateur est connecté
     useEffect(() => {
@@ -163,17 +184,35 @@ const AddAddress = () => {
         }
 
         try {
+            // 1. Mettre à jour le profil utilisateur si les champs ont changé
+            const userUpdateData = {};
+            const fullName = `${address.firstName} ${address.lastName}`.trim();
+            if (fullName !== user.name) {
+                userUpdateData.name = fullName;
+            }
+            if (address.phone !== user.phone) {
+                userUpdateData.phone = address.phone;
+            }
+
+            if (Object.keys(userUpdateData).length > 0) {
+                await axios.post('/api/user/update', {
+                    userId: user._id,
+                    ...userUpdateData
+                });
+                fetchUser(); // Recharger les infos utilisateur
+            }
+
+            // 2. Ajouter l'adresse
             const {data} = await axios.post('/api/address/add', {address});
 
             if (data.success){
-                toast.success(data.message)
-                // Rediriger vers le panier avec paramètre refresh
-                navigate('/cart?refresh=true')
-            }else{
-                toast.error(data.message)
+                toast.success('Adresse ajoutée et profil mis à jour');
+                navigate('/cart?refresh=true');
+            } else {
+                toast.error(data.message);
             }
         } catch (error) {
-            toast.error(error.message)
+            toast.error(error.message);
         }
     }
 
