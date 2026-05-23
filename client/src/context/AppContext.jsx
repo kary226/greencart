@@ -70,10 +70,11 @@ export const AppContextProvider = ({children}) => {
             const { data } = await axios.get('/api/user/is-auth');
             if (data.success) {
                 setUser(data.user)
-                setCartItems(data.user.cartItems)
+                setCartItems(data.user.cartItems || {}) // ← Assure que c'est un objet
             }
         } catch (error) {
             setUser(null)
+            setCartItems({}) // ← Vide le panier en cas d'erreur
         }
     }
 
@@ -200,12 +201,14 @@ export const AppContextProvider = ({children}) => {
     const getCartCount = () => {
         let totalCount = 0;
         for (const item in cartItems) {
-            totalCount += cartItems[item];
+            if (cartItems[item] > 0) {
+                totalCount += cartItems[item];
+            }
         }
         return totalCount;
     }
 
-    // Get Cart Total Amount (arrondi à l'entier supérieur si décimal)
+    // Get Cart Total Amount
     const getCartAmount = () => {
         let totalAmount = 0;
         for (const key in cartItems) {
@@ -229,6 +232,7 @@ export const AppContextProvider = ({children}) => {
                 localStorage.setItem('token', data.token);
                 setAuthToken(data.token);
                 setUser(data.user);
+                setCartItems(data.user.cartItems || {});
                 toast.success("Connexion réussie");
                 navigate('/');
             } else {
@@ -247,6 +251,7 @@ export const AppContextProvider = ({children}) => {
                 localStorage.setItem('token', data.token);
                 setAuthToken(data.token);
                 setUser(data.user);
+                setCartItems({});
                 toast.success("Inscription réussie");
                 navigate('/');
             } else {
@@ -275,6 +280,9 @@ export const AppContextProvider = ({children}) => {
     useEffect(() => {
         if (getToken()) {
             fetchUser();
+        } else {
+            // Forcer le panier à vide si utilisateur non connecté
+            setCartItems({});
         }
         fetchSeller();
         fetchProducts();
