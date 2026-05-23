@@ -32,6 +32,21 @@ const Cart = () => {
         return parts.join(", ");
     };
 
+    // Fonction pour supprimer une adresse
+    const deleteAddress = async (addressId) => {
+        try {
+            const { data } = await axios.post('/api/address/delete', { addressId, userId: user._id });
+            if (data.success) {
+                toast.success('Adresse supprimée');
+                getUserAddress(); // Recharge la liste des adresses
+            } else {
+                toast.error(data.message);
+            }
+        } catch (error) {
+            toast.error(error.message);
+        }
+    };
+
     const getCart = ()=>{
         let tempArray = []
         for(const key in cartItems){
@@ -323,9 +338,20 @@ const Cart = () => {
                         {showAddress && (
                             <div className="absolute top-12 py-1 bg-white border border-gray-300 text-sm w-full z-10">
                                 {addresses.map((address, index)=>(
-                                    <p key={index} onClick={() => {setSelectedAddress(address); setShowAddress(false)}} className="text-gray-500 p-2 hover:bg-gray-100 cursor-pointer">
-                                        {formatAddress(address)}
-                                    </p>
+                                    <div key={index} className="flex justify-between items-center p-2 hover:bg-gray-100">
+                                        <p onClick={() => {setSelectedAddress(address); setShowAddress(false)}} className="flex-1 cursor-pointer">
+                                            {formatAddress(address)}
+                                        </p>
+                                        <button 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                deleteAddress(address._id);
+                                            }}
+                                            className="text-red-500 text-xs px-2 py-1 hover:bg-red-50 rounded"
+                                        >
+                                            Supprimer
+                                        </button>
+                                    </div>
                                 ))}
                                 <p onClick={() => navigate("/add-address")} className="text-primary text-center cursor-pointer p-2 hover:bg-primary/10">
                                     Ajouter une adresse

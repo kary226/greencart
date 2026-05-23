@@ -78,3 +78,23 @@ export const getAddress = async (req, res) => {
         res.json({ success: false, message: error.message });
     }
 };
+
+// Delete Address : /api/address/delete
+export const deleteAddress = async (req, res) => {
+    try {
+        const { addressId } = req.body;
+        const { userId } = req.body;
+        
+        // Vérifier que l'adresse appartient bien à l'utilisateur
+        const address = await Address.findOne({ _id: addressId, userId });
+        if (!address) {
+            return res.json({ success: false, message: "Adresse non trouvée" });
+        }
+        
+        await Address.findByIdAndDelete(addressId);
+        res.json({ success: true, message: "Adresse supprimée" });
+    } catch (error) {
+        console.log(error.message);
+        res.json({ success: false, message: error.message });
+    }
+};
