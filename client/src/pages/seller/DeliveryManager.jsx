@@ -208,7 +208,7 @@ const DeliveryManager = () => {
                         onClick={() => setActiveTab('prices')}
                         className={`pb-2 px-4 ${activeTab === 'prices' ? 'border-b-2 border-primary text-primary font-semibold' : 'text-gray-500'}`}
                     >
-                        💰 Tarifs par commune
+                         Tarifs par commune
                     </button>
                 </div>
 

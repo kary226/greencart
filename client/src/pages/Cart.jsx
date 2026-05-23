@@ -22,13 +22,13 @@ const Cart = () => {
     const [deliveryPrice, setDeliveryPrice] = useState(0)
     const [loadingDelivery, setLoadingDelivery] = useState(false)
 
-    // Fonction pour formater l'adresse complète
+    // Fonction pour formater l'adresse complète (quartier, commune, ville)
     const formatAddress = (address) => {
         if (!address) return "Aucune adresse trouvée";
         const parts = [];
         if (address.street) parts.push(address.street);
         if (address.communeName) parts.push(address.communeName);
-        if (address.city) parts.push(address.city);
+        if (address.cityName) parts.push(address.cityName);
         return parts.join(", ");
     };
 

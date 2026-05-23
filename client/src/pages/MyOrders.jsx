@@ -72,7 +72,7 @@ const MyOrders = () => {
                             <p className='flex justify-between md:items-center text-gray-400 md:font-medium max-md:flex-col gap-2'>
                                 <span className="text-xs">📦 Commande : {order._id.slice(-8)}</span>
                                 <span>💳 {order.paymentType === "COD" ? "Paiement à la livraison" : "Paiement en ligne"}</span>
-                                <span>💰 Total : {order.amount} {currency}</span>
+                                <span> Total : {order.amount} {currency}</span>
                             </p>
                             
                             {/* Statut avec barre de progression */}
