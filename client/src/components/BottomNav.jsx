@@ -52,6 +52,25 @@ const BottomNav = () => {
     fetchProducts()
   }, [])
 
+  // Fonction pour récupérer l'affichage de la catégorie d'un produit
+  const getProductCategoryDisplay = (product) => {
+    if (product.categories && product.categories.length > 0) {
+      return product.categories[0]
+    }
+    return product.category || 'Produit'
+  }
+
+  // Fonction pour récupérer le slug de la catégorie pour le lien
+  const getProductCategorySlug = (product) => {
+    if (product.categories && product.categories.length > 0) {
+      return product.categories[0].toLowerCase()
+    }
+    if (product.category) {
+      return product.category.toLowerCase()
+    }
+    return 'products'
+  }
+
   useEffect(() => {
     if (searchText.trim().length > 0) {
       const searchLower = searchText.toLowerCase()
@@ -61,7 +80,11 @@ const BottomNav = () => {
       const productSuggestions = products
         .filter(p => p.name && p.name.toLowerCase().includes(searchLower) && p.inStock === true)
         .slice(0, 8)
-        .map(p => ({ label: p.name, type: p.category, path: `/products/${p.category.toLowerCase()}/${p._id}` }))
+        .map(p => ({ 
+          label: p.name, 
+          type: getProductCategoryDisplay(p), 
+          path: `/products/${getProductCategorySlug(p)}/${p._id}` 
+        }))
       setSuggestions([...categorySuggestions, ...productSuggestions])
     } else {
       setSuggestions([])
@@ -328,7 +351,7 @@ const BottomNav = () => {
           <span className="text-[11px] font-medium">Favoris</span>
         </Link>
 
-        {/* Commandes (remplace Panier) */}
+        {/* Commandes */}
         <Link to='/my-orders' className={`flex flex-col items-center gap-1 transition-all duration-200 group ${
           isActive('/my-orders') ? 'text-primary' : 'text-gray-500 hover:text-primary'
         }`}>
