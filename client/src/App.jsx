@@ -22,6 +22,7 @@ import Dashboard from './pages/seller/Dashboard';
 import AddProduct from './pages/seller/AddProduct';
 import ProductList from './pages/seller/ProductList';
 import Orders from './pages/seller/Orders';
+import ClientsManager from './pages/seller/ClientsManager';
 import BannerManager from './pages/seller/BannerManager';
 import CategoryManager from './pages/seller/CategoryManager';
 import CouponManager from './pages/seller/CouponManager';
@@ -75,6 +76,7 @@ const App = () => {
             <Route path='add-product' element={<AddProduct/>} />
             <Route path='product-list' element={<ProductList/>} />
             <Route path='orders' element={<Orders/>} />
+            <Route path='clients' element={<ClientsManager/>} />
             <Route path='banners' element={<BannerManager/>} />
             <Route path='categories' element={<CategoryManager/>} />
             <Route path='coupons' element={<CouponManager/>} />
