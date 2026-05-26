@@ -54,14 +54,14 @@ const Home = () => {
               </button>
             </div>
 
-            {/* Grille verticale (scroll normal) */}
+            {/* Grille verticale */}
             <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-6'>
               {displayedProducts.map((product) => (
                 <ProductCard key={product._id} product={product} />
               ))}
             </div>
 
-            {/* Bouton Voir plus */}
+            {/* Bouton Voir plus (s'il reste des produits) */}
             {hasMore && (
               <div className='flex justify-center mt-8'>
                 <button
@@ -69,6 +69,18 @@ const Home = () => {
                   className='px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dull transition text-sm font-medium'
                 >
                   Voir plus (+{Math.min(loadMoreCount, allProducts.length - visibleCount)})
+                </button>
+              </div>
+            )}
+
+            {/* Bouton Voir tout (quand tous les produits sont chargés) */}
+            {!hasMore && allProducts.length > 0 && (
+              <div className='flex justify-center mt-8'>
+                <button
+                  onClick={() => window.location.href = '/products'}
+                  className='px-6 py-2 border border-primary text-primary rounded-lg hover:bg-primary/10 transition text-sm font-medium'
+                >
+                  Voir tous nos produits →
                 </button>
               </div>
             )}
