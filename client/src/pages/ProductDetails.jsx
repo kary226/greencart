@@ -6,6 +6,7 @@ import ProductCard from "../components/ProductCard";
 import ProductReviews from "../components/ProductReviews";
 import toast from "react-hot-toast";
 import SEO from "../components/SEO";
+import RecentlyViewed from "../components/RecentlyViewed";
 
 const ProductDetails = () => {
 
@@ -305,6 +306,9 @@ const ProductDetails = () => {
                 </div>
 
                 <ProductReviews productId={product._id} />
+
+                {/* Section Produits récemment vus */}
+                <RecentlyViewed />
             </div>
         </>
     );
