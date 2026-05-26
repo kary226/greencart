@@ -6,6 +6,7 @@ import NewsLetter from '../components/NewsLetter'
 import { useAppContext } from '../context/AppContext'
 import ProductCard from '../components/ProductCard'
 import SEO from '../components/SEO'
+import RecentlyViewed from '../components/RecentlyViewed'
 
 const Home = () => {
   const { products } = useAppContext()
@@ -54,6 +55,9 @@ const Home = () => {
             </div>
           </div>
         )}
+
+        {/* Section Produits récemment vus */}
+        <RecentlyViewed />
 
         <NewsLetter />
         <BannerCarousel position="bottom" className="mt-10" />

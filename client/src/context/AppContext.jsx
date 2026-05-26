@@ -22,6 +22,10 @@ if (initialToken) {
     setAuthToken(initialToken);
 }
 
+// Clé pour le localStorage des produits récemment vus
+const RECENTLY_VIEWED_KEY = 'greencart_recently_viewed';
+const MAX_RECENT_ITEMS = 5;
+
 export const AppContext = createContext();
 
 export const AppContextProvider = ({ children }) => {
@@ -36,6 +40,7 @@ export const AppContextProvider = ({ children }) => {
     const [cartItems, setCartItems] = useState({});
     const [searchQuery, setSearchQuery] = useState({});
     const [wishlist, setWishlist] = useState([]);
+    const [recentlyViewed, setRecentlyViewed] = useState([]);
 
     const getCartKey = (productId, color = null, size = null) => {
         return `${productId}${color ? `_${color}` : ''}${size ? `_${size}` : ''}`;
@@ -43,6 +48,38 @@ export const AppContextProvider = ({ children }) => {
 
     const getProductIdFromKey = (key) => {
         return key.split('_')[0];
+    };
+
+    // ==================== PRODUITS RÉCEMMENT VUS ====================
+
+    // Ajouter un produit aux récemment vus
+    const addToRecentlyViewed = (product) => {
+        if (!product || !product._id) return;
+        
+        setRecentlyViewed(prev => {
+            // Supprimer le produit s'il existe déjà
+            const filtered = prev.filter(item => item._id !== product._id);
+            // Ajouter le produit au début
+            const updated = [product, ...filtered];
+            // Garder seulement les MAX_RECENT_ITEMS premiers
+            const sliced = updated.slice(0, MAX_RECENT_ITEMS);
+            // Sauvegarder dans localStorage
+            localStorage.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(sliced));
+            return sliced;
+        });
+    };
+
+    // Charger les produits récemment vus depuis localStorage
+    const loadRecentlyViewed = () => {
+        const stored = localStorage.getItem(RECENTLY_VIEWED_KEY);
+        if (stored) {
+            try {
+                const parsed = JSON.parse(stored);
+                setRecentlyViewed(parsed);
+            } catch (error) {
+                console.error("Erreur chargement récemment vus:", error);
+            }
+        }
     };
 
     const fetchSeller = async () => {
@@ -257,6 +294,7 @@ export const AppContextProvider = ({ children }) => {
         }
         fetchSeller();
         fetchProducts();
+        loadRecentlyViewed(); // Charger les produits récemment vus
     }, []);
 
     useEffect(() => {
@@ -288,7 +326,8 @@ export const AppContextProvider = ({ children }) => {
         searchQuery, setSearchQuery, getCartAmount, getCartCount,
         axios, fetchProducts, setCartItems, getCartKey, getProductIdFromKey,
         wishlist, addToWishlist, removeFromWishlist, isInWishlist, fetchWishlist,
-        fetchUser, loginUser, registerUser, logoutUser
+        fetchUser, loginUser, registerUser, logoutUser,
+        recentlyViewed, addToRecentlyViewed  // ← Ajout des produits récemment vus
     };
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

@@ -9,7 +9,7 @@ import SEO from "../components/SEO";
 
 const ProductDetails = () => {
 
-    const {products, navigate, currency, addToCart, cartItems, getCartKey} = useAppContext()
+    const {products, navigate, currency, addToCart, cartItems, getCartKey, addToRecentlyViewed} = useAppContext()
     const {id} = useParams()
     const [relatedProducts, setRelatedProducts] = useState([]);
     const [thumbnail, setThumbnail] = useState(null);
@@ -17,6 +17,13 @@ const ProductDetails = () => {
     const [selectedSize, setSelectedSize] = useState(null)
 
     const product = products.find((item)=> item._id === id);
+
+    // Enregistrer le produit dans "récemment vus" quand il est chargé
+    useEffect(() => {
+        if (product) {
+            addToRecentlyViewed(product);
+        }
+    }, [product]);
 
     // Récupérer la première catégorie pour le breadcrumb (compatibilité ancien/nouveau)
     const getProductCategory = () => {
