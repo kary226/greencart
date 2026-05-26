@@ -2,9 +2,9 @@ import React from 'react'
 import { Helmet } from 'react-helmet-async'
 
 const SEO = ({ title, description, keywords, image, url }) => {
-  const siteTitle = 'GreenCart - Votre marché en ligne'
-  const fullTitle = title ? `${title} | GreenCart` : siteTitle
-  const siteDescription = description || 'GreenCart - Achetez des produits de qualité en Côte d\'Ivoire. Livraison rapide et paiement sécurisé.'
+  const siteTitle = 'GreenCart CI | Votre boutique en ligne en Côte d\'Ivoire'
+  const fullTitle = title ? `${title} | ${siteTitle}` : siteTitle
+  const siteDescription = description || 'GreenCart CI - Vêtements, accessoires et plus. Livraison rapide à Abidjan.'
   const siteUrl = url || 'https://greencart-ci.vercel.app'
   const siteImage = image || 'https://greencart-ci.vercel.app/logo.png'
 
@@ -12,7 +12,7 @@ const SEO = ({ title, description, keywords, image, url }) => {
     <Helmet>
       <title>{fullTitle}</title>
       <meta name="description" content={siteDescription} />
-      <meta name="keywords" content={keywords || 'e-commerce, GreenCart, produits, Côte d\'Ivoire, livraison'} />
+      <meta name="keywords" content={keywords || 'boutique en ligne, GreenCart CI, vêtements, accessoires, Côte d\'Ivoire, Abidjan'} />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       
       {/* Open Graph (Facebook/WhatsApp) */}

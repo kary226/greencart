@@ -37,9 +37,7 @@ const AllProducts = () => {
         const categoriesParam = searchParams.get('categories')
         if (categoriesParam) {
             const categoriesToFilter = categoriesParam.split(',')
-            // Un produit est affiché s'il a au moins une des catégories sélectionnées
             result = result.filter(product => {
-                // Si le produit a l'ancien format (category) ou le nouveau (categories)
                 const productCategories = product.categories || [product.category]
                 return productCategories.some(cat => categoriesToFilter.includes(cat))
             })
@@ -51,19 +49,18 @@ const AllProducts = () => {
         setFilteredProducts(result)
     }, [products, searchParams])
 
-    // Déterminer le titre et la description en fonction des filtres
     const getPageTitle = () => {
         const searchQuery = searchParams.get('search')
         if (searchQuery) return `Résultats pour "${searchQuery}"`
-        return 'Tous nos produits'
+        return 'Tous nos articles'
     }
 
     const getPageDescription = () => {
         const searchQuery = searchParams.get('search')
         if (searchQuery) {
-            return `Découvrez les produits correspondant à "${searchQuery}" sur GreenCart. Fruits, légumes, épicerie et plus encore.`
+            return `Découvrez les articles correspondant à "${searchQuery}" sur GreenCart CI. Vêtements, accessoires et plus.`
         }
-        return 'Découvrez tous nos produits disponibles sur GreenCart. Fruits, légumes, épicerie, et bien plus. Livraison rapide en Côte d\'Ivoire.'
+        return 'Découvrez tous nos articles sur GreenCart CI. Vêtements, accessoires et plus. Livraison rapide à Abidjan.'
     }
 
     return (
@@ -71,20 +68,20 @@ const AllProducts = () => {
             <SEO 
                 title={getPageTitle()}
                 description={getPageDescription()}
-                keywords="produits, boutique, GreenCart, catégories, shopping en ligne"
+                keywords="vêtements, accessoires, boutique en ligne, GreenCart CI, Côte d'Ivoire, Abidjan"
                 url="https://greencart-ci.vercel.app/products"
             />
             
             <div className='mt-16 flex flex-col'>
                 <div className='flex flex-col items-end w-max'>
-                    <p className='text-2xl font-medium uppercase'>All products</p>
+                    <p className='text-2xl font-medium uppercase'>Tous nos articles</p>
                     <div className='w-16 h-0.5 bg-primary rounded-full'></div>
                 </div>
 
                 <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-6 lg:grid-cols-5 mt-6'>
                     {filteredProducts.length === 0 ? (
                         <div className='col-span-full text-center py-10 text-gray-500'>
-                            Aucun produit trouvé
+                            Aucun article trouvé
                         </div>
                     ) : (
                         filteredProducts.map((product, index) => (

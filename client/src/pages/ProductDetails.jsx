@@ -154,7 +154,7 @@ const ProductDetails = () => {
             <SEO 
                 title={product.name}
                 description={getProductDescription()}
-                keywords={`${product.name}, ${product.category}, achat, GreenCart, Côte d'Ivoire`}
+                keywords={`${product.name}, ${product.category}, vêtements, accessoires, GreenCart CI, Côte d'Ivoire, Abidjan`}
                 image={product.image[0]}
                 url={`https://greencart-ci.vercel.app/products/${getProductCategory()?.toLowerCase()}/${product._id}`}
             />
@@ -162,7 +162,7 @@ const ProductDetails = () => {
             <div className="mt-12">
                 <p>
                     <Link to={"/"}>Accueil</Link> /
-                    <Link to={"/products"}> Produits</Link> /
+                    <Link to={"/products"}> Articles</Link> /
                     <Link to={`/products/${getProductCategory()?.toLowerCase()}`}> {getProductCategory()}</Link> /
                     <span className="text-primary"> {product.name}</span>
                 </p>
@@ -177,7 +177,7 @@ const ProductDetails = () => {
                             ))}
                         </div>
                         <div className="border border-gray-500/30 max-w-100 rounded overflow-hidden">
-                            <img src={thumbnail} alt="Produit sélectionné" />
+                            <img src={thumbnail} alt={product.name} />
                         </div>
                     </div>
 
@@ -286,7 +286,7 @@ const ProductDetails = () => {
 
                 <div className="flex flex-col items-center mt-20">
                     <div className="flex flex-col items-center w-max">
-                        <p className="text-3xl font-medium">Produits similaires</p>
+                        <p className="text-3xl font-medium">Articles similaires</p>
                         <div className="w-20 h-0.5 bg-primary rounded-full mt-2"></div>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-6 lg:grid-cols-5 mt-6 w-full">

@@ -17,8 +17,8 @@ const Home = () => {
     <>
       <SEO 
         title="Accueil"
-        description="GreenCart - Votre marché en ligne en Côte d'Ivoire. Découvrez nos sélections de prosuits uniques pour vous satisfaire. Livraison rapide et paiement sécurisé."
-        keywords="e-commerce, GreenCart, Côte d'Ivoire, livraison"
+        description="GreenCart CI - Vêtements, accessoires et plus. Livraison rapide à Abidjan."
+        keywords="boutique en ligne, GreenCart CI, vêtements, accessoires, Côte d'Ivoire, Abidjan"
       />
       
       <div className='mt-10 space-y-10'>
