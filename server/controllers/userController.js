@@ -216,7 +216,7 @@ export const getAllClients = async (req, res) => {
         
         const clients = await User.find(query)
             .select('-password -resetPasswordToken -resetPasswordExpires')
-            .sort({ createdAt: -1 })
+            .sort({ lastName: 1 })  // ← Tri alphabétique par NOM (A→Z)
             .skip(skip)
             .limit(parseInt(limit));
         
