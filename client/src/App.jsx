@@ -86,20 +86,21 @@ const App = () => {
      {!isSellerPath && <Footer/>}
      {!isSellerPath && <BottomNav/>}
 
-      {/* WhatsApp Floating Widget - Version avec vrai logo */}
+      {/* WhatsApp Floating Widget - Icône seule + semi-transparent */}
       {!isSellerPath && (
         <a
           href="https://wa.me/2250101044942?text=Bonjour%2C%20j%27ai%20besoin%20d%27aide%20concernant%20ma%20commande%20ou%20un%20produit%20sur%20GreenCart."
           target="_blank"
           rel="noopener noreferrer"
-          className="fixed bottom-28 right-4 z-[9999] flex items-center gap-2 bg-[#25D366] hover:bg-[#20b859] text-white px-4 py-2.5 rounded-full shadow-xl transition-all duration-300 hover:scale-105 font-medium"
+          className="fixed bottom-28 right-4 z-[9999] bg-[#25D366]/80 hover:bg-[#25D366] text-white p-2.5 rounded-full shadow-lg transition-all duration-300 hover:scale-105 flex items-center justify-center backdrop-blur-[2px]"
+          style={{ width: '44px', height: '44px' }}
+          aria-label="Contactez-nous sur WhatsApp"
         >
           <img 
             src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" 
             alt="WhatsApp" 
             className="w-5 h-5"
           />
-          <span className="text-sm">WhatsApp</span>
         </a>
       )}
     </div>
