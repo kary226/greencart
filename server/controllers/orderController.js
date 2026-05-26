@@ -252,3 +252,34 @@ export const getAllOrders = async (req, res)=>{
         res.json({ success: false, message: error.message });
     }
 };
+
+// ==================== ADMIN : Récupérer les commandes d'un client spécifique ====================
+
+export const getUserOrdersByAdmin = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        
+        const orders = await Order.find({
+            userId,
+            $or: [{paymentType: "COD"}, {isPaid: true}]
+        }).populate("items.product address").sort({createdAt: -1});
+        
+        const user = await User.findById(userId).select("-password");
+        
+        res.json({ 
+            success: true, 
+            orders,
+            user: {
+                _id: user._id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                name: user.name,
+                email: user.email,
+                phone: user.phone
+            }
+        });
+    } catch (error) {
+        console.log(error.message);
+        res.json({ success: false, message: error.message });
+    }
+};

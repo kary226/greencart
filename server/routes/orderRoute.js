@@ -1,6 +1,6 @@
 import express from 'express';
 import authUser from '../middlewares/authUser.js';
-import { getAllOrders, getUserOrders, placeOrderCOD, placeOrderStripe, updateOrderStatus } from '../controllers/orderController.js';
+import { getAllOrders, getUserOrders, placeOrderCOD, placeOrderStripe, updateOrderStatus, getUserOrdersByAdmin } from '../controllers/orderController.js';
 import authSeller from '../middlewares/authSeller.js';
 import { initiateGeniusPay } from '../controllers/geniuspayController.js';
 import Order from '../models/Order.js';
@@ -15,6 +15,9 @@ orderRouter.get('/seller', authSeller, getAllOrders)
 orderRouter.post('/stripe', authUser, placeOrderStripe)
 orderRouter.post('/status', authSeller, updateOrderStatus)
 orderRouter.post('/geniuspay/initiate', authUser, initiateGeniusPay)
+
+// Admin : Récupérer les commandes d'un client spécifique
+orderRouter.get('/admin/user/:userId', authSeller, getUserOrdersByAdmin)
 
 // Route de confirmation sécurisée pour GeniusPay
 orderRouter.post('/geniuspay/confirm', authUser, async (req, res) => {

@@ -196,6 +196,45 @@ export const updateUser = async (req, res) => {
     }
 };
 
+// ==================== ADMIN : Récupérer tous les clients ====================
+
+export const getAllClients = async (req, res) => {
+    try {
+        const { search = '', page = 1, limit = 20 } = req.query;
+        
+        const query = {
+            $or: [
+                { firstName: { $regex: search, $options: 'i' } },
+                { lastName: { $regex: search, $options: 'i' } },
+                { name: { $regex: search, $options: 'i' } },
+                { email: { $regex: search, $options: 'i' } },
+                { phone: { $regex: search, $options: 'i' } }
+            ]
+        };
+
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        
+        const clients = await User.find(query)
+            .select('-password -resetPasswordToken -resetPasswordExpires')
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(parseInt(limit));
+        
+        const total = await User.countDocuments(query);
+        
+        res.json({
+            success: true,
+            clients,
+            total,
+            page: parseInt(page),
+            pages: Math.ceil(total / parseInt(limit))
+        });
+    } catch (error) {
+        console.log(error.message);
+        res.json({ success: false, message: error.message });
+    }
+};
+
 // ==================== MOT DE PASSE OUBLIÉ ====================
 
 // Demande de réinitialisation de mot de passe
