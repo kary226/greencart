@@ -12,7 +12,6 @@ const SellerLayout = () => {
         { name: "Ajouter un produit", path: "/seller/add-product", icon: "➕" },
         { name: "Liste des produits", path: "/seller/product-list", icon: "📋" },
         { name: "Commandes", path: "/seller/orders", icon: "📦" },
-        { name: "Clients", path: "/seller/clients", icon: "👥" },
         { name: "Bannières", path: "/seller/banners", icon: "🖼️" },
         { name: "Catégories", path: "/seller/categories", icon: "📁" },
         { name: "Codes promo", path: "/seller/coupons", icon: "🏷️" },
