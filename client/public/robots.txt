@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://greencart-ci.vercel.app/sitemap.xml

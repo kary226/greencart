@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useAppContext } from '../context/AppContext'
 import { useSearchParams } from 'react-router-dom'
 import ProductCard from '../components/ProductCard'
+import SEO from '../components/SEO'
 
 const AllProducts = () => {
 
@@ -50,25 +51,49 @@ const AllProducts = () => {
         setFilteredProducts(result)
     }, [products, searchParams])
 
-    return (
-        <div className='mt-16 flex flex-col'>
-            <div className='flex flex-col items-end w-max'>
-                <p className='text-2xl font-medium uppercase'>All products</p>
-                <div className='w-16 h-0.5 bg-primary rounded-full'></div>
-            </div>
+    // Déterminer le titre et la description en fonction des filtres
+    const getPageTitle = () => {
+        const searchQuery = searchParams.get('search')
+        if (searchQuery) return `Résultats pour "${searchQuery}"`
+        return 'Tous nos produits'
+    }
 
-            <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-6 lg:grid-cols-5 mt-6'>
-                {filteredProducts.length === 0 ? (
-                    <div className='col-span-full text-center py-10 text-gray-500'>
-                        Aucun produit trouvé
-                    </div>
-                ) : (
-                    filteredProducts.map((product, index) => (
-                        <ProductCard key={index} product={product} />
-                    ))
-                )}
+    const getPageDescription = () => {
+        const searchQuery = searchParams.get('search')
+        if (searchQuery) {
+            return `Découvrez les produits correspondant à "${searchQuery}" sur GreenCart. Fruits, légumes, épicerie et plus encore.`
+        }
+        return 'Découvrez tous nos produits disponibles sur GreenCart. Fruits, légumes, épicerie, et bien plus. Livraison rapide en Côte d\'Ivoire.'
+    }
+
+    return (
+        <>
+            <SEO 
+                title={getPageTitle()}
+                description={getPageDescription()}
+                keywords="produits, boutique, GreenCart, catégories, shopping en ligne"
+                url="https://greencart-ci.vercel.app/products"
+            />
+            
+            <div className='mt-16 flex flex-col'>
+                <div className='flex flex-col items-end w-max'>
+                    <p className='text-2xl font-medium uppercase'>All products</p>
+                    <div className='w-16 h-0.5 bg-primary rounded-full'></div>
+                </div>
+
+                <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-6 lg:grid-cols-5 mt-6'>
+                    {filteredProducts.length === 0 ? (
+                        <div className='col-span-full text-center py-10 text-gray-500'>
+                            Aucun produit trouvé
+                        </div>
+                    ) : (
+                        filteredProducts.map((product, index) => (
+                            <ProductCard key={index} product={product} />
+                        ))
+                    )}
+                </div>
             </div>
-        </div>
+        </>
     )
 }
 
