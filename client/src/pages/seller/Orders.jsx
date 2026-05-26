@@ -88,9 +88,9 @@ const Orders = () => {
                 'Heure commande': orderDate.toLocaleTimeString('fr-FR'),
                 'Client': `${order.address.firstName} ${order.address.lastName}`,
                 'Téléphone': order.address.phone,
-                'Ville': order.address.city || '-',
-                'Commune': order.address.state || '-',
                 'Quartier': order.address.street || '-',
+                'Commune': order.address.communeName || '-',
+                'Ville': order.address.cityName || order.address.city || '-',
                 'Produits': order.items.map(item => 
                     `${item.product?.name || 'Produit indisponible'} (x${item.quantity})${item.color ? ` - ${item.color}` : ''}${item.size ? ` - ${item.size}` : ''}`
                 ).join(', '),
@@ -105,7 +105,7 @@ const Orders = () => {
         
         worksheet['!cols'] = [
             { wch: 25 }, { wch: 15 }, { wch: 12 }, { wch: 25 },
-            { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 25 },
+            { wch: 15 }, { wch: 25 }, { wch: 15 }, { wch: 15 },
             { wch: 60 }, { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 8 }
         ];
 
@@ -168,7 +168,7 @@ const Orders = () => {
 
     useEffect(()=>{
         fetchOrders();
-    },[location.pathname]) // ← AJOUT DE location.pathname
+    },[location.pathname])
 
     return (
         <>
@@ -319,10 +319,12 @@ const Orders = () => {
                                         </div>
                                     </div>
 
+                                    {/* SECTION LIVRAISON CORRIGÉE AVEC COMMUNE */}
                                     <div className="text-sm md:text-base text-black/60 bg-gray-50 p-3 rounded-lg">
                                         <p className='text-black/80 font-medium mb-1'>📍 Livraison</p>
                                         <p>{order.address.firstName} {order.address.lastName}</p>
-                                        <p>{order.address.street}, {order.address.city}</p>
+                                        <p>{order.address.street}</p>
+                                        <p>{order.address.communeName}, {order.address.cityName || order.address.city}</p>
                                         <p>{order.address.phone}</p>
                                     </div>
 
