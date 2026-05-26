@@ -86,24 +86,23 @@ const App = () => {
      {!isSellerPath && <Footer/>}
      {!isSellerPath && <BottomNav/>}
 
-      {/* WhatsApp Floating Widget - Option C */}
+      {/* WhatsApp Floating Widget - Version visible */}
       {!isSellerPath && (
         <a
           href="https://wa.me/2250101044942?text=Bonjour%2C%20j%27ai%20besoin%20d%27aide%20concernant%20ma%20commande%20ou%20un%20produit%20sur%20GreenCart."
           target="_blank"
           rel="noopener noreferrer"
-          className="fixed bottom-24 right-4 z-50 bg-green-500 hover:bg-green-600 text-white p-3 rounded-full shadow-lg transition-all duration-300 hover:scale-110 flex items-center justify-center"
-          style={{ width: '56px', height: '56px' }}
-          aria-label="Contactez-nous sur WhatsApp"
+          className="fixed bottom-28 right-4 z-[9999] flex items-center gap-2 bg-[#25D366] hover:bg-[#20b859] text-white px-4 py-3 rounded-full shadow-xl transition-all duration-300 hover:scale-105"
         >
           <svg 
             xmlns="http://www.w3.org/2000/svg" 
             viewBox="0 0 24 24" 
             fill="currentColor" 
-            className="w-7 h-7"
+            className="w-5 h-5"
           >
-            <path fillRule="evenodd" d="M1.5 4.5a3 3 0 013-3h1.372c.86 0 1.61.586 1.819 1.42l1.105 4.423a1.875 1.875 0 01-.694 1.955l-1.293.97c-.135.101-.164.249-.126.352a11.285 11.285 0 006.697 6.697c.103.038.25.009.352-.126l.97-1.293a1.875 1.875 0 011.955-.694l4.423 1.105c.834.209 1.42.959 1.42 1.82V19.5a3 3 0 01-3 3h-2.25C8.552 22 1.5 14.448 1.5 5.25V4.5z" clipRule="evenodd" />
+            <path fillRule="evenodd" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15h-2v-2h2v2zm0-4h-2V7h2v6z" clipRule="evenodd" />
           </svg>
+          <span className="text-sm font-medium hidden sm:inline">WhatsApp</span>
         </a>
       )}
     </div>
