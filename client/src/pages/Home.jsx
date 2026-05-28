@@ -29,8 +29,8 @@ const Home = () => {
     <>
       <SEO 
         title="Accueil"
-        description="Mira - Vêtements, accessoires et plus. Livraison rapide à Abidjan."
-        keywords="boutique en ligne, Mira, vêtements, accessoires, Côte d'Ivoire, Abidjan"
+        description="Ramci - Vêtements, accessoires et plus. Livraison rapide à Abidjan."
+        keywords="boutique en ligne, Ramci, vêtements, accessoires, Côte d'Ivoire, Abidjan"
       />
       
       <div className='mt-10 space-y-10'>

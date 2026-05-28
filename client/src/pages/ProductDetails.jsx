@@ -162,7 +162,7 @@ const ProductDetails = () => {
             <SEO 
                 title={product.name}
                 description={getProductDescription()}
-                keywords={`${product.name}, ${product.category}, vêtements, accessoires, Mira, Côte d'Ivoire, Abidjan`}
+                keywords={`${product.name}, ${product.category}, vêtements, accessoires, Ramci, Côte d'Ivoire, Abidjan`}
                 image={product.image[0]}
                 url={`https://greencart-ci.vercel.app/products/${getProductCategory()?.toLowerCase()}/${product._id}`}
             />
