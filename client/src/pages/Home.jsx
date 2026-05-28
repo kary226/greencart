@@ -29,8 +29,8 @@ const Home = () => {
     <>
       <SEO 
         title="Accueil"
-        description="GreenCart CI - Vêtements, accessoires et plus. Livraison rapide à Abidjan."
-        keywords="boutique en ligne, GreenCart CI, vêtements, accessoires, Côte d'Ivoire, Abidjan"
+        description="Mira - Vêtements, accessoires et plus. Livraison rapide à Abidjan."
+        keywords="boutique en ligne, Mira, vêtements, accessoires, Côte d'Ivoire, Abidjan"
       />
       
       <div className='mt-10 space-y-10'>

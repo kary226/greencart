@@ -58,9 +58,9 @@ const AllProducts = () => {
     const getPageDescription = () => {
         const searchQuery = searchParams.get('search')
         if (searchQuery) {
-            return `Découvrez les articles correspondant à "${searchQuery}" sur GreenCart CI. Vêtements, accessoires et plus.`
+            return `Découvrez les articles correspondant à "${searchQuery}" sur Mira. Vêtements, accessoires et plus.`
         }
-        return 'Découvrez tous nos articles sur GreenCart CI. Vêtements, accessoires et plus. Livraison rapide à Abidjan.'
+        return 'Découvrez tous nos articles sur Mira. Vêtements, accessoires et plus. Livraison rapide à Abidjan.'
     }
 
     return (
@@ -68,7 +68,7 @@ const AllProducts = () => {
             <SEO 
                 title={getPageTitle()}
                 description={getPageDescription()}
-                keywords="vêtements, accessoires, boutique en ligne, GreenCart CI, Côte d'Ivoire, Abidjan"
+                keywords="vêtements, accessoires, boutique en ligne, Mira, Côte d'Ivoire, Abidjan"
                 url="https://greencart-ci.vercel.app/products"
             />
             
