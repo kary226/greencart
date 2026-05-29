@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react'
 import Navbar from './components/Navbar'
 import { Route, Routes, useLocation } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import Home from './pages/Home'
 import { Toaster } from "react-hot-toast";
 import Footer from './components/Footer';
@@ -34,11 +35,23 @@ import PaymentError from './pages/PaymentError';
 import Loading from './components/Loading';
 import BottomNav from './components/BottomNav';
 
+// Composant d'animation pour les pages
+const PageTransition = ({ children }) => (
+  <motion.div
+    initial={{ opacity: 0, x: 20 }}
+    animate={{ opacity: 1, x: 0 }}
+    exit={{ opacity: 0, x: -20 }}
+    transition={{ duration: 0.3, ease: "easeInOut" }}
+  >
+    {children}
+  </motion.div>
+);
+
 const App = () => {
 
   const location = useLocation();
   const isSellerPath = location.pathname.includes("seller");
-  const {showUserLogin, isSeller} = useAppContext()
+  const { showUserLogin, isSeller } = useAppContext()
 
   // Scroll automatique en haut à chaque changement de page
   useEffect(() => {
@@ -48,45 +61,107 @@ const App = () => {
   return (
     <div className='text-default min-h-screen text-gray-700 bg-white'>
 
-     {isSellerPath ? null : <Navbar/>} 
-     {showUserLogin ? <Login/> : null}
+      {isSellerPath ? null : <Navbar />}
+      {showUserLogin ? <Login /> : null}
 
-     <Toaster />
+      <Toaster />
 
       {/* Padding adapté : petit sur mobile, plus grand sur desktop mais reste cohérent */}
       <div className={`${isSellerPath ? "" : "px-4 pt-16 pb-20"}`}>
-        <Routes>
-          <Route path='/' element={<Home/>} />
-          <Route path='/products' element={<AllProducts/>} />
-          <Route path='/products/:category' element={<ProductCategory/>} />
-          <Route path='/products/:category/:id' element={<ProductDetails/>} />
-          <Route path='/cart' element={<Cart/>} />
-          <Route path='/add-address' element={<AddAddress/>} />
-          <Route path='/my-orders' element={<MyOrders/>} />
-          <Route path='/loader' element={<Loading/>} />
-          <Route path='/categories' element={<AllCategories/>} />
-          <Route path='/wishlist' element={<Wishlist/>} />
-          <Route path='/account' element={<Account/>} />
-          <Route path='/payment/success' element={<PaymentSuccess/>} />
-          <Route path='/payment/error' element={<PaymentError/>} />
-          <Route path='/forgot-password' element={<ForgotPassword/>} />
-          <Route path='/reset-password' element={<ResetPassword/>} />
-          <Route path='/seller' element={isSeller ? <SellerLayout/> : <SellerLogin/>}>
-            <Route index element={<Dashboard />} />
-            <Route path='add-product' element={<AddProduct/>} />
-            <Route path='product-list' element={<ProductList/>} />
-            <Route path='orders' element={<Orders/>} />
-            <Route path='clients' element={<ClientsManager/>} />
-            <Route path='banners' element={<BannerManager/>} />
-            <Route path='categories' element={<CategoryManager/>} />
-            <Route path='coupons' element={<CouponManager/>} />
-            <Route path='locations' element={<LocationManager/>} />
-            <Route path='delivery' element={<DeliveryManager/>} />
-          </Route>
-        </Routes>
+        <AnimatePresence mode="wait">
+          <Routes location={location} key={location.pathname}>
+            <Route path='/' element={
+              <PageTransition>
+                <Home />
+              </PageTransition>
+            } />
+            <Route path='/products' element={
+              <PageTransition>
+                <AllProducts />
+              </PageTransition>
+            } />
+            <Route path='/products/:category' element={
+              <PageTransition>
+                <ProductCategory />
+              </PageTransition>
+            } />
+            <Route path='/products/:category/:id' element={
+              <PageTransition>
+                <ProductDetails />
+              </PageTransition>
+            } />
+            <Route path='/cart' element={
+              <PageTransition>
+                <Cart />
+              </PageTransition>
+            } />
+            <Route path='/add-address' element={
+              <PageTransition>
+                <AddAddress />
+              </PageTransition>
+            } />
+            <Route path='/my-orders' element={
+              <PageTransition>
+                <MyOrders />
+              </PageTransition>
+            } />
+            <Route path='/loader' element={
+              <PageTransition>
+                <Loading />
+              </PageTransition>
+            } />
+            <Route path='/categories' element={
+              <PageTransition>
+                <AllCategories />
+              </PageTransition>
+            } />
+            <Route path='/wishlist' element={
+              <PageTransition>
+                <Wishlist />
+              </PageTransition>
+            } />
+            <Route path='/account' element={
+              <PageTransition>
+                <Account />
+              </PageTransition>
+            } />
+            <Route path='/payment/success' element={
+              <PageTransition>
+                <PaymentSuccess />
+              </PageTransition>
+            } />
+            <Route path='/payment/error' element={
+              <PageTransition>
+                <PaymentError />
+              </PageTransition>
+            } />
+            <Route path='/forgot-password' element={
+              <PageTransition>
+                <ForgotPassword />
+              </PageTransition>
+            } />
+            <Route path='/reset-password' element={
+              <PageTransition>
+                <ResetPassword />
+              </PageTransition>
+            } />
+            <Route path='/seller' element={isSeller ? <SellerLayout /> : <SellerLogin />}>
+              <Route index element={<Dashboard />} />
+              <Route path='add-product' element={<AddProduct />} />
+              <Route path='product-list' element={<ProductList />} />
+              <Route path='orders' element={<Orders />} />
+              <Route path='clients' element={<ClientsManager />} />
+              <Route path='banners' element={<BannerManager />} />
+              <Route path='categories' element={<CategoryManager />} />
+              <Route path='coupons' element={<CouponManager />} />
+              <Route path='locations' element={<LocationManager />} />
+              <Route path='delivery' element={<DeliveryManager />} />
+            </Route>
+          </Routes>
+        </AnimatePresence>
       </div>
-     {!isSellerPath && <Footer/>}
-     {!isSellerPath && <BottomNav/>}
+      {!isSellerPath && <Footer />}
+      {!isSellerPath && <BottomNav />}
 
       {/* WhatsApp Floating Widget - Icône seule + semi-transparent */}
       {!isSellerPath && (
@@ -98,9 +173,9 @@ const App = () => {
           style={{ width: '44px', height: '44px' }}
           aria-label="Contactez-nous sur WhatsApp"
         >
-          <img 
-            src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" 
-            alt="WhatsApp" 
+          <img
+            src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg"
+            alt="WhatsApp"
             className="w-5 h-5"
           />
         </a>
