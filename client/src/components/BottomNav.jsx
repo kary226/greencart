@@ -1,16 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
-import { motion } from 'framer-motion'
 
 const BottomNav = () => {
 
   const location = useLocation()
   const { setShowUserLogin, cartItems, axios } = useAppContext()
   const navigate = useNavigate()
-  const navRef = useRef(null)
-  const [activeIndex, setActiveIndex] = useState(0)
-  const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 })
 
   const [showSearch, setShowSearch] = useState(false)
   const [searchText, setSearchText] = useState('')
@@ -36,48 +32,6 @@ const BottomNav = () => {
       return () => clearTimeout(timer)
     }
   }, [cartCount])
-
-  // Liste des onglets
-  const navItems = [
-    { path: "/", icon: "🏠", label: "Accueil" },
-    { path: null, icon: "🔍", label: "Chercher", isSearch: true },
-    { path: "/categories", icon: "📂", label: "Catégories" },
-    { path: "/wishlist", icon: "❤️", label: "Favoris" },
-    { path: "/my-orders", icon: "📦", label: "Commandes" },
-    { path: "/account", icon: "👤", label: "Compte" }
-  ]
-
-  // Mettre à jour l'indicateur quand la page change
-  useEffect(() => {
-    const activeNavIndex = navItems.findIndex(item => item.path === location.pathname && !item.isSearch)
-    if (activeNavIndex !== -1) {
-      setActiveIndex(activeNavIndex)
-      updateIndicatorPosition(activeNavIndex)
-    }
-  }, [location.pathname])
-
-  // Calculer la position de l'indicateur
-  const updateIndicatorPosition = (index) => {
-    if (navRef.current) {
-      const buttons = navRef.current.querySelectorAll('a, button')
-      if (buttons[index]) {
-        const button = buttons[index]
-        const rect = button.getBoundingClientRect()
-        const containerRect = navRef.current.getBoundingClientRect()
-        setIndicatorStyle({
-          left: rect.left - containerRect.left,
-          width: rect.width
-        })
-      }
-    }
-  }
-
-  // Mettre à jour quand la fenêtre est redimensionnée
-  useEffect(() => {
-    const handleResize = () => updateIndicatorPosition(activeIndex)
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [activeIndex])
 
   const fetchCategories = async () => {
     try {
@@ -147,6 +101,7 @@ const BottomNav = () => {
   const handleSearch = (e) => {
     e.preventDefault()
     
+    // Construire l'URL avec les filtres
     const params = new URLSearchParams()
     
     if (searchText.trim()) {
@@ -171,22 +126,13 @@ const BottomNav = () => {
     setSearchText('')
   }
 
+  // Compter le nombre de filtres actifs
   const activeFiltersCount = () => {
     let count = 0
     if (filters.price.min > 0) count++
     if (filters.price.max < 10000) count++
     count += filters.categories.length
     return count
-  }
-
-  const handleNavClick = (item, index) => {
-    if (item.isSearch) {
-      setShowSearch(true)
-    } else {
-      setActiveIndex(index)
-      updateIndicatorPosition(index)
-      navigate(item.path)
-    }
   }
 
   return (
@@ -215,6 +161,7 @@ const BottomNav = () => {
                 className='flex-1 bg-transparent outline-none text-gray-700 placeholder-gray-400'
               />
               
+              {/* Bouton Filtre */}
               <button 
                 type='button'
                 onClick={() => setShowFilters(true)}
@@ -272,6 +219,7 @@ const BottomNav = () => {
             </div>
             
             <div className='p-4 space-y-6'>
+              {/* Filtre Prix */}
               <div>
                 <h3 className='font-medium mb-3'>Prix</h3>
                 <div className='flex gap-3'>
@@ -306,6 +254,7 @@ const BottomNav = () => {
                 </div>
               </div>
 
+              {/* Filtre Catégories */}
               <div>
                 <h3 className='font-medium mb-3'>Catégories</h3>
                 <div className='space-y-2 max-h-48 overflow-y-auto'>
@@ -349,51 +298,83 @@ const BottomNav = () => {
         </>
       )}
 
-      {/* Barre de navigation avec indicateur lumineux glissant */}
-      <div ref={navRef} className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-gray-100 flex justify-around items-center h-16 px-3 shadow-lg relative">
+      {/* Barre de navigation bas moderne - visible sur TOUS les écrans */}
+      <div className='fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-gray-100 flex justify-around items-center h-16 px-3 shadow-lg'>
         
-        {/* Indicateur lumineux glissant */}
-        <motion.div
-          className="absolute bottom-1 h-12 bg-primary/20 rounded-full shadow-md"
-          animate={indicatorStyle}
-          transition={{ type: "spring", stiffness: 500, damping: 30 }}
-          style={{ width: indicatorStyle.width }}
-        />
-
-        {navItems.map((item, index) => (
-          <div key={item.path || item.label} className="relative z-10 flex-1 flex justify-center">
-            {item.isSearch ? (
-              <button
-                onClick={() => handleNavClick(item, index)}
-                className={`flex flex-col items-center gap-1 transition-all duration-200 group py-2 px-3 rounded-full ${
-                  showSearch ? 'text-primary' : 'text-gray-500 hover:text-primary'
-                }`}
-              >
-                <div className="p-1.5 rounded-full transition-all duration-200 group-hover:bg-primary/10">
-                  <span className="text-xl">{item.icon}</span>
-                </div>
-                <span className="text-[11px] font-medium">{item.label}</span>
-              </button>
-            ) : (
-              <button
-                onClick={() => handleNavClick(item, index)}
-                className={`flex flex-col items-center gap-1 transition-all duration-200 group py-2 px-3 rounded-full ${
-                  isActive(item.path) ? 'text-primary' : 'text-gray-500 hover:text-primary'
-                }`}
-              >
-                <div className="p-1.5 rounded-full transition-all duration-200 group-hover:bg-primary/10">
-                  <span className="text-xl">{item.icon}</span>
-                  {item.path === "/my-orders" && cartCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
-                      {cartCount}
-                    </span>
-                  )}
-                </div>
-                <span className="text-[11px] font-medium">{item.label}</span>
-              </button>
-            )}
+        {/* Accueil */}
+        <Link to='/' className={`flex flex-col items-center gap-1 transition-all duration-200 group ${
+          isActive('/') ? 'text-primary' : 'text-gray-500 hover:text-primary'
+        }`}>
+          <div className={`p-1.5 rounded-full transition-all duration-200 group-hover:bg-primary/10 ${isActive('/') ? 'bg-primary/10' : ''}`}>
+            <svg className="w-5 h-5" fill={isActive('/') ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 9.75L12 3l9 6.75V21a.75.75 0 01-.75.75H15v-6h-6v6H3.75A.75.75 0 013 21V9.75z" />
+            </svg>
           </div>
-        ))}
+          <span className="text-[11px] font-medium">Accueil</span>
+        </Link>
+
+        {/* Recherche */}
+        <button onClick={() => setShowSearch(!showSearch)}
+          className={`flex flex-col items-center gap-1 transition-all duration-200 group ${
+            showSearch ? 'text-primary' : 'text-gray-500 hover:text-primary'
+          }`}>
+          <div className="p-1.5 rounded-full transition-all duration-200 group-hover:bg-primary/10">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 111 11a6 6 0 0116 0z" />
+            </svg>
+          </div>
+          <span className="text-[11px] font-medium">Chercher</span>
+        </button>
+
+        {/* Catégories */}
+        <Link to='/categories' className={`flex flex-col items-center gap-1 transition-all duration-200 group ${
+          isActive('/categories') ? 'text-primary' : 'text-gray-500 hover:text-primary'
+        }`}>
+          <div className="p-1.5 rounded-full transition-all duration-200 group-hover:bg-primary/10">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              <rect x="4" y="4" width="16" height="16" rx="2" />
+            </svg>
+          </div>
+          <span className="text-[11px] font-medium">Catégories</span>
+        </Link>
+
+        {/* Favoris */}
+        <Link to='/wishlist' className={`flex flex-col items-center gap-1 transition-all duration-200 group ${
+          isActive('/wishlist') ? 'text-primary' : 'text-gray-500 hover:text-primary'
+        }`}>
+          <div className="p-1.5 rounded-full transition-all duration-200 group-hover:bg-primary/10">
+            <svg className="w-5 h-5" fill={isActive('/wishlist') ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            </svg>
+          </div>
+          <span className="text-[11px] font-medium">Favoris</span>
+        </Link>
+
+        {/* Commandes */}
+        <Link to='/my-orders' className={`flex flex-col items-center gap-1 transition-all duration-200 group ${
+          isActive('/my-orders') ? 'text-primary' : 'text-gray-500 hover:text-primary'
+        }`}>
+          <div className="relative p-1.5 rounded-full transition-all duration-200 group-hover:bg-primary/10">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+          </div>
+          <span className="text-[11px] font-medium">Commandes</span>
+        </Link>
+
+        {/* Compte */}
+        <Link to='/account' className={`flex flex-col items-center gap-1 transition-all duration-200 group ${
+          isActive('/account') ? 'text-primary' : 'text-gray-500 hover:text-primary'
+        }`}>
+          <div className="p-1.5 rounded-full transition-all duration-200 group-hover:bg-primary/10">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+            </svg>
+          </div>
+          <span className="text-[11px] font-medium">Compte</span>
+        </Link>
+
       </div>
     </>
   )
