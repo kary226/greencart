@@ -1,178 +1,158 @@
 import React, { useState } from "react";
-import { assets } from "../assets/assets";
+import { Link } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
-import VariantSelector from "./VariantSelector";
 
 const ProductCard = ({ product }) => {
+  const { addToWishlist, wishlistItems, currency } = useAppContext();
+  const [imgIdx, setImgIdx] = useState(0);
 
-    const {
-        currency,
-        addToCartWithQuantity,
-        removeFromCart,
-        cartItems,
-        navigate,
-        addToWishlist,
-        removeFromWishlist,
-        isInWishlist
-    } = useAppContext();
+  if (!product) return null;
 
-    const [showVariantSelector, setShowVariantSelector] =
-        useState(false);
+  const { _id, name, price, offerPrice, images, rating, sold } = product;
+  const isWishlisted = wishlistItems?.some((id) => id === _id || id?._id === _id);
+  const discount = offerPrice && price ? Math.round(((price - offerPrice) / price) * 100) : null;
+  const displayPrice = offerPrice || price;
+  const mainImg = images?.[imgIdx] || images?.[0];
 
-    const getTotalStock = () => {
-        if (!product.variants?.length) return null;
-        return product.variants.reduce((acc, variant) => acc + variant.stock, 0);
-    };
+  return (
+    <div className="pcard">
+      <Link to={`/products/${_id}`} className="pcard-img-wrap">
+        {mainImg && (
+          <img
+            src={mainImg}
+            alt={name}
+            className="pcard-img"
+            onMouseEnter={() => images?.[1] && setImgIdx(1)}
+            onMouseLeave={() => setImgIdx(0)}
+            loading="lazy"
+          />
+        )}
+        {discount && <span className="pcard-discount">-{discount}%</span>}
+        <button
+          className={`pcard-wish${isWishlisted ? " wishlisted" : ""}`}
+          onClick={(e) => {
+            e.preventDefault();
+            addToWishlist && addToWishlist(_id);
+          }}
+          aria-label="Ajouter aux favoris"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill={isWishlisted ? "#e53935" : "none"} stroke={isWishlisted ? "#e53935" : "#fff"} strokeWidth="2">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+          </svg>
+        </button>
+        {sold > 50 && <span className="pcard-sold">{sold}+ vendus</span>}
+      </Link>
 
-    const totalStock = getTotalStock();
+      <Link to={`/products/${_id}`} className="pcard-info">
+        <p className="pcard-name">{name}</p>
+        <div className="pcard-prices">
+          <span className="pcard-price">{currency}{displayPrice?.toFixed(2)}</span>
+          {offerPrice && price && (
+            <span className="pcard-oldprice">{currency}{price?.toFixed(2)}</span>
+          )}
+        </div>
+        {rating > 0 && (
+          <div className="pcard-rating">
+            <span className="pcard-stars">{"★".repeat(Math.round(rating))}</span>
+            <span className="pcard-rating-val">{rating?.toFixed(1)}</span>
+          </div>
+        )}
+      </Link>
 
-    const isInCart = () => {
-        for (const key in cartItems) {
-            if (key.startsWith(product._id)) return true;
+      <style>{`
+        .pcard {
+          display: flex;
+          flex-direction: column;
+          background: #fff;
+          border-radius: 2px;
+          overflow: hidden;
+          transition: box-shadow .2s;
         }
-        return false;
-    };
-
-    const getTotalQty = () => {
-        let total = 0;
-        for (const key in cartItems) {
-            if (key.startsWith(product._id)) total += cartItems[key];
+        .pcard:hover { box-shadow: 0 4px 16px rgba(0,0,0,.1); }
+        .pcard-img-wrap {
+          position: relative;
+          display: block;
+          aspect-ratio: 3/4;
+          overflow: hidden;
+          background: #f5f5f5;
+          text-decoration: none;
         }
-        return total;
-    };
-
-    const inCart = isInCart();
-    const currentQty = getTotalQty();
-    const isOutOfStock = totalStock !== null && totalStock === 0;
-    const isMaxReached = totalStock !== null && currentQty >= totalStock;
-
-    // Récupérer la première catégorie pour le lien (compatibilité ancien/nouveau)
-    const getProductCategorySlug = () => {
-        if (product.categories && product.categories.length > 0) {
-            return product.categories[0].toLowerCase();
+        .pcard-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          transition: transform .3s;
         }
-        if (product.category) {
-            return product.category.toLowerCase();
+        .pcard:hover .pcard-img { transform: scale(1.04); }
+        .pcard-discount {
+          position: absolute;
+          top: 8px; left: 8px;
+          background: #e53935;
+          color: #fff;
+          font-size: 11px;
+          font-weight: 700;
+          padding: 2px 6px;
+          border-radius: 2px;
+          letter-spacing: .3px;
         }
-        return 'products'; // fallback
-    };
-
-    const handleWishlistClick = (e) => {
-        e.stopPropagation();
-        if (isInWishlist(product._id)) {
-            removeFromWishlist(product._id);
-        } else {
-            addToWishlist(product._id);
+        .pcard-wish {
+          position: absolute;
+          bottom: 8px; right: 8px;
+          background: rgba(0,0,0,.35);
+          border: none;
+          border-radius: 50%;
+          width: 32px; height: 32px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: background .2s;
         }
-    };
-
-    // Affichage des catégories pour le badge
-    const displayCategory = () => {
-        if (product.categories && product.categories.length > 0) {
-            return product.categories[0];
+        .pcard-wish:hover, .pcard-wish.wishlisted { background: rgba(0,0,0,.6); }
+        .pcard-sold {
+          position: absolute;
+          bottom: 8px; left: 8px;
+          background: rgba(0,0,0,.5);
+          color: #fff;
+          font-size: 10px;
+          padding: 2px 6px;
+          border-radius: 2px;
         }
-        return product.category;
-    };
-
-    return product && (
-        <>
-            <div
-                onClick={() => {
-                    navigate(`/products/${getProductCategorySlug()}/${product._id}`);
-                    scrollTo(0, 0);
-                }}
-                className="border border-gray-200 rounded-2xl bg-white overflow-hidden w-full hover:shadow-lg transition-all duration-300 cursor-pointer relative flex flex-col h-full"
-            >
-                {/* Bouton favori */}
-                <button
-                    onClick={handleWishlistClick}
-                    className="absolute top-2 right-2 z-10 bg-white/80 backdrop-blur-sm rounded-full w-8 h-8 flex items-center justify-center shadow-md hover:bg-white transition"
-                >
-                    <svg 
-                        className={`w-5 h-5 transition ${isInWishlist(product._id) ? 'text-red-500 fill-red-500' : 'text-gray-500 fill-none hover:text-red-400'}`} 
-                        fill="currentColor" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}
-                    >
-                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                    </svg>
-                </button>
-
-                {/* Image */}
-                <div className="h-[200px] overflow-hidden bg-white flex items-center justify-center p-4">
-                    <img
-                        className="w-full h-full object-contain hover:scale-105 transition duration-300"
-                        src={product.image[0]}
-                        alt={product.name}
-                    />
-                </div>
-
-                {/* Contenu */}
-                <div className="p-4 flex flex-col flex-1">
-                    <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">{displayCategory()}</p>
-                    <p className="text-gray-800 font-semibold text-base leading-5 line-clamp-2 min-h-[40px]">{product.name}</p>
-
-                    {/* Étoiles jaunes */}
-                    <div className="flex items-center gap-1 mt-2">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                            <svg key={star} className="w-3.5 h-3.5" fill={star <= 4 ? "#FBBF24" : "#E5E7EB"} viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                            </svg>
-                        ))}
-                        <p className="text-xs text-gray-400 ml-1">(4)</p>
-                    </div>
-
-                    {/* Variantes */}
-                    {product.variants?.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mt-2">
-                            {[...new Set(product.variants.map(v => v.color).filter(Boolean))].slice(0, 2).map((color, i) => (
-                                <span key={i} className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">{color}</span>
-                            ))}
-                            {[...new Set(product.variants.map(v => v.size).filter(Boolean))].slice(0, 2).map((size, i) => (
-                                <span key={i} className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">{size}</span>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Stock */}
-                    {isOutOfStock && <p className="text-xs text-red-500 mt-2 font-medium">❌ Épuisé</p>}
-                    {!isOutOfStock && totalStock !== null && totalStock <= 5 && (
-                        <p className="text-xs text-orange-500 mt-2 font-medium">⚠️ Plus que {totalStock}</p>
-                    )}
-
-                    {/* Prix et bouton */}
-                    <div className="flex items-center justify-between mt-4 pt-2 border-t border-gray-100">
-                        <div>
-                            <p className="text-xs text-gray-400 line-through mt-0.5">{product.price} {currency}</p>
-                            <p className="text-xs font-bold text-primary leading-none">{product.offerPrice} {currency}</p>   
-                        </div>
-
-                        <div onClick={(e) => e.stopPropagation()}>
-                            {isOutOfStock ? (
-                                <button disabled className="bg-gray-100 border border-gray-200 h-[34px] px-3 rounded-full text-gray-400 text-xs">Épuisé</button>
-                            ) : !inCart ? (
-                                <button
-                                    onClick={() => setShowVariantSelector(true)}
-                                    className="flex items-center justify-center gap-1.5 bg-primary text-white h-[34px] px-4 rounded-full hover:opacity-90 transition text-xs font-medium"
-                                >
-                                    <img src={assets.cart_icon} alt="cart_icon" className="w-3.5 h-3.5 brightness-0 invert" />
-                                    Ajouter
-                                </button>
-                            ) : (
-                                <div className="flex items-center justify-between w-[90px] h-[34px] bg-primary/10 rounded-full overflow-hidden">
-                                    <button onClick={() => { for (const key in cartItems) { if (key.startsWith(product._id)) { removeFromCart(key); break; } } }} className="w-8 h-full flex items-center justify-center text-primary text-base font-bold hover:bg-primary/10">-</button>
-                                    <span className="text-xs font-semibold text-primary">{currentQty}</span>
-                                    <button onClick={() => !isMaxReached && setShowVariantSelector(true)} className={`w-8 h-full flex items-center justify-center text-primary text-base font-bold hover:bg-primary/10 ${isMaxReached ? 'opacity-30 cursor-not-allowed' : ''}`}>+</button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {showVariantSelector && (
-                <VariantSelector product={product} onClose={() => setShowVariantSelector(false)} />
-            )}
-        </>
-    );
+        .pcard-info {
+          padding: 8px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          text-decoration: none;
+          flex: 1;
+        }
+        .pcard-name {
+          font-size: 12px;
+          color: #333;
+          line-height: 1.3;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          margin: 0;
+        }
+        .pcard-prices { display: flex; align-items: baseline; gap: 6px; }
+        .pcard-price {
+          font-size: 14px;
+          font-weight: 700;
+          color: #111;
+        }
+        .pcard-oldprice {
+          font-size: 11px;
+          color: #aaa;
+          text-decoration: line-through;
+        }
+        .pcard-rating { display: flex; align-items: center; gap: 4px; }
+        .pcard-stars { color: #ffa000; font-size: 11px; letter-spacing: -1px; }
+        .pcard-rating-val { font-size: 11px; color: #888; }
+      `}</style>
+    </div>
+  );
 };
 
 export default ProductCard;
