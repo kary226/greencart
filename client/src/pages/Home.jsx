@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
 import ProductCard from "../components/ProductCard";
@@ -13,7 +13,7 @@ const TABS = [
 ];
 
 const Home = () => {
-  const { products, currency, axios } = useAppContext();
+  const { products, axios } = useAppContext();
   const [activeTab, setActiveTab] = useState("foryou");
   const [categories, setCategories] = useState([]);
   const navigate = useNavigate();
@@ -116,7 +116,7 @@ const Home = () => {
             ))}
           </div>
 
-          {/* Product Grid - VERSION CORRIGÉE */}
+          {/* Product Grid */}
           {tabProducts.length > 0 ? (
             <div className="products-grid">
               {tabProducts.map((product) => (
@@ -136,7 +136,7 @@ const Home = () => {
           )}
         </section>
 
-        {/* ── LOGIN BANNER (if not logged in) ── */}
+        {/* ── LOGIN BANNER ── */}
         <div className="login-bar">
           <span>Connectez-vous et profitez-en davantage</span>
           <button 
@@ -281,7 +281,7 @@ const Home = () => {
         }
         .tab-icon { font-size: 12px; }
 
-        /* ── PRODUCT GRID CORRIGÉE ── */
+        /* ── PRODUCT GRID ── */
         .products-grid {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
