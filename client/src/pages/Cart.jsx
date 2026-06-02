@@ -246,13 +246,14 @@ const Cart = () => {
     }
 
     return products.length > 0 && cartItems ? (
-        <div className="flex flex-col md:flex-row mt-16">
-            <div className='flex-1 max-w-4xl'>
+        <div className="flex flex-col md:flex-row mt-16 gap-6">
+            {/* Colonne gauche - Liste des produits */}
+            <div className='flex-1 max-w-4xl bg-white rounded-lg p-5 shadow-sm'>
                 <h1 className="text-3xl font-medium mb-6">
                     Mon panier <span className="text-sm text-primary">{getCartCount()} articles</span>
                 </h1>
 
-                <div className="grid grid-cols-[2fr_1fr_1fr] text-gray-500 text-base font-medium pb-3">
+                <div className="grid grid-cols-[2fr_1fr_1fr] text-gray-500 text-base font-medium pb-3 border-b">
                     <p className="text-left">Détails du produit</p>
                     <p className="text-center">Sous-total</p>
                     <p className="text-center">Action</p>
@@ -315,8 +316,8 @@ const Cart = () => {
                         <button onClick={()=> removeFromCart(product.cartKey)} className="cursor-pointer mx-auto">
                             <img src={assets.remove_icon} alt="remove" className="inline-block w-6 h-6" />
                         </button>
-                    </div>)
-                )}
+                    </div>
+                ))}
 
                 <button onClick={()=> {navigate("/products"); scrollTo(0,0)}} className="group cursor-pointer flex items-center mt-8 gap-2 text-primary font-medium">
                     <img className="group-hover:-translate-x-1 transition" src={assets.arrow_right_icon_colored} alt="arrow" />
@@ -324,9 +325,10 @@ const Cart = () => {
                 </button>
             </div>
 
-            <div className="max-w-[360px] w-full bg-gray-100/40 p-5 max-md:mt-16 border border-gray-300/70">
-                <h2 className="text-xl md:text-xl font-medium">Récapitulatif</h2>
-                <hr className="border-gray-300 my-5" />
+            {/* Colonne droite - Récapitulatif (FOND BLANC) */}
+            <div className="max-w-[360px] w-full bg-white rounded-lg p-5 shadow-sm border border-gray-200">
+                <h2 className="text-xl font-medium">Récapitulatif</h2>
+                <hr className="border-gray-200 my-5" />
 
                 <div className="mb-6">
                     <p className="text-sm font-medium uppercase">Adresse de livraison</p>
@@ -336,7 +338,7 @@ const Cart = () => {
                             Changer
                         </button>
                         {showAddress && (
-                            <div className="absolute top-12 py-1 bg-white border border-gray-300 text-sm w-full z-10">
+                            <div className="absolute top-12 py-1 bg-white border border-gray-300 text-sm w-full z-10 rounded-lg shadow-lg">
                                 {addresses.map((address, index)=>(
                                     <div key={index} className="flex justify-between items-center p-2 hover:bg-gray-100">
                                         <p onClick={() => {setSelectedAddress(address); setShowAddress(false)}} className="flex-1 cursor-pointer">
@@ -353,7 +355,7 @@ const Cart = () => {
                                         </button>
                                     </div>
                                 ))}
-                                <p onClick={() => navigate("/add-address")} className="text-primary text-center cursor-pointer p-2 hover:bg-primary/10">
+                                <p onClick={() => navigate("/add-address")} className="text-primary text-center cursor-pointer p-2 hover:bg-primary/10 rounded-b-lg">
                                     Ajouter une adresse
                                 </p>
                             </div>
@@ -390,7 +392,7 @@ const Cart = () => {
                     </select>
                 </div>
 
-                <hr className="border-gray-300" />
+                <hr className="border-gray-200" />
 
                 <CouponInput amount={originalAmount} onCouponApplied={handleCouponApplied} />
 
@@ -415,7 +417,7 @@ const Cart = () => {
                     </p>
                 </div>
 
-                <button onClick={placeOrder} className="w-full py-3 mt-6 cursor-pointer bg-primary text-white font-medium hover:bg-primary-dull transition">
+                <button onClick={placeOrder} className="w-full py-3 mt-6 cursor-pointer bg-primary text-white font-medium hover:bg-primary-dull transition rounded-lg">
                     Procéder au paiement
                 </button>
             </div>
