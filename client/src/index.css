@@ -1,54 +1,30 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap');
 
-/* ── VARIABLES GLOBALES ── */
-:root {
-  --primary: #111111;
-  --primary-light: #333333;
-  --accent: #e53935;
-  --accent-orange: #ff6f00;
-  --success: #2e7d32;
-  --border: #e8e8e8;
-  --bg: #f5f5f5;
-  --card: #ffffff;
-  --text: #111111;
-  --text-2: #555555;
-  --text-3: #999999;
+@import "tailwindcss";
+
+*{
+  font-family: "Outfit", sans-serif;
 }
 
-/* ── BASE ── */
-html {
-  -webkit-tap-highlight-color: transparent;
+@theme {
+  --color-primary: #2563EB;
+  --color-primary-dull: #1D4ED8;
 }
 
+/* Cacher la scrollbar pour les sections scrollables */
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar,
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+/* Fond moderne */
 body {
-  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  background: #f5f5f5;
-  color: #111;
-  -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
+  background-color: #F8FAFC;
+  color: #1E293B;
 }
-
-/* ── SCROLLBAR ── */
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: #f5f5f5; }
-::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: #aaa; }
-
-a { color: inherit; }
-
-/* ── SKELETON LOADING ── */
-.skeleton {
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.4s infinite;
-  border-radius: 2px;
-}
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-/* ── PADDING BOTTOM NAV ── */
-body { padding-bottom: 60px; }
