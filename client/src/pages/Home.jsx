@@ -18,7 +18,6 @@ const Home = () => {
   const [categories, setCategories] = useState([]);
   const navigate = useNavigate();
 
-  // Récupérer les catégories
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -54,10 +53,8 @@ const Home = () => {
       <SEO title="Ramci – Mode & Tendances" description="Découvrez les meilleures offres sur Ramci." />
 
       <div className="home">
-        {/* ── BANNER ── */}
         <BannerCarousel position="top" />
 
-        {/* ── PROMO STRIP ── */}
         <section className="promo-strip">
           <Link to="/products" className="promo-item">
             <span className="promo-icon">🚚</span>
@@ -76,7 +73,6 @@ const Home = () => {
           </Link>
         </section>
 
-        {/* ── CATEGORIES ── */}
         {activeCategories.length > 0 && (
           <section className="home-cats">
             <div className="cats-scroll">
@@ -102,7 +98,6 @@ const Home = () => {
           </section>
         )}
 
-        {/* ── PRODUCT TABS ── */}
         <section className="home-tabs-section">
           <div className="home-tabs">
             {TABS.map((tab) => (
@@ -116,7 +111,6 @@ const Home = () => {
             ))}
           </div>
 
-          {/* Product Grid */}
           {tabProducts.length > 0 ? (
             <div className="products-grid">
               {tabProducts.map((product) => (
@@ -136,7 +130,6 @@ const Home = () => {
           )}
         </section>
 
-        {/* ── LOGIN BANNER ── */}
         <div className="login-bar">
           <span>Connectez-vous et profitez-en davantage</span>
           <button 
@@ -154,8 +147,6 @@ const Home = () => {
           min-height: 100vh;
           padding-bottom: 80px;
         }
-
-        /* ── PROMO STRIP ── */
         .promo-strip {
           display: flex;
           align-items: center;
@@ -188,8 +179,6 @@ const Home = () => {
           height: 30px;
           background: #eee;
         }
-
-        /* ── CATEGORIES ── */
         .home-cats {
           background: #fff;
           padding: 12px 0 8px;
@@ -243,8 +232,6 @@ const Home = () => {
           line-height: 1.2;
           max-width: 64px;
         }
-
-        /* ── TABS ── */
         .home-tabs-section { 
           background: #fff; 
           margin-top: 8px;
@@ -280,8 +267,6 @@ const Home = () => {
           font-weight: 700;
         }
         .tab-icon { font-size: 12px; }
-
-        /* ── PRODUCT GRID ── */
         .products-grid {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
@@ -318,8 +303,6 @@ const Home = () => {
           background: #111;
           color: #fff;
         }
-
-        /* ── LOGIN BAR ── */
         .login-bar {
           display: flex;
           align-items: center;
@@ -348,7 +331,7 @@ const Home = () => {
           opacity: 0.9;
         }
       `}</style>
-    </div>
+    </>
   );
 };
 
