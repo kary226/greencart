@@ -1,14 +1,34 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
 
 const Navbar = () => {
-  const { cartItems, wishlist, user, searchQuery, setSearchQuery } = useAppContext();
+  const { cartItems, wishlist, user, searchQuery, setSearchQuery, axios } = useAppContext();
   const [query, setQuery] = useState(searchQuery || "");
+  const [categories, setCategories] = useState([]);
+  const [loadingCats, setLoadingCats] = useState(true);
   const navigate = useNavigate();
 
   const cartCount = cartItems ? Object.values(cartItems).reduce((a, b) => a + b, 0) : 0;
   const wishCount = wishlist ? wishlist.length : 0;
+
+  // Récupérer les catégories depuis l'API
+  const fetchCategories = async () => {
+    try {
+      const { data } = await axios.get('/api/category/list');
+      if (data.success) {
+        setCategories(data.categories);
+      }
+    } catch (error) {
+      console.error("Erreur chargement catégories:", error);
+    } finally {
+      setLoadingCats(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -17,6 +37,9 @@ const Navbar = () => {
       navigate(`/products?search=${encodeURIComponent(query.trim())}`);
     }
   };
+
+  // Ne prendre que les catégories actives
+  const activeCategories = categories.filter(cat => cat.active !== false);
 
   return (
     <header className="navbar-root">
@@ -75,21 +98,38 @@ const Navbar = () => {
         </div>
       </div>
 
-      {/* Category quick nav */}
+      {/* Category quick nav - DYNAMIQUE depuis l'admin */}
       <nav className="navbar-cats">
-        <Link to="/products" className="cat-tab active">Tout</Link>
-        <Link to="/products?categories=Femmes" className="cat-tab">Femmes</Link>
-        <Link to="/products?categories=Sacs" className="cat-tab">Sacs</Link>
-        <Link to="/products?categories=Hommes" className="cat-tab">Hommes</Link>
-        <Link to="/products?categories=Chaussures" className="cat-tab">Chaussures</Link>
-        <Link to="/products?categories=Bijoux" className="cat-tab">Bijoux</Link>
-        <Link to="/categories" className="cat-tab cat-more">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <line x1="3" y1="12" x2="21" y2="12"/>
-            <line x1="3" y1="6" x2="21" y2="6"/>
-            <line x1="3" y1="18" x2="21" y2="18"/>
-          </svg>
-        </Link>
+        {loadingCats ? (
+          // Skeleton loading
+          <div className="cats-skeleton">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="skeleton-cat-tab"></div>
+            ))}
+          </div>
+        ) : (
+          <>
+            <Link to="/products" className="cat-tab">Tout</Link>
+            {activeCategories.slice(0, 6).map((cat) => (
+              <Link
+                key={cat._id}
+                to={`/products?categories=${cat.slug || cat.name}`}
+                className="cat-tab"
+              >
+                {cat.name}
+              </Link>
+            ))}
+            {activeCategories.length > 6 && (
+              <Link to="/categories" className="cat-tab cat-more">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="3" y1="12" x2="21" y2="12"/>
+                  <line x1="3" y1="6" x2="21" y2="6"/>
+                  <line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>
+              </Link>
+            )}
+          </>
+        )}
       </nav>
 
       <style>{`
@@ -199,6 +239,22 @@ const Navbar = () => {
           align-items: center;
           border: none;
           padding: 4px 8px;
+        }
+        .cats-skeleton {
+          display: flex;
+          gap: 8px;
+          padding: 4px 0;
+        }
+        .skeleton-cat-tab {
+          width: 60px;
+          height: 28px;
+          background: #e0e0e0;
+          border-radius: 4px;
+          animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
         }
       `}</style>
     </header>
