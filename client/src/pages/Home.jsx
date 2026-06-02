@@ -13,10 +13,9 @@ const TABS = [
 ];
 
 const Home = () => {
-  const { products, wishlist, currency, isInWishlist, addToWishlist, axios } = useAppContext();
+  const { products, currency, axios } = useAppContext();
   const [activeTab, setActiveTab] = useState("foryou");
   const [categories, setCategories] = useState([]);
-  const [banners, setBanners] = useState([]);
   const navigate = useNavigate();
 
   // Récupérer les catégories
@@ -30,19 +29,6 @@ const Home = () => {
       }
     };
     fetchCategories();
-  }, []);
-
-  // Récupérer les bannières
-  useEffect(() => {
-    const fetchBanners = async () => {
-      try {
-        const { data } = await axios.get('/api/banner/list');
-        if (data.success) setBanners(data.banners);
-      } catch (error) {
-        console.error("Erreur chargement bannières:", error);
-      }
-    };
-    fetchBanners();
   }, []);
 
   const activeCategories = categories?.filter((c) => c.active !== false) || [];
@@ -130,7 +116,7 @@ const Home = () => {
             ))}
           </div>
 
-          {/* Product Grid */}
+          {/* Product Grid - VERSION CORRIGÉE */}
           {tabProducts.length > 0 ? (
             <div className="products-grid">
               {tabProducts.map((product) => (
@@ -153,9 +139,12 @@ const Home = () => {
         {/* ── LOGIN BANNER (if not logged in) ── */}
         <div className="login-bar">
           <span>Connectez-vous et profitez-en davantage</span>
-          <Link to="/" className="login-bar-btn" onClick={() => window.dispatchEvent(new CustomEvent('openLogin'))}>
+          <button 
+            className="login-bar-btn"
+            onClick={() => window.dispatchEvent(new CustomEvent('openLogin'))}
+          >
             Connexion
-          </Link>
+          </button>
         </div>
       </div>
 
@@ -170,8 +159,8 @@ const Home = () => {
         .promo-strip {
           display: flex;
           align-items: center;
-          background: #fff8f0;
-          border-bottom: 1px solid #ffe0b2;
+          background: #fff;
+          border-bottom: 1px solid #eee;
           margin-bottom: 8px;
         }
         .promo-item {
@@ -197,7 +186,7 @@ const Home = () => {
         .promo-divider {
           width: 1px;
           height: 30px;
-          background: #ffe0b2;
+          background: #eee;
         }
 
         /* ── CATEGORIES ── */
@@ -210,7 +199,7 @@ const Home = () => {
           display: flex;
           overflow-x: auto;
           padding: 0 8px;
-          gap: 4px;
+          gap: 12px;
           scrollbar-width: none;
         }
         .cats-scroll::-webkit-scrollbar { display: none; }
@@ -218,24 +207,27 @@ const Home = () => {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 5px;
+          gap: 6px;
           min-width: 64px;
           text-decoration: none;
           padding: 4px;
         }
         .cat-circle {
-          width: 56px; height: 56px;
+          width: 60px;
+          height: 60px;
           border-radius: 50%;
           overflow: hidden;
-          border: 1.5px solid #e8e8e8;
+          border: 1px solid #eee;
           background: #f5f5f5;
         }
         .cat-img {
-          width: 100%; height: 100%;
+          width: 100%;
+          height: 100%;
           object-fit: cover;
         }
         .cat-placeholder {
-          width: 100%; height: 100%;
+          width: 100%;
+          height: 100%;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -253,13 +245,16 @@ const Home = () => {
         }
 
         /* ── TABS ── */
-        .home-tabs-section { background: #fff; }
+        .home-tabs-section { 
+          background: #fff; 
+          margin-top: 8px;
+        }
         .home-tabs {
           display: flex;
           overflow-x: auto;
           scrollbar-width: none;
           border-bottom: 1px solid #eee;
-          padding: 0 8px;
+          padding: 0 12px;
           gap: 0;
         }
         .home-tabs::-webkit-scrollbar { display: none; }
@@ -268,8 +263,8 @@ const Home = () => {
           background: none;
           border: none;
           border-bottom: 2px solid transparent;
-          padding: 12px 14px;
-          font-size: 12px;
+          padding: 12px 16px;
+          font-size: 13px;
           font-weight: 500;
           color: #888;
           cursor: pointer;
@@ -277,45 +272,47 @@ const Home = () => {
           transition: all .15s;
           display: flex;
           align-items: center;
-          gap: 4px;
+          gap: 6px;
         }
         .home-tab.active {
           color: #111;
           border-bottom-color: #111;
           font-weight: 700;
         }
-        .tab-icon { font-size: 11px; }
+        .tab-icon { font-size: 12px; }
 
-        /* ── PRODUCT GRID ── */
+        /* ── PRODUCT GRID CORRIGÉE ── */
         .products-grid {
           display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 2px;
-          background: #e8e8e8;
-          padding: 2px;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 8px;
+          background: #f5f5f5;
+          padding: 8px;
         }
         .empty-state {
           padding: 40px;
           text-align: center;
           color: #aaa;
           font-size: 14px;
+          background: #fff;
         }
         .see-more-wrap {
           display: flex;
           justify-content: center;
-          padding: 16px;
+          padding: 20px;
           background: #fff;
         }
         .see-more-btn {
           display: block;
-          border: 1.5px solid #111;
+          border: 1px solid #111;
           color: #111;
           font-size: 13px;
-          font-weight: 700;
+          font-weight: 600;
           padding: 10px 40px;
           text-decoration: none;
           letter-spacing: .5px;
           transition: all .15s;
+          border-radius: 2px;
         }
         .see-more-btn:hover {
           background: #111;
@@ -327,11 +324,12 @@ const Home = () => {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          background: rgba(0,0,0,.85);
+          background: #111;
           color: #fff;
-          padding: 12px 16px;
+          padding: 14px 16px;
           font-size: 12px;
           gap: 12px;
+          margin-top: 8px;
         }
         .login-bar-btn {
           flex-shrink: 0;
@@ -339,13 +337,18 @@ const Home = () => {
           color: #111;
           font-size: 12px;
           font-weight: 700;
-          padding: 7px 20px;
+          padding: 8px 20px;
           border-radius: 2px;
           text-decoration: none;
-          letter-spacing: .3px;
+          cursor: pointer;
+          border: none;
+          transition: opacity 0.2s;
+        }
+        .login-bar-btn:hover {
+          opacity: 0.9;
         }
       `}</style>
-    </>
+    </div>
   );
 };
 

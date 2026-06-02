@@ -10,20 +10,12 @@ const ProductCard = ({ product }) => {
 
   const { _id, name, price, offerPrice, image, variants } = product;
   
-  // Vérifier si le produit est dans la wishlist
   const isWishlisted = isInWishlist ? isInWishlist(_id) : false;
-  
-  // Calculer la réduction
   const discount = offerPrice && price ? Math.round(((price - offerPrice) / price) * 100) : null;
-  
-  // Prix affiché
   const displayPrice = offerPrice || price;
-  
-  // Image principale (tableau image dans product)
   const images = image || [];
   const mainImg = images[imgIdx] || images[0];
 
-  // Calculer le stock total pour savoir si c'est épuisé
   const totalStock = variants?.length > 0 
     ? variants.reduce((acc, v) => acc + (v.stock || 0), 0)
     : (product.inStock ? 1 : 0);
@@ -31,22 +23,22 @@ const ProductCard = ({ product }) => {
   const isOutOfStock = totalStock === 0;
 
   return (
-    <div className="pcard">
-      <Link to={`/products/${_id}`} className="pcard-img-wrap">
+    <div className="product-card">
+      <Link to={`/products/${_id}`} className="product-card-img-wrap">
         {mainImg && (
           <img
             src={mainImg}
             alt={name}
-            className="pcard-img"
+            className="product-card-img"
             onMouseEnter={() => images[1] && setImgIdx(1)}
             onMouseLeave={() => setImgIdx(0)}
             loading="lazy"
           />
         )}
-        {discount && !isOutOfStock && <span className="pcard-discount">-{discount}%</span>}
-        {isOutOfStock && <span className="pcard-sold stock-out">Épuisé</span>}
+        {discount && !isOutOfStock && <span className="product-discount">-{discount}%</span>}
+        {isOutOfStock && <span className="product-sold">Épuisé</span>}
         <button
-          className={`pcard-wish${isWishlisted ? " wishlisted" : ""}`}
+          className={`product-wishlist ${isWishlisted ? "active" : ""}`}
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -60,27 +52,26 @@ const ProductCard = ({ product }) => {
         </button>
       </Link>
 
-      <Link to={`/products/${_id}`} className="pcard-info">
-        <p className="pcard-name">{name}</p>
-        <div className="pcard-prices">
-          <span className="pcard-price">{currency}{displayPrice?.toFixed(2)}</span>
+      <Link to={`/products/${_id}`} className="product-card-info">
+        <h3 className="product-name">{name}</h3>
+        <div className="product-prices">
+          <span className="product-price">{currency}{displayPrice?.toFixed(2)}</span>
           {offerPrice && price && price > offerPrice && (
-            <span className="pcard-oldprice">{currency}{price?.toFixed(2)}</span>
+            <span className="product-oldprice">{currency}{price?.toFixed(2)}</span>
           )}
         </div>
       </Link>
 
       <style>{`
-        .pcard {
+        .product-card {
           display: flex;
           flex-direction: column;
           background: #fff;
-          border-radius: 2px;
+          border-radius: 4px;
           overflow: hidden;
-          transition: box-shadow .2s;
+          transition: box-shadow 0.2s;
         }
-        .pcard:hover { box-shadow: 0 4px 16px rgba(0,0,0,.1); }
-        .pcard-img-wrap {
+        .product-card-img-wrap {
           position: relative;
           display: block;
           aspect-ratio: 3/4;
@@ -88,76 +79,89 @@ const ProductCard = ({ product }) => {
           background: #f5f5f5;
           text-decoration: none;
         }
-        .pcard-img {
+        .product-card-img {
           width: 100%;
           height: 100%;
           object-fit: cover;
-          transition: transform .3s;
+          transition: transform 0.3s;
         }
-        .pcard:hover .pcard-img { transform: scale(1.04); }
-        .pcard-discount {
+        .product-card:hover .product-card-img {
+          transform: scale(1.03);
+        }
+        .product-discount {
           position: absolute;
-          top: 8px; left: 8px;
+          top: 8px;
+          left: 8px;
           background: #e53935;
           color: #fff;
           font-size: 11px;
           font-weight: 700;
           padding: 2px 6px;
           border-radius: 2px;
-          letter-spacing: .3px;
+          z-index: 2;
         }
-        .pcard-wish {
+        .product-wishlist {
           position: absolute;
-          bottom: 8px; right: 8px;
-          background: rgba(0,0,0,.35);
+          bottom: 8px;
+          right: 8px;
+          background: rgba(0,0,0,0.35);
           border: none;
           border-radius: 50%;
-          width: 32px; height: 32px;
+          width: 30px;
+          height: 30px;
           display: flex;
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          transition: background .2s;
+          transition: background 0.2s;
+          z-index: 2;
         }
-        .pcard-wish:hover, .pcard-wish.wishlisted { background: rgba(0,0,0,.6); }
-        .pcard-sold {
+        .product-wishlist:hover,
+        .product-wishlist.active {
+          background: rgba(0,0,0,0.6);
+        }
+        .product-sold {
           position: absolute;
-          bottom: 8px; left: 8px;
-          background: rgba(0,0,0,.5);
+          bottom: 8px;
+          left: 8px;
+          background: rgba(0,0,0,0.6);
           color: #fff;
           font-size: 10px;
           padding: 2px 6px;
           border-radius: 2px;
+          z-index: 2;
         }
-        .pcard-sold.stock-out {
-          background: #e53935;
-          font-weight: 700;
-        }
-        .pcard-info {
-          padding: 8px;
+        .product-card-info {
+          padding: 10px 8px 8px;
           display: flex;
           flex-direction: column;
           gap: 4px;
           text-decoration: none;
-          flex: 1;
         }
-        .pcard-name {
+        .product-name {
           font-size: 12px;
+          font-weight: 400;
           color: #333;
-          line-height: 1.3;
+          line-height: 1.4;
+          margin: 0;
+          overflow: hidden;
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
-          overflow: hidden;
-          margin: 0;
+          min-height: 32px;
         }
-        .pcard-prices { display: flex; align-items: baseline; gap: 6px; }
-        .pcard-price {
+        .product-prices {
+          display: flex;
+          align-items: baseline;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+        .product-price {
           font-size: 14px;
           font-weight: 700;
           color: #111;
         }
-        .pcard-oldprice {
+        .product-oldprice {
           font-size: 11px;
           color: #aaa;
           text-decoration: line-through;
