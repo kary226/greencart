@@ -31,7 +31,7 @@ const BottomNav = () => {
       ),
     },
     {
-      to: "/products?tab=new",
+      to: "/products?sort=newest",
       label: "Tendances",
       icon: (active) => (
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? "#111" : "#888"} strokeWidth="2">

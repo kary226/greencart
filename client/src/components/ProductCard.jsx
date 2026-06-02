@@ -3,16 +3,32 @@ import { Link } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
 
 const ProductCard = ({ product }) => {
-  const { addToWishlist, wishlistItems, currency } = useAppContext();
+  const { addToWishlist, wishlist, currency, isInWishlist } = useAppContext();
   const [imgIdx, setImgIdx] = useState(0);
 
   if (!product) return null;
 
-  const { _id, name, price, offerPrice, images, rating, sold } = product;
-  const isWishlisted = wishlistItems?.some((id) => id === _id || id?._id === _id);
+  const { _id, name, price, offerPrice, image, variants } = product;
+  
+  // Vérifier si le produit est dans la wishlist
+  const isWishlisted = isInWishlist ? isInWishlist(_id) : false;
+  
+  // Calculer la réduction
   const discount = offerPrice && price ? Math.round(((price - offerPrice) / price) * 100) : null;
+  
+  // Prix affiché
   const displayPrice = offerPrice || price;
-  const mainImg = images?.[imgIdx] || images?.[0];
+  
+  // Image principale (tableau image dans product)
+  const images = image || [];
+  const mainImg = images[imgIdx] || images[0];
+
+  // Calculer le stock total pour savoir si c'est épuisé
+  const totalStock = variants?.length > 0 
+    ? variants.reduce((acc, v) => acc + (v.stock || 0), 0)
+    : (product.inStock ? 1 : 0);
+  
+  const isOutOfStock = totalStock === 0;
 
   return (
     <div className="pcard">
@@ -22,16 +38,18 @@ const ProductCard = ({ product }) => {
             src={mainImg}
             alt={name}
             className="pcard-img"
-            onMouseEnter={() => images?.[1] && setImgIdx(1)}
+            onMouseEnter={() => images[1] && setImgIdx(1)}
             onMouseLeave={() => setImgIdx(0)}
             loading="lazy"
           />
         )}
-        {discount && <span className="pcard-discount">-{discount}%</span>}
+        {discount && !isOutOfStock && <span className="pcard-discount">-{discount}%</span>}
+        {isOutOfStock && <span className="pcard-sold stock-out">Épuisé</span>}
         <button
           className={`pcard-wish${isWishlisted ? " wishlisted" : ""}`}
           onClick={(e) => {
             e.preventDefault();
+            e.stopPropagation();
             addToWishlist && addToWishlist(_id);
           }}
           aria-label="Ajouter aux favoris"
@@ -40,23 +58,16 @@ const ProductCard = ({ product }) => {
             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
           </svg>
         </button>
-        {sold > 50 && <span className="pcard-sold">{sold}+ vendus</span>}
       </Link>
 
       <Link to={`/products/${_id}`} className="pcard-info">
         <p className="pcard-name">{name}</p>
         <div className="pcard-prices">
           <span className="pcard-price">{currency}{displayPrice?.toFixed(2)}</span>
-          {offerPrice && price && (
+          {offerPrice && price && price > offerPrice && (
             <span className="pcard-oldprice">{currency}{price?.toFixed(2)}</span>
           )}
         </div>
-        {rating > 0 && (
-          <div className="pcard-rating">
-            <span className="pcard-stars">{"★".repeat(Math.round(rating))}</span>
-            <span className="pcard-rating-val">{rating?.toFixed(1)}</span>
-          </div>
-        )}
       </Link>
 
       <style>{`
@@ -118,6 +129,10 @@ const ProductCard = ({ product }) => {
           padding: 2px 6px;
           border-radius: 2px;
         }
+        .pcard-sold.stock-out {
+          background: #e53935;
+          font-weight: 700;
+        }
         .pcard-info {
           padding: 8px;
           display: flex;
@@ -147,9 +162,6 @@ const ProductCard = ({ product }) => {
           color: #aaa;
           text-decoration: line-through;
         }
-        .pcard-rating { display: flex; align-items: center; gap: 4px; }
-        .pcard-stars { color: #ffa000; font-size: 11px; letter-spacing: -1px; }
-        .pcard-rating-val { font-size: 11px; color: #888; }
       `}</style>
     </div>
   );

@@ -3,12 +3,12 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
 
 const Navbar = () => {
-  const { cartItems, wishlistItems, user, searchQuery, setSearchQuery } = useAppContext();
+  const { cartItems, wishlist, user, searchQuery, setSearchQuery } = useAppContext();
   const [query, setQuery] = useState(searchQuery || "");
   const navigate = useNavigate();
 
   const cartCount = cartItems ? Object.values(cartItems).reduce((a, b) => a + b, 0) : 0;
-  const wishCount = wishlistItems ? wishlistItems.length : 0;
+  const wishCount = wishlist ? wishlist.length : 0;
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -48,11 +48,29 @@ const Navbar = () => {
         </form>
 
         <div className="navbar-actions">
+          {/* Panier */}
+          <Link to="/cart" className="nav-action-btn" aria-label="Panier">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M9 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm7 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-7-6h7l2-6H7l2 6z"/>
+              <circle cx="9" cy="20" r="1"/><circle cx="17" cy="20" r="1"/>
+            </svg>
+            {cartCount > 0 && <span className="badge">{cartCount}</span>}
+          </Link>
+
+          {/* Wishlist */}
           <Link to="/wishlist" className="nav-action-btn" aria-label="Wishlist">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
             </svg>
             {wishCount > 0 && <span className="badge">{wishCount}</span>}
+          </Link>
+
+          {/* Compte */}
+          <Link to="/account" className="nav-action-btn" aria-label="Compte">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
           </Link>
         </div>
       </div>
@@ -60,14 +78,16 @@ const Navbar = () => {
       {/* Category quick nav */}
       <nav className="navbar-cats">
         <Link to="/products" className="cat-tab active">Tout</Link>
-        <Link to="/products?cat=femmes" className="cat-tab">Femmes</Link>
-        <Link to="/products?cat=sacs" className="cat-tab">Sacs</Link>
-        <Link to="/products?cat=hommes" className="cat-tab">Hommes</Link>
-        <Link to="/products?cat=chaussures" className="cat-tab">Chaussures</Link>
-        <Link to="/products?cat=bijoux" className="cat-tab">Bijoux</Link>
+        <Link to="/products?categories=Femmes" className="cat-tab">Femmes</Link>
+        <Link to="/products?categories=Sacs" className="cat-tab">Sacs</Link>
+        <Link to="/products?categories=Hommes" className="cat-tab">Hommes</Link>
+        <Link to="/products?categories=Chaussures" className="cat-tab">Chaussures</Link>
+        <Link to="/products?categories=Bijoux" className="cat-tab">Bijoux</Link>
         <Link to="/categories" className="cat-tab cat-more">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
+            <line x1="3" y1="12" x2="21" y2="12"/>
+            <line x1="3" y1="6" x2="21" y2="6"/>
+            <line x1="3" y1="18" x2="21" y2="18"/>
           </svg>
         </Link>
       </nav>
