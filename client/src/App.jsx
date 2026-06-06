@@ -38,7 +38,7 @@ const App = () => {
 
   const location = useLocation();
   const isSellerPath = location.pathname.includes("seller");
-  const {showUserLogin, isSeller} = useAppContext()
+  const { showUserLogin, isSeller } = useAppContext()
 
   // Scroll automatique en haut à chaque changement de page
   useEffect(() => {
@@ -59,7 +59,13 @@ const App = () => {
           <Route path='/' element={<Home/>} />
           <Route path='/products' element={<AllProducts/>} />
           <Route path='/products/:category' element={<ProductCategory/>} />
+          
+          {/* Route pour un produit avec catégorie (ancien format) */}
           <Route path='/products/:category/:id' element={<ProductDetails/>} />
+          
+          {/* NOUVELLE ROUTE : route simple sans catégorie pour ProductCard */}
+          <Route path='/product/:id' element={<ProductDetails/>} />
+          
           <Route path='/cart' element={<Cart/>} />
           <Route path='/add-address' element={<AddAddress/>} />
           <Route path='/my-orders' element={<MyOrders/>} />
