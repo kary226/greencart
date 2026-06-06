@@ -190,7 +190,7 @@ const Home = () => {
           flex-direction: column;
           align-items: center;
           gap: 7px;
-          min-width: 66px;
+          min-width: 70px;
           text-decoration: none;
           flex-shrink: 0;
           padding: 2px;
@@ -234,15 +234,18 @@ const Home = () => {
 
         .ramci-cat-label {
           font-family: 'DM Sans', sans-serif;
-          font-size: 11px;
+          font-size: 10px;
           font-weight: 500;
           color: #444;
           text-align: center;
-          line-height: 1.2;
-          max-width: 66px;
+          line-height: 1.3;
+          max-width: 70px;
+          word-break: break-word;
+          white-space: normal;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
           overflow: hidden;
-          white-space: nowrap;
-          text-overflow: ellipsis;
         }
 
         /* ── SECTION PRODUITS ── */
