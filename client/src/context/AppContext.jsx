@@ -38,7 +38,8 @@ export const AppContextProvider = ({ children }) => {
     const [showUserLogin, setShowUserLogin] = useState(false);
     const [products, setProducts] = useState([]);
     const [cartItems, setCartItems] = useState({});
-    const [searchQuery, setSearchQuery] = useState({});
+    // ✅ CORRECTION : initialisation avec une chaîne vide au lieu d'un objet
+    const [searchQuery, setSearchQuery] = useState("");
     const [wishlist, setWishlist] = useState([]);
     const [recentlyViewed, setRecentlyViewed] = useState([]);
 
@@ -327,7 +328,7 @@ export const AppContextProvider = ({ children }) => {
         axios, fetchProducts, setCartItems, getCartKey, getProductIdFromKey,
         wishlist, addToWishlist, removeFromWishlist, isInWishlist, fetchWishlist,
         fetchUser, loginUser, registerUser, logoutUser,
-        recentlyViewed, addToRecentlyViewed  // ← Ajout des produits récemment vus
+        recentlyViewed, addToRecentlyViewed
     };
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
