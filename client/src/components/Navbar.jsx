@@ -39,7 +39,6 @@ const Navbar = () => {
     const getProductRelevance = (product) => {
       let score = 0;
       const productName = product.name?.toLowerCase() || '';
-      const productCategory = product.category?.toLowerCase() || '';
       
       // Correspondance exacte (score le plus haut)
       if (productName === term) score += 100;
@@ -51,7 +50,6 @@ const Navbar = () => {
       // Correspondance par mots
       termWords.forEach(word => {
         if (productName.includes(word)) score += 10;
-        if (productCategory.includes(word)) score += 5;
       });
       
       return score;
@@ -61,8 +59,7 @@ const Navbar = () => {
     const productMatches = products
       .filter(p => {
         const productName = p.name?.toLowerCase() || '';
-        const productCategory = p.category?.toLowerCase() || '';
-        return productName.includes(term) || productCategory.includes(term);
+        return productName.includes(term);
       })
       .map(p => ({
         ...p,
@@ -80,12 +77,9 @@ const Navbar = () => {
       }
       return false;
     }).map(p => ({
-      type: "product",
       text: p.name,
-      link: `/products/${p.category?.slug || "all"}/${p._id}`,
       relevance: p.relevance,
-      price: p.offerPrice || p.price,
-      image: p.image?.[0]
+      price: p.offerPrice || p.price
     }));
     
     // Suggestions de catégories
@@ -95,17 +89,14 @@ const Navbar = () => {
         return catName.includes(term);
       })
       .map(c => ({
-        type: "category",
         text: c.name,
-        link: `/products?categories=${c.slug || c.name}`,
-        relevance: 60, // Score élevé pour les catégories
-        image: c.image
+        relevance: 60
       }));
     
     // Combiner et trier par pertinence
     const allSuggestions = [...productSuggestions, ...categoryMatches]
       .sort((a, b) => b.relevance - a.relevance)
-      .slice(0, 12);
+      .slice(0, 10);
     
     return allSuggestions;
   };
@@ -119,12 +110,9 @@ const Navbar = () => {
       const { data } = await axios.get(`/api/product/search-suggestions?q=${encodeURIComponent(searchTerm)}`);
       if (data.success && data.suggestions) {
         const apiSuggestions = data.suggestions.map(s => ({
-          type: s.type,
           text: s.text,
-          link: s.link,
           relevance: s.relevance || 50,
-          price: s.price,
-          image: s.image
+          price: s.price
         }));
         setSuggestions(prev => {
           const local = getLocalSuggestions(searchTerm);
@@ -138,7 +126,7 @@ const Navbar = () => {
             }
             return false;
           });
-          return deduped.sort((a, b) => b.relevance - a.relevance).slice(0, 12);
+          return deduped.sort((a, b) => b.relevance - a.relevance).slice(0, 10);
         });
       } else {
         setSuggestions(getLocalSuggestions(searchTerm));
@@ -185,11 +173,11 @@ const Navbar = () => {
     }
   };
 
-  const handleSuggestionClick = (link, text) => {
+  const handleSuggestionClick = (text) => {
     setQuery(text);
     setShowSuggestions(false);
     setSearchQuery && setSearchQuery(text);
-    navigate(link);
+    navigate(`/products?search=${encodeURIComponent(text)}`);
   };
 
   return (
@@ -249,16 +237,12 @@ const Navbar = () => {
                   {suggestions.map((suggestion, idx) => (
                     <div
                       key={idx}
-                      className={`suggestion-item ${suggestion.type === 'category' ? 'suggestion-category' : ''}`}
-                      onClick={() => handleSuggestionClick(suggestion.link, suggestion.text)}
+                      className="suggestion-item"
+                      onClick={() => handleSuggestionClick(suggestion.text)}
                     >
-                      {suggestion.image ? (
-                        <img src={suggestion.image} alt="" className="suggestion-img" />
-                      ) : (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2">
-                          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-                        </svg>
-                      )}
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2">
+                        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                      </svg>
                       <div className="suggestion-content">
                         <span className="suggestion-text">{suggestion.text}</span>
                         {suggestion.price && (
@@ -267,9 +251,6 @@ const Navbar = () => {
                           </span>
                         )}
                       </div>
-                      <span className={`suggestion-type ${suggestion.type === 'category' ? 'cat' : 'prod'}`}>
-                        {suggestion.type === 'category' ? 'Catégorie' : 'Produit'}
-                      </span>
                     </div>
                   ))}
                   <div className="suggestion-footer">
@@ -437,13 +418,6 @@ const Navbar = () => {
         .suggestion-item:hover {
           background: #f7f5f2;
         }
-        .suggestion-img {
-          width: 36px;
-          height: 36px;
-          border-radius: 8px;
-          object-fit: cover;
-          background: #f5f3f0;
-        }
         .suggestion-content {
           flex: 1;
           display: flex;
@@ -452,30 +426,15 @@ const Navbar = () => {
         }
         .suggestion-text {
           font-family: 'DM Sans', sans-serif;
-          font-size: 13px;
+          font-size: 14px;
           font-weight: 500;
           color: #333;
         }
         .suggestion-price {
           font-family: 'DM Sans', sans-serif;
-          font-size: 11px;
+          font-size: 12px;
           font-weight: 600;
           color: #111;
-        }
-        .suggestion-type {
-          flex-shrink: 0;
-          font-size: 10px;
-          font-weight: 500;
-          padding: 4px 10px;
-          border-radius: 20px;
-        }
-        .suggestion-type.prod {
-          background: #e8f5e9;
-          color: #2e7d32;
-        }
-        .suggestion-type.cat {
-          background: #e3f2fd;
-          color: #1565c0;
         }
         .suggestion-loading, .suggestion-empty {
           padding: 16px;
