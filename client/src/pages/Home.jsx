@@ -39,9 +39,6 @@ const Home = () => {
   };
 
   const sectionProducts = getSectionProducts();
-  
-  // Récupérer les 6 derniers produits pour la section "Nouveautés" du bas
-  const latestProducts = [...allProducts].reverse().slice(0, 6);
 
   return (
     <>
@@ -85,7 +82,7 @@ const Home = () => {
           </section>
         )}
 
-        {/* ── SECTION PRODUITS AVEC HEADER ── */}
+        {/* ── SECTION PRODUITS ── */}
         <section className="ramci-products-section">
           <div className="ramci-section-header">
             <h2 className="ramci-section-title">
@@ -112,35 +109,25 @@ const Home = () => {
           </div>
 
           {sectionProducts.length > 0 ? (
-            <div className="ramci-grid">
-              {sectionProducts.map(p => (
-                <ProductCard key={p._id} product={p} />
-              ))}
-            </div>
+            <>
+              <div className="ramci-grid">
+                {sectionProducts.map(p => (
+                  <ProductCard key={p._id} product={p} />
+                ))}
+              </div>
+              {/* Bouton Voir plus */}
+              <div className="ramci-view-more-wrapper">
+                <button 
+                  onClick={() => navigate('/products')} 
+                  className="ramci-view-more-btn"
+                >
+                  Voir plus
+                </button>
+              </div>
+            </>
           ) : (
             <div className="ramci-empty">Aucun produit disponible</div>
           )}
-        </section>
-
-        {/* ── SECOND BANNER ── */}
-        <BannerCarousel position="middle" />
-
-        {/* ── NOUVEAUTÉS RÉCENTES (section bas) ── */}
-        <section className="ramci-products-section">
-          <div className="ramci-section-header">
-            <h2 className="ramci-section-title">Nouveautés récentes</h2>
-            <Link to="/products?sort=new" className="ramci-voir-tout">
-              Voir tout
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M9 18l6-6-6-6"/>
-              </svg>
-            </Link>
-          </div>
-          <div className="ramci-grid">
-            {latestProducts.map(p => (
-              <ProductCard key={p._id} product={p} />
-            ))}
-          </div>
         </section>
 
       </div>
@@ -314,6 +301,31 @@ const Home = () => {
           color: #bbb;
           font-family: 'DM Sans', sans-serif;
           font-size: 14px;
+        }
+
+        /* Bouton Voir plus */
+        .ramci-view-more-wrapper {
+          display: flex;
+          justify-content: center;
+          margin-top: 24px;
+        }
+
+        .ramci-view-more-btn {
+          background: #111;
+          color: #fff;
+          border: none;
+          padding: 12px 32px;
+          border-radius: 40px;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .ramci-view-more-btn:hover {
+          background: #333;
+          transform: scale(1.02);
         }
       `}</style>
     </>
