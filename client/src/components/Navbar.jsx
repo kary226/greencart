@@ -8,39 +8,106 @@ const Navbar = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [categories, setCategories] = useState([]);
   const suggestionsRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
 
   const cartCount = cartItems ? Object.values(cartItems).reduce((a, b) => a + b, 0) : 0;
 
-  // Recherche locale dans les produits déjà chargés
+  // Charger les catégories
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const { data } = await axios.get('/api/category/list');
+        if (data.success) setCategories(data.categories);
+      } catch (error) {
+        console.error("Erreur chargement catégories:", error);
+      }
+    };
+    fetchCategories();
+  }, []);
+
+  // Recherche locale avec pertinence
   const getLocalSuggestions = (searchTerm) => {
     if (!searchTerm.trim()) return [];
     
     const term = searchTerm.toLowerCase().trim();
+    const termWords = term.split(' ');
     
-    // Suggestions de produits
-    const productMatches = products.filter(p => 
-      p.name?.toLowerCase().includes(term) || 
-      p.category?.toLowerCase().includes(term)
-    ).slice(0, 5);
+    // Calcul du score de pertinence pour un produit
+    const getProductRelevance = (product) => {
+      let score = 0;
+      const productName = product.name?.toLowerCase() || '';
+      const productCategory = product.category?.toLowerCase() || '';
+      
+      // Correspondance exacte (score le plus haut)
+      if (productName === term) score += 100;
+      // Commence par le terme recherché
+      else if (productName.startsWith(term)) score += 80;
+      // Contient le terme exact
+      else if (productName.includes(term)) score += 50;
+      
+      // Correspondance par mots
+      termWords.forEach(word => {
+        if (productName.includes(word)) score += 10;
+        if (productCategory.includes(word)) score += 5;
+      });
+      
+      return score;
+    };
     
-    // Suggestions uniques par nom de produit (sans doublons)
-    const uniqueProductNames = [];
+    // Filtrer et noter les produits
+    const productMatches = products
+      .filter(p => {
+        const productName = p.name?.toLowerCase() || '';
+        const productCategory = p.category?.toLowerCase() || '';
+        return productName.includes(term) || productCategory.includes(term);
+      })
+      .map(p => ({
+        ...p,
+        relevance: getProductRelevance(p)
+      }))
+      .sort((a, b) => b.relevance - a.relevance) // Tri par pertinence
+      .slice(0, 8); // Limiter à 8 produits
+    
+    // Suggestions de produits (sans doublons de noms)
+    const uniqueProductNames = new Set();
     const productSuggestions = productMatches.filter(p => {
-      if (!uniqueProductNames.includes(p.name)) {
-        uniqueProductNames.push(p.name);
+      if (!uniqueProductNames.has(p.name)) {
+        uniqueProductNames.add(p.name);
         return true;
       }
       return false;
     }).map(p => ({
       type: "product",
       text: p.name,
-      link: `/products/${p.category?.slug || "all"}/${p._id}`
+      link: `/products/${p.category?.slug || "all"}/${p._id}`,
+      relevance: p.relevance,
+      price: p.offerPrice || p.price,
+      image: p.image?.[0]
     }));
     
-    return productSuggestions;
+    // Suggestions de catégories
+    const categoryMatches = categories
+      .filter(c => {
+        const catName = c.name?.toLowerCase() || '';
+        return catName.includes(term);
+      })
+      .map(c => ({
+        type: "category",
+        text: c.name,
+        link: `/products?categories=${c.slug || c.name}`,
+        relevance: 60, // Score élevé pour les catégories
+        image: c.image
+      }));
+    
+    // Combiner et trier par pertinence
+    const allSuggestions = [...productSuggestions, ...categoryMatches]
+      .sort((a, b) => b.relevance - a.relevance)
+      .slice(0, 12);
+    
+    return allSuggestions;
   };
 
   // Recherche API pour plus de suggestions
@@ -54,12 +121,24 @@ const Navbar = () => {
         const apiSuggestions = data.suggestions.map(s => ({
           type: s.type,
           text: s.text,
-          link: s.link
+          link: s.link,
+          relevance: s.relevance || 50,
+          price: s.price,
+          image: s.image
         }));
         setSuggestions(prev => {
           const local = getLocalSuggestions(searchTerm);
           const combined = [...local, ...apiSuggestions];
-          return combined.slice(0, 10);
+          // Déduplication par texte
+          const uniqueTexts = new Set();
+          const deduped = combined.filter(s => {
+            if (!uniqueTexts.has(s.text)) {
+              uniqueTexts.add(s.text);
+              return true;
+            }
+            return false;
+          });
+          return deduped.sort((a, b) => b.relevance - a.relevance).slice(0, 12);
         });
       } else {
         setSuggestions(getLocalSuggestions(searchTerm));
@@ -146,7 +225,7 @@ const Navbar = () => {
           </svg>
           <input
             type="text"
-            placeholder="Rechercher un article..."
+            placeholder="Rechercher un article ou une catégorie..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => query.trim() && setShowSuggestions(true)}
@@ -170,16 +249,27 @@ const Navbar = () => {
                   {suggestions.map((suggestion, idx) => (
                     <div
                       key={idx}
-                      className="suggestion-item"
+                      className={`suggestion-item ${suggestion.type === 'category' ? 'suggestion-category' : ''}`}
                       onClick={() => handleSuggestionClick(suggestion.link, suggestion.text)}
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2">
-                        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-                      </svg>
-                      <span>{suggestion.text}</span>
-                      {suggestion.type === "product" && (
-                        <span className="suggestion-type">Produit</span>
+                      {suggestion.image ? (
+                        <img src={suggestion.image} alt="" className="suggestion-img" />
+                      ) : (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2">
+                          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                        </svg>
                       )}
+                      <div className="suggestion-content">
+                        <span className="suggestion-text">{suggestion.text}</span>
+                        {suggestion.price && (
+                          <span className="suggestion-price">
+                            {Number(suggestion.price).toLocaleString("fr-FR")} FCFA
+                          </span>
+                        )}
+                      </div>
+                      <span className={`suggestion-type ${suggestion.type === 'category' ? 'cat' : 'prod'}`}>
+                        {suggestion.type === 'category' ? 'Catégorie' : 'Produit'}
+                      </span>
                     </div>
                   ))}
                   <div className="suggestion-footer">
@@ -330,7 +420,7 @@ const Navbar = () => {
           box-shadow: 0 4px 20px rgba(0,0,0,0.1);
           margin-top: 8px;
           z-index: 300;
-          max-height: 350px;
+          max-height: 400px;
           overflow-y: auto;
           border: 1px solid #eee;
         }
@@ -347,22 +437,45 @@ const Navbar = () => {
         .suggestion-item:hover {
           background: #f7f5f2;
         }
-        .suggestion-item svg {
-          flex-shrink: 0;
+        .suggestion-img {
+          width: 36px;
+          height: 36px;
+          border-radius: 8px;
+          object-fit: cover;
+          background: #f5f3f0;
         }
-        .suggestion-item span {
+        .suggestion-content {
           flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .suggestion-text {
           font-family: 'DM Sans', sans-serif;
           font-size: 13px;
+          font-weight: 500;
           color: #333;
+        }
+        .suggestion-price {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 11px;
+          font-weight: 600;
+          color: #111;
         }
         .suggestion-type {
           flex-shrink: 0;
           font-size: 10px;
-          color: #999;
-          background: #f0ede8;
-          padding: 2px 8px;
+          font-weight: 500;
+          padding: 4px 10px;
           border-radius: 20px;
+        }
+        .suggestion-type.prod {
+          background: #e8f5e9;
+          color: #2e7d32;
+        }
+        .suggestion-type.cat {
+          background: #e3f2fd;
+          color: #1565c0;
         }
         .suggestion-loading, .suggestion-empty {
           padding: 16px;
