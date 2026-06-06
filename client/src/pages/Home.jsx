@@ -145,15 +145,7 @@ const Home = () => {
         </section>
 
         {/* ── LOGIN CTA ── */}
-        <div className="ramci-cta-bar">
-          <p className="ramci-cta-text">Connectez-vous pour profiter d'offres exclusives</p>
-          <button
-            className="ramci-cta-btn"
-            onClick={() => window.dispatchEvent(new CustomEvent('openLogin'))}
-          >
-            Se connecter
-          </button>
-        </div>
+        
 
       </div>
 
