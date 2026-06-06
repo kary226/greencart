@@ -20,7 +20,6 @@ const ProductCard = ({ product }) => {
     : (product.inStock ? 1 : 0);
   const isOutOfStock = totalStock === 0;
 
-  // Récupérer le slug de la catégorie pour construire le bon lien
   const categorySlug = category?.slug || product.categorySlug || "all";
 
   return (
@@ -35,7 +34,6 @@ const ProductCard = ({ product }) => {
             : <div className="rc-card-no-img" />
           }
 
-          {/* Badge promo */}
           {discount && !isOutOfStock && (
             <span className="rc-badge rc-badge-promo">-{discount}%</span>
           )}
@@ -43,7 +41,6 @@ const ProductCard = ({ product }) => {
             <span className="rc-badge rc-badge-sold">Épuisé</span>
           )}
 
-          {/* Bouton wishlist */}
           <button
             className={`rc-wishlist-btn${isWishlisted ? " active" : ""}`}
             onClick={(e) => {
@@ -65,9 +62,9 @@ const ProductCard = ({ product }) => {
         <Link to={`/products/${categorySlug}/${_id}`} className="rc-card-info">
           <p className="rc-card-name">{name}</p>
           <div className="rc-card-prices">
-            <span className="rc-price">{currency}{Number(displayPrice).toLocaleString("fr-FR")}</span>
+            <span className="rc-price">{Number(displayPrice).toLocaleString("fr-FR")} {currency}</span>
             {offerPrice && price && price > offerPrice && (
-              <span className="rc-old-price">{currency}{Number(price).toLocaleString("fr-FR")}</span>
+              <span className="rc-old-price">{Number(price).toLocaleString("fr-FR")} {currency}</span>
             )}
           </div>
         </Link>
@@ -110,7 +107,6 @@ const ProductCard = ({ product }) => {
           background: #ede8e0;
         }
 
-        /* Badges */
         .rc-badge {
           position: absolute;
           top: 10px;
@@ -131,7 +127,6 @@ const ProductCard = ({ product }) => {
           color: #fff;
         }
 
-        /* Wishlist button */
         .rc-wishlist-btn {
           position: absolute;
           top: 10px;
@@ -152,7 +147,6 @@ const ProductCard = ({ product }) => {
         .rc-wishlist-btn:hover { transform: scale(1.1); }
         .rc-wishlist-btn.active { background: #fff5f5; }
 
-        /* Info */
         .rc-card-info {
           padding: 10px 4px 6px;
           display: flex;
@@ -176,8 +170,9 @@ const ProductCard = ({ product }) => {
 
         .rc-card-prices {
           display: flex;
-          align-items: baseline;
-          gap: 6px;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
         }
 
         .rc-price {
