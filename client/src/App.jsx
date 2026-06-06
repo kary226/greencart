@@ -54,7 +54,7 @@ const App = () => {
      <Toaster />
 
       {/* Padding adapté : petit sur mobile, plus grand sur desktop mais reste cohérent */}
-      <div className={`${isSellerPath ? "" : "px-4 pt-16 pb-20"}`}>
+      <div className={`${isSellerPath ? "" : "pb-20"}`}>
         <Routes>
           <Route path='/' element={<Home/>} />
           <Route path='/products' element={<AllProducts/>} />

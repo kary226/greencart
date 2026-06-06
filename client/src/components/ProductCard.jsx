@@ -3,171 +3,195 @@ import { Link } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
 
 const ProductCard = ({ product }) => {
-  const { addToWishlist, wishlist, currency, isInWishlist } = useAppContext();
+  const { addToWishlist, currency, isInWishlist } = useAppContext();
   const [imgIdx, setImgIdx] = useState(0);
 
   if (!product) return null;
 
   const { _id, name, price, offerPrice, image, variants } = product;
-  
   const isWishlisted = isInWishlist ? isInWishlist(_id) : false;
   const discount = offerPrice && price ? Math.round(((price - offerPrice) / price) * 100) : null;
   const displayPrice = offerPrice || price;
   const images = image || [];
   const mainImg = images[imgIdx] || images[0];
 
-  const totalStock = variants?.length > 0 
+  const totalStock = variants?.length > 0
     ? variants.reduce((acc, v) => acc + (v.stock || 0), 0)
     : (product.inStock ? 1 : 0);
-  
   const isOutOfStock = totalStock === 0;
 
   return (
-    <div className="product-card">
-      <Link to={`/products/${_id}`} className="product-card-img-wrap">
-        {mainImg && (
-          <img
-            src={mainImg}
-            alt={name}
-            className="product-card-img"
-            onMouseEnter={() => images[1] && setImgIdx(1)}
-            onMouseLeave={() => setImgIdx(0)}
-            loading="lazy"
-          />
-        )}
-        {discount && !isOutOfStock && <span className="product-discount">-{discount}%</span>}
-        {isOutOfStock && <span className="product-sold">Épuisé</span>}
-        <button
-          className={`product-wishlist ${isWishlisted ? "active" : ""}`}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            addToWishlist && addToWishlist(_id);
-          }}
-          aria-label="Ajouter aux favoris"
+    <>
+      <div className="rc-card">
+        <Link to={`/products/${_id}`} className="rc-card-img-wrap"
+          onMouseEnter={() => images[1] && setImgIdx(1)}
+          onMouseLeave={() => setImgIdx(0)}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill={isWishlisted ? "#e53935" : "none"} stroke={isWishlisted ? "#e53935" : "#fff"} strokeWidth="2">
-            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-          </svg>
-        </button>
-      </Link>
+          {mainImg
+            ? <img src={mainImg} alt={name} className="rc-card-img" loading="lazy" />
+            : <div className="rc-card-no-img" />
+          }
 
-      <Link to={`/products/${_id}`} className="product-card-info">
-        <h3 className="product-name">{name}</h3>
-        <div className="product-prices">
-          <span className="product-price">{currency}{displayPrice?.toFixed(2)}</span>
-          {offerPrice && price && price > offerPrice && (
-            <span className="product-oldprice">{currency}{price?.toFixed(2)}</span>
+          {/* Badge promo */}
+          {discount && !isOutOfStock && (
+            <span className="rc-badge rc-badge-promo">-{discount}%</span>
           )}
-        </div>
-      </Link>
+          {isOutOfStock && (
+            <span className="rc-badge rc-badge-sold">Épuisé</span>
+          )}
+
+          {/* Bouton wishlist */}
+          <button
+            className={`rc-wishlist-btn${isWishlisted ? " active" : ""}`}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              addToWishlist && addToWishlist(_id);
+            }}
+            aria-label="Ajouter aux favoris"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24"
+              fill={isWishlisted ? "#e53935" : "none"}
+              stroke={isWishlisted ? "#e53935" : "#333"}
+              strokeWidth="2">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+          </button>
+        </Link>
+
+        <Link to={`/products/${_id}`} className="rc-card-info">
+          <p className="rc-card-name">{name}</p>
+          <div className="rc-card-prices">
+            <span className="rc-price">{currency}{Number(displayPrice).toLocaleString("fr-FR")}</span>
+            {offerPrice && price && price > offerPrice && (
+              <span className="rc-old-price">{currency}{Number(price).toLocaleString("fr-FR")}</span>
+            )}
+          </div>
+        </Link>
+      </div>
 
       <style>{`
-        .product-card {
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap');
+
+        .rc-card {
+          background: #fff;
           display: flex;
           flex-direction: column;
-          background: #fff;
-          border-radius: 4px;
           overflow: hidden;
-          transition: box-shadow 0.2s;
+          border-radius: 12px;
         }
-        .product-card-img-wrap {
+
+        .rc-card-img-wrap {
           position: relative;
           display: block;
           aspect-ratio: 3/4;
           overflow: hidden;
-          background: #f5f5f5;
+          background: #f5f3f0;
+          border-radius: 12px;
           text-decoration: none;
         }
-        .product-card-img {
+
+        .rc-card-img {
           width: 100%;
           height: 100%;
           object-fit: cover;
-          transition: transform 0.3s;
+          transition: transform .4s ease;
         }
-        .product-card:hover .product-card-img {
-          transform: scale(1.03);
+        .rc-card-img-wrap:hover .rc-card-img {
+          transform: scale(1.05);
         }
-        .product-discount {
+
+        .rc-card-no-img {
+          width: 100%;
+          height: 100%;
+          background: #ede8e0;
+        }
+
+        /* Badges */
+        .rc-badge {
           position: absolute;
-          top: 8px;
-          left: 8px;
-          background: #e53935;
-          color: #fff;
+          top: 10px;
+          left: 10px;
+          font-family: 'DM Sans', sans-serif;
           font-size: 11px;
           font-weight: 700;
-          padding: 2px 6px;
-          border-radius: 2px;
+          padding: 3px 8px;
+          border-radius: 6px;
           z-index: 2;
         }
-        .product-wishlist {
+        .rc-badge-promo {
+          background: #e53935;
+          color: #fff;
+        }
+        .rc-badge-sold {
+          background: rgba(0,0,0,.55);
+          color: #fff;
+        }
+
+        /* Wishlist button */
+        .rc-wishlist-btn {
           position: absolute;
-          bottom: 8px;
-          right: 8px;
-          background: rgba(0,0,0,0.35);
-          border: none;
+          top: 10px;
+          right: 10px;
+          width: 32px;
+          height: 32px;
           border-radius: 50%;
-          width: 30px;
-          height: 30px;
+          background: rgba(255,255,255,.9);
+          border: none;
           display: flex;
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          transition: background 0.2s;
           z-index: 2;
+          box-shadow: 0 1px 4px rgba(0,0,0,.12);
+          transition: background .2s, transform .15s;
         }
-        .product-wishlist:hover,
-        .product-wishlist.active {
-          background: rgba(0,0,0,0.6);
-        }
-        .product-sold {
-          position: absolute;
-          bottom: 8px;
-          left: 8px;
-          background: rgba(0,0,0,0.6);
-          color: #fff;
-          font-size: 10px;
-          padding: 2px 6px;
-          border-radius: 2px;
-          z-index: 2;
-        }
-        .product-card-info {
-          padding: 10px 8px 8px;
+        .rc-wishlist-btn:hover { transform: scale(1.1); }
+        .rc-wishlist-btn.active { background: #fff5f5; }
+
+        /* Info */
+        .rc-card-info {
+          padding: 10px 4px 6px;
           display: flex;
           flex-direction: column;
           gap: 4px;
           text-decoration: none;
         }
-        .product-name {
-          font-size: 12px;
+
+        .rc-card-name {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 13px;
           font-weight: 400;
           color: #333;
-          line-height: 1.4;
           margin: 0;
+          line-height: 1.4;
           overflow: hidden;
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
-          min-height: 32px;
         }
-        .product-prices {
+
+        .rc-card-prices {
           display: flex;
           align-items: baseline;
           gap: 6px;
-          flex-wrap: wrap;
         }
-        .product-price {
+
+        .rc-price {
+          font-family: 'DM Sans', sans-serif;
           font-size: 14px;
           font-weight: 700;
           color: #111;
         }
-        .product-oldprice {
+
+        .rc-old-price {
+          font-family: 'DM Sans', sans-serif;
           font-size: 11px;
-          color: #aaa;
+          color: #bbb;
           text-decoration: line-through;
         }
       `}</style>
-    </div>
+    </>
   );
 };
 

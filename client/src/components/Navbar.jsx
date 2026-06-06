@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
 
 const Navbar = () => {
@@ -8,25 +8,22 @@ const Navbar = () => {
   const [categories, setCategories] = useState([]);
   const [loadingCats, setLoadingCats] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const cartCount = cartItems ? Object.values(cartItems).reduce((a, b) => a + b, 0) : 0;
   const wishCount = wishlist ? wishlist.length : 0;
 
-  // Récupérer les catégories depuis l'API
-  const fetchCategories = async () => {
-    try {
-      const { data } = await axios.get('/api/category/list');
-      if (data.success) {
-        setCategories(data.categories);
-      }
-    } catch (error) {
-      console.error("Erreur chargement catégories:", error);
-    } finally {
-      setLoadingCats(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const { data } = await axios.get('/api/category/list');
+        if (data.success) setCategories(data.categories);
+      } catch (error) {
+        console.error("Erreur chargement catégories:", error);
+      } finally {
+        setLoadingCats(false);
+      }
+    };
     fetchCategories();
   }, []);
 
@@ -38,226 +35,263 @@ const Navbar = () => {
     }
   };
 
-  // Ne prendre que les catégories actives
   const activeCategories = categories.filter(cat => cat.active !== false);
 
   return (
-    <header className="navbar-root">
-      {/* Top strip */}
-      <div className="navbar-top">
-        <Link to="/" className="navbar-logo">
-          <span className="logo-text">RAMCI</span>
-        </Link>
-
-        <form className="navbar-search" onSubmit={handleSearch}>
-          <button type="button" className="search-icon-btn cam-btn" aria-label="Recherche photo">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-              <circle cx="12" cy="13" r="4"/>
-            </svg>
+    <>
+      <header className="ramci-navbar">
+        {/* TOP ROW */}
+        <div className="ramci-nav-top">
+          {/* Hamburger */}
+          <button className="ramci-menu-btn" aria-label="Menu">
+            <span /><span /><span />
           </button>
+
+          {/* Logo centré */}
+          <Link to="/" className="ramci-logo">RAMCI</Link>
+
+          {/* Actions droite */}
+          <div className="ramci-nav-actions">
+            <Link to="/wishlist" className="ramci-nav-icon" aria-label="Favoris">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+              </svg>
+            </Link>
+            <Link to="/cart" className="ramci-nav-icon ramci-cart-icon" aria-label="Panier">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+                <line x1="3" y1="6" x2="21" y2="6"/>
+                <path d="M16 10a4 4 0 0 1-8 0"/>
+              </svg>
+              {cartCount > 0 && <span className="ramci-badge">{cartCount}</span>}
+            </Link>
+          </div>
+        </div>
+
+        {/* SEARCH BAR */}
+        <form className="ramci-search-form" onSubmit={handleSearch}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2.2">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
           <input
             type="text"
-            placeholder="Rechercher des produits..."
+            placeholder="Rechercher un article..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="search-input"
+            className="ramci-search-input"
           />
-          <button type="submit" className="search-icon-btn" aria-label="Chercher">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          <button type="button" className="ramci-filter-btn" aria-label="Filtres">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2">
+              <line x1="4" y1="6" x2="20" y2="6"/>
+              <line x1="8" y1="12" x2="16" y2="12"/>
+              <line x1="11" y1="18" x2="13" y2="18"/>
             </svg>
           </button>
         </form>
 
-        <div className="navbar-actions">
-          {/* Panier */}
-          <Link to="/cart" className="nav-action-btn" aria-label="Panier">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M9 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm7 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-7-6h7l2-6H7l2 6z"/>
-              <circle cx="9" cy="20" r="1"/><circle cx="17" cy="20" r="1"/>
-            </svg>
-            {cartCount > 0 && <span className="badge">{cartCount}</span>}
+        {/* CATEGORIES SCROLL */}
+        <nav className="ramci-cats-nav">
+          <Link to="/products" className={`ramci-cat-pill ${location.search === '' && location.pathname === '/products' ? 'active' : ''}`}>
+            <span className="ramci-cat-icon-all">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                <rect x="0" y="0" width="7" height="7" rx="1.5"/><rect x="9" y="0" width="7" height="7" rx="1.5"/>
+                <rect x="0" y="9" width="7" height="7" rx="1.5"/><rect x="9" y="9" width="7" height="7" rx="1.5"/>
+              </svg>
+            </span>
+            Tous
           </Link>
-
-          {/* Wishlist */}
-          <Link to="/wishlist" className="nav-action-btn" aria-label="Wishlist">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-            </svg>
-            {wishCount > 0 && <span className="badge">{wishCount}</span>}
-          </Link>
-
-          {/* Compte */}
-          <Link to="/account" className="nav-action-btn" aria-label="Compte">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-              <circle cx="12" cy="7" r="4"/>
-            </svg>
-          </Link>
-        </div>
-      </div>
-
-      {/* Category quick nav - DYNAMIQUE depuis l'admin */}
-      <nav className="navbar-cats">
-        {loadingCats ? (
-          // Skeleton loading
-          <div className="cats-skeleton">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="skeleton-cat-tab"></div>
-            ))}
-          </div>
-        ) : (
-          <>
-            <Link to="/products" className="cat-tab">Tout</Link>
-            {activeCategories.slice(0, 6).map((cat) => (
-              <Link
-                key={cat._id}
-                to={`/products?categories=${cat.slug || cat.name}`}
-                className="cat-tab"
-              >
-                {cat.name}
-              </Link>
-            ))}
-            {activeCategories.length > 6 && (
-              <Link to="/categories" className="cat-tab cat-more">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <line x1="3" y1="12" x2="21" y2="12"/>
-                  <line x1="3" y1="6" x2="21" y2="6"/>
-                  <line x1="3" y1="18" x2="21" y2="18"/>
-                </svg>
-              </Link>
-            )}
-          </>
-        )}
-      </nav>
+          {activeCategories.slice(0, 8).map((cat) => (
+            <Link
+              key={cat._id}
+              to={`/products?categories=${cat.slug || cat.name}`}
+              className="ramci-cat-pill"
+            >
+              {cat.image && (
+                <span className="ramci-cat-pill-img">
+                  <img src={cat.image} alt={cat.name} />
+                </span>
+              )}
+              {cat.name}
+            </Link>
+          ))}
+        </nav>
+      </header>
 
       <style>{`
-        .navbar-root {
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=DM+Sans:wght@400;500;600&display=swap');
+
+        .ramci-navbar {
           position: sticky;
           top: 0;
-          z-index: 100;
+          z-index: 200;
           background: #fff;
-          box-shadow: 0 1px 0 #e5e5e5;
+          border-bottom: 1px solid #f0ede8;
         }
-        .navbar-top {
+
+        /* TOP ROW */
+        .ramci-nav-top {
           display: flex;
           align-items: center;
-          gap: 8px;
-          padding: 10px 12px 8px;
+          justify-content: space-between;
+          padding: 14px 16px 10px;
         }
-        .navbar-logo { text-decoration: none; flex-shrink: 0; }
-        .logo-text {
-          font-family: 'Georgia', serif;
-          font-size: 20px;
-          font-weight: 700;
-          letter-spacing: 3px;
-          color: #111;
-        }
-        .navbar-search {
-          flex: 1;
-          display: flex;
-          align-items: center;
-          background: #f5f5f5;
-          border-radius: 4px;
-          padding: 0 10px;
-          height: 38px;
-          gap: 6px;
-        }
-        .search-input {
-          flex: 1;
-          border: none;
-          background: transparent;
-          font-size: 13px;
-          color: #111;
-          outline: none;
-        }
-        .search-input::placeholder { color: #999; }
-        .search-icon-btn {
+
+        .ramci-menu-btn {
           background: none;
           border: none;
-          padding: 0;
           cursor: pointer;
-          color: #666;
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+          padding: 4px;
+          width: 36px;
+        }
+        .ramci-menu-btn span {
+          display: block;
+          height: 1.5px;
+          background: #111;
+          border-radius: 2px;
+          transition: width .2s;
+        }
+        .ramci-menu-btn span:nth-child(1) { width: 22px; }
+        .ramci-menu-btn span:nth-child(2) { width: 16px; }
+        .ramci-menu-btn span:nth-child(3) { width: 19px; }
+
+        .ramci-logo {
+          font-family: 'Cormorant Garamond', Georgia, serif;
+          font-size: 26px;
+          font-weight: 600;
+          letter-spacing: 6px;
+          color: #111;
+          text-decoration: none;
+          text-transform: uppercase;
+          position: absolute;
+          left: 50%;
+          transform: translateX(-50%);
+        }
+
+        .ramci-nav-actions {
           display: flex;
           align-items: center;
+          gap: 4px;
         }
-        .cam-btn { color: #999; }
-        .navbar-actions { display: flex; gap: 4px; flex-shrink: 0; }
-        .nav-action-btn {
+
+        .ramci-nav-icon {
           position: relative;
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 36px;
-          height: 36px;
+          width: 38px;
+          height: 38px;
           color: #111;
           text-decoration: none;
+          transition: opacity .15s;
         }
-        .badge {
+        .ramci-nav-icon:hover { opacity: .6; }
+
+        .ramci-cart-icon { position: relative; }
+        .ramci-badge {
           position: absolute;
-          top: 2px; right: 2px;
-          background: #e53935;
+          top: 4px;
+          right: 4px;
+          background: #111;
           color: #fff;
+          font-family: 'DM Sans', sans-serif;
           font-size: 9px;
-          font-weight: 700;
+          font-weight: 600;
           min-width: 16px;
           height: 16px;
-          border-radius: 8px;
+          border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
           padding: 0 3px;
         }
-        .navbar-cats {
+
+        /* SEARCH */
+        .ramci-search-form {
+          display: flex;
+          align-items: center;
+          margin: 0 16px 12px;
+          background: #f7f5f2;
+          border-radius: 10px;
+          padding: 10px 14px;
+          gap: 10px;
+        }
+        .ramci-search-input {
+          flex: 1;
+          border: none;
+          background: transparent;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 13.5px;
+          color: #333;
+          outline: none;
+        }
+        .ramci-search-input::placeholder { color: #aaa; }
+        .ramci-filter-btn {
+          background: none;
+          border: none;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          padding: 0;
+          opacity: .7;
+        }
+
+        /* CATEGORIES */
+        .ramci-cats-nav {
           display: flex;
           align-items: center;
           overflow-x: auto;
-          padding: 0 12px 8px;
-          gap: 0;
           scrollbar-width: none;
+          padding: 0 12px 12px;
+          gap: 8px;
         }
-        .navbar-cats::-webkit-scrollbar { display: none; }
-        .cat-tab {
+        .ramci-cats-nav::-webkit-scrollbar { display: none; }
+
+        .ramci-cat-pill {
           flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 7px 14px;
+          border-radius: 50px;
+          border: 1.5px solid #e8e3dc;
+          font-family: 'DM Sans', sans-serif;
           font-size: 13px;
           font-weight: 500;
           color: #555;
           text-decoration: none;
-          padding: 4px 12px;
-          border-bottom: 2px solid transparent;
+          background: #fff;
           white-space: nowrap;
-          transition: color .15s, border-color .15s;
+          transition: all .2s;
         }
-        .cat-tab.active, .cat-tab:hover {
-          color: #111;
-          border-bottom-color: #111;
-          font-weight: 700;
+        .ramci-cat-pill:hover,
+        .ramci-cat-pill.active {
+          background: #111;
+          color: #fff;
+          border-color: #111;
         }
-        .cat-more {
+
+        .ramci-cat-icon-all {
           display: flex;
           align-items: center;
-          border: none;
-          padding: 4px 8px;
         }
-        .cats-skeleton {
-          display: flex;
-          gap: 8px;
-          padding: 4px 0;
+
+        .ramci-cat-pill-img {
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          overflow: hidden;
+          flex-shrink: 0;
         }
-        .skeleton-cat-tab {
-          width: 60px;
-          height: 28px;
-          background: #e0e0e0;
-          border-radius: 4px;
-          animation: pulse 1.5s infinite;
-        }
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
+        .ramci-cat-pill-img img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
         }
       `}</style>
-    </header>
+    </>
   );
 };
 
