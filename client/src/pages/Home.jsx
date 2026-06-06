@@ -144,7 +144,6 @@ const Home = () => {
           </div>
         </section>
 
-        {/* ── LOGIN CTA ── */}
         
 
       </div>
