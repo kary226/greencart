@@ -28,12 +28,12 @@ const Navbar = () => {
     fetchCategories();
   }, []);
 
-  // Recherche locale avec pertinence
+  // Recherche locale avec mots-clés
   const getLocalSuggestions = (searchTerm) => {
     if (!searchTerm.trim()) return [];
     
     const term = searchTerm.toLowerCase().trim();
-    const termWords = term.split(' ');
+    const termWords = term.split(' ').filter(w => w.length > 0);
     
     // Calcul du score de pertinence pour un produit
     const getProductRelevance = (product) => {
@@ -46,97 +46,98 @@ const Navbar = () => {
       else if (productName.startsWith(term)) score += 80;
       // Contient le terme exact
       else if (productName.includes(term)) score += 50;
-      
-      // Correspondance par mots
-      termWords.forEach(word => {
-        if (productName.includes(word)) score += 10;
-      });
+      // Recherche par mots individuels
+      else {
+        termWords.forEach(word => {
+          if (productName.includes(word)) score += 15;
+        });
+      }
       
       return score;
     };
     
-    // Filtrer et noter les produits
-    const productMatches = products
-      .filter(p => {
-        const productName = p.name?.toLowerCase() || '';
-        return productName.includes(term);
-      })
-      .map(p => ({
-        ...p,
-        relevance: getProductRelevance(p)
-      }))
-      .sort((a, b) => b.relevance - a.relevance) // Tri par pertinence
-      .slice(0, 8); // Limiter à 8 produits
+    // Filtrer les produits
+    let productMatches = [];
     
-    // Suggestions de produits (sans doublons de noms)
-    const uniqueProductNames = new Set();
-    const productSuggestions = productMatches.filter(p => {
-      if (!uniqueProductNames.has(p.name)) {
-        uniqueProductNames.add(p.name);
-        return true;
+    if (termWords.length === 1) {
+      // Recherche simple : tous les produits contenant le mot
+      productMatches = products
+        .filter(p => {
+          const productName = p.name?.toLowerCase() || '';
+          return productName.includes(term);
+        })
+        .map(p => ({
+          ...p,
+          relevance: getProductRelevance(p)
+        }));
+    } else {
+      // Recherche multiple : produits contenant TOUS les mots
+      productMatches = products
+        .filter(p => {
+          const productName = p.name?.toLowerCase() || '';
+          return termWords.every(word => productName.includes(word));
+        })
+        .map(p => ({
+          ...p,
+          relevance: getProductRelevance(p)
+        }));
+      
+      // Si pas assez de résultats, ajouter ceux qui contiennent au moins un mot
+      if (productMatches.length < 5) {
+        const partialMatches = products
+          .filter(p => {
+            const productName = p.name?.toLowerCase() || '';
+            return termWords.some(word => productName.includes(word)) && 
+                   !productMatches.some(m => m._id === p._id);
+          })
+          .map(p => ({
+            ...p,
+            relevance: getProductRelevance(p) - 20
+          }));
+        productMatches = [...productMatches, ...partialMatches];
       }
-      return false;
-    }).map(p => ({
-      text: p.name,
-      relevance: p.relevance,
-      price: p.offerPrice || p.price
-    }));
+    }
+    
+    // Trier par pertinence
+    productMatches.sort((a, b) => b.relevance - a.relevance);
+    
+    // Limiter à 8 produits et supprimer doublons de noms
+    const uniqueProductNames = new Set();
+    const productSuggestions = productMatches
+      .filter(p => {
+        if (!uniqueProductNames.has(p.name)) {
+          uniqueProductNames.add(p.name);
+          return true;
+        }
+        return false;
+      })
+      .slice(0, 8)
+      .map(p => ({
+        text: p.name,
+        relevance: p.relevance,
+        type: "product"
+      }));
     
     // Suggestions de catégories
     const categoryMatches = categories
       .filter(c => {
         const catName = c.name?.toLowerCase() || '';
-        return catName.includes(term);
+        // La catégorie doit contenir au moins un des mots recherchés
+        return termWords.some(word => catName.includes(word));
       })
       .map(c => ({
         text: c.name,
-        relevance: 60
+        relevance: 60,
+        type: "category",
+        slug: c.slug || c.name
       }));
     
-    // Combiner et trier par pertinence
+    // Combiner produits + catégories, trier par pertinence
     const allSuggestions = [...productSuggestions, ...categoryMatches]
       .sort((a, b) => b.relevance - a.relevance)
-      .slice(0, 10);
+      .slice(0, 12);
     
     return allSuggestions;
-  };
-
-  // Recherche API pour plus de suggestions
-  const fetchApiSuggestions = async (searchTerm) => {
-    if (!searchTerm.trim()) return;
-    
-    try {
-      setLoadingSuggestions(true);
-      const { data } = await axios.get(`/api/product/search-suggestions?q=${encodeURIComponent(searchTerm)}`);
-      if (data.success && data.suggestions) {
-        const apiSuggestions = data.suggestions.map(s => ({
-          text: s.text,
-          relevance: s.relevance || 50,
-          price: s.price
-        }));
-        setSuggestions(prev => {
-          const local = getLocalSuggestions(searchTerm);
-          const combined = [...local, ...apiSuggestions];
-          // Déduplication par texte
-          const uniqueTexts = new Set();
-          const deduped = combined.filter(s => {
-            if (!uniqueTexts.has(s.text)) {
-              uniqueTexts.add(s.text);
-              return true;
-            }
-            return false;
-          });
-          return deduped.sort((a, b) => b.relevance - a.relevance).slice(0, 10);
-        });
-      } else {
-        setSuggestions(getLocalSuggestions(searchTerm));
-      }
-    } catch (error) {
-      console.error("Erreur suggestions:", error);
-      setSuggestions(getLocalSuggestions(searchTerm));
-    } finally {
-      setLoadingSuggestions(false);
-    }
   };
 
   // Mettre à jour les suggestions quand la recherche change
@@ -144,14 +145,17 @@ const Navbar = () => {
     if (query.trim()) {
       setShowSuggestions(true);
       const timeoutId = setTimeout(() => {
-        fetchApiSuggestions(query);
-      }, 300);
+        const localSuggestions = getLocalSuggestions(query);
+        setSuggestions(localSuggestions);
+        setLoadingSuggestions(false);
+      }, 200);
       return () => clearTimeout(timeoutId);
     } else {
       setSuggestions([]);
       setShowSuggestions(false);
+      setLoadingSuggestions(false);
     }
-  }, [query]);
+  }, [query, products, categories]);
 
   // Fermer les suggestions en cliquant ailleurs
   useEffect(() => {
@@ -173,11 +177,18 @@ const Navbar = () => {
     }
   };
 
-  const handleSuggestionClick = (text) => {
-    setQuery(text);
+  const handleSuggestionClick = (suggestion) => {
+    setQuery(suggestion.text);
     setShowSuggestions(false);
-    setSearchQuery && setSearchQuery(text);
-    navigate(`/products?search=${encodeURIComponent(text)}`);
+    
+    if (suggestion.type === "category") {
+      // Rediriger vers les produits de la catégorie
+      navigate(`/products?categories=${suggestion.slug || suggestion.text}`);
+    } else {
+      // Recherche normale pour les produits
+      setSearchQuery && setSearchQuery(suggestion.text);
+      navigate(`/products?search=${encodeURIComponent(suggestion.text)}`);
+    }
   };
 
   return (
@@ -238,19 +249,12 @@ const Navbar = () => {
                     <div
                       key={idx}
                       className="suggestion-item"
-                      onClick={() => handleSuggestionClick(suggestion.text)}
+                      onClick={() => handleSuggestionClick(suggestion)}
                     >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2">
                         <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
                       </svg>
-                      <div className="suggestion-content">
-                        <span className="suggestion-text">{suggestion.text}</span>
-                        {suggestion.price && (
-                          <span className="suggestion-price">
-                            {Number(suggestion.price).toLocaleString("fr-FR")} FCFA
-                          </span>
-                        )}
-                      </div>
+                      <span className="suggestion-text">{suggestion.text}</span>
                     </div>
                   ))}
                   <div className="suggestion-footer">
@@ -418,23 +422,12 @@ const Navbar = () => {
         .suggestion-item:hover {
           background: #f7f5f2;
         }
-        .suggestion-content {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
         .suggestion-text {
+          flex: 1;
           font-family: 'DM Sans', sans-serif;
           font-size: 14px;
           font-weight: 500;
           color: #333;
-        }
-        .suggestion-price {
-          font-family: 'DM Sans', sans-serif;
-          font-size: 12px;
-          font-weight: 600;
-          color: #111;
         }
         .suggestion-loading, .suggestion-empty {
           padding: 16px;
