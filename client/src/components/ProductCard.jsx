@@ -8,7 +8,7 @@ const ProductCard = ({ product }) => {
 
   if (!product) return null;
 
-  const { _id, name, price, offerPrice, image, variants } = product;
+  const { _id, name, price, offerPrice, image, variants, category } = product;
   const isWishlisted = isInWishlist ? isInWishlist(_id) : false;
   const discount = offerPrice && price ? Math.round(((price - offerPrice) / price) * 100) : null;
   const displayPrice = offerPrice || price;
@@ -20,10 +20,13 @@ const ProductCard = ({ product }) => {
     : (product.inStock ? 1 : 0);
   const isOutOfStock = totalStock === 0;
 
+  // Récupérer le slug de la catégorie pour construire le bon lien
+  const categorySlug = category?.slug || product.categorySlug || "all";
+
   return (
     <>
       <div className="rc-card">
-        <Link to={`/products/${_id}`} className="rc-card-img-wrap"
+        <Link to={`/products/${categorySlug}/${_id}`} className="rc-card-img-wrap"
           onMouseEnter={() => images[1] && setImgIdx(1)}
           onMouseLeave={() => setImgIdx(0)}
         >
@@ -59,7 +62,7 @@ const ProductCard = ({ product }) => {
           </button>
         </Link>
 
-        <Link to={`/products/${_id}`} className="rc-card-info">
+        <Link to={`/products/${categorySlug}/${_id}`} className="rc-card-info">
           <p className="rc-card-name">{name}</p>
           <div className="rc-card-prices">
             <span className="rc-price">{currency}{Number(displayPrice).toLocaleString("fr-FR")}</span>
