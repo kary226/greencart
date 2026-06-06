@@ -39,6 +39,9 @@ const Home = () => {
   };
 
   const sectionProducts = getSectionProducts();
+  
+  // Récupérer les 6 derniers produits pour la section "Nouveautés" du bas
+  const latestProducts = [...allProducts].reverse().slice(0, 6);
 
   return (
     <>
@@ -54,7 +57,6 @@ const Home = () => {
         {/* ── CATEGORIES CERCLES ── */}
         {activeCategories.length > 0 && (
           <section className="ramci-cats-section">
-            {/* "Tous" pill */}
             <Link to="/products" className="ramci-cat-item">
               <div className="ramci-cat-circle ramci-cat-circle-all">
                 <svg width="22" height="22" viewBox="0 0 22 22" fill="currentColor">
@@ -85,7 +87,6 @@ const Home = () => {
 
         {/* ── SECTION PRODUITS AVEC HEADER ── */}
         <section className="ramci-products-section">
-          {/* Section Header avec "Voir tout" */}
           <div className="ramci-section-header">
             <h2 className="ramci-section-title">
               {SECTIONS.find(s => s.id === activeSection)?.label}
@@ -98,7 +99,6 @@ const Home = () => {
             </Link>
           </div>
 
-          {/* Tabs discrets */}
           <div className="ramci-section-tabs">
             {SECTIONS.map(s => (
               <button
@@ -111,7 +111,6 @@ const Home = () => {
             ))}
           </div>
 
-          {/* Grille produits */}
           {sectionProducts.length > 0 ? (
             <div className="ramci-grid">
               {sectionProducts.map(p => (
@@ -126,10 +125,10 @@ const Home = () => {
         {/* ── SECOND BANNER ── */}
         <BannerCarousel position="middle" />
 
-        {/* ── NOUVEAUTÉS (2e section fixe) ── */}
+        {/* ── NOUVEAUTÉS RÉCENTES (section bas) ── */}
         <section className="ramci-products-section">
           <div className="ramci-section-header">
-            <h2 className="ramci-section-title">Nouveautés</h2>
+            <h2 className="ramci-section-title">Nouveautés récentes</h2>
             <Link to="/products?sort=new" className="ramci-voir-tout">
               Voir tout
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -138,13 +137,11 @@ const Home = () => {
             </Link>
           </div>
           <div className="ramci-grid">
-            {[...allProducts].reverse().slice(0, 6).map(p => (
+            {latestProducts.map(p => (
               <ProductCard key={p._id} product={p} />
             ))}
           </div>
         </section>
-
-        
 
       </div>
 
@@ -154,7 +151,7 @@ const Home = () => {
         .ramci-home {
           background: #faf8f5;
           min-height: 100vh;
-          padding-bottom: 90px;
+          padding-bottom: 20px;
         }
 
         /* ── HERO ── */
@@ -274,7 +271,6 @@ const Home = () => {
         }
         .ramci-voir-tout:hover { color: #111; }
 
-        /* Section tabs */
         .ramci-section-tabs {
           display: flex;
           gap: 0;
@@ -306,7 +302,6 @@ const Home = () => {
           font-weight: 700;
         }
 
-        /* Grille 2 colonnes */
         .ramci-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
@@ -320,42 +315,6 @@ const Home = () => {
           font-family: 'DM Sans', sans-serif;
           font-size: 14px;
         }
-
-        /* ── CTA LOGIN ── */
-        .ramci-cta-bar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          background: #111;
-          padding: 16px 18px;
-          margin-top: 10px;
-          gap: 14px;
-        }
-
-        .ramci-cta-text {
-          font-family: 'DM Sans', sans-serif;
-          font-size: 13px;
-          color: rgba(255,255,255,.8);
-          margin: 0;
-          flex: 1;
-          line-height: 1.4;
-        }
-
-        .ramci-cta-btn {
-          flex-shrink: 0;
-          background: #fff;
-          color: #111;
-          border: none;
-          border-radius: 8px;
-          padding: 10px 18px;
-          font-family: 'DM Sans', sans-serif;
-          font-size: 13px;
-          font-weight: 700;
-          cursor: pointer;
-          transition: opacity .15s;
-          white-space: nowrap;
-        }
-        .ramci-cta-btn:hover { opacity: .85; }
       `}</style>
     </>
   );
