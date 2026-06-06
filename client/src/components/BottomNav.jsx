@@ -62,8 +62,19 @@ const BottomNav = () => {
     },
   ];
 
-  // Hide on seller pages
-  if (location.pathname.startsWith("/seller")) return null;
+  // Ne pas afficher sur les pages suivantes :
+  const hideOnPaths = [
+    "/seller",
+    "/product/",      // page produit détail
+    "/products/"      // pages produit avec catégorie
+  ];
+  
+  const shouldHide = hideOnPaths.some(path => location.pathname.startsWith(path));
+  
+  // Cacher aussi sur la page produit via regex (pour les IDs)
+  const isProductPage = /^\/products\/[^/]+\/[^/]+$/.test(location.pathname);
+  
+  if (shouldHide || isProductPage || location.pathname.startsWith("/seller")) return null;
 
   return (
     <>
