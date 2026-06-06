@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import toast from 'react-hot-toast';
 
-const ProductReviews = ({ productId }) => {
+const ProductReviews = ({ productId, onDataChange }) => {
     const { axios, user } = useAppContext();
     const [reviews, setReviews] = useState([]);
     const [averageRating, setAverageRating] = useState(0);
@@ -32,6 +32,16 @@ const ProductReviews = ({ productId }) => {
         fetchReviews();
     }, [productId]);
 
+    // Envoyer les données au composant parent (ProductDetails)
+    useEffect(() => {
+        if (!loading && onDataChange) {
+            onDataChange({
+                averageRating: averageRating,
+                totalReviews: totalReviews
+            });
+        }
+    }, [averageRating, totalReviews, loading, onDataChange]);
+
     const handleSubmitReview = async (e) => {
         e.preventDefault();
         if (!user) {
@@ -59,7 +69,7 @@ const ProductReviews = ({ productId }) => {
                 toast.error(data.message);
             }
         } catch (error) {
-            toast.error(error.message);
+            toast.error(error.response?.data?.message || error.message);
         }
     };
 
@@ -71,7 +81,7 @@ const ProductReviews = ({ productId }) => {
                 fetchReviews();
             }
         } catch (error) {
-            toast.error(error.message);
+            toast.error(error.response?.data?.message || error.message);
         }
     };
 
@@ -130,7 +140,6 @@ const ProductReviews = ({ productId }) => {
                 )}
             </div>
 
-            {/* Formulaire d'avis */}
             {showForm && (
                 <form onSubmit={handleSubmitReview} className="bg-gray-50 p-4 rounded-xl mb-6">
                     <div className="flex justify-between items-center mb-3">
@@ -160,7 +169,6 @@ const ProductReviews = ({ productId }) => {
                 </form>
             )}
 
-            {/* Liste des avis */}
             <div className="space-y-6">
                 {reviews.length === 0 ? (
                     <p className="text-gray-400 text-center py-8">Aucun avis pour le moment. Soyez le premier à donner votre avis !</p>
@@ -173,7 +181,7 @@ const ProductReviews = ({ productId }) => {
                                         <span className="font-semibold">{review.userName}</span>
                                         {review.verified && (
                                             <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-                                                ✅ Achat vérifié
+                                                Achat vérifié
                                             </span>
                                         )}
                                     </div>
