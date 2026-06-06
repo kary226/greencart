@@ -10,7 +10,6 @@ const Navbar = () => {
   const [categories, setCategories] = useState([]);
   const suggestionsRef = useRef(null);
   const navigate = useNavigate();
-  const location = useLocation();
 
   const cartCount = cartItems ? Object.values(cartItems).reduce((a, b) => a + b, 0) : 0;
 
@@ -19,14 +18,11 @@ const Navbar = () => {
       try {
         const { data } = await axios.get('/api/category/list');
         if (data.success) setCategories(data.categories);
-      } catch (error) {
-        console.error("Erreur chargement catégories:", error);
-      }
+      } catch (error) {}
     };
     fetchCategories();
   }, []);
 
-  // Décompose la query en mots et cherche les produits/catégories correspondants
   const computeSuggestions = (searchTerm) => {
     if (!searchTerm.trim()) return [];
 
@@ -34,65 +30,54 @@ const Navbar = () => {
     const words = term.split(/\s+/).filter(Boolean);
 
     // Score produit : exact > commence par > contient terme entier > contient au moins 1 mot
-    const scoreProduct = (product) => {
-      const name = product.name?.toLowerCase() || '';
-      if (name === term) return 100;
-      if (name.startsWith(term)) return 80;
-      if (name.includes(term)) return 60;
-      // Au moins 1 mot en commun
-      const matched = words.filter(w => name.includes(w));
+    const scoreProduct = (name) => {
+      const n = name.toLowerCase();
+      if (n === term) return 100;
+      if (n.startsWith(term)) return 80;
+      if (n.includes(term)) return 60;
+      const matched = words.filter(w => n.includes(w));
       if (matched.length > 0) return 20 + matched.length * 10;
       return 0;
     };
 
-    // Produits
-    const productSuggestions = products
-      .map(p => ({ ...p, _score: scoreProduct(p) }))
-      .filter(p => p._score > 0)
-      .sort((a, b) => b._score - a._score)
-      .reduce((acc, p) => {
-        if (!acc.names.has(p.name)) {
-          acc.names.add(p.name);
-          acc.list.push({ type: 'product', text: p.name, score: p._score });
-        }
-        return acc;
-      }, { names: new Set(), list: [] })
-      .list
-      .slice(0, 7);
+    // Score catégorie
+    const scoreCategory = (name) => {
+      const n = name.toLowerCase();
+      if (n === term) return 110; // priorité max si nom exact
+      if (n.startsWith(term)) return 85;
+      if (n.includes(term)) return 65;
+      const matched = words.filter(w => n.includes(w));
+      if (matched.length > 0) return 25 + matched.length * 10;
+      return 0;
+    };
 
     // Catégories
-    const categorySuggestions = categories
-      .filter(c => {
-        const name = c.name?.toLowerCase() || '';
-        return name.includes(term) || words.some(w => name.includes(w));
-      })
-      .map(c => ({
-        type: 'category',
-        text: c.name,
-        slug: c.slug || c.name,
-        score: c.name.toLowerCase().includes(term) ? 70 : 30,
-      }))
-      .slice(0, 3);
+    const catResults = categories
+      .map(c => ({ _type: 'category', text: c.name, slug: c.slug || c.name, score: scoreCategory(c.name) }))
+      .filter(c => c.score > 0);
 
-    // Fusionner : le produit exact en premier, puis les autres
-    const exactProduct = productSuggestions.find(s => s.score >= 80);
-    const otherProducts = productSuggestions.filter(s => s !== exactProduct);
+    // Produits (déduplication par nom)
+    const seenNames = new Set();
+    const prodResults = products
+      .map(p => ({ _type: 'product', text: p.name, score: scoreProduct(p.name) }))
+      .filter(p => p.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .filter(p => {
+        if (seenNames.has(p.text)) return false;
+        seenNames.add(p.text);
+        return true;
+      });
 
-    const merged = [
-      ...(exactProduct ? [exactProduct] : []),
-      ...categorySuggestions,
-      ...otherProducts,
-    ].slice(0, 10);
-
-    return merged;
+    // Fusionner tout, trier par score, limiter à 10
+    return [...catResults, ...prodResults]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10);
   };
 
   useEffect(() => {
     if (query.trim()) {
       setShowSuggestions(true);
-      const id = setTimeout(() => {
-        setSuggestions(computeSuggestions(query));
-      }, 200);
+      const id = setTimeout(() => setSuggestions(computeSuggestions(query)), 200);
       return () => clearTimeout(id);
     } else {
       setSuggestions([]);
@@ -102,9 +87,8 @@ const Navbar = () => {
 
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (suggestionsRef.current && !suggestionsRef.current.contains(e.target)) {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(e.target))
         setShowSuggestions(false);
-      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -119,15 +103,14 @@ const Navbar = () => {
     }
   };
 
-  const handleSuggestionClick = (suggestion) => {
+  const handleSuggestionClick = (s) => {
     setShowSuggestions(false);
-    if (suggestion.type === 'category') {
-      navigate(`/products?categories=${encodeURIComponent(suggestion.slug)}`);
+    if (s._type === 'category') {
+      navigate(`/products?categories=${encodeURIComponent(s.slug)}`);
     } else {
-      // Produit → recherche par nom (pas de redirection directe)
-      setQuery(suggestion.text);
-      setSearchQuery && setSearchQuery(suggestion.text);
-      navigate(`/products?search=${encodeURIComponent(suggestion.text)}`);
+      setQuery(s.text);
+      setSearchQuery && setSearchQuery(s.text);
+      navigate(`/products?search=${encodeURIComponent(s.text)}`);
     }
   };
 
@@ -178,48 +161,35 @@ const Navbar = () => {
             </svg>
           </button>
 
-          {showSuggestions && suggestions.length > 0 && (
+          {showSuggestions && (
             <div className="search-suggestions">
-              {suggestions.map((s, idx) => (
-                <div
-                  key={idx}
-                  className={`suggestion-item${s.type === 'category' ? ' suggestion-category' : ''}`}
-                  onMouseDown={(e) => {
-                    e.preventDefault(); // évite le blur avant le click
-                    handleSuggestionClick(s);
-                  }}
-                >
-                  {s.type === 'category' ? (
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2">
-                      <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-                      <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
-                    </svg>
-                  ) : (
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2">
-                      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-                    </svg>
-                  )}
-                  <span className="suggestion-text">{s.text}</span>
-                  {s.type === 'category' && (
-                    <span className="suggestion-tag">Catégorie</span>
-                  )}
-                </div>
-              ))}
-              <div className="suggestion-footer">
-                <button
-                  type="submit"
-                  className="suggestion-see-all"
-                  onMouseDown={(e) => e.preventDefault()}
-                >
-                  Voir tous les résultats pour &laquo;{query}&raquo;
-                </button>
-              </div>
-            </div>
-          )}
-
-          {showSuggestions && query.trim() && suggestions.length === 0 && (
-            <div className="search-suggestions">
-              <div className="suggestion-empty">Aucun résultat pour &laquo;{query}&raquo;</div>
+              {suggestions.length > 0 ? (
+                <>
+                  {suggestions.map((s, idx) => (
+                    <div
+                      key={idx}
+                      className="suggestion-item"
+                      onMouseDown={(e) => { e.preventDefault(); handleSuggestionClick(s); }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="2">
+                        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                      </svg>
+                      <span className="suggestion-text">{s.text}</span>
+                    </div>
+                  ))}
+                  <div className="suggestion-footer">
+                    <button
+                      type="submit"
+                      className="suggestion-see-all"
+                      onMouseDown={(e) => e.preventDefault()}
+                    >
+                      Voir tous les résultats pour «{query}»
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="suggestion-empty">Aucun résultat pour «{query}»</div>
+              )}
             </div>
           )}
         </form>
@@ -301,8 +271,6 @@ const Navbar = () => {
           justify-content: center;
           padding: 0 3px;
         }
-
-        /* SEARCH */
         .ramci-search-form {
           position: relative;
           display: flex;
@@ -332,8 +300,6 @@ const Navbar = () => {
           padding: 0;
           opacity: .7;
         }
-
-        /* DROPDOWN */
         .search-suggestions {
           position: absolute;
           top: calc(100% + 6px);
@@ -350,33 +316,19 @@ const Navbar = () => {
           display: flex;
           align-items: center;
           gap: 10px;
-          padding: 11px 16px;
+          padding: 12px 16px;
           cursor: pointer;
           border-bottom: 1px solid #faf8f5;
           transition: background .15s;
         }
         .suggestion-item:last-child { border-bottom: none; }
         .suggestion-item:hover { background: #faf8f5; }
-        .suggestion-category { background: #fdf9f4; }
-        .suggestion-category:hover { background: #f7f0e8; }
         .suggestion-text {
           flex: 1;
           font-family: 'DM Sans', sans-serif;
           font-size: 13.5px;
           font-weight: 400;
           color: #222;
-        }
-        .suggestion-tag {
-          font-family: 'DM Sans', sans-serif;
-          font-size: 10px;
-          font-weight: 600;
-          color: #a07850;
-          background: #f5ece0;
-          padding: 2px 8px;
-          border-radius: 20px;
-          letter-spacing: .3px;
-          text-transform: uppercase;
-          flex-shrink: 0;
         }
         .suggestion-empty {
           padding: 16px;
