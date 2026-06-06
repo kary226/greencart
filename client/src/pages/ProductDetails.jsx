@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAppContext } from "../context/AppContext";
 import { Link, useParams } from "react-router-dom";
 import { assets } from "../assets/assets";
@@ -13,9 +13,10 @@ const ProductDetails = () => {
     const {products, navigate, currency, addToCart, cartItems, getCartKey, addToRecentlyViewed} = useAppContext()
     const {id} = useParams()
     const [relatedProducts, setRelatedProducts] = useState([]);
-    const [thumbnail, setThumbnail] = useState(null);
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [selectedColor, setSelectedColor] = useState(null)
     const [selectedSize, setSelectedSize] = useState(null)
+    const scrollContainerRef = useRef(null);
 
     const product = products.find((item)=> item._id === id);
 
@@ -79,9 +80,9 @@ const ProductDetails = () => {
 
     const getStockLabel = (stock) => {
         if (stock === null || stock === undefined) return null
-        if (stock === 0) return '❌ Rupture de stock'
-        if (stock <= 5) return `⚠️ Plus que ${stock} en stock !`
-        return `✅ En stock (${stock} disponibles)`
+        if (stock === 0) return 'Rupture de stock'
+        if (stock <= 5) return `Plus que ${stock} en stock`
+        return `En stock (${stock} disponibles)`
     }
 
     const getStockColor = (stock) => {
@@ -101,15 +102,15 @@ const ProductDetails = () => {
             return
         }
         if (variantStock !== null && variantStock === 0) {
-            toast.error('Ce variant est épuisé !')
+            toast.error('Ce variant est épuisé')
             return
         }
         if (variantStock !== null && currentQty >= variantStock) {
-            toast.error(`Stock limité à ${variantStock} unités !`)
+            toast.error(`Stock limité à ${variantStock} unités`)
             return
         }
         addToCart(product._id, selectedColor, selectedSize)
-        toast.success('Ajouté au panier !')
+        toast.success('Ajouté au panier')
     }
 
     const handleBuyNow = () => {
@@ -122,11 +123,11 @@ const ProductDetails = () => {
             return
         }
         if (variantStock !== null && variantStock === 0) {
-            toast.error('Ce variant est épuisé !')
+            toast.error('Ce variant est épuisé')
             return
         }
         if (variantStock !== null && currentQty >= variantStock) {
-            toast.error(`Stock limité à ${variantStock} unités !`)
+            toast.error(`Stock limité à ${variantStock} unités`)
             return
         }
         addToCart(product._id, selectedColor, selectedSize)
@@ -134,6 +135,14 @@ const ProductDetails = () => {
     }
 
     const isOutOfStock = variantStock === 0;
+
+    // Défilement horizontal des images
+    const scrollImages = (direction) => {
+        if (scrollContainerRef.current) {
+            const scrollAmount = direction === 'left' ? -120 : 120;
+            scrollContainerRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+        }
+    };
 
     useEffect(()=>{
         if(products.length > 0 && product){
@@ -152,11 +161,8 @@ const ProductDetails = () => {
         }
         setSelectedColor(null)
         setSelectedSize(null)
+        setCurrentImageIndex(0)
     },[products, id])
-
-    useEffect(()=>{
-        setThumbnail(product?.image[0] ? product.image[0] : null)
-    },[product])
 
     if (!product) return null;
 
@@ -173,28 +179,47 @@ const ProductDetails = () => {
             <div className="product-details-page pb-28">
                 {/* Breadcrumb */}
                 <div className="breadcrumb-container">
-                    <p>
-                        <Link to={"/"}>Accueil</Link> /
-                        <Link to={"/products"}> Articles</Link> /
-                        <Link to={`/products/${getProductCategory()?.toLowerCase()}`}> {getProductCategory()}</Link> /
-                        <span className="text-primary"> {product.name}</span>
-                    </p>
+                    <Link to={"/"}>Accueil</Link> /
+                    <Link to={"/products"}> Articles</Link> /
+                    <Link to={`/products/${getProductCategory()?.toLowerCase()}`}> {getProductCategory()}</Link> /
+                    <span className="current">{product.name}</span>
                 </div>
 
                 {/* Contenu principal */}
                 <div className="product-main">
-                    {/* Images */}
+                    {/* Images - Carrousel horizontal */}
                     <div className="product-gallery">
-                        <div className="thumbnails">
-                            {product.image.map((image, index) => (
-                                <div key={index} onClick={() => setThumbnail(image)} className="thumbnail-item">
-                                    <img src={image} alt={`Aperçu ${index + 1}`} />
+                        <div className="main-image-container">
+                            <img src={product.image[currentImageIndex]} alt={product.name} className="main-image" />
+                        </div>
+                        
+                        {product.image.length > 1 && (
+                            <div className="thumbnail-carousel">
+                                <button onClick={() => scrollImages('left')} className="carousel-nav carousel-prev" aria-label="Image précédente">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M15 18l-6-6 6-6"/>
+                                    </svg>
+                                </button>
+                                
+                                <div className="thumbnail-scroll" ref={scrollContainerRef}>
+                                    {product.image.map((img, idx) => (
+                                        <div 
+                                            key={idx} 
+                                            onClick={() => setCurrentImageIndex(idx)}
+                                            className={`thumbnail-item ${currentImageIndex === idx ? 'active' : ''}`}
+                                        >
+                                            <img src={img} alt={`${product.name} - vue ${idx + 1}`} />
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
-                        <div className="main-image">
-                            <img src={thumbnail} alt={product.name} />
-                        </div>
+                                
+                                <button onClick={() => scrollImages('right')} className="carousel-nav carousel-next" aria-label="Image suivante">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M9 18l6-6-6-6"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     {/* Infos produit */}
@@ -283,7 +308,7 @@ const ProductDetails = () => {
 
                         {currentQty > 0 && (
                             <p className="cart-indicator">
-                                ✅ {currentQty} article(s) déjà dans le panier
+                                {currentQty} article(s) déjà dans le panier
                             </p>
                         )}
                     </div>
@@ -312,12 +337,8 @@ const ProductDetails = () => {
                 <RecentlyViewed />
             </div>
 
-            {/* BARRE D'ACTION FLOTTANTE (remplace BottomNav) */}
+            {/* BARRE D'ACTION FLOTTANTE */}
             <div className="floating-action-bar">
-                <div className="floating-price">
-                    <span className="price-label">Total</span>
-                    <span className="price-value">{currency}{Number(product.offerPrice || product.price).toLocaleString("fr-FR")}</span>
-                </div>
                 <div className="floating-buttons">
                     <button 
                         onClick={handleAddToCart}
@@ -329,7 +350,7 @@ const ProductDetails = () => {
                             <line x1="3" y1="6" x2="21" y2="6"/>
                             <path d="M16 10a4 4 0 0 1-8 0"/>
                         </svg>
-                        Ajouter
+                        Ajouter au panier
                     </button>
                     <button 
                         onClick={handleBuyNow}
@@ -342,8 +363,6 @@ const ProductDetails = () => {
             </div>
 
             <style>{`
-                /* Styles modernes pour ProductDetails */
-                
                 .product-details-page {
                     max-width: 1280px;
                     margin: 0 auto;
@@ -359,12 +378,11 @@ const ProductDetails = () => {
                 .breadcrumb-container a {
                     color: #666;
                     text-decoration: none;
-                    transition: color 0.2s;
                 }
                 .breadcrumb-container a:hover {
                     color: #111;
                 }
-                .breadcrumb-container .text-primary {
+                .breadcrumb-container .current {
                     color: #111;
                     font-weight: 500;
                 }
@@ -389,62 +407,99 @@ const ProductDetails = () => {
                     }
                 }
 
-                /* Galerie d'images */
+                /* Galerie d'images - Carrousel */
                 .product-gallery {
                     display: flex;
-                    gap: 12px;
+                    flex-direction: column;
+                    gap: 16px;
                 }
-                .thumbnails {
-                    display: flex;
-                    flex-direction: row;
-                    gap: 8px;
-                    overflow-x: auto;
-                    order: 2;
-                }
-                .thumbnail-item {
-                    width: 70px;
-                    height: 70px;
-                    border: 1px solid #e8e3dc;
-                    border-radius: 12px;
-                    overflow: hidden;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    flex-shrink: 0;
-                }
-                .thumbnail-item:hover {
-                    border-color: #111;
-                    transform: scale(1.02);
-                }
-                .thumbnail-item img {
+
+                .main-image-container {
                     width: 100%;
-                    height: 100%;
-                    object-fit: cover;
-                }
-                .main-image {
-                    flex: 1;
+                    aspect-ratio: 1/1;
+                    background: #f5f3f0;
                     border-radius: 20px;
                     overflow: hidden;
-                    background: #f5f3f0;
-                    aspect-ratio: 1/1;
                 }
-                .main-image img {
+
+                .main-image {
                     width: 100%;
                     height: 100%;
                     object-fit: cover;
                 }
 
-                @media (min-width: 640px) {
-                    .product-gallery {
-                        flex-direction: row;
-                    }
-                    .thumbnails {
-                        flex-direction: column;
-                        order: 1;
-                    }
-                    .thumbnail-item {
-                        width: 80px;
-                        height: 80px;
-                    }
+                .thumbnail-carousel {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+
+                .carousel-nav {
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 50%;
+                    background: white;
+                    border: 1px solid #e8e3dc;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    flex-shrink: 0;
+                }
+
+                .carousel-nav:hover {
+                    background: #111;
+                    color: white;
+                    border-color: #111;
+                }
+
+                .thumbnail-scroll {
+                    display: flex;
+                    gap: 10px;
+                    overflow-x: auto;
+                    scroll-behavior: smooth;
+                    scrollbar-width: thin;
+                    flex: 1;
+                }
+
+                .thumbnail-scroll::-webkit-scrollbar {
+                    height: 3px;
+                }
+
+                .thumbnail-scroll::-webkit-scrollbar-track {
+                    background: #f0ede8;
+                    border-radius: 10px;
+                }
+
+                .thumbnail-scroll::-webkit-scrollbar-thumb {
+                    background: #ccc;
+                    border-radius: 10px;
+                }
+
+                .thumbnail-item {
+                    width: 70px;
+                    height: 70px;
+                    flex-shrink: 0;
+                    border-radius: 12px;
+                    overflow: hidden;
+                    cursor: pointer;
+                    border: 2px solid transparent;
+                    transition: all 0.2s;
+                }
+
+                .thumbnail-item.active {
+                    border-color: #111;
+                }
+
+                .thumbnail-item:hover {
+                    transform: scale(1.02);
+                }
+
+                .thumbnail-item img {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
                 }
 
                 /* Infos produit */
@@ -455,6 +510,7 @@ const ProductDetails = () => {
                     margin-bottom: 12px;
                     line-height: 1.3;
                 }
+
                 @media (min-width: 768px) {
                     .product-title {
                         font-size: 28px;
@@ -467,10 +523,12 @@ const ProductDetails = () => {
                     gap: 6px;
                     margin-bottom: 16px;
                 }
+
                 .product-rating img {
                     width: 16px;
                     height: 16px;
                 }
+
                 .product-rating span {
                     font-size: 13px;
                     color: #888;
@@ -483,16 +541,19 @@ const ProductDetails = () => {
                     margin-bottom: 12px;
                     flex-wrap: wrap;
                 }
+
                 .old-price {
                     font-size: 16px;
                     color: #bbb;
                     text-decoration: line-through;
                 }
+
                 .current-price {
                     font-size: 28px;
                     font-weight: 700;
                     color: #111;
                 }
+
                 .discount-badge {
                     background: #e53935;
                     color: white;
@@ -507,29 +568,33 @@ const ProductDetails = () => {
                     font-weight: 500;
                     margin-bottom: 20px;
                 }
+
                 .text-red-500 { color: #e53935; }
                 .text-orange-500 { color: #ff9800; }
                 .text-green-600 { color: #4caf50; }
 
-                /* Options */
                 .option-group {
                     margin-bottom: 24px;
                 }
+
                 .option-label {
                     font-size: 14px;
                     font-weight: 500;
                     margin-bottom: 12px;
                     color: #333;
                 }
+
                 .option-label span {
                     color: #111;
                     font-weight: 600;
                 }
+
                 .option-buttons {
                     display: flex;
                     flex-wrap: wrap;
                     gap: 10px;
                 }
+
                 .option-btn {
                     padding: 8px 18px;
                     border-radius: 40px;
@@ -541,20 +606,24 @@ const ProductDetails = () => {
                     cursor: pointer;
                     transition: all 0.2s;
                 }
+
                 .option-btn:hover:not(.disabled) {
                     border-color: #111;
                 }
+
                 .option-btn.active {
                     background: #111;
                     border-color: #111;
                     color: white;
                 }
+
                 .option-btn.disabled {
                     color: #ccc;
                     border-color: #eee;
                     text-decoration: line-through;
                     cursor: not-allowed;
                 }
+
                 .size-btn {
                     width: 48px;
                     height: 48px;
@@ -566,11 +635,13 @@ const ProductDetails = () => {
                     cursor: pointer;
                     transition: all 0.2s;
                 }
+
                 .size-btn.active {
                     background: #111;
                     border-color: #111;
                     color: white;
                 }
+
                 .size-btn.disabled {
                     color: #ccc;
                     border-color: #eee;
@@ -578,16 +649,17 @@ const ProductDetails = () => {
                     cursor: not-allowed;
                 }
 
-                /* Description */
                 .product-description {
                     margin: 20px 0;
                 }
+
                 .desc-title {
                     font-size: 16px;
                     font-weight: 600;
                     margin-bottom: 10px;
                     color: #111;
                 }
+
                 .product-description ul {
                     list-style: disc;
                     padding-left: 20px;
@@ -595,6 +667,7 @@ const ProductDetails = () => {
                     font-size: 14px;
                     line-height: 1.6;
                 }
+
                 .product-description li {
                     margin-bottom: 6px;
                 }
@@ -610,16 +683,19 @@ const ProductDetails = () => {
                 .related-section {
                     margin-top: 60px;
                 }
+
                 .section-header {
                     text-align: center;
                     margin-bottom: 32px;
                 }
+
                 .section-title {
                     font-size: 24px;
                     font-weight: 600;
                     color: #111;
                     margin-bottom: 8px;
                 }
+
                 .title-underline {
                     width: 60px;
                     height: 3px;
@@ -627,23 +703,27 @@ const ProductDetails = () => {
                     border-radius: 3px;
                     margin: 0 auto;
                 }
+
                 .related-grid {
                     display: grid;
                     grid-template-columns: repeat(2, 1fr);
                     gap: 16px;
                 }
+
                 @media (min-width: 640px) {
                     .related-grid {
                         grid-template-columns: repeat(3, 1fr);
                         gap: 20px;
                     }
                 }
+
                 @media (min-width: 1024px) {
                     .related-grid {
                         grid-template-columns: repeat(4, 1fr);
                         gap: 24px;
                     }
                 }
+
                 .view-more-btn {
                     display: block;
                     margin: 32px auto 0;
@@ -657,6 +737,7 @@ const ProductDetails = () => {
                     cursor: pointer;
                     transition: all 0.2s;
                 }
+
                 .view-more-btn:hover {
                     background: #111;
                     color: white;
@@ -673,39 +754,15 @@ const ProductDetails = () => {
                     backdrop-filter: blur(10px);
                     border-top: 1px solid #eee;
                     padding: 12px 20px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    gap: 16px;
                     z-index: 1000;
                     box-shadow: 0 -4px 20px rgba(0,0,0,0.05);
                 }
-                @media (min-width: 768px) {
-                    .floating-action-bar {
-                        padding: 16px 24px;
-                    }
-                }
-                .floating-price {
-                    display: flex;
-                    flex-direction: column;
-                }
-                .floating-price .price-label {
-                    font-size: 11px;
-                    color: #999;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                }
-                .floating-price .price-value {
-                    font-size: 20px;
-                    font-weight: 700;
-                    color: #111;
-                }
+
                 .floating-buttons {
                     display: flex;
                     gap: 12px;
-                    flex: 1;
-                    justify-content: flex-end;
                 }
+
                 .floating-btn {
                     flex: 1;
                     padding: 14px 20px;
@@ -720,22 +777,27 @@ const ProductDetails = () => {
                     justify-content: center;
                     gap: 8px;
                 }
+
                 .floating-btn-cart {
                     background: #f5f5f5;
                     color: #111;
                 }
+
                 .floating-btn-cart:hover:not(:disabled) {
                     background: #e8e8e8;
                     transform: scale(1.02);
                 }
+
                 .floating-btn-buy {
                     background: #111;
                     color: white;
                 }
+
                 .floating-btn-buy:hover:not(:disabled) {
                     background: #333;
                     transform: scale(1.02);
                 }
+
                 .floating-btn:disabled {
                     opacity: 0.5;
                     cursor: not-allowed;
