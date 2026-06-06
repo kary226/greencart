@@ -1,38 +1,128 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
 
 const Navbar = () => {
-  const { cartItems, wishlist, user, searchQuery, setSearchQuery, axios } = useAppContext();
+  const { cartItems, wishlist, user, searchQuery, setSearchQuery, axios, products } = useAppContext();
   const [query, setQuery] = useState(searchQuery || "");
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const suggestionsRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
 
   const cartCount = cartItems ? Object.values(cartItems).reduce((a, b) => a + b, 0) : 0;
-  const wishCount = wishlist ? wishlist.length : 0;
+
+  // Recherche locale dans les produits déjà chargés
+  const getLocalSuggestions = (searchTerm) => {
+    if (!searchTerm.trim()) return [];
+    
+    const term = searchTerm.toLowerCase().trim();
+    
+    // Suggestions de produits
+    const productMatches = products.filter(p => 
+      p.name?.toLowerCase().includes(term) || 
+      p.category?.toLowerCase().includes(term)
+    ).slice(0, 5);
+    
+    // Suggestions uniques par nom de produit (sans doublons)
+    const uniqueProductNames = [];
+    const productSuggestions = productMatches.filter(p => {
+      if (!uniqueProductNames.includes(p.name)) {
+        uniqueProductNames.push(p.name);
+        return true;
+      }
+      return false;
+    }).map(p => ({
+      type: "product",
+      text: p.name,
+      link: `/products/${p.category?.slug || "all"}/${p._id}`
+    }));
+    
+    return productSuggestions;
+  };
+
+  // Recherche API pour plus de suggestions
+  const fetchApiSuggestions = async (searchTerm) => {
+    if (!searchTerm.trim()) return;
+    
+    try {
+      setLoadingSuggestions(true);
+      const { data } = await axios.get(`/api/product/search-suggestions?q=${encodeURIComponent(searchTerm)}`);
+      if (data.success && data.suggestions) {
+        const apiSuggestions = data.suggestions.map(s => ({
+          type: s.type,
+          text: s.text,
+          link: s.link
+        }));
+        setSuggestions(prev => {
+          const local = getLocalSuggestions(searchTerm);
+          const combined = [...local, ...apiSuggestions];
+          return combined.slice(0, 10);
+        });
+      } else {
+        setSuggestions(getLocalSuggestions(searchTerm));
+      }
+    } catch (error) {
+      console.error("Erreur suggestions:", error);
+      setSuggestions(getLocalSuggestions(searchTerm));
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+
+  // Mettre à jour les suggestions quand la recherche change
+  useEffect(() => {
+    if (query.trim()) {
+      setShowSuggestions(true);
+      const timeoutId = setTimeout(() => {
+        fetchApiSuggestions(query);
+      }, 300);
+      return () => clearTimeout(timeoutId);
+    } else {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+  }, [query]);
+
+  // Fermer les suggestions en cliquant ailleurs
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(event.target)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();
     if (query.trim()) {
+      setShowSuggestions(false);
       setSearchQuery && setSearchQuery(query.trim());
       navigate(`/products?search=${encodeURIComponent(query.trim())}`);
     }
   };
 
+  const handleSuggestionClick = (link, text) => {
+    setQuery(text);
+    setShowSuggestions(false);
+    setSearchQuery && setSearchQuery(text);
+    navigate(link);
+  };
+
   return (
     <>
       <header className="ramci-navbar">
-        {/* TOP ROW */}
         <div className="ramci-nav-top">
-          {/* Hamburger */}
           <button className="ramci-menu-btn" aria-label="Menu">
             <span /><span /><span />
           </button>
 
-          {/* Logo centré */}
           <Link to="/" className="ramci-logo">RAMCI</Link>
 
-          {/* Actions droite */}
           <div className="ramci-nav-actions">
             <Link to="/wishlist" className="ramci-nav-icon" aria-label="Favoris">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -50,8 +140,7 @@ const Navbar = () => {
           </div>
         </div>
 
-        {/* SEARCH BAR */}
-        <form className="ramci-search-form" onSubmit={handleSearch}>
+        <form className="ramci-search-form" onSubmit={handleSearch} ref={suggestionsRef}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2.2">
             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
           </svg>
@@ -60,6 +149,7 @@ const Navbar = () => {
             placeholder="Rechercher un article..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => query.trim() && setShowSuggestions(true)}
             className="ramci-search-input"
           />
           <button type="button" className="ramci-filter-btn" aria-label="Filtres">
@@ -69,10 +159,43 @@ const Navbar = () => {
               <line x1="11" y1="18" x2="13" y2="18"/>
             </svg>
           </button>
-        </form>
 
-        {/* SECTION CATÉGORIES SUPPRIMÉE (anciennement ramci-cats-nav) */}
-        
+          {/* Suggestions dropdown */}
+          {showSuggestions && (
+            <div className="search-suggestions">
+              {loadingSuggestions && suggestions.length === 0 ? (
+                <div className="suggestion-loading">Recherche en cours...</div>
+              ) : suggestions.length > 0 ? (
+                <>
+                  {suggestions.map((suggestion, idx) => (
+                    <div
+                      key={idx}
+                      className="suggestion-item"
+                      onClick={() => handleSuggestionClick(suggestion.link, suggestion.text)}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2">
+                        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                      </svg>
+                      <span>{suggestion.text}</span>
+                      {suggestion.type === "product" && (
+                        <span className="suggestion-type">Produit</span>
+                      )}
+                    </div>
+                  ))}
+                  <div className="suggestion-footer">
+                    <button onClick={handleSearch} className="suggestion-see-all">
+                      Voir tous les résultats pour "{query}"
+                    </button>
+                  </div>
+                </>
+              ) : query.trim() && (
+                <div className="suggestion-empty">
+                  Aucun résultat pour "{query}"
+                </div>
+              )}
+            </div>
+          )}
+        </form>
       </header>
 
       <style>{`
@@ -86,7 +209,6 @@ const Navbar = () => {
           border-bottom: 1px solid #f0ede8;
         }
 
-        /* TOP ROW */
         .ramci-nav-top {
           display: flex;
           align-items: center;
@@ -168,6 +290,7 @@ const Navbar = () => {
 
         /* SEARCH */
         .ramci-search-form {
+          position: relative;
           display: flex;
           align-items: center;
           margin: 0 16px 12px;
@@ -194,6 +317,80 @@ const Navbar = () => {
           align-items: center;
           padding: 0;
           opacity: .7;
+        }
+
+        /* SUGGESTIONS DROPDOWN */
+        .search-suggestions {
+          position: absolute;
+          top: 100%;
+          left: 0;
+          right: 0;
+          background: white;
+          border-radius: 12px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+          margin-top: 8px;
+          z-index: 300;
+          max-height: 350px;
+          overflow-y: auto;
+          border: 1px solid #eee;
+        }
+
+        .suggestion-item {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 16px;
+          cursor: pointer;
+          transition: background 0.2s;
+          border-bottom: 1px solid #f5f5f5;
+        }
+        .suggestion-item:hover {
+          background: #f7f5f2;
+        }
+        .suggestion-item svg {
+          flex-shrink: 0;
+        }
+        .suggestion-item span {
+          flex: 1;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 13px;
+          color: #333;
+        }
+        .suggestion-type {
+          flex-shrink: 0;
+          font-size: 10px;
+          color: #999;
+          background: #f0ede8;
+          padding: 2px 8px;
+          border-radius: 20px;
+        }
+        .suggestion-loading, .suggestion-empty {
+          padding: 16px;
+          text-align: center;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 13px;
+          color: #999;
+        }
+        .suggestion-footer {
+          padding: 10px 16px;
+          background: #faf8f5;
+          border-top: 1px solid #eee;
+        }
+        .suggestion-see-all {
+          width: 100%;
+          text-align: center;
+          background: none;
+          border: none;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 13px;
+          font-weight: 500;
+          color: #111;
+          cursor: pointer;
+          padding: 8px;
+          transition: opacity 0.2s;
+        }
+        .suggestion-see-all:hover {
+          opacity: 0.7;
         }
       `}</style>
     </>
