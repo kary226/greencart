@@ -5,27 +5,11 @@ import { useAppContext } from "../context/AppContext";
 const Navbar = () => {
   const { cartItems, wishlist, user, searchQuery, setSearchQuery, axios } = useAppContext();
   const [query, setQuery] = useState(searchQuery || "");
-  const [categories, setCategories] = useState([]);
-  const [loadingCats, setLoadingCats] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
 
   const cartCount = cartItems ? Object.values(cartItems).reduce((a, b) => a + b, 0) : 0;
   const wishCount = wishlist ? wishlist.length : 0;
-
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const { data } = await axios.get('/api/category/list');
-        if (data.success) setCategories(data.categories);
-      } catch (error) {
-        console.error("Erreur chargement catégories:", error);
-      } finally {
-        setLoadingCats(false);
-      }
-    };
-    fetchCategories();
-  }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -34,8 +18,6 @@ const Navbar = () => {
       navigate(`/products?search=${encodeURIComponent(query.trim())}`);
     }
   };
-
-  const activeCategories = categories.filter(cat => cat.active !== false);
 
   return (
     <>
@@ -89,32 +71,8 @@ const Navbar = () => {
           </button>
         </form>
 
-        {/* CATEGORIES SCROLL */}
-        <nav className="ramci-cats-nav">
-          <Link to="/products" className={`ramci-cat-pill ${location.search === '' && location.pathname === '/products' ? 'active' : ''}`}>
-            <span className="ramci-cat-icon-all">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                <rect x="0" y="0" width="7" height="7" rx="1.5"/><rect x="9" y="0" width="7" height="7" rx="1.5"/>
-                <rect x="0" y="9" width="7" height="7" rx="1.5"/><rect x="9" y="9" width="7" height="7" rx="1.5"/>
-              </svg>
-            </span>
-            Tous
-          </Link>
-          {activeCategories.slice(0, 8).map((cat) => (
-            <Link
-              key={cat._id}
-              to={`/products?categories=${cat.slug || cat.name}`}
-              className="ramci-cat-pill"
-            >
-              {cat.image && (
-                <span className="ramci-cat-pill-img">
-                  <img src={cat.image} alt={cat.name} />
-                </span>
-              )}
-              {cat.name}
-            </Link>
-          ))}
-        </nav>
+        {/* SECTION CATÉGORIES SUPPRIMÉE (anciennement ramci-cats-nav) */}
+        
       </header>
 
       <style>{`
@@ -236,59 +194,6 @@ const Navbar = () => {
           align-items: center;
           padding: 0;
           opacity: .7;
-        }
-
-        /* CATEGORIES */
-        .ramci-cats-nav {
-          display: flex;
-          align-items: center;
-          overflow-x: auto;
-          scrollbar-width: none;
-          padding: 0 12px 12px;
-          gap: 8px;
-        }
-        .ramci-cats-nav::-webkit-scrollbar { display: none; }
-
-        .ramci-cat-pill {
-          flex-shrink: 0;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          padding: 7px 14px;
-          border-radius: 50px;
-          border: 1.5px solid #e8e3dc;
-          font-family: 'DM Sans', sans-serif;
-          font-size: 13px;
-          font-weight: 500;
-          color: #555;
-          text-decoration: none;
-          background: #fff;
-          white-space: nowrap;
-          transition: all .2s;
-        }
-        .ramci-cat-pill:hover,
-        .ramci-cat-pill.active {
-          background: #111;
-          color: #fff;
-          border-color: #111;
-        }
-
-        .ramci-cat-icon-all {
-          display: flex;
-          align-items: center;
-        }
-
-        .ramci-cat-pill-img {
-          width: 20px;
-          height: 20px;
-          border-radius: 50%;
-          overflow: hidden;
-          flex-shrink: 0;
-        }
-        .ramci-cat-pill-img img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
         }
       `}</style>
     </>
