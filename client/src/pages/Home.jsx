@@ -12,9 +12,12 @@ const SECTIONS = [
 ];
 
 const Home = () => {
-  const { products, currency, axios } = useAppContext();
+  const { products, currency, axios, orders } = useAppContext();
   const [categories, setCategories] = useState([]);
   const [activeSection, setActiveSection] = useState("trends");
+  const [trendProducts, setTrendProducts] = useState([]);
+  const [newProducts, setNewProducts] = useState([]);
+  const [dealProducts, setDealProducts] = useState([]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -27,18 +30,91 @@ const Home = () => {
     fetchCategories();
   }, []);
 
-  const activeCategories = categories.filter(c => c.active !== false);
-  const allProducts = products || [];
+  // Calculer les produits par popularité (nombre d'achats)
+  const getTrendingProducts = () => {
+    if (!products.length) return [];
+    
+    // Compter le nombre de ventes par produit
+    const productSales = {};
+    
+    if (orders && orders.length > 0) {
+      orders.forEach(order => {
+        if (order.items && order.items.length > 0) {
+          order.items.forEach(item => {
+            const productId = item.productId || item._id;
+            const quantity = item.quantity || 1;
+            if (productId) {
+              productSales[productId] = (productSales[productId] || 0) + quantity;
+            }
+          });
+        }
+      });
+    }
+    
+    // Ajouter un score de popularité à chaque produit
+    const productsWithSales = products.map(product => ({
+      ...product,
+      salesCount: productSales[product._id] || 0
+    }));
+    
+    // Trier par nombre de ventes (du plus vendu au moins vendu)
+    productsWithSales.sort((a, b) => b.salesCount - a.salesCount);
+    
+    return productsWithSales.slice(0, 10);
+  };
+
+  // Calculer les nouveaux produits (par date d'ajout)
+  const getNewProducts = () => {
+    if (!products.length) return [];
+    
+    // Trier par date de création (du plus récent au plus ancien)
+    const sorted = [...products].sort((a, b) => {
+      const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+      const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+      return dateB - dateA;
+    });
+    
+    return sorted.slice(0, 10);
+  };
+
+  // Calculer les promotions (par pourcentage de réduction)
+  const getDealProducts = () => {
+    if (!products.length) return [];
+    
+    // Filtrer les produits qui ont une offre
+    const productsWithOffer = products.filter(p => p.offerPrice && p.offerPrice < p.price);
+    
+    // Calculer le pourcentage de réduction pour chaque produit
+    const productsWithDiscount = productsWithOffer.map(product => ({
+      ...product,
+      discountPercent: Math.round(((product.price - product.offerPrice) / product.price) * 100)
+    }));
+    
+    // Trier par pourcentage de réduction (du plus élevé au plus bas)
+    productsWithDiscount.sort((a, b) => b.discountPercent - a.discountPercent);
+    
+    return productsWithDiscount.slice(0, 10);
+  };
+
+  // Mettre à jour les listes quand les produits ou commandes changent
+  useEffect(() => {
+    if (products.length > 0) {
+      setTrendProducts(getTrendingProducts());
+      setNewProducts(getNewProducts());
+      setDealProducts(getDealProducts());
+    }
+  }, [products, orders]);
 
   const getSectionProducts = () => {
     switch (activeSection) {
-      case "new":   return [...allProducts].reverse().slice(0, 10);
-      case "deals": return allProducts.filter(p => p.offerPrice && p.offerPrice < p.price).slice(0, 10);
-      default:      return allProducts.slice(0, 10);
+      case "new":   return newProducts;
+      case "deals": return dealProducts;
+      default:      return trendProducts;
     }
   };
 
   const sectionProducts = getSectionProducts();
+  const activeCategories = categories.filter(c => c.active !== false);
 
   return (
     <>

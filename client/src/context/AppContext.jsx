@@ -38,10 +38,11 @@ export const AppContextProvider = ({ children }) => {
     const [showUserLogin, setShowUserLogin] = useState(false);
     const [products, setProducts] = useState([]);
     const [cartItems, setCartItems] = useState({});
-    // ✅ CORRECTION : initialisation avec une chaîne vide au lieu d'un objet
     const [searchQuery, setSearchQuery] = useState("");
     const [wishlist, setWishlist] = useState([]);
     const [recentlyViewed, setRecentlyViewed] = useState([]);
+    // NOUVEAU : État pour les commandes (utilisé pour les tendances)
+    const [orders, setOrders] = useState([]);
 
     const getCartKey = (productId, color = null, size = null) => {
         return `${productId}${color ? `_${color}` : ''}${size ? `_${size}` : ''}`;
@@ -53,24 +54,18 @@ export const AppContextProvider = ({ children }) => {
 
     // ==================== PRODUITS RÉCEMMENT VUS ====================
 
-    // Ajouter un produit aux récemment vus
     const addToRecentlyViewed = (product) => {
         if (!product || !product._id) return;
         
         setRecentlyViewed(prev => {
-            // Supprimer le produit s'il existe déjà
             const filtered = prev.filter(item => item._id !== product._id);
-            // Ajouter le produit au début
             const updated = [product, ...filtered];
-            // Garder seulement les MAX_RECENT_ITEMS premiers
             const sliced = updated.slice(0, MAX_RECENT_ITEMS);
-            // Sauvegarder dans localStorage
             localStorage.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(sliced));
             return sliced;
         });
     };
 
-    // Charger les produits récemment vus depuis localStorage
     const loadRecentlyViewed = () => {
         const stored = localStorage.getItem(RECENTLY_VIEWED_KEY);
         if (stored) {
@@ -82,6 +77,23 @@ export const AppContextProvider = ({ children }) => {
             }
         }
     };
+
+    // ==================== COMMANDES (pour les tendances) ====================
+    
+    const fetchOrders = async () => {
+        if (!user) return;
+        try {
+            const { data } = await axios.get('/api/order/user-orders');
+            if (data.success) {
+                setOrders(data.orders);
+            }
+        } catch (error) {
+            console.error("Erreur chargement commandes:", error);
+            setOrders([]);
+        }
+    };
+
+    // ==================== AUTHENTIFICATION ====================
 
     const fetchSeller = async () => {
         try {
@@ -99,10 +111,13 @@ export const AppContextProvider = ({ children }) => {
             if (data.success) {
                 setUser(data.user);
                 setCartItems(data.user.cartItems || {});
+                // Charger les commandes après avoir l'utilisateur
+                await fetchOrders();
             }
         } catch (error) {
             setUser(null);
             setCartItems({});
+            setOrders([]);
         }
     };
 
@@ -171,7 +186,7 @@ export const AppContextProvider = ({ children }) => {
             cartData[key] = 1;
         }
         setCartItems(cartData);
-        toast.success("Added to Cart");
+        toast.success("Ajouté au panier");
     };
 
     const addToCartWithQuantity = (productId, quantity, color = null, size = null) => {
@@ -194,7 +209,7 @@ export const AppContextProvider = ({ children }) => {
             cartData[key] = quantity;
         }
         setCartItems(cartData);
-        toast.success("Cart Updated");
+        toast.success("Panier mis à jour");
     };
 
     const removeFromCart = (key) => {
@@ -205,7 +220,7 @@ export const AppContextProvider = ({ children }) => {
                 delete cartData[key];
             }
         }
-        toast.success("Removed from Cart");
+        toast.success("Retiré du panier");
         setCartItems(cartData);
     };
 
@@ -240,6 +255,7 @@ export const AppContextProvider = ({ children }) => {
                 setAuthToken(data.token);
                 setUser(data.user);
                 setCartItems(data.user.cartItems || {});
+                await fetchOrders(); // Charger les commandes après login
                 toast.success("Connexion réussie");
                 navigate('/');
             } else {
@@ -280,6 +296,7 @@ export const AppContextProvider = ({ children }) => {
             setAuthToken(null);
             setUser(null);
             setCartItems({});
+            setOrders([]); // Vider les commandes
             toast.success("Déconnexion réussie");
             navigate('/');
         } catch (error) {
@@ -292,15 +309,17 @@ export const AppContextProvider = ({ children }) => {
             fetchUser();
         } else {
             setCartItems({});
+            setOrders([]);
         }
         fetchSeller();
         fetchProducts();
-        loadRecentlyViewed(); // Charger les produits récemment vus
+        loadRecentlyViewed();
     }, []);
 
     useEffect(() => {
         if (user) {
             fetchWishlist();
+            fetchOrders(); // Recharger les commandes quand l'utilisateur change
         }
     }, [user]);
 
@@ -328,7 +347,8 @@ export const AppContextProvider = ({ children }) => {
         axios, fetchProducts, setCartItems, getCartKey, getProductIdFromKey,
         wishlist, addToWishlist, removeFromWishlist, isInWishlist, fetchWishlist,
         fetchUser, loginUser, registerUser, logoutUser,
-        recentlyViewed, addToRecentlyViewed
+        recentlyViewed, addToRecentlyViewed,
+        orders // EXPOSER LES COMMANDES DANS LE CONTEXTE
     };
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
