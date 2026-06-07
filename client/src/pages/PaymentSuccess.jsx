@@ -11,32 +11,28 @@ const PaymentSuccess = () => {
 
     useEffect(() => {
         const confirmOrder = async () => {
-            if (!orderId) {
-                toast.error('Information de paiement manquante');
-                setTimeout(() => navigate('/cart'), 2000);
-                return;
-            }
-
             try {
                 const { data } = await axios.post('/api/order/geniuspay/confirm', { orderId });
-                
                 if (data.success) {
                     setCartItems({});
                     localStorage.removeItem('greencart_cart');
-                    toast.success('Paiement réussi ! Commande confirmée.');
+                    toast.success('Commande confirmée !');
                     setTimeout(() => navigate('/my-orders'), 2000);
                 } else {
-                    toast.error(data.message || 'Erreur lors de la confirmation');
+                    toast.error(data.message);
                     setTimeout(() => navigate('/cart'), 2000);
                 }
             } catch (error) {
-                console.error('Erreur:', error);
-                toast.error('Erreur lors de la confirmation du paiement');
+                toast.error('Erreur lors de la confirmation');
                 setTimeout(() => navigate('/cart'), 2000);
             }
         };
         
-        confirmOrder();
+        if (orderId) {
+            confirmOrder();
+        } else {
+            navigate('/cart');
+        }
     }, [orderId]);
 
     return (
