@@ -3,17 +3,18 @@ import { useLocation } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
 import { PDFDownloadLink } from '@react-pdf/renderer'
 import OrderReceiptPDF from '../components/OrderReceiptPDF'
+import { Package, Calendar, CreditCard, MapPin, Phone, FileText, ChevronRight, CheckCircle, Truck, PackageCheck, Home, XCircle } from 'lucide-react'
 
 const MyOrders = () => {
 
     const [myOrders, setMyOrders] = useState([])
-    const {currency, axios, user} = useAppContext()
+    const { currency, axios, user } = useAppContext()
     const location = useLocation()
 
-    const fetchMyOrders = async ()=>{
+    const fetchMyOrders = async () => {
         try {
             const { data } = await axios.get('/api/order/user')
-            if(data.success){
+            if (data.success) {
                 setMyOrders(data.orders)
             }
         } catch (error) {
@@ -21,154 +22,213 @@ const MyOrders = () => {
         }
     }
 
-    // Fonction pour traduire le statut en français
     const getStatusBadge = (status) => {
         const statusMap = {
-            'Order Placed': { text: 'Commandée', color: 'bg-blue-100 text-blue-700', step: 1 },
-            'Confirmed': { text: 'Confirmée', color: 'bg-green-100 text-green-700', step: 2 },
-            'Shipped': { text: 'Expédiée', color: 'bg-purple-100 text-purple-700', step: 3 },
-            'Out for Delivery': { text: 'En livraison', color: 'bg-orange-100 text-orange-700', step: 4 },
-            'Delivered': { text: 'Livrée', color: 'bg-emerald-100 text-emerald-700', step: 5 },
-            'Cancelled': { text: 'Annulée', color: 'bg-red-100 text-red-700', step: 0 }
+            'Order Placed': { text: 'Commandée', color: 'bg-blue-50 text-blue-700 border-blue-200', icon: Package, step: 1 },
+            'Confirmed': { text: 'Confirmée', color: 'bg-green-50 text-green-700 border-green-200', icon: CheckCircle, step: 2 },
+            'Shipped': { text: 'Expédiée', color: 'bg-purple-50 text-purple-700 border-purple-200', icon: PackageCheck, step: 3 },
+            'Out for Delivery': { text: 'En livraison', color: 'bg-orange-50 text-orange-700 border-orange-200', icon: Truck, step: 4 },
+            'Delivered': { text: 'Livrée', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: Home, step: 5 },
+            'Cancelled': { text: 'Annulée', color: 'bg-red-50 text-red-700 border-red-200', icon: XCircle, step: 0 }
         };
-        return statusMap[status] || { text: status, color: 'bg-gray-100 text-gray-700', step: 0 };
+        return statusMap[status] || { text: status, color: 'bg-gray-50 text-gray-700 border-gray-200', icon: Package, step: 0 };
     };
 
-    // Fonction pour obtenir le message de statut
     const getStatusMessage = (status) => {
         const messages = {
             'Order Placed': 'Votre commande a été enregistrée et est en cours de traitement.',
             'Confirmed': 'Votre commande a été confirmée. Nous la préparons.',
             'Shipped': 'Votre commande a été expédiée !',
             'Out for Delivery': 'Votre commande est en cours de livraison.',
-            'Delivered': 'Votre commande a été livrée. Merci !',
+            'Delivered': 'Votre commande a été livrée. Merci pour votre confiance !',
             'Cancelled': 'Votre commande a été annulée.'
         };
         return messages[status] || '';
     };
 
-    useEffect(()=>{
-        if(user){
+    useEffect(() => {
+        if (user) {
             fetchMyOrders()
         }
-    },[user, location.pathname]) // ← AJOUT DE location.pathname
+    }, [user, location.pathname])
+
+    if (myOrders.length === 0) {
+        return (
+            <div className="min-h-screen bg-white pt-20 pb-16 px-4">
+                <div className="max-w-md mx-auto text-center">
+                    <div className="w-24 h-24 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <Package size={48} className="text-red-500" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Aucune commande</h2>
+                    <p className="text-gray-500 mb-6">Vous n'avez pas encore passé de commande</p>
+                    <button 
+                        onClick={() => window.location.href = '/products'} 
+                        className="bg-black text-white px-6 py-3 rounded-full font-medium hover:bg-gray-800 transition shadow-lg"
+                    >
+                        Découvrir nos produits
+                    </button>
+                </div>
+            </div>
+        )
+    }
 
     return (
-        <div className='mt-16 pb-16'>
-            <div className='flex flex-col items-end w-max mb-8'>
-                <p className='text-2xl font-medium uppercase'>Mes commandes</p>
-                <div className='w-16 h-0.5 bg-primary rounded-full'></div>
-            </div>
-            {myOrders.length === 0 ? (
-                <p className="text-gray-500 text-center py-10">Aucune commande pour le moment</p>
-            ) : (
-                myOrders.map((order, index)=> {
-                    const statusBadge = getStatusBadge(order.status);
-                    const statusMessage = getStatusMessage(order.status);
-                    
-                    return (
-                        <div key={index} className='border border-gray-300 rounded-lg mb-10 p-4 py-5 max-w-4xl'>
-                            {/* En-tête */}
-                            <p className='flex justify-between md:items-center text-gray-400 md:font-medium max-md:flex-col gap-2'>
-                                <span className="text-xs">📦 Commande : {order._id.slice(-8)}</span>
-                                <span>💳 {order.paymentType === "COD" ? "Paiement à la livraison" : "Paiement en ligne"}</span>
-                                <span> Total : {order.amount} {currency}</span>
-                            </p>
-                            
-                            {/* Statut avec barre de progression */}
-                            <div className="mt-4 mb-4">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className={`text-xs px-3 py-1 rounded-full ${statusBadge.color}`}>
-                                        {statusBadge.text}
-                                    </span>
-                                    <span className="text-xs text-gray-400">
-                                        {new Date(order.createdAt).toLocaleDateString()}
-                                    </span>
-                                </div>
-                                {order.status !== 'Cancelled' && (
-                                    <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
-                                        <div 
-                                            className="bg-primary h-2 rounded-full transition-all duration-500"
-                                            style={{ width: `${(statusBadge.step / 5) * 100}%` }}
-                                        />
-                                    </div>
-                                )}
-                                {statusMessage && (
-                                    <p className="text-sm text-gray-600 mt-2">{statusMessage}</p>
-                                )}
-                            </div>
+        <div className="min-h-screen bg-white pt-20 pb-16 px-4">
+            <div className="max-w-5xl mx-auto">
+                {/* En-tête */}
+                <div className="mb-8">
+                    <h1 className="text-3xl font-bold text-gray-900">Mes commandes</h1>
+                    <div className="w-20 h-1 bg-red-500 rounded-full mt-2"></div>
+                    <p className="text-gray-500 mt-2">Suivez l'état de vos commandes</p>
+                </div>
 
-                            {/* Liste des produits */}
-                            {order.items.map((item, idx)=>(
-                                <div key={idx}
-                                    className={`relative bg-white text-gray-500/70 ${
-                                        order.items.length !== idx + 1 && "border-b"
-                                    } border-gray-300 flex flex-col md:flex-row md:items-center justify-between p-4 py-5 md:gap-16 w-full max-w-4xl`}>
-
-                                    <div className='flex items-center mb-4 md:mb-0'>
-                                        <div className='bg-primary/10 p-4 rounded-lg'>
-                                            {item.product && item.product.image && item.product.image[0] ? (
-                                                <img src={item.product.image[0]} alt="" className='w-16 h-16 object-cover' />
-                                            ) : (
-                                                <div className='w-16 h-16 bg-gray-200 rounded flex items-center justify-center text-xl'>📦</div>
-                                            )}
+                {/* Liste des commandes */}
+                <div className="space-y-6">
+                    {myOrders.map((order, index) => {
+                        const statusBadge = getStatusBadge(order.status);
+                        const StatusIcon = statusBadge.icon;
+                        const statusMessage = getStatusMessage(order.status);
+                        
+                        return (
+                            <div key={index} className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                                {/* En-tête de la commande */}
+                                <div className="bg-gray-50 px-6 py-4 border-b border-gray-100">
+                                    <div className="flex flex-wrap justify-between items-center gap-3">
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex items-center gap-2 text-gray-500">
+                                                <Package size={16} />
+                                                <span className="text-sm font-mono">#{order._id.slice(-8)}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 text-gray-500">
+                                                <Calendar size={16} />
+                                                <span className="text-sm">{new Date(order.createdAt).toLocaleDateString('fr-FR')}</span>
+                                            </div>
                                         </div>
-                                        <div className='ml-4'>
-                                            <h2 className='text-xl font-medium text-gray-800'>{item.product?.name || 'Produit indisponible'}</h2>
-                                            <p className="text-sm text-gray-500">Catégorie : {item.product?.category || '-'}</p>
-                                            <div className="flex gap-2 mt-1 flex-wrap">
-                                                {item.color && item.color !== 'null' && (
-                                                    <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">
-                                                        🎨 {item.color}
-                                                    </span>
-                                                )}
-                                                {item.size && item.size !== 'null' && (
-                                                    <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">
-                                                        📐 {item.size}
-                                                    </span>
-                                                )}
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex items-center gap-2 text-gray-500">
+                                                <CreditCard size={16} />
+                                                <span className="text-sm">{order.paymentType === "COD" ? "Paiement à la livraison" : "Paiement en ligne"}</span>
+                                            </div>
+                                            <div className="text-lg font-bold text-gray-900">
+                                                {order.amount} {currency}
                                             </div>
                                         </div>
                                     </div>
+                                </div>
 
-                                    <div className='flex flex-col justify-center md:ml-8 mb-4 md:mb-0'>
-                                        <p>Quantité : {item.quantity || "1"}</p>
-                                        <p>Prix unitaire : {(item.priceAtOrder || item.product?.offerPrice || 0)} {currency}</p>
+                                {/* Corps de la commande */}
+                                <div className="px-6 py-5">
+                                    {/* Statut */}
+                                    <div className="mb-6">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <div className={`p-1.5 rounded-full ${statusBadge.color.split(' ')[0]} bg-opacity-100`}>
+                                                <StatusIcon size={18} className={statusBadge.color.split(' ')[2]?.replace('text-', '')} />
+                                            </div>
+                                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusBadge.color}`}>
+                                                {statusBadge.text}
+                                            </span>
+                                        </div>
+                                        
+                                        {order.status !== 'Cancelled' && (
+                                            <div className="mb-3">
+                                                <div className="w-full bg-gray-100 rounded-full h-1.5">
+                                                    <div 
+                                                        className="bg-red-500 h-1.5 rounded-full transition-all duration-500"
+                                                        style={{ width: `${(statusBadge.step / 5) * 100}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+                                        
+                                        {statusMessage && (
+                                            <p className="text-sm text-gray-600">{statusMessage}</p>
+                                        )}
                                     </div>
-                                    <p className='text-primary text-lg font-medium'>
-                                        {(item.priceAtOrder || item.product?.offerPrice || 0) * (item.quantity || 1)} {currency}
-                                    </p>
-                                </div>
-                            ))}
 
-                            {/* Adresse de livraison */}
-                            {order.address && (
-                                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                                    <p className="font-medium text-gray-700 mb-2">📍 Adresse de livraison</p>
-                                    <p className="text-sm text-gray-600">
-                                        {order.address.firstName} {order.address.lastName}
-                                    </p>
-                                    <p className="text-sm text-gray-600">
-                                        {order.address.street}, {order.address.city}
-                                    </p>
-                                    <p className="text-sm text-gray-600">📞 {order.address.phone}</p>
-                                </div>
-                            )}
+                                    {/* Liste des produits */}
+                                    <div className="space-y-3 mb-6">
+                                        {order.items.map((item, idx) => (
+                                            <div key={idx} className="flex gap-4 py-3 border-b border-gray-100 last:border-0">
+                                                <div className="w-16 h-16 bg-gray-50 rounded-xl overflow-hidden flex-shrink-0">
+                                                    {item.product && item.product.image && item.product.image[0] ? (
+                                                        <img src={item.product.image[0]} alt="" className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center text-gray-300">
+                                                            <Package size={24} />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="flex-1">
+                                                    <h3 className="font-semibold text-gray-900">{item.product?.name || 'Produit indisponible'}</h3>
+                                                    <div className="flex flex-wrap gap-2 mt-1">
+                                                        {item.color && item.color !== 'null' && (
+                                                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                                                                {item.color}
+                                                            </span>
+                                                        )}
+                                                        {item.size && item.size !== 'null' && (
+                                                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                                                                {item.size}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex gap-4 mt-2 text-sm text-gray-500">
+                                                        <span>Qté : {item.quantity || 1}</span>
+                                                        <span>{item.priceAtOrder || item.product?.offerPrice || 0} {currency}/u</span>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="font-bold text-gray-900">
+                                                        {(item.priceAtOrder || item.product?.offerPrice || 0) * (item.quantity || 1)} {currency}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
 
-                            {/* Bouton PDF */}
-                            <div className="mt-4 flex justify-end">
-                                <PDFDownloadLink
-                                    document={<OrderReceiptPDF order={order} currency={currency} />}
-                                    fileName={`facture_${order._id.slice(-8)}.pdf`}
-                                    className="bg-primary text-white px-4 py-2 rounded-lg hover:opacity-90 transition text-sm flex items-center gap-2"
-                                >
-                                    {({ loading }) => loading ? '⏳ Préparation...' : '📄 Télécharger le reçu'}
-                                </PDFDownloadLink>
+                                    {/* Adresse de livraison */}
+                                    {order.address && (
+                                        <div className="bg-gray-50 rounded-xl p-4 mb-4">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <MapPin size={16} className="text-red-500" />
+                                                <span className="text-sm font-medium text-gray-700">Adresse de livraison</span>
+                                            </div>
+                                            <p className="text-sm text-gray-600">
+                                                {order.address.firstName} {order.address.lastName}
+                                            </p>
+                                            <p className="text-sm text-gray-600">
+                                                {order.address.street}, {order.address.city}
+                                            </p>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <Phone size={14} className="text-gray-400" />
+                                                <span className="text-sm text-gray-600">{order.address.phone}</span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Bouton PDF */}
+                                    <div className="flex justify-end">
+                                        <PDFDownloadLink
+                                            document={<OrderReceiptPDF order={order} currency={currency} />}
+                                            fileName={`facture_${order._id.slice(-8)}.pdf`}
+                                            className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-full text-sm font-medium hover:bg-gray-800 transition shadow-sm"
+                                        >
+                                            {({ loading }) => loading ? (
+                                                <>Chargement...</>
+                                            ) : (
+                                                <>
+                                                    <FileText size={16} />
+                                                    Télécharger le reçu
+                                                </>
+                                            )}
+                                        </PDFDownloadLink>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    );
-                })
-            )}
+                        );
+                    })}
+                </div>
+            </div>
         </div>
     )
 }
