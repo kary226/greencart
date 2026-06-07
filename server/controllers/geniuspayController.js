@@ -2,6 +2,7 @@ import axios from 'axios';
 import mongoose from 'mongoose';
 import Order from '../models/Order.js';
 import User from '../models/User.js';
+import Product from '../models/Product.js';
 import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
 
 // Initier un paiement GeniusPay (mode checkout)
@@ -134,29 +135,99 @@ export const initiateGeniusPay = async (req, res) => {
     }
 };
 
-// Webhook pour confirmer les paiements
+// Webhook pour confirmer les paiements et mettre à jour le stock
 export const geniuspayWebhook = async (req, res) => {
     try {
         const payload = req.body;
         const event = payload.event;
 
+        console.log("=== WEBHOOK GENIUSPAY RECU ===");
+        console.log("Événement:", event);
+        console.log("Payload:", JSON.stringify(payload, null, 2));
+
         if (event === 'payment.success') {
             const transactionData = payload.data;
-            const orderId = transactionData.metadata?.order_id;
-            const userId = transactionData.metadata?.user_id;
+            const metadata = transactionData.metadata;
+            const orderId = metadata?.order_id;
+            const userId = metadata?.user_id;
+            const reference = transactionData.reference;
 
-            await Order.findByIdAndUpdate(orderId, {
-                isPaid: true,
-                status: "Confirmed",
-                geniuspay_reference: transactionData.reference,
-            });
+            console.log(`📦 Traitement de la commande: ${orderId}`);
+            console.log(`👤 Utilisateur: ${userId}`);
+            console.log(`🔖 Référence: ${reference}`);
 
+            if (!orderId) {
+                console.error("❌ orderId manquant dans le webhook");
+                return res.status(400).json({ error: "orderId missing" });
+            }
+
+            // 1. Récupérer la commande
+            const order = await Order.findById(orderId);
+            if (!order) {
+                console.error(`❌ Commande ${orderId} non trouvée`);
+                return res.status(404).json({ error: "Order not found" });
+            }
+
+            // 2. Vérifier si déjà traitée
+            if (order.isPaid && order.status === "Confirmed") {
+                console.log(`ℹ️ Commande ${orderId} déjà confirmée, ignorer`);
+                return res.status(200).json({ received: true, alreadyProcessed: true });
+            }
+
+            // 3. Marquer la commande comme payée
+            order.isPaid = true;
+            order.status = "Confirmed";
+            if (reference) {
+                order.geniuspay_reference = reference;
+            }
+            await order.save();
+            console.log(`✅ Commande ${orderId} marquée comme payée`);
+
+            // 4. Mettre à jour le stock pour chaque produit
+            const ProductModel = mongoose.model('product');
+            for (const item of order.items) {
+                const product = await ProductModel.findById(item.product);
+                if (!product) {
+                    console.warn(`⚠️ Produit ${item.product} non trouvé, stock non mis à jour`);
+                    continue;
+                }
+
+                // Gestion des variantes (couleur, taille)
+                if (product.variants && product.variants.length > 0) {
+                    const variant = product.variants.find(v => 
+                        v.color === item.color && v.size === item.size
+                    );
+                    if (variant) {
+                        const ancienStock = variant.stock;
+                        variant.stock = Math.max(0, (variant.stock || 0) - item.quantity);
+                        await product.save();
+                        console.log(`📦 Stock mis à jour pour variant ${item.color}/${item.size}: ${ancienStock} → ${variant.stock}`);
+                    } else {
+                        console.warn(`⚠️ Variant (${item.color}/${item.size}) non trouvé pour produit ${product.name}`);
+                    }
+                } else {
+                    // Stock simple (sans variantes)
+                    const ancienStock = product.stock || 0;
+                    product.stock = Math.max(0, ancienStock - item.quantity);
+                    await product.save();
+                    console.log(`📦 Stock mis à jour pour produit ${product.name}: ${ancienStock} → ${product.stock}`);
+                }
+            }
+
+            // 5. Vider le panier de l'utilisateur
             await User.findByIdAndUpdate(userId, { cartItems: {} });
+            console.log(`🗑️ Panier vidé pour l'utilisateur ${userId}`);
+
+            console.log(`✅✅✅ Commande ${orderId} finalisée avec succès ✅✅✅`);
+        } else if (event === 'payment.failed') {
+            console.log("❌ Paiement échoué:", payload.data);
+        } else {
+            console.log(`ℹ️ Événement non traité: ${event}`);
         }
 
         res.status(200).json({ received: true });
     } catch (error) {
-        console.error("Webhook error:", error);
+        console.error("❌ Webhook error:", error);
         res.status(500).json({ error: "Webhook processing failed" });
     }
 };

@@ -19,7 +19,6 @@ orderRouter.get('/admin/user/:userId', authSeller, getUserOrdersByAdmin);
 
 // ============================================================
 // ROUTE POUR RÉCUPÉRER UNE COMMANDE PAR SON ID (sans auth)
-// Utilisée par PaymentError pour vérifier le statut
 // ============================================================
 orderRouter.get('/:orderId', async (req, res) => {
     try {
@@ -34,7 +33,9 @@ orderRouter.get('/:orderId', async (req, res) => {
     }
 });
 
-// ROUTE DE CONFIRMATION GENIUSPAY (redirection après paiement)
+// ============================================================
+// CONFIRMATION MANUELLE (redirection après paiement)
+// ============================================================
 orderRouter.post('/geniuspay/confirm', async (req, res) => {
     try {
         const { orderId } = req.body;
@@ -85,7 +86,7 @@ orderRouter.post('/geniuspay/confirm', async (req, res) => {
 });
 
 // ============================================================
-// WEBHOOK GENIUSPAY (appelé par GeniusPay en arrière-plan)
+// WEBHOOK GENIUSPAY (appelé automatiquement par GeniusPay)
 // ============================================================
 orderRouter.post('/geniuspay/webhook', async (req, res) => {
     console.log("🔔 Webhook GeniusPay reçu:", JSON.stringify(req.body, null, 2));
@@ -95,7 +96,6 @@ orderRouter.post('/geniuspay/webhook', async (req, res) => {
         const event = payload.event;
 
         if (event === 'payment.success') {
-            // Structure selon la documentation GeniusPay
             const transactionData = payload.data?.transaction || payload.data;
             const metadata = transactionData?.metadata || payload.data?.metadata;
             const orderId = metadata?.order_id;
@@ -135,14 +135,17 @@ orderRouter.post('/geniuspay/webhook', async (req, res) => {
                         }
                     }
 
-                    // Vider le panier de l'utilisateur
+                    // ✅ VIDER LE PANIER DE L'UTILISATEUR (AJOUTÉ)
                     if (userId) {
                         await User.findByIdAndUpdate(userId, { cartItems: {} });
+                        console.log(`✅ Panier vidé pour l'utilisateur ${userId}`);
                     }
                     
                     console.log(`✅ Commande ${orderId} confirmée par webhook`);
                 } else if (order && order.isPaid) {
                     console.log(`ℹ️ Commande ${orderId} déjà payée`);
+                } else {
+                    console.log(`⚠️ Commande ${orderId} non trouvée`);
                 }
             } else {
                 console.log("⚠️ Webhook reçu mais pas d'orderId dans metadata");
