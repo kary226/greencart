@@ -7,10 +7,10 @@ const PaymentProcessing = () => {
     const navigate = useNavigate();
     const { axios, setCartItems } = useAppContext();
     const [searchParams] = useSearchParams();
-    const orderId = searchParams.get('orderId');
-    const [status, setStatus] = useState('waiting'); // waiting, success, failed
+    const orderId = searchParams.get('orderId') || sessionStorage.getItem('pendingOrderId');
+    const [status, setStatus] = useState('waiting');
     const [attempts, setAttempts] = useState(0);
-    const maxAttempts = 15; // 15 * 3 secondes = 45 secondes max
+    const maxAttempts = 20;
 
     useEffect(() => {
         if (!orderId) {
@@ -23,25 +23,22 @@ const PaymentProcessing = () => {
             try {
                 const { data } = await axios.get(`/api/order/${orderId}`);
                 
-                if (data.success && data.order) {
-                    if (data.order.isPaid) {
-                        // Paiement réussi !
-                        setStatus('success');
-                        setCartItems({});
-                        localStorage.removeItem('greencart_cart');
-                        toast.success('Paiement effectué avec succès !');
-                        setTimeout(() => navigate('/my-orders'), 2000);
-                        return;
-                    }
+                if (data.success && data.order && data.order.isPaid) {
+                    setStatus('success');
+                    setCartItems({});
+                    localStorage.removeItem('greencart_cart');
+                    sessionStorage.removeItem('pendingOrderId');
+                    toast.success('Paiement effectué avec succès !');
+                    setTimeout(() => navigate('/my-orders'), 2000);
+                    return;
                 }
                 
-                // Pas encore payé, continuer à vérifier
                 setAttempts(prev => prev + 1);
                 
                 if (attempts + 1 >= maxAttempts) {
-                    // Trop de tentatives, échec
                     setStatus('failed');
                     toast.error('Le paiement semble avoir échoué');
+                    sessionStorage.removeItem('pendingOrderId');
                     setTimeout(() => navigate('/cart'), 2000);
                 }
             } catch (error) {
@@ -51,23 +48,23 @@ const PaymentProcessing = () => {
                 if (attempts + 1 >= maxAttempts) {
                     setStatus('failed');
                     toast.error('Erreur lors de la vérification du paiement');
+                    sessionStorage.removeItem('pendingOrderId');
                     setTimeout(() => navigate('/cart'), 2000);
                 }
             }
         };
 
-        // Vérifier toutes les 3 secondes
         const interval = setInterval(() => {
             if (status === 'waiting') {
                 checkPaymentStatus();
             }
         }, 3000);
 
-        // Première vérification immédiate
         checkPaymentStatus();
-
         return () => clearInterval(interval);
     }, [orderId, attempts, status]);
+
+    if (!orderId) return null;
 
     return (
         <div className="mt-32 text-center">
@@ -93,14 +90,16 @@ const PaymentProcessing = () => {
             {status === 'waiting' && (
                 <>
                     <h1 className="text-2xl font-bold text-blue-600 mb-2">Paiement en cours...</h1>
-                    <p className="text-gray-500 mb-2">Veuillez finaliser le paiement dans l'onglet GeniusPay.</p>
-                    <p className="text-gray-400 text-sm">Cette page se mettra à jour automatiquement.</p>
-                    <p className="text-gray-400 text-sm mt-4">
-                        Après paiement, revenez sur cette page.
-                    </p>
+                    <p className="text-gray-500 mb-2">Vous allez être redirigé vers GeniusPay.</p>
+                    <p className="text-gray-400 text-sm">Après le paiement, revenez sur cette page.</p>
                     <div className="mt-6">
                         <button 
-                            onClick={() => window.open(`https://geniuspay.ci/checkout/${orderId}`, '_blank')}
+                            onClick={() => {
+                                const savedOrderId = sessionStorage.getItem('pendingOrderId') || orderId;
+                                if (savedOrderId) {
+                                    window.location.href = `https://geniuspay.ci/checkout/${savedOrderId}`;
+                                }
+                            }}
                             className="px-4 py-2 bg-primary text-white rounded-lg"
                         >
                             Rouvrir GeniusPay
