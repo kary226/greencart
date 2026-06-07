@@ -10,6 +10,7 @@ import AllProducts from './pages/AllProducts';
 import ProductCategory from './pages/ProductCategory';
 import ProductDetails from './pages/ProductDetails';
 import Cart from './pages/Cart';
+import Checkout from './pages/Checkout';
 import AddAddress from './pages/AddAddress';
 import MyOrders from './pages/MyOrders';
 import Wishlist from './pages/Wishlist';
@@ -67,6 +68,10 @@ const App = () => {
           <Route path='/product/:id' element={<ProductDetails/>} />
           
           <Route path='/cart' element={<Cart/>} />
+          
+          {/* NOUVELLE ROUTE : page de paiement */}
+          <Route path='/checkout' element={<Checkout/>} />
+          
           <Route path='/add-address' element={<AddAddress/>} />
           <Route path='/my-orders' element={<MyOrders/>} />
           <Route path='/loader' element={<Loading/>} />

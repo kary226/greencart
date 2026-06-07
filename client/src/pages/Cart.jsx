@@ -1,58 +1,18 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
 import { assets } from "../assets/assets";
 import toast from "react-hot-toast";
-import CouponInput from "../components/CouponInput";
 
 const Cart = () => {
-    const {products, currency, cartItems, removeFromCart, getCartCount, updateCartItem, navigate, getCartAmount, axios, user, setCartItems, getProductIdFromKey} = useAppContext()
-    const location = useLocation();
+    const { products, currency, cartItems, removeFromCart, getCartCount, updateCartItem, navigate, getCartAmount, getProductIdFromKey, user } = useAppContext()
     const [cartArray, setCartArray] = useState([])
-    const [addresses, setAddresses] = useState([])
-    const [showAddress, setShowAddress] = useState(false)
-    const [selectedAddress, setSelectedAddress] = useState(null)
-    const [paymentOption, setPaymentOption] = useState("")
-    const [appliedCoupon, setAppliedCoupon] = useState(null)
-    const [discountedAmount, setDiscountedAmount] = useState(null)
-    
-    // États pour la livraison
-    const [deliveryTypes, setDeliveryTypes] = useState([])
-    const [selectedDeliveryType, setSelectedDeliveryType] = useState(null)
-    const [deliveryPrice, setDeliveryPrice] = useState(0)
-    const [loadingDelivery, setLoadingDelivery] = useState(false)
 
-    // Fonction pour formater l'adresse complète (quartier, commune, ville)
-    const formatAddress = (address) => {
-        if (!address) return "Aucune adresse trouvée";
-        const parts = [];
-        if (address.street) parts.push(address.street);
-        if (address.communeName) parts.push(address.communeName);
-        if (address.cityName) parts.push(address.cityName);
-        return parts.join(", ");
-    };
-
-    // Fonction pour supprimer une adresse
-    const deleteAddress = async (addressId) => {
-        try {
-            const { data } = await axios.post('/api/address/delete', { addressId, userId: user._id });
-            if (data.success) {
-                toast.success('Adresse supprimée');
-                getUserAddress(); // Recharge la liste des adresses
-            } else {
-                toast.error(data.message);
-            }
-        } catch (error) {
-            toast.error(error.message);
-        }
-    };
-
-    const getCart = ()=>{
+    const getCart = () => {
         let tempArray = []
-        for(const key in cartItems){
+        for (const key in cartItems) {
             const productId = getProductIdFromKey(key)
-            const product = products.find((item)=>item._id === productId)
-            if(product){
+            const product = products.find((item) => item._id === productId)
+            if (product) {
                 const parts = key.split('_')
                 const color = parts[1] || null
                 const size = parts[2] || null
@@ -78,351 +38,383 @@ const Cart = () => {
         setCartArray(tempArray)
     }
 
-    const getUserAddress = async ()=>{
-        try {
-            const {data} = await axios.get('/api/address/get');
-            if (data.success){
-                setAddresses(data.addresses)
-                if(data.addresses.length > 0){
-                    setSelectedAddress(data.addresses[0])
-                }
-            }else{
-                toast.error(data.message)
-            }
-        } catch (error) {
-            toast.error(error.message)
-        }
-    }
-
-    const fetchDeliveryTypes = async () => {
-        try {
-            const { data } = await axios.get('/api/delivery/types');
-            if (data.success && data.types.length > 0) {
-                setDeliveryTypes(data.types)
-                setSelectedDeliveryType(data.types[0])
-            }
-        } catch (error) {
-            console.error(error)
-        }
-    }
-
-    const fetchDeliveryPrice = async () => {
-        if (!selectedAddress?.communeId || !selectedDeliveryType?._id) {
-            setDeliveryPrice(0)
-            return
-        }
-        setLoadingDelivery(true)
-        try {
-            const { data } = await axios.get(`/api/delivery/price/${selectedAddress.communeId}/${selectedDeliveryType._id}`)
-            if (data.success && data.price) {
-                setDeliveryPrice(data.price.price)
-            } else {
-                setDeliveryPrice(0)
-            }
-        } catch (error) {
-            console.error(error)
-            setDeliveryPrice(0)
-        } finally {
-            setLoadingDelivery(false)
-        }
-    }
-
-    const handleCouponApplied = (coupon) => {
-        setAppliedCoupon(coupon);
-        if (coupon) {
-            setDiscountedAmount(coupon.newAmount);
-        } else {
-            setDiscountedAmount(null);
-        }
-    };
-
-    const originalAmount = getCartAmount();
-    const finalAmount = (discountedAmount !== null ? discountedAmount : originalAmount) + deliveryPrice;
-
     useEffect(() => {
-        fetchDeliveryTypes()
-    }, [])
-
-    useEffect(() => {
-        if (selectedAddress && selectedDeliveryType) {
-            fetchDeliveryPrice()
-        }
-    }, [selectedAddress, selectedDeliveryType])
-
-    useEffect(()=>{
-        if(products.length > 0 && cartItems){
+        if (products.length > 0 && cartItems) {
             getCart()
         }
-    },[products, cartItems])
+    }, [products, cartItems])
 
-    useEffect(()=>{
-        if(user){
-            getUserAddress()
+    const handleProceedToCheckout = () => {
+        if (!user) {
+            toast.error("Connectez-vous pour continuer")
+            return
         }
-    },[user, location.search])
-
-    const placeOrder = async ()=>{
-        try {
-            if(!selectedAddress){
-                return toast.error("Veuillez sélectionner une adresse")
-            }
-
-            if (!paymentOption) {
-                toast.error("Veuillez sélectionner un moyen de paiement")
-                return
-            }
-
-            const items = cartArray.map(item => ({
-                product: item._id,
-                quantity: item.quantity,
-                selectedColor: item.selectedColor,
-                selectedSize: item.selectedSize,
-                offerPrice: item.offerPrice
-            }))
-
-            if (appliedCoupon) {
-                await axios.post('/api/coupon/apply', {
-                    couponId: appliedCoupon.id,
-                    userId: user._id
-                });
-            }
-
-            const totalWithDelivery = finalAmount
-
-            if(paymentOption === "COD"){
-                const {data} = await axios.post('/api/order/cod', {
-                    userId: user._id,
-                    items,
-                    address: selectedAddress._id,
-                    couponApplied: appliedCoupon ? appliedCoupon.code : null,
-                    discountAmount: appliedCoupon ? (originalAmount - discountedAmount) : 0,
-                    deliveryPrice: deliveryPrice,
-                    deliveryType: selectedDeliveryType?.name
-                })
-                if(data.success){
-                    toast.success(data.message)
-                    setCartItems({})
-                    navigate('/my-orders')
-                }else{
-                    toast.error(data.message)
-                }
-            }else if(paymentOption === "Online"){
-                const {data} = await axios.post('/api/order/stripe', {
-                    userId: user._id,
-                    items,
-                    address: selectedAddress._id,
-                    couponApplied: appliedCoupon ? appliedCoupon.code : null,
-                    discountAmount: appliedCoupon ? (originalAmount - discountedAmount) : 0,
-                    deliveryPrice: deliveryPrice,
-                    deliveryType: selectedDeliveryType?.name
-                })
-                if(data.success){
-                    window.location.replace(data.url)
-                }else{
-                    toast.error(data.message)
-                }
-            }else if(paymentOption === "GeniusPay"){
-                const {data} = await axios.post('/api/order/geniuspay/initiate', {
-                    userId: user._id,
-                    items: cartArray.map(item => ({ 
-                        product: item._id, 
-                        quantity: item.quantity,
-                        selectedColor: item.selectedColor,
-                        selectedSize: item.selectedSize,
-                        offerPrice: item.offerPrice
-                    })),
-                    address: selectedAddress._id,
-                    amount: totalWithDelivery
-                });
-                if(data.success){
-                    window.location.href = data.checkout_url;
-                }else{
-                    toast.error(data.message);
-                }
-            }
-        } catch (error) {
-            toast.error(error.message)
+        if (cartArray.length === 0) {
+            toast.error("Votre panier est vide")
+            return
         }
+        navigate('/checkout')
     }
 
-    return products.length > 0 && cartItems ? (
-        <div className="flex flex-col md:flex-row mt-16 gap-6">
-            {/* Colonne gauche - Liste des produits */}
-            <div className='flex-1 max-w-4xl bg-white rounded-lg p-5 shadow-sm'>
-                <h1 className="text-3xl font-medium mb-6">
-                    Mon panier <span className="text-sm text-primary">{getCartCount()} articles</span>
+    const originalAmount = getCartAmount();
+
+    if (products.length === 0) return null
+    if (!cartItems) return null
+
+    return (
+        <div className="cart-page">
+            <div className="cart-container">
+                <h1 className="cart-title">
+                    Mon panier <span className="cart-count">{getCartCount()} articles</span>
                 </h1>
 
-                <div className="grid grid-cols-[2fr_1fr_1fr] text-gray-500 text-base font-medium pb-3 border-b">
-                    <p className="text-left">Détails du produit</p>
-                    <p className="text-center">Sous-total</p>
-                    <p className="text-center">Action</p>
-                </div>
-
-                {cartArray.map((product, index) => (
-                    <div key={index} className="grid grid-cols-[2fr_1fr_1fr] text-gray-500 items-center text-sm md:text-base font-medium pt-3 border-t border-gray-200">
-                        <div className="flex items-center md:gap-6 gap-3">
-                            <div onClick={()=>{
-                                navigate(`/products/${product.category.toLowerCase()}/${product._id}`); scrollTo(0,0)
-                            }} className="cursor-pointer w-24 h-24 flex items-center justify-center border border-gray-300 rounded">
-                                <img className="max-w-full h-full object-cover" src={product.image[0]} alt={product.name} />
-                            </div>
-                            <div>
-                                <p className="hidden md:block font-semibold">{product.name}</p>
-
-                                <div className="flex gap-2 mt-1 flex-wrap">
-                                    {product.selectedColor && (
-                                        <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">
-                                            🎨 {product.selectedColor}
-                                        </span>
-                                    )}
-                                    {product.selectedSize && (
-                                        <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">
-                                            📐 {product.selectedSize}
-                                        </span>
-                                    )}
-                                </div>
-
-                                <div className="font-normal text-gray-500/70 mt-1">
-                                    <div className='flex items-center gap-1'>
-                                        <p>Qté :</p>
-                                        <select onChange={e => {
-                                            const newQty = Number(e.target.value)
-                                            if (product.variantStock !== null && newQty > product.variantStock) {
-                                                toast.error(`Stock limité à ${product.variantStock} unités !`)
-                                                return
-                                            }
-                                            updateCartItem(product.cartKey, newQty)
-                                        }} value={product.quantity} className='outline-none'>
-                                            {Array(Math.min(product.variantStock || 10, 10)).fill('').map((_, i) => (
-                                                <option key={i} value={i + 1}>{i + 1}</option>
-                                            ))}
-                                        </select>
-
-                                        {product.variantStock !== null && (
-                                            <span className={`text-xs ml-1 ${
-                                                product.variantStock === 0 ? 'text-red-500' :
-                                                product.variantStock <= 5 ? 'text-orange-500' :
-                                                'text-green-600'
-                                            }`}>
-                                                ({product.variantStock} en stock)
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <p className="text-center">{product.offerPrice * product.quantity} {currency}</p>
-                        <button onClick={()=> removeFromCart(product.cartKey)} className="cursor-pointer mx-auto">
-                            <img src={assets.remove_icon} alt="remove" className="inline-block w-6 h-6" />
+                {cartArray.length === 0 ? (
+                    <div className="cart-empty">
+                        <p>Votre panier est vide</p>
+                        <button onClick={() => navigate("/products")} className="cart-empty-btn">
+                            Découvrir nos produits
                         </button>
                     </div>
-                ))}
-
-                <button onClick={()=> {navigate("/products"); scrollTo(0,0)}} className="group cursor-pointer flex items-center mt-8 gap-2 text-primary font-medium">
-                    <img className="group-hover:-translate-x-1 transition" src={assets.arrow_right_icon_colored} alt="arrow" />
-                    Continuer mes achats
-                </button>
-            </div>
-
-            {/* Colonne droite - Récapitulatif (FOND BLANC) */}
-            <div className="max-w-[360px] w-full bg-white rounded-lg p-5 shadow-sm border border-gray-200">
-                <h2 className="text-xl font-medium">Récapitulatif</h2>
-                <hr className="border-gray-200 my-5" />
-
-                <div className="mb-6">
-                    <p className="text-sm font-medium uppercase">Adresse de livraison</p>
-                    <div className="relative flex justify-between items-start mt-2">
-                        <p className="text-gray-500">{formatAddress(selectedAddress)}</p>
-                        <button onClick={() => setShowAddress(!showAddress)} className="text-primary hover:underline cursor-pointer">
-                            Changer
-                        </button>
-                        {showAddress && (
-                            <div className="absolute top-12 py-1 bg-white border border-gray-300 text-sm w-full z-10 rounded-lg shadow-lg">
-                                {addresses.map((address, index)=>(
-                                    <div key={index} className="flex justify-between items-center p-2 hover:bg-gray-100">
-                                        <p onClick={() => {setSelectedAddress(address); setShowAddress(false)}} className="flex-1 cursor-pointer">
-                                            {formatAddress(address)}
-                                        </p>
-                                        <button 
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                deleteAddress(address._id);
-                                            }}
-                                            className="text-red-500 text-xs px-2 py-1 hover:bg-red-50 rounded"
-                                        >
-                                            Supprimer
-                                        </button>
-                                    </div>
-                                ))}
-                                <p onClick={() => navigate("/add-address")} className="text-primary text-center cursor-pointer p-2 hover:bg-primary/10 rounded-b-lg">
-                                    Ajouter une adresse
-                                </p>
+                ) : (
+                    <>
+                        {/* Liste des produits */}
+                        <div className="cart-products">
+                            <div className="cart-header">
+                                <p>Détails du produit</p>
+                                <p>Sous-total</p>
+                                <p>Action</p>
                             </div>
-                        )}
-                    </div>
 
-                    {/* Type de livraison */}
-                    {deliveryTypes.length > 0 && selectedAddress?.communeId && (
-                        <div className="mt-4">
-                            <p className="text-sm font-medium uppercase">Mode de livraison</p>
-                            <select
-                                value={selectedDeliveryType?._id || ''}
-                                onChange={(e) => {
-                                    const type = deliveryTypes.find(t => t._id === e.target.value)
-                                    setSelectedDeliveryType(type)
-                                }}
-                                className="w-full border border-gray-300 bg-white px-3 py-2 mt-2 outline-none rounded-lg"
-                            >
-                                {deliveryTypes.map(type => (
-                                    <option key={type._id} value={type._id}>{type.name}</option>
-                                ))}
-                            </select>
+                            {cartArray.map((product, index) => (
+                                <div key={index} className="cart-item">
+                                    <div className="cart-item-info">
+                                        <div onClick={() => {
+                                            navigate(`/products/${product.category?.toLowerCase() || 'all'}/${product._id}`);
+                                            scrollTo(0, 0)
+                                        }} className="cart-item-img">
+                                            <img src={product.image[0]} alt={product.name} />
+                                        </div>
+                                        <div className="cart-item-details">
+                                            <p className="cart-item-name">{product.name}</p>
+
+                                            <div className="cart-item-variants">
+                                                {product.selectedColor && (
+                                                    <span className="variant-tag">🎨 {product.selectedColor}</span>
+                                                )}
+                                                {product.selectedSize && (
+                                                    <span className="variant-tag">📐 {product.selectedSize}</span>
+                                                )}
+                                            </div>
+
+                                            <div className="cart-item-quantity">
+                                                <p>Qté :</p>
+                                                <select onChange={e => {
+                                                    const newQty = Number(e.target.value)
+                                                    if (product.variantStock !== null && newQty > product.variantStock) {
+                                                        toast.error(`Stock limité à ${product.variantStock} unités !`)
+                                                        return
+                                                    }
+                                                    updateCartItem(product.cartKey, newQty)
+                                                }} value={product.quantity}>
+                                                    {Array(Math.min(product.variantStock || 10, 10)).fill('').map((_, i) => (
+                                                        <option key={i} value={i + 1}>{i + 1}</option>
+                                                    ))}
+                                                </select>
+
+                                                {product.variantStock !== null && (
+                                                    <span className={`stock-badge ${
+                                                        product.variantStock === 0 ? 'stock-out' :
+                                                        product.variantStock <= 5 ? 'stock-low' : 'stock-ok'
+                                                    }`}>
+                                                        ({product.variantStock} en stock)
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <p className="cart-item-subtotal">{product.offerPrice * product.quantity} {currency}</p>
+                                    <button onClick={() => removeFromCart(product.cartKey)} className="cart-item-remove">
+                                        <img src={assets.remove_icon} alt="remove" />
+                                    </button>
+                                </div>
+                            ))}
+
+                            <button onClick={() => { navigate("/products"); scrollTo(0, 0) }} className="continue-shopping">
+                                <img src={assets.arrow_right_icon_colored} alt="arrow" />
+                                Continuer mes achats
+                            </button>
                         </div>
-                    )}
-
-                    <p className="text-sm font-medium uppercase mt-6">Moyen de paiement</p>
-                    <select 
-                        onChange={e => setPaymentOption(e.target.value)} 
-                        value={paymentOption}
-                        className="w-full border border-gray-300 bg-white px-3 py-2 mt-2 outline-none rounded-lg"
-                    >
-                        <option value="" disabled>Sélectionner un moyen de paiement</option>
-                        <option value="GeniusPay">Mobile Money (Wave, Orange, MTN)</option>
-                    </select>
-                </div>
-
-                <hr className="border-gray-200" />
-
-                <CouponInput amount={originalAmount} onCouponApplied={handleCouponApplied} />
-
-                <div className="text-gray-500 mt-4 space-y-2">
-                    <p className="flex justify-between">
-                        <span>Prix</span><span>{originalAmount} {currency}</span>
-                    </p>
-                    {appliedCoupon && (
-                        <p className="flex justify-between text-green-600">
-                            <span>Réduction ({appliedCoupon.code})</span>
-                            <span>- {appliedCoupon.discountAmount} {currency}</span>
-                        </p>
-                    )}
-                    <p className="flex justify-between">
-                        <span>Frais de livraison</span>
-                        <span className={deliveryPrice === 0 ? 'text-green-600' : 'text-gray-700'}>
-                            {loadingDelivery ? 'Chargement...' : deliveryPrice === 0 ? 'Gratuit' : `${deliveryPrice} ${currency}`}
-                        </span>
-                    </p>
-                    <p className="flex justify-between text-lg font-medium mt-3">
-                        <span>Montant total :</span><span>{finalAmount} {currency}</span>
-                    </p>
-                </div>
-
-                <button onClick={placeOrder} className="w-full py-3 mt-6 cursor-pointer bg-primary text-white font-medium hover:bg-primary-dull transition rounded-lg">
-                    Procéder au paiement
-                </button>
+                    </>
+                )}
             </div>
+
+            {/* Barre flottante */}
+            {cartArray.length > 0 && (
+                <div className="cart-floating-bar">
+                    <div className="floating-content">
+                        <div className="floating-total">
+                            <span className="total-label">Total</span>
+                            <span className="total-price">{originalAmount} {currency}</span>
+                        </div>
+                        <button onClick={handleProceedToCheckout} className="floating-checkout-btn">
+                            Procéder au paiement
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            <style>{`
+                .cart-page {
+                    margin-top: 64px;
+                    padding-bottom: 90px;
+                    background: #faf8f5;
+                    min-height: 100vh;
+                }
+
+                .cart-container {
+                    max-width: 768px;
+                    margin: 0 auto;
+                    padding: 20px 16px;
+                }
+
+                .cart-title {
+                    font-size: 24px;
+                    font-weight: 600;
+                    color: #111;
+                    margin-bottom: 24px;
+                }
+
+                .cart-count {
+                    font-size: 14px;
+                    color: #888;
+                    font-weight: normal;
+                }
+
+                .cart-empty {
+                    background: white;
+                    border-radius: 20px;
+                    padding: 60px 20px;
+                    text-align: center;
+                }
+
+                .cart-empty p {
+                    color: #aaa;
+                    margin-bottom: 20px;
+                }
+
+                .cart-empty-btn {
+                    background: #111;
+                    color: white;
+                    border: none;
+                    padding: 12px 24px;
+                    border-radius: 40px;
+                    font-weight: 500;
+                    cursor: pointer;
+                }
+
+                .cart-products {
+                    background: white;
+                    border-radius: 20px;
+                    padding: 20px;
+                }
+
+                .cart-header {
+                    display: grid;
+                    grid-template-columns: 2fr 1fr 1fr;
+                    padding-bottom: 12px;
+                    border-bottom: 1px solid #f0ede8;
+                    font-size: 13px;
+                    color: #999;
+                    font-weight: 500;
+                }
+
+                .cart-item {
+                    display: grid;
+                    grid-template-columns: 2fr 1fr 1fr;
+                    align-items: center;
+                    padding: 16px 0;
+                    border-bottom: 1px solid #f0ede8;
+                }
+
+                .cart-item-info {
+                    display: flex;
+                    gap: 16px;
+                }
+
+                .cart-item-img {
+                    width: 80px;
+                    height: 80px;
+                    border-radius: 12px;
+                    overflow: hidden;
+                    cursor: pointer;
+                    background: #f5f3f0;
+                    flex-shrink: 0;
+                }
+
+                .cart-item-img img {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                }
+
+                .cart-item-details {
+                    flex: 1;
+                }
+
+                .cart-item-name {
+                    font-weight: 600;
+                    color: #333;
+                    margin-bottom: 6px;
+                    font-size: 14px;
+                }
+
+                .cart-item-variants {
+                    display: flex;
+                    gap: 6px;
+                    flex-wrap: wrap;
+                    margin-bottom: 8px;
+                }
+
+                .variant-tag {
+                    font-size: 10px;
+                    background: #f5f3f0;
+                    padding: 2px 8px;
+                    border-radius: 20px;
+                    color: #666;
+                }
+
+                .cart-item-quantity {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    font-size: 13px;
+                    color: #666;
+                }
+
+                .cart-item-quantity select {
+                    border: 1px solid #e8e3dc;
+                    border-radius: 8px;
+                    padding: 4px 8px;
+                    outline: none;
+                    background: white;
+                }
+
+                .stock-badge {
+                    font-size: 10px;
+                }
+
+                .stock-ok { color: #4caf50; }
+                .stock-low { color: #ff9800; }
+                .stock-out { color: #e53935; }
+
+                .cart-item-subtotal {
+                    text-align: center;
+                    font-weight: 600;
+                    color: #111;
+                }
+
+                .cart-item-remove {
+                    background: none;
+                    border: none;
+                    cursor: pointer;
+                    display: flex;
+                    justify-content: center;
+                }
+
+                .cart-item-remove img {
+                    width: 20px;
+                    height: 20px;
+                    opacity: 0.5;
+                    transition: opacity 0.2s;
+                }
+
+                .cart-item-remove img:hover {
+                    opacity: 1;
+                }
+
+                .continue-shopping {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    background: none;
+                    border: none;
+                    margin-top: 20px;
+                    color: #111;
+                    font-weight: 500;
+                    font-size: 13px;
+                    cursor: pointer;
+                }
+
+                .continue-shopping img {
+                    width: 16px;
+                    transition: transform 0.2s;
+                }
+
+                .continue-shopping:hover img {
+                    transform: translateX(-3px);
+                }
+
+                /* Barre flottante */
+                .cart-floating-bar {
+                    position: fixed;
+                    bottom: 0;
+                    left: 0;
+                    right: 0;
+                    background: rgba(255,255,255,0.98);
+                    backdrop-filter: blur(10px);
+                    border-top: 1px solid #eee;
+                    padding: 12px 20px;
+                    z-index: 100;
+                    box-shadow: 0 -4px 20px rgba(0,0,0,0.05);
+                }
+
+                .floating-content {
+                    max-width: 768px;
+                    margin: 0 auto;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 20px;
+                }
+
+                .floating-total {
+                    display: flex;
+                    flex-direction: column;
+                }
+
+                .total-label {
+                    font-size: 11px;
+                    color: #999;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                }
+
+                .total-price {
+                    font-size: 20px;
+                    font-weight: 700;
+                    color: #111;
+                }
+
+                .floating-checkout-btn {
+                    background: #111;
+                    color: white;
+                    border: none;
+                    padding: 14px 28px;
+                    border-radius: 40px;
+                    font-weight: 600;
+                    font-size: 14px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    flex-shrink: 0;
+                }
+
+                .floating-checkout-btn:hover {
+                    background: #333;
+                    transform: scale(1.02);
+                }
+            `}</style>
         </div>
-    ) : null
+    )
 }
 
-export default Cart;
+export default Cart
