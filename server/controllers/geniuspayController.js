@@ -8,6 +8,7 @@ export const initiateGeniusPay = async (req, res) => {
     try {
         let { userId, items, address, amount } = req.body;
 
+        // Récupérer l'adresse complète
         let addressDoc = address;
         if (typeof address === 'string') {
             const Address = mongoose.model('address');
@@ -31,7 +32,7 @@ export const initiateGeniusPay = async (req, res) => {
         };
 
         if (!completeAddress.phone) {
-            return res.json({ success: false, message: "Téléphone manquant" });
+            return res.json({ success: false, message: "Téléphone manquant dans l'adresse" });
         }
 
         const finalAmount = Math.round(amount);
@@ -47,6 +48,7 @@ export const initiateGeniusPay = async (req, res) => {
             priceAtOrder: item.offerPrice
         }));
 
+        // Créer la commande
         const order = await Order.create({
             userId,
             items: formattedItems,
@@ -56,19 +58,23 @@ export const initiateGeniusPay = async (req, res) => {
             status: "pending_payment",
         });
 
+        // Envoi des emails
         const user = await User.findById(userId);
         if (user?.email) {
             await sendOrderConfirmationEmail(user.email, order._id.toString(), finalAmount);
             await sendAdminNotificationEmail(order._id.toString(), finalAmount, `${completeAddress.firstName} ${completeAddress.lastName}`, user.email);
         }
 
+        // Formater le téléphone
         let phone = completeAddress.phone.replace(/\D/g, '');
         if (phone.startsWith('0')) phone = phone.substring(1);
         if (!phone.startsWith('225')) phone = `225${phone}`;
         phone = `+${phone}`;
 
+        // ✅ UTILISATION DU MODE DIRECT WAVE (évite la page intermédiaire GeniusPay)
         const geniusPayload = {
             amount: finalAmount,
+            payment_method: "wave",        // ← Direct Wave
             description: `Commande #${order._id.toString().slice(-8)}`,
             customer: {
                 name: `${completeAddress.firstName} ${completeAddress.lastName}`.substring(0, 100),
@@ -82,6 +88,7 @@ export const initiateGeniusPay = async (req, res) => {
             }
         };
 
+        // Appel à l'API GeniusPay
         const response = await axios.post(
             `${process.env.GENIUSPAY_BASE_URL}/payments`,
             geniusPayload,
@@ -95,19 +102,23 @@ export const initiateGeniusPay = async (req, res) => {
         );
 
         if (response.data.success) {
-            const checkoutUrl = response.data.data.checkout_url;
+            // En mode direct, l'URL est dans `payment_url` (et non `checkout_url`)
+            const paymentUrl = response.data.data.payment_url;
             await Order.findByIdAndUpdate(order._id, { geniuspay_reference: response.data.data.reference });
-            return res.json({ success: true, checkout_url: checkoutUrl, orderId: order._id });
+            return res.json({ success: true, checkout_url: paymentUrl, orderId: order._id });
         } else {
+            // Supprimer la commande en cas d'échec
             await Order.findByIdAndDelete(order._id);
             return res.json({ success: false, message: response.data.error?.message || "Erreur d'initiation" });
         }
     } catch (error) {
-        console.error("Erreur GeniusPay:", error);
-        res.json({ success: false, message: error.message });
+        console.error("Erreur initiateGeniusPay:", error.response?.data || error.message);
+        // Ne pas supprimer la commande ici, car elle n'a peut-être pas été créée
+        res.json({ success: false, message: error.response?.data?.message || error.message });
     }
 };
 
+// Webhook pour confirmer les paiements
 export const geniuspayWebhook = async (req, res) => {
     try {
         const { event, data } = req.body;
