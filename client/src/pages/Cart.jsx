@@ -134,6 +134,35 @@ const Cart = () => {
     const originalAmount = getCartAmount();
     const finalAmount = (discountedAmount !== null ? discountedAmount : originalAmount) + deliveryPrice;
 
+    // ✅ Détection d'un paiement abandonné (retour sans payer)
+    useEffect(() => {
+        const pendingOrderId = sessionStorage.getItem('pendingOrderId');
+        if (pendingOrderId && user) {
+            const checkAbandonedOrder = async () => {
+                try {
+                    const { data } = await axios.get(`/api/order/${pendingOrderId}`);
+                    if (data.success && data.order && !data.order.isPaid) {
+                        // Commande non payée => l'utilisateur est revenu sans payer
+                        toast.error('Paiement annulé. Veuillez réessayer.');
+                        sessionStorage.removeItem('pendingOrderId');
+                        // Optionnel : annuler la commande (mettre status cancelled)
+                        try {
+                            await axios.post('/api/order/cancel', { orderId: pendingOrderId });
+                        } catch (err) {
+                            console.error("Erreur annulation:", err);
+                        }
+                    } else if (data.success && data.order && data.order.isPaid) {
+                        // Déjà payé, on nettoie
+                        sessionStorage.removeItem('pendingOrderId');
+                    }
+                } catch (error) {
+                    console.error("Erreur vérification commande abandonnée:", error);
+                }
+            };
+            checkAbandonedOrder();
+        }
+    }, [user]);
+
     useEffect(() => {
         fetchDeliveryTypes()
     }, [])
