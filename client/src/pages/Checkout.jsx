@@ -240,10 +240,12 @@ const Checkout = () => {
                     toast.dismiss("geniuspay");
                     
                     if(data.success && data.checkout_url){
-                        // STOCKER L'orderId POUR LE RETOUR
+                        // Stocker l'orderId pour la page d'attente
                         sessionStorage.setItem('pendingOrderId', data.orderId);
-                        // REDIRECTION DIRECTE VERS GENIUSPAY
-                        window.location.href = data.checkout_url;
+                        // Ouvrir GeniusPay dans un nouvel onglet
+                        window.open(data.checkout_url, '_blank');
+                        // Rediriger la page courante vers la page d'attente
+                        navigate(`/payment/processing?orderId=${data.orderId}`);
                     } else {
                         toast.error(data.message || "Erreur lors de l'initiation du paiement");
                     }

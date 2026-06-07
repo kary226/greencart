@@ -9,8 +9,6 @@ const PaymentProcessing = () => {
     const [searchParams] = useSearchParams();
     const orderId = searchParams.get('orderId') || sessionStorage.getItem('pendingOrderId');
     const [status, setStatus] = useState('waiting');
-    const [attempts, setAttempts] = useState(0);
-    const maxAttempts = 20;
 
     useEffect(() => {
         if (!orderId) {
@@ -19,106 +17,63 @@ const PaymentProcessing = () => {
             return;
         }
 
-        const checkPaymentStatus = async () => {
+        const checkStatus = async () => {
             try {
                 const { data } = await axios.get(`/api/order/${orderId}`);
-                
                 if (data.success && data.order && data.order.isPaid) {
                     setStatus('success');
                     setCartItems({});
                     localStorage.removeItem('greencart_cart');
-                    sessionStorage.removeItem('pendingOrderId');
-                    toast.success('Paiement effectué avec succès !');
+                    toast.success('Paiement confirmé !');
                     setTimeout(() => navigate('/my-orders'), 2000);
-                    return;
+                    return true;
                 }
-                
-                setAttempts(prev => prev + 1);
-                
-                if (attempts + 1 >= maxAttempts) {
-                    setStatus('failed');
-                    toast.error('Le paiement semble avoir échoué');
-                    sessionStorage.removeItem('pendingOrderId');
-                    setTimeout(() => navigate('/cart'), 2000);
-                }
+                return false;
             } catch (error) {
                 console.error('Erreur vérification:', error);
-                setAttempts(prev => prev + 1);
-                
-                if (attempts + 1 >= maxAttempts) {
-                    setStatus('failed');
-                    toast.error('Erreur lors de la vérification du paiement');
-                    sessionStorage.removeItem('pendingOrderId');
-                    setTimeout(() => navigate('/cart'), 2000);
-                }
+                return false;
             }
         };
 
-        const interval = setInterval(() => {
-            if (status === 'waiting') {
-                checkPaymentStatus();
+        // Vérification immédiate
+        checkStatus().then(paid => {
+            if (!paid) {
+                // Puis toutes les 3 secondes
+                const interval = setInterval(async () => {
+                    const paidNow = await checkStatus();
+                    if (paidNow) clearInterval(interval);
+                }, 3000);
+                return () => clearInterval(interval);
             }
-        }, 3000);
-
-        checkPaymentStatus();
-        return () => clearInterval(interval);
-    }, [orderId, attempts, status]);
-
-    if (!orderId) return null;
+        });
+    }, [orderId]);
 
     return (
-        <div className="mt-32 text-center">
-            <div className="bg-blue-50 inline-block p-4 rounded-full mb-6">
-                {status === 'waiting' && (
-                    <svg className="w-16 h-16 text-blue-500 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                )}
-                {status === 'success' && (
-                    <svg className="w-16 h-16 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                )}
-                {status === 'failed' && (
-                    <svg className="w-16 h-16 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                )}
-            </div>
-            
+        <div className="text-center mt-32">
             {status === 'waiting' && (
                 <>
-                    <h1 className="text-2xl font-bold text-blue-600 mb-2">Paiement en cours...</h1>
-                    <p className="text-gray-500 mb-2">Vous allez être redirigé vers GeniusPay.</p>
-                    <p className="text-gray-400 text-sm">Après le paiement, revenez sur cette page.</p>
-                    <div className="mt-6">
-                        <button 
-                            onClick={() => {
-                                const savedOrderId = sessionStorage.getItem('pendingOrderId') || orderId;
-                                if (savedOrderId) {
-                                    window.location.href = `https://geniuspay.ci/checkout/${savedOrderId}`;
-                                }
-                            }}
-                            className="px-4 py-2 bg-primary text-white rounded-lg"
-                        >
-                            Rouvrir GeniusPay
-                        </button>
-                    </div>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+                    <p className="mt-4 text-lg">En attente de confirmation du paiement...</p>
+                    <p className="text-sm text-gray-500 mt-2">
+                        Veuillez finaliser le paiement dans l'autre onglet.
+                    </p>
+                    <button
+                        onClick={() => {
+                            const savedId = orderId || sessionStorage.getItem('pendingOrderId');
+                            if (savedId) {
+                                window.open(`https://geniuspay.ci/checkout/${savedId}`, '_blank');
+                            }
+                        }}
+                        className="mt-6 px-4 py-2 bg-primary text-white rounded-lg"
+                    >
+                        Rouvrir la page de paiement
+                    </button>
                 </>
             )}
-            
             {status === 'success' && (
                 <>
-                    <h1 className="text-2xl font-bold text-green-600 mb-2">Paiement réussi !</h1>
-                    <p className="text-gray-500">Redirection vers vos commandes...</p>
-                </>
-            )}
-            
-            {status === 'failed' && (
-                <>
-                    <h1 className="text-2xl font-bold text-red-600 mb-2">Paiement échoué</h1>
-                    <p className="text-gray-500">Redirection vers le panier...</p>
+                    <div className="text-green-600 text-4xl">✓</div>
+                    <p className="mt-4 text-lg">Paiement réussi ! Redirection...</p>
                 </>
             )}
         </div>
