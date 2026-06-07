@@ -11,7 +11,8 @@ import ProductCategory from './pages/ProductCategory';
 import ProductDetails from './pages/ProductDetails';
 import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
-import PaymentProcessing from './pages/PaymentProcessing';  // ← AJOUT
+// ✅ Supprime cette ligne
+// import PaymentProcessing from './pages/PaymentProcessing';
 import AddAddress from './pages/AddAddress';
 import MyOrders from './pages/MyOrders';
 import Wishlist from './pages/Wishlist';
@@ -63,7 +64,8 @@ const App = () => {
           <Route path='/product/:id' element={<ProductDetails/>} />
           <Route path='/cart' element={<Cart/>} />
           <Route path='/checkout' element={<Checkout/>} />
-          <Route path='/payment/processing' element={<PaymentProcessing/>} />  {/* ← AJOUT */}
+          {/* ✅ Supprime cette ligne */}
+          {/* <Route path='/payment/processing' element={<PaymentProcessing/>} /> */}
           <Route path='/add-address' element={<AddAddress/>} />
           <Route path='/my-orders' element={<MyOrders/>} />
           <Route path='/loader' element={<Loading/>} />
