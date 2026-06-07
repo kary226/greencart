@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
 import { PDFDownloadLink } from '@react-pdf/renderer'
 import OrderReceiptPDF from '../components/OrderReceiptPDF'
-import { Package, Calendar, CreditCard, MapPin, Phone, FileText, ChevronRight, CheckCircle, Truck, PackageCheck, Home, XCircle } from 'lucide-react'
+import { Package, Calendar, CreditCard, MapPin, Phone, FileText, CheckCircle, Truck, PackageCheck, Home, XCircle } from 'lucide-react'
 
 const MyOrders = () => {
 
@@ -206,19 +206,19 @@ const MyOrders = () => {
                                         </div>
                                     )}
 
-                                    {/* Bouton PDF */}
+                                    {/* Bouton PDF - CORRIGÉ */}
                                     <div className="flex justify-end">
                                         <PDFDownloadLink
                                             document={<OrderReceiptPDF order={order} currency={currency} />}
                                             fileName={`facture_${order._id.slice(-8)}.pdf`}
-                                            className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-full text-sm font-medium hover:bg-gray-800 transition shadow-sm"
+                                            className="inline-flex items-center gap-2 px-4 py-2 bg-black text-white rounded-full text-sm font-medium hover:bg-gray-800 transition shadow-sm"
                                         >
                                             {({ loading }) => loading ? (
-                                                <>Chargement...</>
+                                                <span className="text-white">Chargement...</span>
                                             ) : (
                                                 <>
-                                                    <FileText size={16} />
-                                                    Télécharger le reçu
+                                                    <FileText size={16} className="text-white" />
+                                                    <span className="text-white">Télécharger le reçu</span>
                                                 </>
                                             )}
                                         </PDFDownloadLink>
