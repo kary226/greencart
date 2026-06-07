@@ -29,7 +29,6 @@ const Navbar = () => {
     const term = searchTerm.toLowerCase().trim();
     const words = term.split(/\s+/).filter(Boolean);
 
-    // Score produit : exact > commence par > contient terme entier > contient au moins 1 mot
     const scoreProduct = (name) => {
       const n = name.toLowerCase();
       if (n === term) return 100;
@@ -40,10 +39,9 @@ const Navbar = () => {
       return 0;
     };
 
-    // Score catégorie
     const scoreCategory = (name) => {
       const n = name.toLowerCase();
-      if (n === term) return 110; // priorité max si nom exact
+      if (n === term) return 110;
       if (n.startsWith(term)) return 85;
       if (n.includes(term)) return 65;
       const matched = words.filter(w => n.includes(w));
@@ -51,12 +49,10 @@ const Navbar = () => {
       return 0;
     };
 
-    // Catégories
     const catResults = categories
       .map(c => ({ _type: 'category', text: c.name, slug: c.slug || c.name, score: scoreCategory(c.name) }))
       .filter(c => c.score > 0);
 
-    // Produits (déduplication par nom)
     const seenNames = new Set();
     const prodResults = products
       .map(p => ({ _type: 'product', text: p.name, score: scoreProduct(p.name) }))
@@ -68,7 +64,6 @@ const Navbar = () => {
         return true;
       });
 
-    // Fusionner tout, trier par score, limiter à 10
     return [...catResults, ...prodResults]
       .sort((a, b) => b.score - a.score)
       .slice(0, 10);
@@ -130,11 +125,15 @@ const Navbar = () => {
                 <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
               </svg>
             </Link>
+            
+            {/* ✅ NOUVEAU LOGO PANIER MODERNE */}
             <Link to="/cart" className="ramci-nav-icon ramci-cart-icon" aria-label="Panier">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
-                <line x1="3" y1="6" x2="21" y2="6"/>
-                <path d="M16 10a4 4 0 0 1-8 0"/>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                <circle cx="9" cy="21" r="1.5" />
+                <circle cx="19" cy="21" r="1.5" />
+                <path d="M3 6h18" />
+                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
               </svg>
               {cartCount > 0 && <span className="ramci-badge">{cartCount}</span>}
             </Link>
@@ -257,8 +256,9 @@ const Navbar = () => {
         .ramci-cart-icon { position: relative; }
         .ramci-badge {
           position: absolute;
-          top: 4px; right: 4px;
-          background: #111;
+          top: 0px;
+          right: 0px;
+          background: #e53935;
           color: #fff;
           font-family: 'DM Sans', sans-serif;
           font-size: 9px;

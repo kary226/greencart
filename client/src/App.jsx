@@ -50,7 +50,45 @@ const App = () => {
       {isSellerPath ? null : <Navbar />}
       {showUserLogin ? <Login /> : null}
 
-      <Toaster />
+      {/* ✅ TOASTER MODERNISÉ */}
+      <Toaster 
+        position="bottom-center"
+        toastOptions={{
+          duration: 2500,
+          style: {
+            background: '#111111',
+            color: '#ffffff',
+            borderRadius: '40px',
+            padding: '12px 20px',
+            fontSize: '13px',
+            fontWeight: '500',
+            fontFamily: 'DM Sans, sans-serif',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          },
+          success: {
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#ffffff',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#e53935',
+              secondary: '#ffffff',
+            },
+            style: {
+              background: '#111111',
+              color: '#ffffff',
+            },
+          },
+          loading: {
+            style: {
+              background: '#111111',
+              color: '#ffffff',
+            },
+          },
+        }}
+      />
 
       <div className={`${isSellerPath ? "" : "px-4 pt-16 pb-20"}`}>
         <Routes>
