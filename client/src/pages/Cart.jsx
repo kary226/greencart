@@ -134,7 +134,7 @@ const Cart = () => {
     const originalAmount = getCartAmount();
     const finalAmount = (discountedAmount !== null ? discountedAmount : originalAmount) + deliveryPrice;
 
-    // Détection d'un paiement abandonné (retour sans payer)
+    // Détection d'un paiement abandonné
     useEffect(() => {
         const pendingOrderId = sessionStorage.getItem('pendingOrderId');
         if (pendingOrderId && user) {
@@ -144,16 +144,11 @@ const Cart = () => {
                     if (data.success && data.order && !data.order.isPaid) {
                         toast.error('Paiement annulé. Veuillez réessayer.');
                         sessionStorage.removeItem('pendingOrderId');
-                        try {
-                            await axios.post('/api/order/cancel', { orderId: pendingOrderId });
-                        } catch (err) {
-                            console.error("Erreur annulation:", err);
-                        }
                     } else if (data.success && data.order && data.order.isPaid) {
                         sessionStorage.removeItem('pendingOrderId');
                     }
                 } catch (error) {
-                    console.error("Erreur vérification commande abandonnée:", error);
+                    console.error(error);
                 }
             };
             checkAbandonedOrder();
@@ -268,58 +263,8 @@ const Cart = () => {
                     if (data.success && data.checkout_url) {
                         // Stocker l'orderId
                         sessionStorage.setItem('pendingOrderId', data.orderId);
-                        
-                        // Ouvrir une popup centrée
-                        const width = 500;
-                        const height = 600;
-                        const left = window.screenX + (window.outerWidth - width) / 2;
-                        const top = window.screenY + (window.outerHeight - height) / 2;
-                        
-                        const popup = window.open(
-                            data.checkout_url,
-                            'GeniusPay',
-                            `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
-                        );
-                        
-                        if (!popup) {
-                            toast.error("Popup bloquée. Autorisez les popups pour ce site.");
-                            return;
-                        }
-                        
-                        // Surveiller la fermeture de la popup
-                        const checkPopupClosed = setInterval(async () => {
-                            if (popup.closed) {
-                                clearInterval(checkPopupClosed);
-                                // Vérifier si le paiement a été effectué
-                                const { data: orderData } = await axios.get(`/api/order/${data.orderId}`);
-                                if (orderData.success && orderData.order && orderData.order.isPaid) {
-                                    toast.success('Paiement réussi ! Commande confirmée.');
-                                    setCartItems({});
-                                    localStorage.removeItem('greencart_cart');
-                                    sessionStorage.removeItem('pendingOrderId');
-                                    navigate('/my-orders');
-                                } else {
-                                    toast.error('Paiement annulé ou non finalisé');
-                                    sessionStorage.removeItem('pendingOrderId');
-                                    // Optionnel : annuler la commande
-                                    try {
-                                        await axios.post('/api/order/cancel', { orderId: data.orderId });
-                                    } catch (err) {
-                                        console.error("Erreur annulation:", err);
-                                    }
-                                }
-                            }
-                        }, 1000);
-                        
-                        // Nettoyage après 5 minutes maximum
-                        setTimeout(() => {
-                            clearInterval(checkPopupClosed);
-                            if (popup && !popup.closed) {
-                                popup.close();
-                                toast.error('Temps de paiement dépassé');
-                                sessionStorage.removeItem('pendingOrderId');
-                            }
-                        }, 300000);
+                        // Redirection directe vers GeniusPay (même onglet)
+                        window.location.href = data.checkout_url;
                     } else {
                         toast.error(data.message || "Erreur lors de l'initiation du paiement");
                     }
@@ -345,46 +290,41 @@ const Cart = () => {
         );
     }
 
-    return products.length > 0 && cartItems ? (
-        <div className="flex flex-col md:flex-row mt-16 gap-6">
-            <div className='flex-1 max-w-4xl bg-white rounded-lg p-5 shadow-sm'>
-                <h1 className="text-3xl font-medium mb-6">
-                    Mon panier <span className="text-sm text-primary">{getCartCount()} articles</span>
+    return (
+        <div className="cart-page">
+            <div className="cart-container">
+                <h1 className="cart-title">
+                    Mon panier <span className="cart-count">{getCartCount()} articles</span>
                 </h1>
 
-                <div className="grid grid-cols-[2fr_1fr_1fr] text-gray-500 text-base font-medium pb-3 border-b">
-                    <p className="text-left">Détails du produit</p>
-                    <p className="text-center">Sous-total</p>
-                    <p className="text-center">Action</p>
-                </div>
+                {/* Grille des produits */}
+                <div className="cart-products">
+                    <div className="cart-header">
+                        <p>Détails du produit</p>
+                        <p>Sous-total</p>
+                        <p>Action</p>
+                    </div>
 
-                {cartArray.map((product, index) => (
-                    <div key={index} className="grid grid-cols-[2fr_1fr_1fr] text-gray-500 items-center text-sm md:text-base font-medium pt-3 border-t border-gray-200">
-                        <div className="flex items-center md:gap-6 gap-3">
-                            <div onClick={() => {
-                                navigate(`/products/${product.category.toLowerCase()}/${product._id}`);
-                                scrollTo(0, 0)
-                            }} className="cursor-pointer w-24 h-24 flex items-center justify-center border border-gray-300 rounded">
-                                <img className="max-w-full h-full object-cover" src={product.image[0]} alt={product.name} />
-                            </div>
-                            <div>
-                                <p className="hidden md:block font-semibold">{product.name}</p>
-
-                                <div className="flex gap-2 mt-1 flex-wrap">
-                                    {product.selectedColor && (
-                                        <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">
-                                            🎨 {product.selectedColor}
-                                        </span>
-                                    )}
-                                    {product.selectedSize && (
-                                        <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">
-                                            📐 {product.selectedSize}
-                                        </span>
-                                    )}
+                    {cartArray.map((product, index) => (
+                        <div key={index} className="cart-item">
+                            <div className="cart-item-info">
+                                <div onClick={() => {
+                                    navigate(`/products/${product.category?.toLowerCase() || 'all'}/${product._id}`);
+                                    scrollTo(0, 0)
+                                }} className="cart-item-img">
+                                    <img src={product.image[0]} alt={product.name} />
                                 </div>
-
-                                <div className="font-normal text-gray-500/70 mt-1">
-                                    <div className='flex items-center gap-1'>
+                                <div className="cart-item-details">
+                                    <p className="cart-item-name">{product.name}</p>
+                                    <div className="cart-item-variants">
+                                        {product.selectedColor && (
+                                            <span className="variant-tag">🎨 {product.selectedColor}</span>
+                                        )}
+                                        {product.selectedSize && (
+                                            <span className="variant-tag">📐 {product.selectedSize}</span>
+                                        )}
+                                    </div>
+                                    <div className="cart-item-quantity">
                                         <p>Qté :</p>
                                         <select onChange={e => {
                                             const newQty = Number(e.target.value)
@@ -393,16 +333,14 @@ const Cart = () => {
                                                 return
                                             }
                                             updateCartItem(product.cartKey, newQty)
-                                        }} value={product.quantity} className='outline-none border rounded px-2 py-1'>
+                                        }} value={product.quantity}>
                                             {Array(Math.min(product.variantStock || 10, 10)).fill('').map((_, i) => (
                                                 <option key={i} value={i + 1}>{i + 1}</option>
                                             ))}
                                         </select>
-
                                         {product.variantStock !== null && (
-                                            <span className={`text-xs ml-1 ${product.variantStock === 0 ? 'text-red-500' :
-                                                    product.variantStock <= 5 ? 'text-orange-500' :
-                                                        'text-green-600'
+                                            <span className={`stock-badge ${product.variantStock === 0 ? 'stock-out' :
+                                                    product.variantStock <= 5 ? 'stock-low' : 'stock-ok'
                                                 }`}>
                                                 ({product.variantStock} en stock)
                                             </span>
@@ -410,116 +348,259 @@ const Cart = () => {
                                     </div>
                                 </div>
                             </div>
+                            <p className="cart-item-subtotal">{product.offerPrice * product.quantity} {currency}</p>
+                            <button onClick={() => removeFromCart(product.cartKey)} className="cart-item-remove">
+                                <img src={assets.remove_icon} alt="remove" />
+                            </button>
                         </div>
-                        <p className="text-center">{product.offerPrice * product.quantity} {currency}</p>
-                        <button onClick={() => removeFromCart(product.cartKey)} className="cursor-pointer mx-auto">
-                            <img src={assets.remove_icon} alt="remove" className="inline-block w-6 h-6" />
-                        </button>
-                    </div>
-                ))}
+                    ))}
 
-                <button onClick={() => { navigate("/products"); scrollTo(0, 0) }} className="group cursor-pointer flex items-center mt-8 gap-2 text-primary font-medium">
-                    <img className="group-hover:-translate-x-1 transition" src={assets.arrow_right_icon_colored} alt="arrow" />
-                    Continuer mes achats
-                </button>
+                    <button onClick={() => { navigate("/products"); scrollTo(0, 0) }} className="continue-shopping">
+                        <img src={assets.arrow_right_icon_colored} alt="arrow" />
+                        Continuer mes achats
+                    </button>
+                </div>
             </div>
 
-            <div className="max-w-[360px] w-full bg-white rounded-lg p-5 shadow-sm border border-gray-200 h-fit sticky top-20">
-                <h2 className="text-xl font-medium">Récapitulatif</h2>
-                <hr className="border-gray-200 my-5" />
-
-                <div className="mb-6">
-                    <p className="text-sm font-medium uppercase">Adresse de livraison</p>
-                    <div className="relative flex justify-between items-start mt-2">
-                        <p className="text-gray-500">{formatAddress(selectedAddress)}</p>
-                        <button onClick={() => setShowAddress(!showAddress)} className="text-primary hover:underline cursor-pointer">
-                            Changer
-                        </button>
-                        {showAddress && (
-                            <div className="absolute top-12 py-1 bg-white border border-gray-300 text-sm w-full z-10 rounded-lg shadow-lg">
-                                {addresses.map((address, index) => (
-                                    <div key={index} className="flex justify-between items-center p-2 hover:bg-gray-100">
-                                        <p onClick={() => { setSelectedAddress(address); setShowAddress(false) }} className="flex-1 cursor-pointer">
-                                            {formatAddress(address)}
-                                        </p>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                deleteAddress(address._id);
-                                            }}
-                                            className="text-red-500 text-xs px-2 py-1 hover:bg-red-50 rounded"
-                                        >
-                                            Supprimer
-                                        </button>
-                                    </div>
-                                ))}
-                                <p onClick={() => navigate("/add-address")} className="text-primary text-center cursor-pointer p-2 hover:bg-primary/10 rounded-b-lg">
-                                    Ajouter une adresse
-                                </p>
-                            </div>
-                        )}
-                    </div>
-
-                    {deliveryTypes.length > 0 && selectedAddress?.communeId && (
-                        <div className="mt-4">
-                            <p className="text-sm font-medium uppercase">Mode de livraison</p>
-                            <select
-                                value={selectedDeliveryType?._id || ''}
-                                onChange={(e) => {
-                                    const type = deliveryTypes.find(t => t._id === e.target.value)
-                                    setSelectedDeliveryType(type)
-                                }}
-                                className="w-full border border-gray-300 bg-white px-3 py-2 mt-2 outline-none rounded-lg"
-                            >
-                                {deliveryTypes.map(type => (
-                                    <option key={type._id} value={type._id}>{type.name}</option>
-                                ))}
-                            </select>
+            {/* BANDE FLOTTANTE POUR LE RÉCAPITULATIF */}
+            {cartArray.length > 0 && (
+                <div className="cart-floating-bar">
+                    <div className="floating-content">
+                        <div className="floating-total">
+                            <span className="total-label">Total</span>
+                            <span className="total-price">{finalAmount} {currency}</span>
                         </div>
-                    )}
-
-                    <p className="text-sm font-medium uppercase mt-6">Moyen de paiement</p>
-                    <select
-                        onChange={e => setPaymentOption(e.target.value)}
-                        value={paymentOption}
-                        className="w-full border border-gray-300 bg-white px-3 py-2 mt-2 outline-none rounded-lg"
-                    >
-                        <option value="" disabled>Sélectionner un moyen de paiement</option>
-                        <option value="GeniusPay">Mobile Money (Wave, Orange, MTN)</option>
-                    </select>
+                        <button onClick={placeOrder} className="floating-checkout-btn">
+                            Procéder au paiement
+                        </button>
+                    </div>
                 </div>
+            )}
 
-                <hr className="border-gray-200" />
+            <style>{`
+                .cart-page {
+                    margin-top: 64px;
+                    padding-bottom: 90px;
+                    background: #faf8f5;
+                    min-height: 100vh;
+                }
 
-                <CouponInput amount={originalAmount} onCouponApplied={handleCouponApplied} />
+                .cart-container {
+                    max-width: 768px;
+                    margin: 0 auto;
+                    padding: 20px 16px;
+                }
 
-                <div className="text-gray-500 mt-4 space-y-2">
-                    <p className="flex justify-between">
-                        <span>Prix</span><span>{originalAmount} {currency}</span>
-                    </p>
-                    {appliedCoupon && (
-                        <p className="flex justify-between text-green-600">
-                            <span>Réduction ({appliedCoupon.code})</span>
-                            <span>- {appliedCoupon.discountAmount} {currency}</span>
-                        </p>
-                    )}
-                    <p className="flex justify-between">
-                        <span>Frais de livraison</span>
-                        <span className={deliveryPrice === 0 ? 'text-green-600' : 'text-gray-700'}>
-                            {loadingDelivery ? 'Chargement...' : deliveryPrice === 0 ? 'Gratuit' : `${deliveryPrice} ${currency}`}
-                        </span>
-                    </p>
-                    <p className="flex justify-between text-lg font-medium mt-3">
-                        <span>Montant total :</span><span>{finalAmount} {currency}</span>
-                    </p>
-                </div>
+                .cart-title {
+                    font-size: 24px;
+                    font-weight: 600;
+                    color: #111;
+                    margin-bottom: 24px;
+                }
 
-                <button onClick={placeOrder} className="w-full py-3 mt-6 cursor-pointer bg-primary text-white font-medium hover:bg-primary-dull transition rounded-lg">
-                    Procéder au paiement
-                </button>
-            </div>
+                .cart-count {
+                    font-size: 14px;
+                    color: #888;
+                    font-weight: normal;
+                }
+
+                .cart-products {
+                    background: white;
+                    border-radius: 20px;
+                    padding: 20px;
+                }
+
+                .cart-header {
+                    display: grid;
+                    grid-template-columns: 2fr 1fr 1fr;
+                    padding-bottom: 12px;
+                    border-bottom: 1px solid #f0ede8;
+                    font-size: 13px;
+                    color: #999;
+                    font-weight: 500;
+                }
+
+                .cart-item {
+                    display: grid;
+                    grid-template-columns: 2fr 1fr 1fr;
+                    align-items: center;
+                    padding: 16px 0;
+                    border-bottom: 1px solid #f0ede8;
+                }
+
+                .cart-item-info {
+                    display: flex;
+                    gap: 16px;
+                }
+
+                .cart-item-img {
+                    width: 80px;
+                    height: 80px;
+                    border-radius: 12px;
+                    overflow: hidden;
+                    cursor: pointer;
+                    background: #f5f3f0;
+                    flex-shrink: 0;
+                }
+
+                .cart-item-img img {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                }
+
+                .cart-item-details {
+                    flex: 1;
+                }
+
+                .cart-item-name {
+                    font-weight: 600;
+                    color: #333;
+                    margin-bottom: 6px;
+                    font-size: 14px;
+                }
+
+                .cart-item-variants {
+                    display: flex;
+                    gap: 6px;
+                    flex-wrap: wrap;
+                    margin-bottom: 8px;
+                }
+
+                .variant-tag {
+                    font-size: 10px;
+                    background: #f5f3f0;
+                    padding: 2px 8px;
+                    border-radius: 20px;
+                    color: #666;
+                }
+
+                .cart-item-quantity {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    font-size: 13px;
+                    color: #666;
+                }
+
+                .cart-item-quantity select {
+                    border: 1px solid #e8e3dc;
+                    border-radius: 8px;
+                    padding: 4px 8px;
+                    outline: none;
+                    background: white;
+                }
+
+                .stock-badge {
+                    font-size: 10px;
+                }
+                .stock-ok { color: #4caf50; }
+                .stock-low { color: #ff9800; }
+                .stock-out { color: #e53935; }
+
+                .cart-item-subtotal {
+                    text-align: center;
+                    font-weight: 600;
+                    color: #111;
+                }
+
+                .cart-item-remove {
+                    background: none;
+                    border: none;
+                    cursor: pointer;
+                    display: flex;
+                    justify-content: center;
+                }
+
+                .cart-item-remove img {
+                    width: 20px;
+                    height: 20px;
+                    opacity: 0.5;
+                    transition: opacity 0.2s;
+                }
+                .cart-item-remove img:hover { opacity: 1; }
+
+                .continue-shopping {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    background: none;
+                    border: none;
+                    margin-top: 20px;
+                    color: #111;
+                    font-weight: 500;
+                    font-size: 13px;
+                    cursor: pointer;
+                }
+
+                .continue-shopping img {
+                    width: 16px;
+                    transition: transform 0.2s;
+                }
+                .continue-shopping:hover img {
+                    transform: translateX(-3px);
+                }
+
+                /* BANDE FLOTTANTE */
+                .cart-floating-bar {
+                    position: fixed;
+                    bottom: 0;
+                    left: 0;
+                    right: 0;
+                    background: rgba(255,255,255,0.98);
+                    backdrop-filter: blur(10px);
+                    border-top: 1px solid #eee;
+                    padding: 12px 20px;
+                    z-index: 100;
+                    box-shadow: 0 -4px 20px rgba(0,0,0,0.05);
+                }
+
+                .floating-content {
+                    max-width: 768px;
+                    margin: 0 auto;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 20px;
+                }
+
+                .floating-total {
+                    display: flex;
+                    flex-direction: column;
+                }
+
+                .total-label {
+                    font-size: 11px;
+                    color: #999;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                }
+
+                .total-price {
+                    font-size: 20px;
+                    font-weight: 700;
+                    color: #111;
+                }
+
+                .floating-checkout-btn {
+                    background: #111;
+                    color: white;
+                    border: none;
+                    padding: 14px 28px;
+                    border-radius: 40px;
+                    font-weight: 600;
+                    font-size: 14px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    flex-shrink: 0;
+                }
+                .floating-checkout-btn:hover {
+                    background: #333;
+                    transform: scale(1.02);
+                }
+            `}</style>
         </div>
-    ) : null
+    )
 }
 
 export default Cart;
