@@ -179,6 +179,9 @@ const ProductDetails = () => {
                                 className={`pdp-main-img ${imageLoaded ? 'loaded' : ''}`}
                                 onLoad={() => setImageLoaded(true)}
                             />
+                            {discountPct && (
+                                <div className="img-badge">−{discountPct}%</div>
+                            )}
                             {stockMeta?.type === 'low' && (
                                 <div className="img-badge badge-low">{stockMeta.label}</div>
                             )}
@@ -219,21 +222,9 @@ const ProductDetails = () => {
                             <span className="rating-count">{totalReviews} avis</span>
                         </div>
 
-                        {/* PRIX EN VERTICAL */}
-                        <div className="pdp-price-stack">
-                            {discountPct && (
-                                <div className="price-old-line">
-                                    <span className="price-old">{product.price} {currency}</span>
-                                </div>
-                            )}
-                            <div className="price-current-line">
-                                <span className="price-current">
-                                    {product.offerPrice ?? product.price} {currency}
-                                </span>
-                                {discountPct && (
-                                    <span className="price-badge">-{discountPct}%</span>
-                                )}
-                            </div>
+                        <div className="pdp-price-row">
+                            <span className="pdp-price">{product.offerPrice ?? product.price} {currency}</span>
+                            {discountPct && <span className="pdp-old-price">{product.price} {currency}</span>}
                         </div>
 
                         {stockMeta && (
@@ -397,6 +388,7 @@ const ProductDetails = () => {
                     color: var(--ink);
                 }
 
+                /* Breadcrumb */
                 .pdp-breadcrumb {
                     display: flex;
                     align-items: center;
@@ -408,23 +400,35 @@ const ProductDetails = () => {
                     text-transform: uppercase;
                     margin-bottom: 40px;
                 }
-                .pdp-breadcrumb a { color: var(--ink-faint); text-decoration: none; transition: color 0.2s; }
+                .pdp-breadcrumb a {
+                    color: var(--ink-faint);
+                    text-decoration: none;
+                    transition: color 0.2s;
+                }
                 .pdp-breadcrumb a:hover { color: var(--ink); }
                 .pdp-breadcrumb .sep { color: var(--border); }
                 .crumb-current { color: var(--ink); }
 
+                /* Main layout */
                 .pdp-main {
                     display: grid;
                     grid-template-columns: 1fr;
                     gap: 48px;
                 }
                 @media (min-width: 768px) {
-                    .pdp-main { grid-template-columns: 1fr 1fr; gap: 64px; align-items: start; }
+                    .pdp-main {
+                        grid-template-columns: 1fr 1fr;
+                        gap: 64px;
+                        align-items: start;
+                    }
                 }
                 @media (min-width: 1100px) {
-                    .pdp-main { grid-template-columns: 55% 1fr; }
+                    .pdp-main {
+                        grid-template-columns: 55% 1fr;
+                    }
                 }
 
+                /* Gallery */
                 .pdp-gallery { display: flex; flex-direction: column; gap: 16px; }
 
                 .pdp-main-img-wrap {
@@ -507,7 +511,13 @@ const ProductDetails = () => {
                 .thumb-item.active { border-color: var(--ink); }
                 .thumb-item:hover:not(.active) { border-color: var(--border); transform: scale(1.04); }
 
-                .pdp-info { display: flex; flex-direction: column; gap: 0; padding-top: 8px; }
+                /* Info panel */
+                .pdp-info {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0;
+                    padding-top: 8px;
+                }
 
                 .pdp-category-tag {
                     font-size: 11px;
@@ -527,8 +537,11 @@ const ProductDetails = () => {
                     margin-bottom: 20px;
                     letter-spacing: -0.01em;
                 }
-                @media (min-width: 768px) { .pdp-title { font-size: 44px; } }
+                @media (min-width: 768px) {
+                    .pdp-title { font-size: 44px; }
+                }
 
+                /* Stars */
                 .pdp-rating-row {
                     display: flex;
                     align-items: center;
@@ -549,40 +562,27 @@ const ProductDetails = () => {
                 .rating-sep { color: var(--border); }
                 .rating-count { font-size: 13px; color: var(--ink-faint); }
 
-                /* PRIX EN VERTICAL */
-                .pdp-price-stack {
+                /* Price */
+                .pdp-price-row {
                     display: flex;
-                    flex-direction: column;
-                    gap: 4px;
+                    align-items: baseline;
+                    gap: 14px;
                     margin-bottom: 16px;
                 }
-                .price-old-line {
-                    font-size: 15px;
-                    color: var(--ink-faint);
-                    text-decoration: line-through;
-                }
-                .price-current-line {
-                    display: flex;
-                    align-items: center;
-                    gap: 12px;
-                    flex-wrap: wrap;
-                }
-                .price-current {
+                .pdp-price {
                     font-family: 'Cormorant Garamond', serif;
                     font-size: 36px;
                     font-weight: 600;
                     color: var(--ink);
                     letter-spacing: -0.02em;
                 }
-                .price-badge {
-                    background: var(--red);
-                    color: white;
-                    font-size: 11px;
-                    font-weight: 600;
-                    padding: 4px 10px;
-                    border-radius: 30px;
+                .pdp-old-price {
+                    font-size: 16px;
+                    color: var(--ink-faint);
+                    text-decoration: line-through;
                 }
 
+                /* Stock */
                 .pdp-stock {
                     display: inline-flex;
                     align-items: center;
@@ -604,12 +604,14 @@ const ProductDetails = () => {
                 .stock-out .stock-dot { background: var(--red); }
                 .stock-out { color: var(--red); }
 
+                /* Divider */
                 .pdp-divider {
                     height: 1px;
                     background: var(--border);
                     margin: 28px 0;
                 }
 
+                /* Options */
                 .pdp-option-block { margin-bottom: 28px; }
                 .option-heading {
                     font-size: 12px;
@@ -667,6 +669,7 @@ const ProductDetails = () => {
                     font-weight: 500;
                 }
 
+                /* Description */
                 .pdp-desc { margin-bottom: 8px; }
                 .desc-label {
                     font-size: 12px;
@@ -712,8 +715,9 @@ const ProductDetails = () => {
                     margin-top: 8px;
                 }
 
+                /* Related */
                 .related-section { margin-top: 96px; }
-                .related-header { margin-bottom: 40px; text-align: center; }
+                .related-header { margin-bottom: 40px; }
                 .related-eyebrow {
                     font-size: 11px;
                     font-weight: 500;
@@ -766,6 +770,7 @@ const ProductDetails = () => {
                     gap: 12px;
                 }
 
+                /* Floating bar */
                 .pdp-fab {
                     position: fixed;
                     bottom: 0;
