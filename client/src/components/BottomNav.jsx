@@ -39,16 +39,24 @@ const BottomNav = () => {
         </svg>
       ),
     },
+    // ============================================================
+    // 🔄 PANIER REMPLACÉ PAR MES COMMANDES
+    // ============================================================
     {
-      to: "/cart",
-      label: "Panier",
+      to: "/my-orders",
+      label: "Commandes",
       icon: (active) => (
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? "#111" : "#888"} strokeWidth="2">
-          <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
-          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+          <line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/>
+          <line x1="3" y1="10" x2="21" y2="10"/>
+          <circle cx="12" cy="15" r="1"/>
+          <circle cx="16" cy="15" r="1"/>
+          <circle cx="8" cy="15" r="1"/>
         </svg>
       ),
-      badge: cartCount,
+      // Pas de badge pour les commandes
     },
     {
       to: "/account",
@@ -67,7 +75,8 @@ const BottomNav = () => {
     "/seller",
     "/product/",
     "/products/",
-    "/cart"  // ← AJOUTÉ : cacher le BottomNav sur la page panier
+    "/cart",
+    "/my-orders"  // ← Cacher aussi sur la page des commandes
   ];
   
   const shouldHide = hideOnPaths.some(path => location.pathname.startsWith(path));
