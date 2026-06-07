@@ -77,23 +77,34 @@ const Home = () => {
     return sorted.slice(0, 10);
   };
 
-  // Calculer les promotions (par pourcentage de réduction)
+  // Calculer les promotions (tri mixte : pourcentage + montant économisé)
   const getDealProducts = () => {
     if (!products.length) return [];
     
     // Filtrer les produits qui ont une offre
     const productsWithOffer = products.filter(p => p.offerPrice && p.offerPrice < p.price);
     
-    // Calculer le pourcentage de réduction pour chaque produit
-    const productsWithDiscount = productsWithOffer.map(product => ({
-      ...product,
-      discountPercent: Math.round(((product.price - product.offerPrice) / product.price) * 100)
-    }));
+    // Calculer le score mixte pour chaque produit
+    const productsWithScore = productsWithOffer.map(product => {
+      const discountPercent = ((product.price - product.offerPrice) / product.price) * 100;
+      const amountSaved = product.price - product.offerPrice;
+      
+      // Score = (pourcentage × 0.7) + (montant économisé / 1000 × 0.3)
+      // Diviser amountSaved par 1000 pour l'échelle
+      const score = (discountPercent * 0.7) + ((amountSaved / 1000) * 0.3);
+      
+      return {
+        ...product,
+        discountPercent: Math.round(discountPercent),
+        amountSaved: amountSaved,
+        promotionScore: score
+      };
+    });
     
-    // Trier par pourcentage de réduction (du plus élevé au plus bas)
-    productsWithDiscount.sort((a, b) => b.discountPercent - a.discountPercent);
+    // Trier par score (du plus élevé au plus bas)
+    productsWithScore.sort((a, b) => b.promotionScore - a.promotionScore);
     
-    return productsWithDiscount.slice(0, 10);
+    return productsWithScore.slice(0, 10);
   };
 
   // Mettre à jour les listes quand les produits ou commandes changent
@@ -191,7 +202,6 @@ const Home = () => {
                   <ProductCard key={p._id} product={p} />
                 ))}
               </div>
-              {/* Bouton Voir plus */}
               <div className="ramci-view-more-wrapper">
                 <button 
                   onClick={() => navigate('/products')} 
@@ -217,14 +227,12 @@ const Home = () => {
           padding-bottom: 20px;
         }
 
-        /* ── HERO ── */
         .ramci-hero {
           margin-bottom: 4px;
           border-radius: 0 0 16px 16px;
           overflow: hidden;
         }
 
-        /* ── CATEGORIES ── */
         .ramci-cats-section {
           display: flex;
           overflow-x: auto;
@@ -299,7 +307,6 @@ const Home = () => {
           overflow: hidden;
         }
 
-        /* ── SECTION PRODUITS ── */
         .ramci-products-section {
           background: #fff;
           margin-top: 10px;
@@ -379,7 +386,6 @@ const Home = () => {
           font-size: 14px;
         }
 
-        /* Bouton Voir plus */
         .ramci-view-more-wrapper {
           display: flex;
           justify-content: center;
