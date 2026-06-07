@@ -22,8 +22,23 @@ if (initialToken) {
     setAuthToken(initialToken);
 }
 
+// Clés pour le localStorage
 const RECENTLY_VIEWED_KEY = 'greencart_recently_viewed';
+const CART_KEY = 'greencart_cart';
 const MAX_RECENT_ITEMS = 5;
+
+// Charger le panier depuis localStorage
+const loadCartFromLocalStorage = () => {
+    const savedCart = localStorage.getItem(CART_KEY);
+    if (savedCart) {
+        try {
+            return JSON.parse(savedCart);
+        } catch (e) {
+            return {};
+        }
+    }
+    return {};
+};
 
 export const AppContext = createContext();
 
@@ -36,10 +51,17 @@ export const AppContextProvider = ({ children }) => {
     const [isSeller, setIsSeller] = useState(false);
     const [showUserLogin, setShowUserLogin] = useState(false);
     const [products, setProducts] = useState([]);
-    const [cartItems, setCartItems] = useState({});
+    const [cartItems, setCartItemsState] = useState(loadCartFromLocalStorage);
     const [searchQuery, setSearchQuery] = useState("");
     const [wishlist, setWishlist] = useState([]);
     const [recentlyViewed, setRecentlyViewed] = useState([]);
+    const [orders, setOrders] = useState([]);
+
+    // Fonction pour sauvegarder le panier dans localStorage
+    const setCartItems = (newCart) => {
+        setCartItemsState(newCart);
+        localStorage.setItem(CART_KEY, JSON.stringify(newCart));
+    };
 
     const getCartKey = (productId, color = null, size = null) => {
         return `${productId}${color ? `_${color}` : ''}${size ? `_${size}` : ''}`;
@@ -48,6 +70,8 @@ export const AppContextProvider = ({ children }) => {
     const getProductIdFromKey = (key) => {
         return key.split('_')[0];
     };
+
+    // ==================== PRODUITS RÉCEMMENT VUS ====================
 
     const addToRecentlyViewed = (product) => {
         if (!product || !product._id) return;
@@ -73,6 +97,23 @@ export const AppContextProvider = ({ children }) => {
         }
     };
 
+    // ==================== COMMANDES ====================
+    
+    const fetchOrders = async () => {
+        if (!user) return;
+        try {
+            const { data } = await axios.get('/api/order/user-orders');
+            if (data.success) {
+                setOrders(data.orders);
+            }
+        } catch (error) {
+            console.error("Erreur chargement commandes:", error);
+            setOrders([]);
+        }
+    };
+
+    // ==================== AUTHENTIFICATION ====================
+
     const fetchSeller = async () => {
         try {
             const { data } = await axios.get('/api/seller/is-auth');
@@ -88,11 +129,15 @@ export const AppContextProvider = ({ children }) => {
             const { data } = await axios.get('/api/user/is-auth');
             if (data.success) {
                 setUser(data.user);
-                setCartItems(data.user.cartItems || {});
+                // Fusionner le panier local avec celui du serveur
+                const localCart = loadCartFromLocalStorage();
+                const serverCart = data.user.cartItems || {};
+                const mergedCart = { ...serverCart, ...localCart };
+                setCartItems(mergedCart);
+                await fetchOrders();
             }
         } catch (error) {
             setUser(null);
-            setCartItems({});
         }
     };
 
@@ -152,6 +197,7 @@ export const AppContextProvider = ({ children }) => {
         return wishlist.some(item => item._id === productId);
     };
 
+    // addToCart SANS TOAST (pour éviter le double message)
     const addToCart = (productId, color = null, size = null) => {
         const key = getCartKey(productId, color, size);
         let cartData = structuredClone(cartItems);
@@ -161,7 +207,7 @@ export const AppContextProvider = ({ children }) => {
             cartData[key] = 1;
         }
         setCartItems(cartData);
-        toast.success("Ajouté au panier");
+        // PAS DE TOAST ICI
     };
 
     const addToCartWithQuantity = (productId, quantity, color = null, size = null) => {
@@ -229,7 +275,12 @@ export const AppContextProvider = ({ children }) => {
                 localStorage.setItem('token', data.token);
                 setAuthToken(data.token);
                 setUser(data.user);
-                setCartItems(data.user.cartItems || {});
+                // Fusionner le panier local avec celui du serveur
+                const localCart = loadCartFromLocalStorage();
+                const serverCart = data.user.cartItems || {};
+                const mergedCart = { ...serverCart, ...localCart };
+                setCartItems(mergedCart);
+                await fetchOrders();
                 toast.success("Connexion réussie");
                 navigate('/');
             } else {
@@ -270,6 +321,7 @@ export const AppContextProvider = ({ children }) => {
             setAuthToken(null);
             setUser(null);
             setCartItems({});
+            setOrders([]);
             toast.success("Déconnexion réussie");
             navigate('/');
         } catch (error) {
@@ -281,7 +333,7 @@ export const AppContextProvider = ({ children }) => {
         if (getToken()) {
             fetchUser();
         } else {
-            setCartItems({});
+            setCartItems(loadCartFromLocalStorage());
         }
         fetchSeller();
         fetchProducts();
@@ -291,6 +343,7 @@ export const AppContextProvider = ({ children }) => {
     useEffect(() => {
         if (user) {
             fetchWishlist();
+            fetchOrders();
         }
     }, [user]);
 
@@ -302,7 +355,7 @@ export const AppContextProvider = ({ children }) => {
                     toast.error(data.message);
                 }
             } catch (error) {
-                toast.error(error.message);
+                console.error(error);
             }
         };
         if (user) {
@@ -318,7 +371,8 @@ export const AppContextProvider = ({ children }) => {
         axios, fetchProducts, setCartItems, getCartKey, getProductIdFromKey,
         wishlist, addToWishlist, removeFromWishlist, isInWishlist, fetchWishlist,
         fetchUser, loginUser, registerUser, logoutUser,
-        recentlyViewed, addToRecentlyViewed
+        recentlyViewed, addToRecentlyViewed,
+        orders
     };
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
