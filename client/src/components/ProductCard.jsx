@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
-import { Heart, ShoppingBag, TrendingDown } from "lucide-react";
+import { Heart, ShoppingBag } from "lucide-react";
 
 const ProductCard = ({ product }) => {
   const { addToWishlist, currency, isInWishlist } = useAppContext();
@@ -44,21 +44,21 @@ const ProductCard = ({ product }) => {
 
         {/* Badge de réduction */}
         {discount && !isOutOfStock && (
-          <div className="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-lg">
+          <div className="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-lg z-10">
             -{discount}%
           </div>
         )}
         
         {/* Badge épuisé */}
         {isOutOfStock && (
-          <div className="absolute top-3 left-3 bg-black/70 backdrop-blur-sm text-white text-xs font-medium px-2 py-1 rounded-lg">
+          <div className="absolute top-3 left-3 bg-black/70 backdrop-blur-sm text-white text-xs font-medium px-2 py-1 rounded-lg z-10">
             Épuisé
           </div>
         )}
 
         {/* Bouton wishlist */}
         <button
-          className={`absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center transition-all duration-200 hover:scale-110 ${
+          className={`absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center transition-all duration-200 hover:scale-110 z-10 ${
             isWishlisted ? "text-red-500" : "text-gray-500 hover:text-red-500"
           }`}
           onClick={(e) => {
@@ -78,15 +78,17 @@ const ProductCard = ({ product }) => {
           {name}
         </h3>
         
-        <div className="mt-2 flex items-baseline gap-2 flex-wrap">
-          <span className="text-lg font-bold text-gray-900">
-            {Number(displayPrice).toLocaleString("fr-FR")} {currency}
-          </span>
+        <div className="mt-2">
+          {/* Prix barré (ancien prix) en haut */}
           {offerPrice && price && price > offerPrice && (
-            <span className="text-xs text-gray-400 line-through">
+            <div className="text-xs text-gray-400 line-through">
               {Number(price).toLocaleString("fr-FR")} {currency}
-            </span>
+            </div>
           )}
+          {/* Prix réel (promo ou normal) en bas */}
+          <div className="text-lg font-bold text-gray-900">
+            {Number(displayPrice).toLocaleString("fr-FR")} {currency}
+          </div>
         </div>
       </Link>
     </div>
