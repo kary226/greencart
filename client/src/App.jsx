@@ -10,7 +10,7 @@ import AllProducts from './pages/AllProducts';
 import ProductCategory from './pages/ProductCategory';
 import ProductDetails from './pages/ProductDetails';
 import Cart from './pages/Cart';
-import Checkout from './pages/Checkout';  // ← AJOUTE CETTE LIGNE
+import Checkout from './pages/Checkout';
 import AddAddress from './pages/AddAddress';
 import MyOrders from './pages/MyOrders';
 import Wishlist from './pages/Wishlist';
@@ -41,6 +41,7 @@ const App = () => {
   const isSellerPath = location.pathname.includes("seller");
   const { showUserLogin, isSeller } = useAppContext()
 
+  // Scroll automatique en haut à chaque changement de page
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [location.pathname]);
@@ -53,15 +54,24 @@ const App = () => {
 
      <Toaster />
 
+      {/* Padding adapté : petit sur mobile, plus grand sur desktop mais reste cohérent */}
       <div className={`${isSellerPath ? "" : "pb-20"}`}>
         <Routes>
           <Route path='/' element={<Home/>} />
           <Route path='/products' element={<AllProducts/>} />
           <Route path='/products/:category' element={<ProductCategory/>} />
+          
+          {/* Route pour un produit avec catégorie (ancien format) */}
           <Route path='/products/:category/:id' element={<ProductDetails/>} />
+          
+          {/* NOUVELLE ROUTE : route simple sans catégorie pour ProductCard */}
           <Route path='/product/:id' element={<ProductDetails/>} />
+          
           <Route path='/cart' element={<Cart/>} />
-          <Route path='/checkout' element={<Checkout/>} />  {/* ← AJOUTE CETTE LIGNE */}
+          
+          {/* NOUVELLE ROUTE : page de paiement */}
+          <Route path='/checkout' element={<Checkout/>} />
+          
           <Route path='/add-address' element={<AddAddress/>} />
           <Route path='/my-orders' element={<MyOrders/>} />
           <Route path='/loader' element={<Loading/>} />
@@ -89,6 +99,7 @@ const App = () => {
      {!isSellerPath && <Footer/>}
      {!isSellerPath && <BottomNav/>}
 
+      {/* WhatsApp Floating Widget - Icône seule + semi-transparent */}
       {!isSellerPath && (
         <a
           href="https://wa.me/2250101044942?text=Bonjour%2C%20j%27ai%20besoin%20d%27aide%20concernant%20ma%20commande%20ou%20un%20produit%20sur%20GreenCart."
