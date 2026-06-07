@@ -134,6 +134,32 @@ const Cart = () => {
     const originalAmount = getCartAmount();
     const finalAmount = (discountedAmount !== null ? discountedAmount : originalAmount) + deliveryPrice;
 
+    // ✅ DÉTECTION D'UN PAIEMENT ABANDONNÉ (retour en arrière)
+    useEffect(() => {
+        const pendingOrderId = sessionStorage.getItem('pendingOrderId');
+        if (pendingOrderId && user) {
+            const checkAbandonedOrder = async () => {
+                try {
+                    const { data } = await axios.get(`/api/order/${pendingOrderId}`);
+                    if (data.success && data.order && !data.order.isPaid) {
+                        toast.error('Paiement annulé. Veuillez réessayer.');
+                        sessionStorage.removeItem('pendingOrderId');
+                        try {
+                            await axios.post('/api/order/cancel', { orderId: pendingOrderId });
+                        } catch (err) {
+                            console.error("Erreur annulation:", err);
+                        }
+                    } else if (data.success && data.order && data.order.isPaid) {
+                        sessionStorage.removeItem('pendingOrderId');
+                    }
+                } catch (error) {
+                    console.error("Erreur vérification commande abandonnée:", error);
+                }
+            };
+            checkAbandonedOrder();
+        }
+    }, [user]);
+
     useEffect(() => {
         fetchDeliveryTypes()
     }, [])
@@ -240,7 +266,9 @@ const Cart = () => {
                     toast.dismiss("geniuspay");
                     
                     if(data.success && data.checkout_url){
+                        // ✅ Stocker l'orderId pour détecter un éventuel retour sans paiement
                         sessionStorage.setItem('pendingOrderId', data.orderId);
+                        // Redirection vers GeniusPay
                         window.location.href = data.checkout_url;
                     } else {
                         toast.error(data.message || "Erreur lors de l'initiation du paiement");
@@ -331,7 +359,7 @@ const Cart = () => {
                     </button>
                 </div>
 
-                {/* SECTION RÉCAPITULATIF - BANDE FIXE EN BAS */}
+                {/* SECTION RÉCAPITULATIF */}
                 <div className="cart-summary">
                     <h2 className="summary-title">Récapitulatif</h2>
                     
