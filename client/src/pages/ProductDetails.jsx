@@ -1,4 +1,4 @@
-je parle de ca : import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAppContext } from "../context/AppContext";
 import { Link, useParams } from "react-router-dom";
 import { assets } from "../assets/assets";
@@ -18,20 +18,17 @@ const ProductDetails = () => {
     const [selectedSize, setSelectedSize] = useState(null)
     const scrollContainerRef = useRef(null);
     
-    // États pour les étoiles dynamiques
     const [averageRating, setAverageRating] = useState(4);
     const [totalReviews, setTotalReviews] = useState(0);
 
     const product = products.find((item)=> item._id === id);
 
-    // Enregistrer le produit dans "récemment vus" quand il est chargé
     useEffect(() => {
         if (product) {
             addToRecentlyViewed(product);
         }
     }, [product]);
 
-    // Récupérer la première catégorie pour le breadcrumb (compatibilité ancien/nouveau)
     const getProductCategory = () => {
         if (product?.categories && product.categories.length > 0) {
             return product.categories[0]
@@ -39,7 +36,6 @@ const ProductDetails = () => {
         return product?.category
     }
 
-    // Extraire la description textuelle du produit pour le SEO
     const getProductDescription = () => {
         if (product?.description && Array.isArray(product.description)) {
             return product.description.join(' ').slice(0, 160)
@@ -140,7 +136,6 @@ const ProductDetails = () => {
 
     const isOutOfStock = variantStock === 0;
 
-    // Défilement horizontal des images
     const scrollImages = (direction) => {
         if (scrollContainerRef.current) {
             const scrollAmount = direction === 'left' ? -120 : 120;
@@ -148,7 +143,6 @@ const ProductDetails = () => {
         }
     };
 
-    // Fonction pour afficher les étoiles dynamiques
     const renderStars = (rating) => {
         const fullStars = Math.floor(rating);
         const decimal = rating % 1;
@@ -186,7 +180,6 @@ const ProductDetails = () => {
         );
     };
 
-    // Callback pour recevoir les données des avis depuis ProductReviews
     const handleReviewsData = (data) => {
         setAverageRating(data.averageRating);
         setTotalReviews(data.totalReviews);
@@ -210,7 +203,6 @@ const ProductDetails = () => {
         setSelectedColor(null)
         setSelectedSize(null)
         setCurrentImageIndex(0)
-        // Réinitialiser les étoiles par défaut (4 étoiles si aucun avis)
         setAverageRating(4);
         setTotalReviews(0);
     },[products, id])
@@ -228,7 +220,6 @@ const ProductDetails = () => {
             />
             
             <div className="product-details-page pb-28">
-                {/* Breadcrumb */}
                 <div className="breadcrumb-container">
                     <Link to={"/"}>Accueil</Link> /
                     <Link to={"/products"}> Articles</Link> /
@@ -236,9 +227,7 @@ const ProductDetails = () => {
                     <span className="current">{product.name}</span>
                 </div>
 
-                {/* Contenu principal */}
                 <div className="product-main">
-                    {/* Images - Carrousel horizontal */}
                     <div className="product-gallery">
                         <div className="main-image-container">
                             <img src={product.image[currentImageIndex]} alt={product.name} className="main-image" />
@@ -246,7 +235,7 @@ const ProductDetails = () => {
                         
                         {product.image.length > 1 && (
                             <div className="thumbnail-carousel">
-                                <button onClick={() => scrollImages('left')} className="carousel-nav carousel-prev" aria-label="Image précédente">
+                                <button onClick={() => scrollImages('left')} className="carousel-nav carousel-prev">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                         <path d="M15 18l-6-6 6-6"/>
                                     </svg>
@@ -264,7 +253,7 @@ const ProductDetails = () => {
                                     ))}
                                 </div>
                                 
-                                <button onClick={() => scrollImages('right')} className="carousel-nav carousel-next" aria-label="Image suivante">
+                                <button onClick={() => scrollImages('right')} className="carousel-nav carousel-next">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                         <path d="M9 18l6-6-6-6"/>
                                     </svg>
@@ -273,38 +262,36 @@ const ProductDetails = () => {
                         )}
                     </div>
 
-                    {/* Infos produit */}
                     <div className="product-info">
                         <h1 className="product-title">{product.name}</h1>
 
-                        {/* Rating dynamique avec vraies étoiles */}
                         <div className="product-rating">
                             {renderStars(averageRating)}
                             <span className="rating-value">{averageRating}/5</span>
                             <span className="rating-count">({totalReviews} avis)</span>
                         </div>
 
-                        {/* Prix */}
-                        <div className="product-pricing">
-                            {product.offerPrice && product.offerPrice < product.price ? (
-                                <>
-                                    <span className="old-price">{product.price} {currency}</span>
-                                    <span className="current-price">{product.offerPrice} {currency}</span>
-                                    <span className="discount-badge">-{Math.round(((product.price - product.offerPrice) / product.price) * 100)}%</span>
-                                </>
-                            ) : (
-                                <span className="current-price">{product.price} {currency}</span>
+                        {/* PRIX MODIFIÉS : DISPOSITION VERTICALE */}
+                        <div className="product-pricing-vertical">
+                            {product.offerPrice && product.offerPrice < product.price && (
+                                <div className="old-price-vertical">{product.price} {currency}</div>
                             )}
+                            <div className="price-row">
+                                <span className="current-price-vertical">
+                                    {product.offerPrice && product.offerPrice < product.price ? product.offerPrice : product.price} {currency}
+                                </span>
+                                {product.offerPrice && product.offerPrice < product.price && (
+                                    <span className="discount-badge">-{Math.round(((product.price - product.offerPrice) / product.price) * 100)}%</span>
+                                )}
+                            </div>
                         </div>
 
-                        {/* Stock */}
                         {getStockLabel(variantStock) && (
                             <p className={`stock-info ${getStockColor(variantStock)}`}>
                                 {getStockLabel(variantStock)}
                             </p>
                         )}
 
-                        {/* Couleurs */}
                         {uniqueColors.length > 0 && (
                             <div className="option-group">
                                 <p className="option-label">
@@ -325,7 +312,6 @@ const ProductDetails = () => {
                             </div>
                         )}
 
-                        {/* Tailles */}
                         {uniqueSizes.length > 0 && (
                             <div className="option-group">
                                 <p className="option-label">
@@ -346,7 +332,6 @@ const ProductDetails = () => {
                             </div>
                         )}
 
-                        {/* Description */}
                         <div className="product-description">
                             <p className="desc-title">À propos du produit</p>
                             <ul>
@@ -364,7 +349,6 @@ const ProductDetails = () => {
                     </div>
                 </div>
 
-                {/* Articles similaires */}
                 <div className="related-section">
                     <div className="section-header">
                         <p className="section-title">Articles similaires</p>
@@ -380,17 +364,14 @@ const ProductDetails = () => {
                     </button>
                 </div>
 
-                {/* Avis produits - avec callback pour remonter les données */}
                 <ProductReviews 
                     productId={product._id} 
                     onDataChange={handleReviewsData}
                 />
 
-                {/* Produits récemment vus */}
                 <RecentlyViewed />
             </div>
 
-            {/* BARRE D'ACTION FLOTTANTE */}
             <div className="floating-action-bar">
                 <div className="floating-buttons">
                     <button 
@@ -422,7 +403,6 @@ const ProductDetails = () => {
                     padding: 20px 16px 80px;
                 }
 
-                /* Breadcrumb */
                 .breadcrumb-container {
                     margin-bottom: 24px;
                     font-size: 13px;
@@ -440,7 +420,6 @@ const ProductDetails = () => {
                     font-weight: 500;
                 }
 
-                /* Layout principal */
                 .product-main {
                     display: flex;
                     flex-direction: column;
@@ -460,7 +439,6 @@ const ProductDetails = () => {
                     }
                 }
 
-                /* Galerie d'images - Carrousel */
                 .product-gallery {
                     display: flex;
                     flex-direction: column;
@@ -555,7 +533,6 @@ const ProductDetails = () => {
                     object-fit: cover;
                 }
 
-                /* Étoiles dynamiques */
                 .stars-container {
                     display: flex;
                     gap: 4px;
@@ -582,7 +559,6 @@ const ProductDetails = () => {
                     stroke: #e0e0e0;
                 }
 
-                /* Infos produit */
                 .product-title {
                     font-size: 24px;
                     font-weight: 600;
@@ -616,26 +592,29 @@ const ProductDetails = () => {
                     color: #888;
                 }
 
-                .product-pricing {
+                /* NOUVEAUX STYLES PRIX VERTICAL */
+                .product-pricing-vertical {
                     display: flex;
-                    align-items: baseline;
-                    gap: 12px;
+                    flex-direction: column;
+                    gap: 4px;
                     margin-bottom: 12px;
-                    flex-wrap: wrap;
                 }
-
-                .old-price {
-                    font-size: 16px;
+                .old-price-vertical {
+                    font-size: 15px;
                     color: #bbb;
                     text-decoration: line-through;
                 }
-
-                .current-price {
+                .price-row {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    flex-wrap: wrap;
+                }
+                .current-price-vertical {
                     font-size: 28px;
                     font-weight: 700;
                     color: #111;
                 }
-
                 .discount-badge {
                     background: #e53935;
                     color: white;
@@ -761,7 +740,6 @@ const ProductDetails = () => {
                     margin-top: 16px;
                 }
 
-                /* Articles similaires */
                 .related-section {
                     margin-top: 60px;
                 }
@@ -826,7 +804,6 @@ const ProductDetails = () => {
                     border-color: #111;
                 }
 
-                /* BARRE D'ACTION FLOTTANTE */
                 .floating-action-bar {
                     position: fixed;
                     bottom: 0;
