@@ -156,7 +156,7 @@ const Checkout = () => {
         }
     },[user])
 
-    const placeOrder = async ()=>{
+    const placeOrder = async () => {
         try {
             if(!selectedAddress){
                 return toast.error("Veuillez sélectionner une adresse")
@@ -217,22 +217,37 @@ const Checkout = () => {
                     toast.error(data.message)
                 }
             }else if(paymentOption === "GeniusPay"){
-                const {data} = await axios.post('/api/order/geniuspay/initiate', {
-                    userId: user._id,
-                    items: cartArray.map(item => ({ 
-                        product: item._id, 
-                        quantity: item.quantity,
-                        selectedColor: item.selectedColor,
-                        selectedSize: item.selectedSize,
-                        offerPrice: item.offerPrice
-                    })),
-                    address: selectedAddress._id,
-                    amount: totalWithDelivery
-                });
-                if(data.success){
-                    window.location.href = data.checkout_url;
-                }else{
-                    toast.error(data.message);
+                try {
+                    toast.loading("Préparation du paiement...", { id: "geniuspay" });
+                    
+                    const { data } = await axios.post('/api/order/geniuspay/initiate', {
+                        userId: user._id,
+                        items: cartArray.map(item => ({ 
+                            product: item._id, 
+                            quantity: item.quantity,
+                            selectedColor: item.selectedColor,
+                            selectedSize: item.selectedSize,
+                            offerPrice: item.offerPrice
+                        })),
+                        address: selectedAddress._id,
+                        amount: totalWithDelivery,
+                        deliveryPrice: deliveryPrice,
+                        deliveryType: selectedDeliveryType?.name,
+                        couponApplied: appliedCoupon ? appliedCoupon.code : null,
+                        discountAmount: appliedCoupon ? (originalAmount - discountedAmount) : 0
+                    });
+                    
+                    toast.dismiss("geniuspay");
+                    
+                    if(data.success && data.checkout_url){
+                        window.location.href = data.checkout_url;
+                    } else {
+                        toast.error(data.message || "Erreur lors de l'initiation du paiement");
+                    }
+                } catch (error) {
+                    toast.dismiss("geniuspay");
+                    console.error("Erreur GeniusPay:", error);
+                    toast.error(error.response?.data?.message || "Erreur de connexion au service de paiement");
                 }
             }
         } catch (error) {
