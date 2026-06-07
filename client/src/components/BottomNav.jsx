@@ -62,16 +62,17 @@ const BottomNav = () => {
     },
   ];
 
-  // Ne pas afficher sur les pages suivantes :
+  // Ne pas afficher sur les pages suivantes
   const hideOnPaths = [
     "/seller",
-    "/product/",      // page produit détail
-    "/products/"      // pages produit avec catégorie
+    "/product/",
+    "/products/",
+    "/cart"  // ← AJOUTÉ : cacher le BottomNav sur la page panier
   ];
   
   const shouldHide = hideOnPaths.some(path => location.pathname.startsWith(path));
   
-  // Cacher aussi sur la page produit via regex (pour les IDs)
+  // Cacher aussi sur la page produit via regex
   const isProductPage = /^\/products\/[^/]+\/[^/]+$/.test(location.pathname);
   
   if (shouldHide || isProductPage || location.pathname.startsWith("/seller")) return null;
@@ -149,7 +150,6 @@ const BottomNav = () => {
           color: #111;
           font-weight: 700;
         }
-        /* push page content above bottom nav */
         body { padding-bottom: 60px; }
       `}</style>
     </>
