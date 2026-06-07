@@ -1,25 +1,76 @@
-import mongoose from "mongoose";
+import express from 'express';
+import authUser from '../middlewares/authUser.js';
+import { getAllOrders, getUserOrders, placeOrderCOD, placeOrderStripe, updateOrderStatus, getUserOrdersByAdmin } from '../controllers/orderController.js';
+import authSeller from '../middlewares/authSeller.js';
+import { initiateGeniusPay } from '../controllers/geniuspayController.js';
+import Order from '../models/Order.js';
+import User from '../models/User.js';
+import Product from '../models/Product.js';
 
-const orderSchema = new mongoose.Schema({
-    userId: {type: String, required: true, ref: 'user'},
-    items: [{
-        product: {type: String, required: true, ref: 'product'},
-        quantity: {type: Number, required: true},
-        color: {type: String, default: null },
-        size: {type: String, default: null },
-        priceAtOrder: {type: Number, required: true}
-    }],
-    amount: {type: Number, required: true},
-    address: {type: String, required: true, ref: 'address'},
-    status: { 
-        type: String, 
-        default: 'pending_payment',
-        enum: ['pending_payment', 'Order Placed', 'Confirmed', 'Shipped', 'Out for Delivery', 'Delivered', 'Cancelled']
-    },
-    paymentType: {type: String, required: true},
-    isPaid: {type: Boolean, required: true, default: false},
-},{ timestamps: true })
+const orderRouter = express.Router();
 
-const Order = mongoose.models.order || mongoose.model('order', orderSchema)
+orderRouter.post('/cod', authUser, placeOrderCOD)
+orderRouter.get('/user', authUser, getUserOrders)
+orderRouter.get('/seller', authSeller, getAllOrders)
+orderRouter.post('/stripe', authUser, placeOrderStripe)
+orderRouter.post('/status', authSeller, updateOrderStatus)
+orderRouter.post('/geniuspay/initiate', authUser, initiateGeniusPay)
 
-export default Order
+// Admin : Récupérer les commandes d'un client spécifique
+orderRouter.get('/admin/user/:userId', authSeller, getUserOrdersByAdmin)
+
+// Route de confirmation pour GeniusPay (sans authUser pour la redirection)
+orderRouter.post('/geniuspay/confirm', async (req, res) => {
+    try {
+        const { orderId } = req.body;
+        
+        if (!orderId) {
+            return res.json({ success: false, message: "orderId requis" });
+        }
+        
+        // Récupérer la commande
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return res.json({ success: false, message: "Commande non trouvée" });
+        }
+        
+        // Vérifier si déjà confirmée
+        if (order.isPaid && order.status === "Confirmed") {
+            return res.json({ success: true, message: "Commande déjà confirmée" });
+        }
+        
+        // Mettre à jour le statut
+        order.isPaid = true;
+        order.status = "Confirmed";
+        await order.save();
+        
+        // Réduire le stock pour chaque produit
+        for (const item of order.items) {
+            const product = await Product.findById(item.product);
+            if (product) {
+                if (product.variants && product.variants.length > 0) {
+                    const variant = product.variants.find(v => 
+                        v.color === item.color && v.size === item.size
+                    );
+                    if (variant) {
+                        variant.stock = Math.max(0, variant.stock - item.quantity);
+                        await product.save();
+                    }
+                } else {
+                    product.stock = Math.max(0, (product.stock || 0) - item.quantity);
+                    await product.save();
+                }
+            }
+        }
+        
+        // Vider le panier de l'utilisateur
+        await User.findByIdAndUpdate(order.userId, { cartItems: {} });
+        
+        res.json({ success: true, message: "Commande confirmée et stock mis à jour" });
+    } catch (error) {
+        console.error("Erreur confirmation GeniusPay:", error);
+        res.json({ success: false, message: error.message });
+    }
+});
+
+export default orderRouter;
