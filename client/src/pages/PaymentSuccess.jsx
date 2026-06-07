@@ -36,17 +36,13 @@ const PaymentSuccess = () => {
                 }
                 return false;
             } catch (error) {
-                console.error('Erreur vérification:', error);
                 return false;
             }
         };
 
-        // Vérification immédiate
         checkPayment().then(paid => {
             if (!paid) {
-                // Polling toutes les 3 secondes
                 intervalId = setInterval(() => checkPayment(), 3000);
-                // Timeout après 30 secondes
                 timeoutId = setTimeout(() => {
                     clearInterval(intervalId);
                     setStatus('failed');
@@ -72,7 +68,7 @@ const PaymentSuccess = () => {
                     </svg>
                 </div>
                 <h1 className="text-2xl font-bold text-red-600 mb-2">Paiement annulé</h1>
-                <p className="text-gray-500 mb-4">Le paiement n'a pas été finalisé ou a expiré.</p>
+                <p className="text-gray-500 mb-4">Le paiement n'a pas été finalisé.</p>
                 <p className="text-gray-400">Redirection vers le panier...</p>
             </div>
         );
