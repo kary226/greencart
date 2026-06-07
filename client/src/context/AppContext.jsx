@@ -22,19 +22,20 @@ if (initialToken) {
     setAuthToken(initialToken);
 }
 
+// Clés pour le localStorage
 const RECENTLY_VIEWED_KEY = 'greencart_recently_viewed';
 const CART_KEY = 'greencart_cart';
 const MAX_RECENT_ITEMS = 5;
 
 // Charger le panier depuis localStorage
 const loadCartFromLocalStorage = () => {
-    try {
-        const savedCart = localStorage.getItem(CART_KEY);
-        if (savedCart) {
+    const savedCart = localStorage.getItem(CART_KEY);
+    if (savedCart) {
+        try {
             return JSON.parse(savedCart);
+        } catch (e) {
+            return {};
         }
-    } catch (e) {
-        console.error("Erreur chargement panier:", e);
     }
     return {};
 };
@@ -56,7 +57,7 @@ export const AppContextProvider = ({ children }) => {
     const [recentlyViewed, setRecentlyViewed] = useState([]);
     const [orders, setOrders] = useState([]);
 
-    // Sauvegarde automatique du panier dans localStorage
+    // Fonction pour sauvegarder le panier dans localStorage
     const setCartItems = (newCart) => {
         setCartItemsState(newCart);
         localStorage.setItem(CART_KEY, JSON.stringify(newCart));
@@ -128,10 +129,11 @@ export const AppContextProvider = ({ children }) => {
             const { data } = await axios.get('/api/user/is-auth');
             if (data.success) {
                 setUser(data.user);
-                // Ne pas écraser le panier local par le panier serveur
-                if (data.user.cartItems && Object.keys(data.user.cartItems).length > 0) {
-                    setCartItems(data.user.cartItems);
-                }
+                // Fusionner le panier local avec celui du serveur
+                const localCart = loadCartFromLocalStorage();
+                const serverCart = data.user.cartItems || {};
+                const mergedCart = { ...serverCart, ...localCart };
+                setCartItems(mergedCart);
                 await fetchOrders();
             }
         } catch (error) {
@@ -205,6 +207,7 @@ export const AppContextProvider = ({ children }) => {
             cartData[key] = 1;
         }
         setCartItems(cartData);
+        // PAS DE TOAST ICI
     };
 
     const addToCartWithQuantity = (productId, quantity, color = null, size = null) => {
@@ -238,8 +241,8 @@ export const AppContextProvider = ({ children }) => {
                 delete cartData[key];
             }
         }
-        setCartItems(cartData);
         toast.success("Retiré du panier");
+        setCartItems(cartData);
     };
 
     const getCartCount = () => {
@@ -330,7 +333,6 @@ export const AppContextProvider = ({ children }) => {
         if (getToken()) {
             fetchUser();
         } else {
-            // Utiliser le panier localStorage uniquement
             setCartItems(loadCartFromLocalStorage());
         }
         fetchSeller();
@@ -347,15 +349,19 @@ export const AppContextProvider = ({ children }) => {
 
     useEffect(() => {
         const updateCart = async () => {
-            if (!user) return;
             try {
-                await axios.post('/api/cart/update', { cartItems });
+                const { data } = await axios.post('/api/cart/update', { cartItems });
+                if (!data.success) {
+                    toast.error(data.message);
+                }
             } catch (error) {
-                console.error("Erreur mise à jour panier:", error);
+                console.error(error);
             }
         };
-        updateCart();
-    }, [cartItems, user]);
+        if (user) {
+            updateCart();
+        }
+    }, [cartItems]);
 
     const value = {
         navigate, user, setUser, setIsSeller, isSeller,
