@@ -7,8 +7,8 @@ const PaymentSuccess = () => {
     const navigate = useNavigate();
     const { axios, setCartItems } = useAppContext();
     const [searchParams] = useSearchParams();
-    const orderId = searchParams.get('orderId');
-    const [status, setStatus] = useState('waiting'); // waiting, success, failed
+    const orderId = searchParams.get('orderId') || sessionStorage.getItem('pendingOrderId');
+    const [status, setStatus] = useState('waiting');
 
     useEffect(() => {
         if (!orderId) {
@@ -17,23 +17,22 @@ const PaymentSuccess = () => {
             return;
         }
 
-        let timeoutId;
         let intervalId;
+        let timeoutId;
 
         const checkPayment = async () => {
             try {
                 const { data } = await axios.get(`/api/order/${orderId}`);
-                if (data.success && data.order) {
-                    if (data.order.isPaid) {
-                        setStatus('success');
-                        setCartItems({});
-                        localStorage.removeItem('greencart_cart');
-                        toast.success('Commande confirmée !');
-                        clearTimeout(timeoutId);
-                        clearInterval(intervalId);
-                        setTimeout(() => navigate('/my-orders'), 2000);
-                        return true;
-                    }
+                if (data.success && data.order && data.order.isPaid) {
+                    setStatus('success');
+                    setCartItems({});
+                    localStorage.removeItem('greencart_cart');
+                    sessionStorage.removeItem('pendingOrderId');
+                    toast.success('Commande confirmée !');
+                    clearInterval(intervalId);
+                    clearTimeout(timeoutId);
+                    setTimeout(() => navigate('/my-orders'), 2000);
+                    return true;
                 }
                 return false;
             } catch (error) {
@@ -46,20 +45,14 @@ const PaymentSuccess = () => {
         checkPayment().then(paid => {
             if (!paid) {
                 // Polling toutes les 3 secondes
-                intervalId = setInterval(async () => {
-                    const paidNow = await checkPayment();
-                    if (paidNow) {
-                        clearInterval(intervalId);
-                        clearTimeout(timeoutId);
-                    }
-                }, 3000);
-
-                // Timeout après 30 secondes : échec
+                intervalId = setInterval(() => checkPayment(), 3000);
+                // Timeout après 30 secondes
                 timeoutId = setTimeout(() => {
                     clearInterval(intervalId);
                     setStatus('failed');
-                    toast.error('Le paiement a été annulé ou a expiré');
-                    setTimeout(() => navigate(`/payment/error?orderId=${orderId}&message=Paiement+annulé+ou+expiré`), 2000);
+                    toast.error('Le paiement a expiré ou a été annulé');
+                    sessionStorage.removeItem('pendingOrderId');
+                    setTimeout(() => navigate('/cart'), 2000);
                 }, 30000);
             }
         });
@@ -79,7 +72,7 @@ const PaymentSuccess = () => {
                     </svg>
                 </div>
                 <h1 className="text-2xl font-bold text-red-600 mb-2">Paiement annulé</h1>
-                <p className="text-gray-500 mb-4">Le paiement n'a pas été finalisé ou a été annulé.</p>
+                <p className="text-gray-500 mb-4">Le paiement n'a pas été finalisé ou a expiré.</p>
                 <p className="text-gray-400">Redirection vers le panier...</p>
             </div>
         );

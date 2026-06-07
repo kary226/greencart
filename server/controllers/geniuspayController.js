@@ -4,11 +4,12 @@ import Order from '../models/Order.js';
 import User from '../models/User.js';
 import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
 
+// Initier un paiement GeniusPay (mode checkout)
 export const initiateGeniusPay = async (req, res) => {
     try {
         let { userId, items, address, amount } = req.body;
 
-        // Récupérer l'adresse complète
+        // Si address est un ID, récupérer l'adresse complète
         let addressDoc = address;
         if (typeof address === 'string') {
             const Address = mongoose.model('address');
@@ -18,6 +19,7 @@ export const initiateGeniusPay = async (req, res) => {
             }
         }
 
+        // Compléter les champs manquants de l'adresse
         const completeAddress = {
             _id: addressDoc._id,
             firstName: addressDoc.firstName,
@@ -29,6 +31,8 @@ export const initiateGeniusPay = async (req, res) => {
             zipcode: addressDoc.zipcode || '00000',
             country: addressDoc.country || "Côte d'Ivoire",
             email: addressDoc.email || `${addressDoc.phone}@client.com`,
+            communeId: addressDoc.communeId,
+            cityId: addressDoc.cityId
         };
 
         if (!completeAddress.phone) {
@@ -37,9 +41,10 @@ export const initiateGeniusPay = async (req, res) => {
 
         const finalAmount = Math.round(amount);
         if (finalAmount < 200) {
-            return res.json({ success: false, message: "Montant minimum 200 FCFA" });
+            return res.json({ success: false, message: "Le montant minimum est de 200 FCFA" });
         }
 
+        // Formater les items avec priceAtOrder
         const formattedItems = items.map(item => ({
             product: item.product,
             quantity: item.quantity,
@@ -48,7 +53,7 @@ export const initiateGeniusPay = async (req, res) => {
             priceAtOrder: item.offerPrice
         }));
 
-        // Créer la commande
+        // Créer la commande en base
         const order = await Order.create({
             userId,
             items: formattedItems,
@@ -58,23 +63,27 @@ export const initiateGeniusPay = async (req, res) => {
             status: "pending_payment",
         });
 
-        // Envoi des emails
+        // === ENVOI DES EMAILS ===
         const user = await User.findById(userId);
-        if (user?.email) {
+        if (user && user.email) {
             await sendOrderConfirmationEmail(user.email, order._id.toString(), finalAmount);
             await sendAdminNotificationEmail(order._id.toString(), finalAmount, `${completeAddress.firstName} ${completeAddress.lastName}`, user.email);
         }
 
-        // Formater le téléphone
-        let phone = completeAddress.phone.replace(/\D/g, '');
-        if (phone.startsWith('0')) phone = phone.substring(1);
-        if (!phone.startsWith('225')) phone = `225${phone}`;
+        // Formater le téléphone au format international (GENIUSPAY EXIGE +225XXXXXXXXX)
+        let phone = completeAddress.phone;
+        phone = phone.replace(/\D/g, '');
+        if (phone.startsWith('0')) {
+            phone = phone.substring(1);
+        }
+        if (!phone.startsWith('225')) {
+            phone = `225${phone}`;
+        }
         phone = `+${phone}`;
 
-        // ✅ UTILISATION DU MODE DIRECT WAVE (évite la page intermédiaire GeniusPay)
+        // Préparer la requête vers GeniusPay
         const geniusPayload = {
             amount: finalAmount,
-            payment_method: "wave",        // ← Direct Wave
             description: `Commande #${order._id.toString().slice(-8)}`,
             customer: {
                 name: `${completeAddress.firstName} ${completeAddress.lastName}`.substring(0, 100),
@@ -102,45 +111,52 @@ export const initiateGeniusPay = async (req, res) => {
         );
 
         if (response.data.success) {
-            // En mode direct, l'URL est dans `payment_url` (et non `checkout_url`)
-            const paymentUrl = response.data.data.payment_url;
-            await Order.findByIdAndUpdate(order._id, { geniuspay_reference: response.data.data.reference });
-            return res.json({ success: true, checkout_url: paymentUrl, orderId: order._id });
+            const checkoutUrl = response.data.data.checkout_url;
+            
+            await Order.findByIdAndUpdate(order._id, {
+                geniuspay_reference: response.data.data.reference,
+            });
+
+            return res.json({ success: true, checkout_url: checkoutUrl, orderId: order._id });
         } else {
-            // Supprimer la commande en cas d'échec
             await Order.findByIdAndDelete(order._id);
-            return res.json({ success: false, message: response.data.error?.message || "Erreur d'initiation" });
+            return res.json({ success: false, message: response.data.error?.message || "Erreur d'initiation GeniusPay" });
         }
     } catch (error) {
-        console.error("Erreur initiateGeniusPay:", error.response?.data || error.message);
-        // Ne pas supprimer la commande ici, car elle n'a peut-être pas été créée
-        res.json({ success: false, message: error.response?.data?.message || error.message });
+        console.error("Erreur GeniusPay:", error.message);
+        
+        if (error.response) {
+            console.error("Status:", error.response.status);
+            console.error("Data:", error.response.data);
+        }
+        
+        res.json({ success: false, message: error.message || "Erreur lors de l'initialisation du paiement" });
     }
 };
 
 // Webhook pour confirmer les paiements
 export const geniuspayWebhook = async (req, res) => {
     try {
-        const { event, data } = req.body;
+        const payload = req.body;
+        const event = payload.event;
+
         if (event === 'payment.success') {
-            const transaction = data.transaction || data;
-            const metadata = transaction.metadata || data.metadata;
-            const orderId = metadata?.order_id;
-            const userId = metadata?.user_id;
-            if (orderId) {
-                const order = await Order.findById(orderId);
-                if (order && !order.isPaid) {
-                    order.isPaid = true;
-                    order.status = "Confirmed";
-                    if (transaction.reference) order.geniuspay_reference = transaction.reference;
-                    await order.save();
-                    if (userId) await User.findByIdAndUpdate(userId, { cartItems: {} });
-                }
-            }
+            const transactionData = payload.data;
+            const orderId = transactionData.metadata?.order_id;
+            const userId = transactionData.metadata?.user_id;
+
+            await Order.findByIdAndUpdate(orderId, {
+                isPaid: true,
+                status: "Confirmed",
+                geniuspay_reference: transactionData.reference,
+            });
+
+            await User.findByIdAndUpdate(userId, { cartItems: {} });
         }
+
         res.status(200).json({ received: true });
     } catch (error) {
         console.error("Webhook error:", error);
-        res.status(500).json({ error: "Webhook failed" });
+        res.status(500).json({ error: "Webhook processing failed" });
     }
 };
