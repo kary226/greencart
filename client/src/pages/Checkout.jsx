@@ -242,9 +242,7 @@ const Checkout = () => {
                     if(data.success && data.checkout_url){
                         // Stocker l'orderId pour la page d'attente
                         sessionStorage.setItem('pendingOrderId', data.orderId);
-                        // Ouvrir GeniusPay dans un nouvel onglet
-                        window.open(data.checkout_url, '_blank');
-                        // Rediriger la page courante vers la page d'attente
+                        // Rediriger vers la page d'attente (l'utilisateur cliquera sur un bouton pour payer)
                         navigate(`/payment/processing?orderId=${data.orderId}`);
                     } else {
                         toast.error(data.message || "Erreur lors de l'initiation du paiement");

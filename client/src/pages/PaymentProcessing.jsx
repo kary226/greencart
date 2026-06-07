@@ -9,6 +9,7 @@ const PaymentProcessing = () => {
     const [searchParams] = useSearchParams();
     const orderId = searchParams.get('orderId') || sessionStorage.getItem('pendingOrderId');
     const [status, setStatus] = useState('waiting');
+    const [checkCount, setCheckCount] = useState(0);
 
     useEffect(() => {
         if (!orderId) {
@@ -16,6 +17,8 @@ const PaymentProcessing = () => {
             navigate('/cart');
             return;
         }
+
+        let interval;
 
         const checkStatus = async () => {
             try {
@@ -26,6 +29,7 @@ const PaymentProcessing = () => {
                     localStorage.removeItem('greencart_cart');
                     toast.success('Paiement confirmé !');
                     setTimeout(() => navigate('/my-orders'), 2000);
+                    if (interval) clearInterval(interval);
                     return true;
                 }
                 return false;
@@ -35,39 +39,47 @@ const PaymentProcessing = () => {
             }
         };
 
-        // Vérification immédiate
+        // Vérifier immédiatement
         checkStatus().then(paid => {
             if (!paid) {
-                // Puis toutes les 3 secondes
-                const interval = setInterval(async () => {
+                // Vérifier toutes les 3 secondes
+                interval = setInterval(async () => {
                     const paidNow = await checkStatus();
                     if (paidNow) clearInterval(interval);
+                    setCheckCount(prev => prev + 1);
                 }, 3000);
-                return () => clearInterval(interval);
             }
         });
+
+        return () => {
+            if (interval) clearInterval(interval);
+        };
     }, [orderId]);
+
+    const handlePayNow = () => {
+        const geniusUrl = `https://geniuspay.ci/checkout/${orderId}`;
+        window.open(geniusUrl, '_blank');
+        toast('Onglet de paiement ouvert. Revenez ici après paiement.', { duration: 5000 });
+    };
 
     return (
         <div className="text-center mt-32">
             {status === 'waiting' && (
                 <>
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-                    <p className="mt-4 text-lg">En attente de confirmation du paiement...</p>
+                    <p className="mt-4 text-lg">En attente de paiement</p>
                     <p className="text-sm text-gray-500 mt-2">
-                        Veuillez finaliser le paiement dans l'autre onglet.
+                        Cliquez sur le bouton ci-dessous pour accéder à la page de paiement sécurisée.
                     </p>
                     <button
-                        onClick={() => {
-                            const savedId = orderId || sessionStorage.getItem('pendingOrderId');
-                            if (savedId) {
-                                window.open(`https://geniuspay.ci/checkout/${savedId}`, '_blank');
-                            }
-                        }}
-                        className="mt-6 px-4 py-2 bg-primary text-white rounded-lg"
+                        onClick={handlePayNow}
+                        className="mt-6 px-6 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-primary-dark transition"
                     >
-                        Rouvrir la page de paiement
+                        Payer maintenant
                     </button>
+                    <p className="text-xs text-gray-400 mt-4">
+                        Après avoir effectué le paiement, cette page se mettra automatiquement à jour.
+                    </p>
                 </>
             )}
             {status === 'success' && (
