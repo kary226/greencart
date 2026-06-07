@@ -110,7 +110,7 @@ const ProductDetails = () => {
             return;
         }
         addToCart(product._id, selectedColor, selectedSize);
-        toast.success('Ajouté au panier');
+        // TOAST SUPPRIMÉ ICI
     };
 
     const handleBuyNow = () => {
