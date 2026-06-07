@@ -134,7 +134,7 @@ const Cart = () => {
     const originalAmount = getCartAmount();
     const finalAmount = (discountedAmount !== null ? discountedAmount : originalAmount) + deliveryPrice;
 
-    // ✅ Détection d'un paiement abandonné (retour sans payer)
+    // Détection d'un paiement abandonné (retour sans payer)
     useEffect(() => {
         const pendingOrderId = sessionStorage.getItem('pendingOrderId');
         if (pendingOrderId && user) {
@@ -142,17 +142,14 @@ const Cart = () => {
                 try {
                     const { data } = await axios.get(`/api/order/${pendingOrderId}`);
                     if (data.success && data.order && !data.order.isPaid) {
-                        // Commande non payée => l'utilisateur est revenu sans payer
                         toast.error('Paiement annulé. Veuillez réessayer.');
                         sessionStorage.removeItem('pendingOrderId');
-                        // Optionnel : annuler la commande (mettre status cancelled)
                         try {
                             await axios.post('/api/order/cancel', { orderId: pendingOrderId });
                         } catch (err) {
                             console.error("Erreur annulation:", err);
                         }
                     } else if (data.success && data.order && data.order.isPaid) {
-                        // Déjà payé, on nettoie
                         sessionStorage.removeItem('pendingOrderId');
                     }
                 } catch (error) {
@@ -269,10 +266,60 @@ const Cart = () => {
                     toast.dismiss("geniuspay");
 
                     if (data.success && data.checkout_url) {
-                        // Stocker l'orderId pour la page de succès
+                        // Stocker l'orderId
                         sessionStorage.setItem('pendingOrderId', data.orderId);
-                        // Redirection immédiate vers Wave
-                        window.location.href = data.checkout_url;
+                        
+                        // Ouvrir une popup centrée
+                        const width = 500;
+                        const height = 600;
+                        const left = window.screenX + (window.outerWidth - width) / 2;
+                        const top = window.screenY + (window.outerHeight - height) / 2;
+                        
+                        const popup = window.open(
+                            data.checkout_url,
+                            'GeniusPay',
+                            `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
+                        );
+                        
+                        if (!popup) {
+                            toast.error("Popup bloquée. Autorisez les popups pour ce site.");
+                            return;
+                        }
+                        
+                        // Surveiller la fermeture de la popup
+                        const checkPopupClosed = setInterval(async () => {
+                            if (popup.closed) {
+                                clearInterval(checkPopupClosed);
+                                // Vérifier si le paiement a été effectué
+                                const { data: orderData } = await axios.get(`/api/order/${data.orderId}`);
+                                if (orderData.success && orderData.order && orderData.order.isPaid) {
+                                    toast.success('Paiement réussi ! Commande confirmée.');
+                                    setCartItems({});
+                                    localStorage.removeItem('greencart_cart');
+                                    sessionStorage.removeItem('pendingOrderId');
+                                    navigate('/my-orders');
+                                } else {
+                                    toast.error('Paiement annulé ou non finalisé');
+                                    sessionStorage.removeItem('pendingOrderId');
+                                    // Optionnel : annuler la commande
+                                    try {
+                                        await axios.post('/api/order/cancel', { orderId: data.orderId });
+                                    } catch (err) {
+                                        console.error("Erreur annulation:", err);
+                                    }
+                                }
+                            }
+                        }, 1000);
+                        
+                        // Nettoyage après 5 minutes maximum
+                        setTimeout(() => {
+                            clearInterval(checkPopupClosed);
+                            if (popup && !popup.closed) {
+                                popup.close();
+                                toast.error('Temps de paiement dépassé');
+                                sessionStorage.removeItem('pendingOrderId');
+                            }
+                        }, 300000);
                     } else {
                         toast.error(data.message || "Erreur lors de l'initiation du paiement");
                     }
