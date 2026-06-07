@@ -3,7 +3,7 @@ import { useAppContext } from '../context/AppContext';
 import toast from 'react-hot-toast';
 import { User, Mail, Phone, MapPin, Home, Building2, LogOut, Edit2, Save, X } from 'lucide-react';
 
-// Sélecteur avec recherche (modernisé)
+// Select Field Component avec recherche
 const SelectField = ({ name, placeholder, options, value, handleChange, loading, icon: Icon }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isOpen, setIsOpen] = useState(false);
@@ -84,10 +84,6 @@ const Account = () => {
         communeId: ''
     });
 
-    // 🔧 CORRECTION : adapter cette URL à celle de ton backend
-    // Exemples : '/api/user/profile', '/api/user/update', '/api/user/edit'
-    const API_UPDATE_URL = '/api/user/update';  // ← MODIFIE ICI SI NÉCESSAIRE
-
     const fetchCities = async () => {
         try {
             const { data } = await axios.get('/api/location/cities');
@@ -148,14 +144,12 @@ const Account = () => {
         e.preventDefault();
         setLoading(true);
         try {
-            console.log(`🟢 Envoi des données à ${API_UPDATE_URL}`, formData);
-            const { data } = await axios.put(API_UPDATE_URL, formData);
+            // ✅ MODIFICATION : POST au lieu de PUT, et route correcte
+            const { data } = await axios.post('/api/user/update', formData);
             if (data.success) {
                 toast.success('Informations mises à jour');
                 setIsEditing(false);
-                // Recharger l'utilisateur depuis le contexte
                 if (fetchUser) await fetchUser();
-                // Mettre à jour le formulaire avec les nouvelles données
                 const { data: userData } = await axios.get('/api/user/is-auth');
                 if (userData.success) {
                     setFormData({
@@ -171,14 +165,8 @@ const Account = () => {
                 toast.error(data.message || "Erreur lors de la mise à jour");
             }
         } catch (error) {
-            console.error("❌ Erreur API:", error);
-            if (error.response?.status === 404) {
-                toast.error(`Route ${API_UPDATE_URL} introuvable. Vérifiez l'URL dans le code.`);
-            } else if (error.response?.data?.message) {
-                toast.error(error.response.data.message);
-            } else {
-                toast.error("Erreur de connexion au serveur");
-            }
+            console.error("Erreur mise à jour:", error);
+            toast.error(error.response?.data?.message || "Erreur de connexion");
         } finally {
             setLoading(false);
         }
@@ -229,7 +217,6 @@ const Account = () => {
                         {!isEditing ? (
                             <div className="space-y-6">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {/* ... (mode affichage inchangé) ... */}
                                     <div className="flex items-start gap-3">
                                         <User size={20} className="text-primary mt-0.5" />
                                         <div>
