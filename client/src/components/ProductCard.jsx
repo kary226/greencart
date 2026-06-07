@@ -78,17 +78,18 @@ const ProductCard = ({ product }) => {
           {name}
         </h3>
         
-        <div className="mt-2">
+        {/* Prix en colonne verticale */}
+        <div className="mt-2 flex flex-col">
           {/* Prix barré (ancien prix) en haut */}
           {offerPrice && price && price > offerPrice && (
-            <div className="text-xs text-gray-400 line-through">
+            <span className="text-xs text-gray-400 line-through">
               {Number(price).toLocaleString("fr-FR")} {currency}
-            </div>
+            </span>
           )}
           {/* Prix réel (promo ou normal) en bas */}
-          <div className="text-lg font-bold text-gray-900">
+          <span className="text-lg font-bold text-gray-900">
             {Number(displayPrice).toLocaleString("fr-FR")} {currency}
-          </div>
+          </span>
         </div>
       </Link>
     </div>
