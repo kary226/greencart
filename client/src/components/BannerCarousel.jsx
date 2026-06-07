@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
 
 const BannerCarousel = ({ position = 'top', className = '' }) => {
@@ -6,6 +6,15 @@ const BannerCarousel = ({ position = 'top', className = '' }) => {
     const [banners, setBanners] = useState([]);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [loading, setLoading] = useState(true);
+    
+    // État pour le swipe
+    const [touchStart, setTouchStart] = useState(0);
+    const [touchEnd, setTouchEnd] = useState(0);
+    const carouselRef = useRef(null);
+    
+    // État pour l'auto-défilement (pause après interaction)
+    const [autoPlayEnabled, setAutoPlayEnabled] = useState(true);
+    const autoPlayTimerRef = useRef(null);
 
     const fetchBanners = async () => {
         try {
@@ -24,25 +33,109 @@ const BannerCarousel = ({ position = 'top', className = '' }) => {
         fetchBanners();
     }, [position]);
 
-    // Défilement automatique
-    useEffect(() => {
-        if (banners.length <= 1) return;
-        const interval = setInterval(() => {
-            setCurrentIndex((prev) => (prev + 1) % banners.length);
-        }, 5000);
-        return () => clearInterval(interval);
-    }, [banners.length]);
-
-    const goToPrevious = () => {
-        setCurrentIndex((prev) => (prev - 1 + banners.length) % banners.length);
-    };
-
+    // Fonction pour passer à l'image suivante
     const goToNext = () => {
         setCurrentIndex((prev) => (prev + 1) % banners.length);
     };
 
+    // Fonction pour passer à l'image précédente
+    const goToPrevious = () => {
+        setCurrentIndex((prev) => (prev - 1 + banners.length) % banners.length);
+    };
+
+    // Réinitialiser le timer d'auto-défilement après interaction manuelle
+    const resetAutoPlayTimer = () => {
+        if (autoPlayTimerRef.current) {
+            clearInterval(autoPlayTimerRef.current);
+        }
+        setAutoPlayEnabled(false);
+        
+        // Attendre 5 secondes avant de réactiver l'auto-défilement
+        setTimeout(() => {
+            setAutoPlayEnabled(true);
+        }, 5000);
+    };
+
+    // Défilement automatique (toutes les 5 secondes, sauf si désactivé)
+    useEffect(() => {
+        if (banners.length <= 1) return;
+        
+        if (autoPlayEnabled) {
+            const interval = setInterval(() => {
+                goToNext();
+            }, 5000);
+            return () => clearInterval(interval);
+        }
+    }, [banners.length, autoPlayEnabled, currentIndex]);
+
+    // Gestion du swipe (touch)
+    const handleTouchStart = (e) => {
+        setTouchStart(e.targetTouches[0].clientX);
+        resetAutoPlayTimer();
+    };
+
+    const handleTouchMove = (e) => {
+        setTouchEnd(e.targetTouches[0].clientX);
+    };
+
+    const handleTouchEnd = () => {
+        if (!touchStart || !touchEnd) return;
+        
+        const distance = touchStart - touchEnd;
+        const minSwipeDistance = 50;
+        
+        if (Math.abs(distance) > minSwipeDistance) {
+            if (distance > 0) {
+                // Swipe gauche → suivant
+                goToNext();
+            } else {
+                // Swipe droite → précédent
+                goToPrevious();
+            }
+        }
+        
+        setTouchStart(0);
+        setTouchEnd(0);
+    };
+
+    // Gestion du swipe (souris pour desktop)
+    const [mouseStart, setMouseStart] = useState(0);
+    const [mouseEnd, setMouseEnd] = useState(0);
+    const [isDragging, setIsDragging] = useState(false);
+
+    const handleMouseDown = (e) => {
+        setIsDragging(true);
+        setMouseStart(e.clientX);
+        resetAutoPlayTimer();
+    };
+
+    const handleMouseMove = (e) => {
+        if (!isDragging) return;
+        setMouseEnd(e.clientX);
+    };
+
+    const handleMouseUp = () => {
+        if (!isDragging) return;
+        
+        const distance = mouseStart - mouseEnd;
+        const minSwipeDistance = 30;
+        
+        if (Math.abs(distance) > minSwipeDistance) {
+            if (distance > 0) {
+                goToNext();
+            } else {
+                goToPrevious();
+            }
+        }
+        
+        setIsDragging(false);
+        setMouseStart(0);
+        setMouseEnd(0);
+    };
+
     const goToSlide = (index) => {
         setCurrentIndex(index);
+        resetAutoPlayTimer();
     };
 
     const handleBannerClick = (banner) => {
@@ -64,7 +157,18 @@ const BannerCarousel = ({ position = 'top', className = '' }) => {
     }
 
     return (
-        <div className={`relative w-full overflow-hidden rounded-xl ${className}`}>
+        <div 
+            className={`relative w-full overflow-hidden rounded-xl ${className}`}
+            ref={carouselRef}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={() => setIsDragging(false)}
+            style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+        >
             {/* Conteneur du carrousel */}
             <div 
                 className="flex transition-transform duration-500 ease-out"
@@ -102,30 +206,6 @@ const BannerCarousel = ({ position = 'top', className = '' }) => {
                     </div>
                 ))}
             </div>
-
-            {/* Flèche gauche */}
-            {banners.length > 1 && (
-                <button
-                    onClick={goToPrevious}
-                    className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full w-8 h-8 md:w-10 md:h-10 flex items-center justify-center shadow-lg transition z-10"
-                >
-                    <svg className="w-5 h-5 md:w-6 md:h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                </button>
-            )}
-
-            {/* Flèche droite */}
-            {banners.length > 1 && (
-                <button
-                    onClick={goToNext}
-                    className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full w-8 h-8 md:w-10 md:h-10 flex items-center justify-center shadow-lg transition z-10"
-                >
-                    <svg className="w-5 h-5 md:w-6 md:h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                </button>
-            )}
 
             {/* Indicateurs (dots) */}
             {banners.length > 1 && (
