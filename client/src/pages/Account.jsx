@@ -3,7 +3,7 @@ import { useAppContext } from '../context/AppContext';
 import toast from 'react-hot-toast';
 import { User, Mail, Phone, MapPin, Home, Building2, LogOut, Edit2, Save, X } from 'lucide-react';
 
-// Select Field Component avec recherche (modernisé)
+// Sélecteur avec recherche (modernisé)
 const SelectField = ({ name, placeholder, options, value, handleChange, loading, icon: Icon }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isOpen, setIsOpen] = useState(false);
@@ -84,7 +84,10 @@ const Account = () => {
         communeId: ''
     });
 
-    // Charger les villes
+    // 🔧 CORRECTION : adapter cette URL à celle de ton backend
+    // Exemples : '/api/user/profile', '/api/user/update', '/api/user/edit'
+    const API_UPDATE_URL = '/api/user/update';  // ← MODIFIE ICI SI NÉCESSAIRE
+
     const fetchCities = async () => {
         try {
             const { data } = await axios.get('/api/location/cities');
@@ -96,7 +99,6 @@ const Account = () => {
         }
     };
 
-    // Charger les communes
     const fetchCommunes = async (cityId) => {
         if (!cityId) {
             setCommunes([]);
@@ -146,11 +148,14 @@ const Account = () => {
         e.preventDefault();
         setLoading(true);
         try {
-            const { data } = await axios.put('/api/user/update', formData);
+            console.log(`🟢 Envoi des données à ${API_UPDATE_URL}`, formData);
+            const { data } = await axios.put(API_UPDATE_URL, formData);
             if (data.success) {
                 toast.success('Informations mises à jour');
                 setIsEditing(false);
-                await fetchUser();
+                // Recharger l'utilisateur depuis le contexte
+                if (fetchUser) await fetchUser();
+                // Mettre à jour le formulaire avec les nouvelles données
                 const { data: userData } = await axios.get('/api/user/is-auth');
                 if (userData.success) {
                     setFormData({
@@ -163,10 +168,17 @@ const Account = () => {
                     });
                 }
             } else {
-                toast.error(data.message);
+                toast.error(data.message || "Erreur lors de la mise à jour");
             }
         } catch (error) {
-            toast.error(error.message);
+            console.error("❌ Erreur API:", error);
+            if (error.response?.status === 404) {
+                toast.error(`Route ${API_UPDATE_URL} introuvable. Vérifiez l'URL dans le code.`);
+            } else if (error.response?.data?.message) {
+                toast.error(error.response.data.message);
+            } else {
+                toast.error("Erreur de connexion au serveur");
+            }
         } finally {
             setLoading(false);
         }
@@ -206,20 +218,18 @@ const Account = () => {
     return (
         <div className="min-h-screen bg-gray-50 pt-20 pb-16 px-4">
             <div className="max-w-3xl mx-auto">
-                {/* En-tête */}
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold text-gray-800">Mon compte</h1>
                     <div className="w-20 h-1 bg-primary rounded-full mt-2"></div>
                     <p className="text-gray-500 mt-2">Gérez vos informations personnelles</p>
                 </div>
 
-                {/* Carte principale */}
                 <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
                     <div className="p-6 md:p-8">
                         {!isEditing ? (
-                            // Mode affichage
                             <div className="space-y-6">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* ... (mode affichage inchangé) ... */}
                                     <div className="flex items-start gap-3">
                                         <User size={20} className="text-primary mt-0.5" />
                                         <div>
@@ -274,19 +284,18 @@ const Account = () => {
                                         className="flex items-center justify-center gap-2 flex-1 bg-primary text-white py-3 rounded-xl font-medium hover:bg-primary-dark transition shadow-sm"
                                     >
                                         <Edit2 size={18} />
-                                        Modifier mes informations
+                                        Modifier
                                     </button>
                                     <button
                                         onClick={handleLogout}
                                         className="flex items-center justify-center gap-2 flex-1 bg-red-500 text-white py-3 rounded-xl font-medium hover:bg-red-600 transition shadow-sm"
                                     >
                                         <LogOut size={18} />
-                                        Se déconnecter
+                                        Déconnexion
                                     </button>
                                 </div>
                             </div>
                         ) : (
-                            // Mode édition
                             <form onSubmit={handleUpdate} className="space-y-5">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Nom complet</label>
