@@ -10,7 +10,8 @@ import AllProducts from './pages/AllProducts';
 import ProductCategory from './pages/ProductCategory';
 import ProductDetails from './pages/ProductDetails';
 import Cart from './pages/Cart';
-import Checkout from './pages/Checkout';  // ← AJOUTE CETTE LIGNE
+import Checkout from './pages/Checkout';
+import PaymentProcessing from './pages/PaymentProcessing';  // ← AJOUT
 import AddAddress from './pages/AddAddress';
 import MyOrders from './pages/MyOrders';
 import Wishlist from './pages/Wishlist';
@@ -61,7 +62,8 @@ const App = () => {
           <Route path='/products/:category/:id' element={<ProductDetails/>} />
           <Route path='/product/:id' element={<ProductDetails/>} />
           <Route path='/cart' element={<Cart/>} />
-          <Route path='/checkout' element={<Checkout/>} />  {/* ← AJOUTE CETTE LIGNE */}
+          <Route path='/checkout' element={<Checkout/>} />
+          <Route path='/payment/processing' element={<PaymentProcessing/>} />  {/* ← AJOUT */}
           <Route path='/add-address' element={<AddAddress/>} />
           <Route path='/my-orders' element={<MyOrders/>} />
           <Route path='/loader' element={<Loading/>} />
@@ -109,4 +111,4 @@ const App = () => {
   )
 }
 
-export default App
+export default App;
