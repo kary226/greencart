@@ -17,6 +17,23 @@ orderRouter.post('/status', authSeller, updateOrderStatus);
 orderRouter.post('/geniuspay/initiate', authUser, initiateGeniusPay);
 orderRouter.get('/admin/user/:userId', authSeller, getUserOrdersByAdmin);
 
+// ============================================================
+// ROUTE POUR RÉCUPÉRER UNE COMMANDE PAR SON ID (sans auth)
+// Utilisée par PaymentError pour vérifier le statut
+// ============================================================
+orderRouter.get('/:orderId', async (req, res) => {
+    try {
+        const order = await Order.findById(req.params.orderId);
+        if (!order) {
+            return res.json({ success: false, message: "Commande non trouvée" });
+        }
+        res.json({ success: true, order });
+    } catch (error) {
+        console.error("Erreur récupération commande:", error);
+        res.json({ success: false, message: error.message });
+    }
+});
+
 // ROUTE DE CONFIRMATION GENIUSPAY (redirection après paiement)
 orderRouter.post('/geniuspay/confirm', async (req, res) => {
     try {
