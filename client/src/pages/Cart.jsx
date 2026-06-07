@@ -3,6 +3,7 @@ import { useAppContext } from "../context/AppContext";
 import { assets } from "../assets/assets";
 import toast from "react-hot-toast";
 import CouponInput from "../components/CouponInput";
+import { ShoppingBag, Trash2, ArrowRight, MapPin, Truck, CreditCard, Tag, ChevronDown, Plus, X } from "lucide-react";
 
 const Cart = () => {
     const { products, currency, cartItems, removeFromCart, getCartCount, updateCartItem, navigate, getCartAmount, axios, user, setCartItems, getProductIdFromKey } = useAppContext()
@@ -134,7 +135,7 @@ const Cart = () => {
     const originalAmount = getCartAmount();
     const finalAmount = (discountedAmount !== null ? discountedAmount : originalAmount) + deliveryPrice;
 
-    // ✅ DÉTECTION D'UN PAIEMENT ABANDONNÉ (retour en arrière)
+    // Détection d'un paiement abandonné
     useEffect(() => {
         const pendingOrderId = sessionStorage.getItem('pendingOrderId');
         if (pendingOrderId && user) {
@@ -266,9 +267,7 @@ const Cart = () => {
                     toast.dismiss("geniuspay");
                     
                     if(data.success && data.checkout_url){
-                        // ✅ Stocker l'orderId pour détecter un éventuel retour sans paiement
                         sessionStorage.setItem('pendingOrderId', data.orderId);
-                        // Redirection vers GeniusPay
                         window.location.href = data.checkout_url;
                     } else {
                         toast.error(data.message || "Erreur lors de l'initiation du paiement");
@@ -286,338 +285,224 @@ const Cart = () => {
 
     if (cartArray.length === 0) {
         return (
-            <div className="mt-16 text-center py-20">
-                <p className="text-gray-400 mb-4">Votre panier est vide</p>
-                <button onClick={() => navigate("/products")} className="px-6 py-2 bg-primary text-white rounded-lg">
-                    Découvrir nos produits
-                </button>
+            <div className="min-h-screen bg-white pt-20 pb-16 px-4">
+                <div className="max-w-md mx-auto text-center">
+                    <div className="w-24 h-24 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <ShoppingBag size={48} className="text-red-500" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Votre panier est vide</h2>
+                    <p className="text-gray-500 mb-6">Ajoutez des produits à votre panier pour continuer</p>
+                    <button 
+                        onClick={() => navigate("/products")} 
+                        className="bg-black text-white px-6 py-3 rounded-full font-medium hover:bg-gray-800 transition shadow-lg"
+                    >
+                        Découvrir nos produits
+                    </button>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="cart-page">
-            <div className="cart-container">
-                <h1 className="cart-title">
-                    Mon panier <span className="cart-count">{getCartCount()} articles</span>
-                </h1>
+        <div className="min-h-screen bg-white pt-20 pb-24">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                {/* En-tête */}
+                <div className="mb-8">
+                    <h1 className="text-3xl font-bold text-gray-900">Mon panier</h1>
+                    <p className="text-gray-500 mt-1">{getCartCount()} article(s)</p>
+                    <div className="w-20 h-1 bg-red-500 rounded-full mt-3"></div>
+                </div>
 
-                <div className="cart-products">
-                    <div className="cart-header">
-                        <p>Détails du produit</p>
-                        <p>Sous-total</p>
-                        <p>Action</p>
-                    </div>
-
-                    {cartArray.map((product, index) => (
-                        <div key={index} className="cart-item">
-                            <div className="cart-item-info">
-                                <div onClick={() => {
-                                    navigate(`/products/${product.category?.toLowerCase() || 'all'}/${product._id}`);
-                                    scrollTo(0, 0)
-                                }} className="cart-item-img">
-                                    <img src={product.image[0]} alt={product.name} />
-                                </div>
-                                <div className="cart-item-details">
-                                    <p className="cart-item-name">{product.name}</p>
-                                    <div className="cart-item-variants">
-                                        {product.selectedColor && <span className="variant-tag">🎨 {product.selectedColor}</span>}
-                                        {product.selectedSize && <span className="variant-tag">📐 {product.selectedSize}</span>}
+                <div className="grid lg:grid-cols-3 gap-8">
+                    {/* Colonne gauche - Produits */}
+                    <div className="lg:col-span-2 space-y-4">
+                        {cartArray.map((product, index) => (
+                            <div key={index} className="bg-white border border-gray-100 rounded-2xl p-4 hover:shadow-md transition-shadow">
+                                <div className="flex gap-4">
+                                    <div 
+                                        onClick={() => {
+                                            navigate(`/products/${product.category?.toLowerCase() || 'all'}/${product._id}`);
+                                            scrollTo(0, 0)
+                                        }} 
+                                        className="w-24 h-24 rounded-xl overflow-hidden cursor-pointer bg-gray-50 flex-shrink-0"
+                                    >
+                                        <img src={product.image[0]} alt={product.name} className="w-full h-full object-cover" />
                                     </div>
-                                    <div className="cart-item-quantity">
-                                        <p>Qté :</p>
-                                        <select onChange={e => {
-                                            const newQty = Number(e.target.value)
-                                            if (product.variantStock !== null && newQty > product.variantStock) {
-                                                toast.error(`Stock limité à ${product.variantStock} unités !`)
-                                                return
-                                            }
-                                            updateCartItem(product.cartKey, newQty)
-                                        }} value={product.quantity}>
-                                            {Array(Math.min(product.variantStock || 10, 10)).fill('').map((_, i) => (
-                                                <option key={i} value={i + 1}>{i + 1}</option>
-                                            ))}
-                                        </select>
-                                        {product.variantStock !== null && (
-                                            <span className={`stock-badge ${product.variantStock === 0 ? 'stock-out' : product.variantStock <= 5 ? 'stock-low' : 'stock-ok'}`}>
-                                                ({product.variantStock} en stock)
-                                            </span>
-                                        )}
+                                    <div className="flex-1">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <h3 className="font-semibold text-gray-900">{product.name}</h3>
+                                                <div className="flex gap-2 mt-1">
+                                                    {product.selectedColor && (
+                                                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                                                            {product.selectedColor}
+                                                        </span>
+                                                    )}
+                                                    {product.selectedSize && (
+                                                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                                                            {product.selectedSize}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <button 
+                                                onClick={() => removeFromCart(product.cartKey)} 
+                                                className="text-gray-400 hover:text-red-500 transition"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
+                                        </div>
+                                        <div className="flex justify-between items-end mt-4">
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-sm text-gray-500">Qté :</span>
+                                                <select 
+                                                    onChange={e => {
+                                                        const newQty = Number(e.target.value)
+                                                        if (product.variantStock !== null && newQty > product.variantStock) {
+                                                            toast.error(`Stock limité à ${product.variantStock} unités !`)
+                                                            return
+                                                        }
+                                                        updateCartItem(product.cartKey, newQty)
+                                                    }} 
+                                                    value={product.quantity}
+                                                    className="border border-gray-200 rounded-lg px-3 py-1 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                                                >
+                                                    {Array(Math.min(product.variantStock || 10, 10)).fill('').map((_, i) => (
+                                                        <option key={i} value={i + 1}>{i + 1}</option>
+                                                    ))}
+                                                </select>
+                                                {product.variantStock !== null && (
+                                                    <span className={`text-xs ${product.variantStock === 0 ? 'text-red-500' : product.variantStock <= 5 ? 'text-orange-500' : 'text-green-600'}`}>
+                                                        ({product.variantStock} en stock)
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="font-bold text-gray-900">{product.offerPrice * product.quantity} {currency}</p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                            <p className="cart-item-subtotal">{product.offerPrice * product.quantity} {currency}</p>
-                            <button onClick={() => removeFromCart(product.cartKey)} className="cart-item-remove">
-                                <img src={assets.remove_icon} alt="remove" />
+                        ))}
+
+                        <button 
+                            onClick={() => { navigate("/products"); scrollTo(0, 0) }} 
+                            className="flex items-center gap-2 text-gray-500 hover:text-black transition mt-4"
+                        >
+                            <ArrowRight size={16} className="group-hover:translate-x-1 transition" />
+                            Continuer mes achats
+                        </button>
+                    </div>
+
+                    {/* Colonne droite - Récapitulatif */}
+                    <div className="lg:col-span-1">
+                        <div className="bg-gray-50 rounded-2xl p-6 sticky top-24">
+                            <h2 className="text-xl font-bold text-gray-900 mb-6">Récapitulatif</h2>
+                            
+                            {/* Adresse */}
+                            <div className="mb-6">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <MapPin size={18} className="text-red-500" />
+                                    <span className="text-sm font-medium text-gray-700">Adresse de livraison</span>
+                                </div>
+                                <div className="bg-white rounded-xl p-3">
+                                    <div className="flex justify-between items-start">
+                                        <p className="text-sm text-gray-600 flex-1">{formatAddress(selectedAddress)}</p>
+                                        <button onClick={() => setShowAddress(!showAddress)} className="text-red-500 text-sm font-medium hover:text-red-600">
+                                            Changer
+                                        </button>
+                                    </div>
+                                    {showAddress && (
+                                        <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
+                                            {addresses.map((address, idx) => (
+                                                <div key={idx} className="flex justify-between items-center text-sm">
+                                                    <p className="text-gray-600 cursor-pointer hover:text-black" onClick={() => { setSelectedAddress(address); setShowAddress(false) }}>
+                                                        {formatAddress(address)}
+                                                    </p>
+                                                    <button onClick={() => deleteAddress(address._id)} className="text-red-400 text-xs hover:text-red-600">
+                                                        Supprimer
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            <button onClick={() => navigate("/add-address")} className="flex items-center gap-1 text-red-500 text-sm mt-2">
+                                                <Plus size={14} /> Ajouter une adresse
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Livraison */}
+                            {deliveryTypes.length > 0 && selectedAddress?.communeId && (
+                                <div className="mb-6">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Truck size={18} className="text-red-500" />
+                                        <span className="text-sm font-medium text-gray-700">Mode de livraison</span>
+                                    </div>
+                                    <select 
+                                        value={selectedDeliveryType?._id || ''} 
+                                        onChange={(e) => {
+                                            const type = deliveryTypes.find(t => t._id === e.target.value);
+                                            setSelectedDeliveryType(type);
+                                        }}
+                                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                                    >
+                                        {deliveryTypes.map(type => <option key={type._id} value={type._id}>{type.name}</option>)}
+                                    </select>
+                                </div>
+                            )}
+
+                            {/* Paiement */}
+                            <div className="mb-6">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <CreditCard size={18} className="text-red-500" />
+                                    <span className="text-sm font-medium text-gray-700">Moyen de paiement</span>
+                                </div>
+                                <select 
+                                    onChange={e => setPaymentOption(e.target.value)} 
+                                    value={paymentOption}
+                                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                                >
+                                    <option value="" disabled>Sélectionner un moyen de paiement</option>
+                                    <option value="GeniusPay">Mobile Money (Wave, Orange, MTN)</option>
+                                </select>
+                            </div>
+
+                            <CouponInput amount={originalAmount} onCouponApplied={handleCouponApplied} />
+
+                            {/* Totaux */}
+                            <div className="mt-6 pt-4 border-t border-gray-200 space-y-2">
+                                <div className="flex justify-between text-sm text-gray-600">
+                                    <span>Sous-total</span>
+                                    <span>{originalAmount} {currency}</span>
+                                </div>
+                                {appliedCoupon && (
+                                    <div className="flex justify-between text-sm text-green-600">
+                                        <span>Réduction ({appliedCoupon.code})</span>
+                                        <span>- {appliedCoupon.discountAmount} {currency}</span>
+                                    </div>
+                                )}
+                                <div className="flex justify-between text-sm text-gray-600">
+                                    <span>Frais de livraison</span>
+                                    <span className={deliveryPrice === 0 ? 'text-green-600' : ''}>
+                                        {loadingDelivery ? 'Chargement...' : deliveryPrice === 0 ? 'Gratuit' : `${deliveryPrice} ${currency}`}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between text-xl font-bold text-gray-900 pt-2 border-t border-gray-200">
+                                    <span>Total</span>
+                                    <span className="text-red-500">{finalAmount} {currency}</span>
+                                </div>
+                            </div>
+
+                            <button 
+                                onClick={placeOrder} 
+                                className="w-full mt-6 bg-black text-white py-3 rounded-full font-semibold hover:bg-gray-800 transition shadow-lg"
+                            >
+                                Confirmer et payer
                             </button>
                         </div>
-                    ))}
-
-                    <button onClick={() => { navigate("/products"); scrollTo(0, 0) }} className="continue-shopping">
-                        <img src={assets.arrow_right_icon_colored} alt="arrow" />
-                        Continuer mes achats
-                    </button>
-                </div>
-
-                {/* SECTION RÉCAPITULATIF */}
-                <div className="cart-summary">
-                    <h2 className="summary-title">Récapitulatif</h2>
-                    
-                    <div className="summary-address">
-                        <p className="summary-label">Adresse de livraison</p>
-                        <div className="address-select">
-                            <p className="address-text">{formatAddress(selectedAddress)}</p>
-                            <button onClick={() => setShowAddress(!showAddress)} className="change-btn">Changer</button>
-                        </div>
-                        {showAddress && (
-                            <div className="address-dropdown">
-                                {addresses.map((address, idx) => (
-                                    <div key={idx} className="address-option">
-                                        <p onClick={() => { setSelectedAddress(address); setShowAddress(false) }}>{formatAddress(address)}</p>
-                                        <button onClick={() => deleteAddress(address._id)}>Supprimer</button>
-                                    </div>
-                                ))}
-                                <p onClick={() => navigate("/add-address")} className="add-address">+ Ajouter une adresse</p>
-                            </div>
-                        )}
                     </div>
-
-                    {deliveryTypes.length > 0 && selectedAddress?.communeId && (
-                        <div className="summary-delivery">
-                            <p className="summary-label">Mode de livraison</p>
-                            <select value={selectedDeliveryType?._id || ''} onChange={(e) => {
-                                const type = deliveryTypes.find(t => t._id === e.target.value);
-                                setSelectedDeliveryType(type);
-                            }}>
-                                {deliveryTypes.map(type => <option key={type._id} value={type._id}>{type.name}</option>)}
-                            </select>
-                        </div>
-                    )}
-
-                    <div className="summary-payment">
-                        <p className="summary-label">Moyen de paiement</p>
-                        <select onChange={e => setPaymentOption(e.target.value)} value={paymentOption}>
-                            <option value="" disabled>Sélectionner un moyen de paiement</option>
-                            <option value="GeniusPay">Mobile Money (Wave, Orange, MTN)</option>
-                        </select>
-                    </div>
-
-                    <CouponInput amount={originalAmount} onCouponApplied={handleCouponApplied} />
-
-                    <div className="summary-totals">
-                        <div className="total-line">
-                            <span>Prix</span>
-                            <span>{originalAmount} {currency}</span>
-                        </div>
-                        {appliedCoupon && (
-                            <div className="total-line discount">
-                                <span>Réduction ({appliedCoupon.code})</span>
-                                <span>- {appliedCoupon.discountAmount} {currency}</span>
-                            </div>
-                        )}
-                        <div className="total-line">
-                            <span>Frais de livraison</span>
-                            <span className={deliveryPrice === 0 ? 'free' : ''}>
-                                {loadingDelivery ? 'Chargement...' : deliveryPrice === 0 ? 'Gratuit' : `${deliveryPrice} ${currency}`}
-                            </span>
-                        </div>
-                        <div className="total-line grand-total">
-                            <span>Total</span>
-                            <span>{finalAmount} {currency}</span>
-                        </div>
-                    </div>
-
-                    <button onClick={placeOrder} className="checkout-btn">
-                        Confirmer et payer
-                    </button>
                 </div>
             </div>
-
-            <style>{`
-                .cart-page {
-                    margin-top: 64px;
-                    padding-bottom: 20px;
-                    background: #faf8f5;
-                    min-height: 100vh;
-                }
-                .cart-container {
-                    max-width: 768px;
-                    margin: 0 auto;
-                    padding: 20px 16px;
-                }
-                .cart-title {
-                    font-size: 24px;
-                    font-weight: 600;
-                    color: #111;
-                    margin-bottom: 24px;
-                }
-                .cart-count {
-                    font-size: 14px;
-                    color: #888;
-                    font-weight: normal;
-                }
-                .cart-products {
-                    background: white;
-                    border-radius: 20px;
-                    padding: 20px;
-                    margin-bottom: 20px;
-                }
-                .cart-header {
-                    display: grid;
-                    grid-template-columns: 2fr 1fr 1fr;
-                    padding-bottom: 12px;
-                    border-bottom: 1px solid #f0ede8;
-                    font-size: 13px;
-                    color: #999;
-                    font-weight: 500;
-                }
-                .cart-item {
-                    display: grid;
-                    grid-template-columns: 2fr 1fr 1fr;
-                    align-items: center;
-                    padding: 16px 0;
-                    border-bottom: 1px solid #f0ede8;
-                }
-                .cart-item-info {
-                    display: flex;
-                    gap: 16px;
-                }
-                .cart-item-img {
-                    width: 80px;
-                    height: 80px;
-                    border-radius: 12px;
-                    overflow: hidden;
-                    cursor: pointer;
-                    background: #f5f3f0;
-                    flex-shrink: 0;
-                }
-                .cart-item-img img {
-                    width: 100%;
-                    height: 100%;
-                    object-fit: cover;
-                }
-                .cart-item-details { flex: 1; }
-                .cart-item-name { font-weight: 600; color: #333; margin-bottom: 6px; font-size: 14px; }
-                .cart-item-variants { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
-                .variant-tag { font-size: 10px; background: #f5f3f0; padding: 2px 8px; border-radius: 20px; color: #666; }
-                .cart-item-quantity { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #666; }
-                .cart-item-quantity select { border: 1px solid #e8e3dc; border-radius: 8px; padding: 4px 8px; outline: none; background: white; }
-                .stock-badge { font-size: 10px; }
-                .stock-ok { color: #4caf50; }
-                .stock-low { color: #ff9800; }
-                .stock-out { color: #e53935; }
-                .cart-item-subtotal { text-align: center; font-weight: 600; color: #111; }
-                .cart-item-remove { background: none; border: none; cursor: pointer; display: flex; justify-content: center; }
-                .cart-item-remove img { width: 20px; height: 20px; opacity: 0.5; transition: opacity 0.2s; }
-                .cart-item-remove img:hover { opacity: 1; }
-                .continue-shopping { display: flex; align-items: center; gap: 6px; background: none; border: none; margin-top: 20px; color: #111; font-weight: 500; font-size: 13px; cursor: pointer; }
-                .continue-shopping img { width: 16px; transition: transform 0.2s; }
-                .continue-shopping:hover img { transform: translateX(-3px); }
-                
-                /* SECTION RÉCAPITULATIF */
-                .cart-summary {
-                    background: white;
-                    border-radius: 20px;
-                    padding: 20px;
-                }
-                .summary-title {
-                    font-size: 18px;
-                    font-weight: 600;
-                    color: #111;
-                    margin-bottom: 16px;
-                }
-                .summary-label {
-                    font-size: 12px;
-                    font-weight: 600;
-                    color: #999;
-                    text-transform: uppercase;
-                    margin-bottom: 8px;
-                }
-                .summary-address, .summary-delivery, .summary-payment {
-                    margin-bottom: 20px;
-                }
-                .address-select {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                }
-                .address-text {
-                    font-size: 14px;
-                    color: #333;
-                    flex: 1;
-                }
-                .change-btn {
-                    background: none;
-                    border: none;
-                    color: #111;
-                    font-size: 13px;
-                    font-weight: 500;
-                    cursor: pointer;
-                }
-                .address-dropdown {
-                    margin-top: 12px;
-                    background: #faf8f5;
-                    border-radius: 12px;
-                    padding: 8px;
-                }
-                .address-option {
-                    display: flex;
-                    justify-content: space-between;
-                    padding: 8px;
-                    font-size: 13px;
-                    cursor: pointer;
-                }
-                .address-option p { flex: 1; }
-                .address-option button { background: none; border: none; color: #e53935; cursor: pointer; }
-                .add-address { text-align: center; padding: 8px; color: #111; font-weight: 500; cursor: pointer; }
-                .summary-delivery select, .summary-payment select {
-                    width: 100%;
-                    padding: 12px;
-                    border: 1px solid #e8e3dc;
-                    border-radius: 12px;
-                    font-size: 14px;
-                    background: white;
-                }
-                .summary-totals {
-                    margin-top: 20px;
-                    padding-top: 16px;
-                    border-top: 1px solid #f0ede8;
-                }
-                .total-line {
-                    display: flex;
-                    justify-content: space-between;
-                    padding: 6px 0;
-                    font-size: 14px;
-                    color: #666;
-                }
-                .total-line.discount { color: #4caf50; }
-                .grand-total {
-                    font-size: 18px;
-                    font-weight: 700;
-                    color: #111;
-                    border-top: 1px solid #f0ede8;
-                    margin-top: 8px;
-                    padding-top: 12px;
-                }
-                .free { color: #4caf50; }
-                .checkout-btn {
-                    width: 100%;
-                    padding: 14px;
-                    background: #111;
-                    color: white;
-                    border: none;
-                    border-radius: 40px;
-                    font-weight: 600;
-                    font-size: 16px;
-                    cursor: pointer;
-                    margin-top: 20px;
-                    transition: all 0.2s;
-                }
-                .checkout-btn:hover {
-                    background: #333;
-                    transform: scale(1.02);
-                }
-            `}</style>
         </div>
     )
 }
