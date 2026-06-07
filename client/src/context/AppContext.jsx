@@ -30,8 +30,11 @@ const MAX_RECENT_ITEMS = 5;
 const loadCartFromLocalStorage = () => {
     try {
         const savedCart = localStorage.getItem(CART_KEY);
+        console.log("📦 [AppContext] loadCartFromLocalStorage:", savedCart);
         if (savedCart) {
-            return JSON.parse(savedCart);
+            const parsed = JSON.parse(savedCart);
+            console.log("📦 [AppContext] Panier chargé:", parsed);
+            return parsed;
         }
     } catch (e) {
         console.error("Erreur chargement panier:", e);
@@ -56,8 +59,12 @@ export const AppContextProvider = ({ children }) => {
     const [recentlyViewed, setRecentlyViewed] = useState([]);
     const [orders, setOrders] = useState([]);
 
+    console.log("🛒 [AppContext] cartItems initial:", cartItems);
+    console.log("📦 [AppContext] products initial:", products.length);
+
     // Sauvegarde automatique du panier dans localStorage
     const setCartItems = (newCart) => {
+        console.log("💾 [AppContext] setCartItems appelé:", newCart);
         setCartItemsState(newCart);
         localStorage.setItem(CART_KEY, JSON.stringify(newCart));
     };
@@ -127,9 +134,11 @@ export const AppContextProvider = ({ children }) => {
         try {
             const { data } = await axios.get('/api/user/is-auth');
             if (data.success) {
+                console.log("👤 [AppContext] Utilisateur connecté:", data.user._id);
                 setUser(data.user);
                 // Ne pas écraser le panier local par le panier serveur
                 if (data.user.cartItems && Object.keys(data.user.cartItems).length > 0) {
+                    console.log("🛒 [AppContext] Panier serveur:", data.user.cartItems);
                     setCartItems(data.user.cartItems);
                 }
                 await fetchOrders();
@@ -142,9 +151,15 @@ export const AppContextProvider = ({ children }) => {
     const fetchProducts = async () => {
         try {
             const { data } = await axios.get('/api/product/list');
-            if (data.success) setProducts(data.products);
-            else setProducts(dummyProducts);
+            if (data.success) {
+                console.log("✅ [AppContext] Produits chargés:", data.products.length);
+                setProducts(data.products);
+            } else {
+                console.log("⚠️ [AppContext] Utilisation des produits dummy");
+                setProducts(dummyProducts);
+            }
         } catch (error) {
+            console.error("❌ [AppContext] Erreur chargement produits:", error);
             setProducts(dummyProducts);
         }
     };
@@ -197,6 +212,7 @@ export const AppContextProvider = ({ children }) => {
 
     // addToCart SANS TOAST (pour éviter le double message)
     const addToCart = (productId, color = null, size = null) => {
+        console.log("➕ [AppContext] addToCart:", productId, color, size);
         const key = getCartKey(productId, color, size);
         let cartData = structuredClone(cartItems);
         if (cartData[key]) {
@@ -327,10 +343,11 @@ export const AppContextProvider = ({ children }) => {
     };
 
     useEffect(() => {
+        console.log("🚀 [AppContext] useEffect initial");
         if (getToken()) {
             fetchUser();
         } else {
-            // Utiliser le panier localStorage uniquement
+            console.log("🔑 [AppContext] Pas de token, panier localStorage uniquement");
             setCartItems(loadCartFromLocalStorage());
         }
         fetchSeller();
