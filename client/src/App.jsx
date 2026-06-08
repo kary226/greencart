@@ -50,9 +50,9 @@ const App = () => {
       {isSellerPath ? null : <Navbar />}
       {showUserLogin ? <Login /> : null}
 
-      {/* ✅ TOASTER MODERNISÉ */}
+      {/* ✅ TOASTER MODERNISÉ - POSITION EN HAUT */}
       <Toaster 
-        position="bottom-center"
+        position="top-center"
         toastOptions={{
           duration: 2500,
           style: {
