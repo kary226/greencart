@@ -142,6 +142,7 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
         paddingHorizontal: 10,
     },
+    // ✅ Toutes les cellules d'en-tête en blanc
     headerCell: {
         fontSize: 8,
         fontWeight: 'bold',
@@ -167,7 +168,7 @@ const styles = StyleSheet.create({
         alignItems: 'flex-end',
     },
     totalsBox: {
-        width: 220,
+        width: 240,
         borderTopWidth: 1,
         borderTopColor: '#e5e7eb',
         paddingTop: 10,
@@ -175,7 +176,7 @@ const styles = StyleSheet.create({
     totalRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginBottom: 4,
+        marginBottom: 6,
     },
     totalLabel: {
         fontSize: 9,
@@ -189,8 +190,8 @@ const styles = StyleSheet.create({
     grandTotalRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginTop: 4,
-        paddingTop: 4,
+        marginTop: 6,
+        paddingTop: 6,
         borderTopWidth: 1,
         borderTopColor: '#e5e7eb',
     },
@@ -203,6 +204,25 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: 'bold',
         color: '#e53935',
+    },
+
+    // Coupon badge
+    couponBadgeUsed: {
+        paddingVertical: 2,
+        paddingHorizontal: 8,
+        borderRadius: 8,
+        fontSize: 8,
+        fontWeight: 'bold',
+        backgroundColor: '#d1fae5',
+        color: '#065f46',
+    },
+    couponBadgeNone: {
+        paddingVertical: 2,
+        paddingHorizontal: 8,
+        borderRadius: 8,
+        fontSize: 8,
+        color: '#9ca3af',
+        backgroundColor: '#f3f4f6',
     },
 
     // FOOTER
@@ -244,8 +264,12 @@ const getStatusLabel = (status) => {
     return map[status] || status;
 };
 
+// ✅ Formatage correct : espace insécable comme séparateur de milliers, pas de virgule ni slash
 const formatPrice = (price) => {
-    return price.toLocaleString('fr-FR').replace(/,/g, ' ') + ' FCFA';
+    const formatted = Math.round(price)
+        .toString()
+        .replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0'); // espace insécable
+    return `${formatted} FCFA`;
 };
 
 const OrderReceiptPDF = ({ order, currency }) => {
@@ -262,7 +286,7 @@ const OrderReceiptPDF = ({ order, currency }) => {
     }
 
     const orderDate = new Date(order.createdAt);
-    const subtotal = order.items.reduce((sum, item) => 
+    const subtotal = order.items.reduce((sum, item) =>
         sum + ((item.priceAtOrder || item.product?.offerPrice || 0) * item.quantity), 0);
     const discount = order.discountAmount || 0;
     const couponCode = order.couponApplied || null;
@@ -272,6 +296,7 @@ const OrderReceiptPDF = ({ order, currency }) => {
     return (
         <Document>
             <Page size="A4" style={styles.page}>
+
                 {/* HEADER */}
                 <View style={styles.header}>
                     <View>
@@ -279,7 +304,7 @@ const OrderReceiptPDF = ({ order, currency }) => {
                         <Text style={styles.shopSubtitle}>Votre boutique en ligne</Text>
                     </View>
                     <View style={styles.orderInfo}>
-                        <Text style={styles.orderNumber}>FACTURE #{order._id.slice(-8)}</Text>
+                        <Text style={styles.orderNumber}>FACTURE #{order._id.slice(-8).toUpperCase()}</Text>
                         <Text style={styles.orderDate}>{orderDate.toLocaleDateString('fr-FR')}</Text>
                         <Text style={styles.orderDate}>{orderDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</Text>
                     </View>
@@ -320,21 +345,31 @@ const OrderReceiptPDF = ({ order, currency }) => {
                     <View style={styles.statusRow}>
                         <Text style={styles.statusLabel}>Paiement</Text>
                         <Text style={styles.paymentBadge}>
-                            {order.paymentType === "COD" ? "Paiement à la livraison" : "Paiement en ligne"}
+                            {order.paymentType === 'COD' ? 'Paiement à la livraison' : 'Paiement en ligne'}
                         </Text>
+                    </View>
+                    {/* ✅ Ligne code promo : affiché qu'il y en ait un ou non */}
+                    <View style={styles.statusRow}>
+                        <Text style={styles.statusLabel}>Code promo</Text>
+                        {couponCode ? (
+                            <Text style={styles.couponBadgeUsed}>✓ {couponCode}</Text>
+                        ) : (
+                            <Text style={styles.couponBadgeNone}>Aucun code utilisé</Text>
+                        )}
                     </View>
                 </View>
 
                 {/* TABLEAU PRODUITS */}
                 <View style={styles.table}>
+                    {/* ✅ En-têtes blancs sur fond noir — on applique headerCell sur chaque colonne */}
                     <View style={styles.tableHeader}>
-                        <Text style={[styles.headerCell, styles.productCol]}>PRODUIT</Text>
-                        <Text style={[styles.headerCell, styles.qtyCol]}>QTÉ</Text>
-                        <Text style={[styles.headerCell, styles.priceCol]}>P.U.</Text>
-                        <Text style={[styles.headerCell, styles.totalCol]}>TOTAL</Text>
+                        <Text style={[styles.headerCell, { width: '45%' }]}>PRODUIT</Text>
+                        <Text style={[styles.headerCell, { width: '15%', textAlign: 'center' }]}>QTÉ</Text>
+                        <Text style={[styles.headerCell, { width: '20%', textAlign: 'right' }]}>P.U.</Text>
+                        <Text style={[styles.headerCell, { width: '20%', textAlign: 'right' }]}>TOTAL</Text>
                     </View>
                     {order.items.map((item, idx) => (
-                        <View key={idx} style={styles.tableRow}>
+                        <View key={idx} style={[styles.tableRow, idx % 2 === 1 ? { backgroundColor: '#fafafa' } : {}]}>
                             <Text style={styles.productCol}>
                                 {item.product?.name || 'Produit'}
                                 {item.color && item.color !== 'null' ? ` (${item.color})` : ''}
@@ -358,18 +393,27 @@ const OrderReceiptPDF = ({ order, currency }) => {
                             <Text style={styles.totalLabel}>Sous-total</Text>
                             <Text style={styles.totalValue}>{formatPrice(subtotal)}</Text>
                         </View>
+
+                        {/* ✅ Réduction affichée seulement si > 0 */}
                         {discount > 0 && (
                             <View style={styles.totalRow}>
                                 <Text style={styles.totalLabel}>
-                                    Réduction {couponCode ? `(${couponCode})` : ''}
+                                    Réduction{couponCode ? ` (${couponCode})` : ''}
                                 </Text>
-                                <Text style={[styles.totalValue, { color: '#e53935' }]}>- {formatPrice(discount)}</Text>
+                                <Text style={[styles.totalValue, { color: '#e53935' }]}>
+                                    − {formatPrice(discount)}
+                                </Text>
                             </View>
                         )}
+
+                        {/* ✅ Livraison toujours affichée avec son montant ou "Gratuit" */}
                         <View style={styles.totalRow}>
                             <Text style={styles.totalLabel}>Livraison</Text>
-                            <Text style={styles.totalValue}>{shipping > 0 ? formatPrice(shipping) : 'Gratuit'}</Text>
+                            <Text style={styles.totalValue}>
+                                {shipping > 0 ? formatPrice(shipping) : 'Gratuit'}
+                            </Text>
                         </View>
+
                         <View style={styles.grandTotalRow}>
                             <Text style={styles.grandTotalLabel}>TOTAL TTC</Text>
                             <Text style={styles.grandTotalValue}>{formatPrice(total)}</Text>
@@ -380,9 +424,10 @@ const OrderReceiptPDF = ({ order, currency }) => {
                 {/* FOOTER */}
                 <View style={styles.footer}>
                     <Text style={styles.footerText}>Merci de votre confiance</Text>
-                    <Text style={styles.footerText}>www.greencart.vercel.app | contact@ramci.com</Text>
+                    <Text style={styles.footerText}>www.ramci.com | contact@ramci.com</Text>
                     <Text style={styles.footerText}>Ce document fait office de facture</Text>
                 </View>
+
             </Page>
         </Document>
     );
