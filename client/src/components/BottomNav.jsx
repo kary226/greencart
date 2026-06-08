@@ -30,18 +30,7 @@ const BottomNav = () => {
         </svg>
       ),
     },
-    {
-      to: "/products?sort=newest",
-      label: "Tendances",
-      icon: (active) => (
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? "#111" : "#888"} strokeWidth="2">
-          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-        </svg>
-      ),
-    },
-    // ============================================================
-    // 🔄 PANIER REMPLACÉ PAR MES COMMANDES
-    // ============================================================
+    // ✅ ONGLET TENDRANCES SUPPRIMÉ
     {
       to: "/my-orders",
       label: "Commandes",
@@ -56,7 +45,6 @@ const BottomNav = () => {
           <circle cx="8" cy="15" r="1"/>
         </svg>
       ),
-      // Pas de badge pour les commandes
     },
     {
       to: "/account",
@@ -76,7 +64,7 @@ const BottomNav = () => {
     "/product/",
     "/products/",
     "/cart",
-    "/my-orders"  // ← Cacher aussi sur la page des commandes
+    "/my-orders"
   ];
   
   const shouldHide = hideOnPaths.some(path => location.pathname.startsWith(path));
