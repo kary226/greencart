@@ -142,7 +142,6 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
         paddingHorizontal: 10,
     },
-    // ✅ Toutes les cellules d'en-tête en blanc
     headerCell: {
         fontSize: 8,
         fontWeight: 'bold',
@@ -264,11 +263,11 @@ const getStatusLabel = (status) => {
     return map[status] || status;
 };
 
-// ✅ Formatage correct : espace insécable comme séparateur de milliers, pas de virgule ni slash
+// Formatage correct : espace insécable comme séparateur de milliers
 const formatPrice = (price) => {
     const formatted = Math.round(price)
         .toString()
-        .replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0'); // espace insécable
+        .replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0');
     return `${formatted} FCFA`;
 };
 
@@ -286,12 +285,14 @@ const OrderReceiptPDF = ({ order, currency }) => {
     }
 
     const orderDate = new Date(order.createdAt);
-    const subtotal = order.items.reduce((sum, item) =>
+    const subtotal = order.items.reduce((sum, item) => 
         sum + ((item.priceAtOrder || item.product?.offerPrice || 0) * item.quantity), 0);
     const discount = order.discountAmount || 0;
     const couponCode = order.couponApplied || null;
-    const shipping = order.deliveryPrice || 0;
     const total = order.amount;
+    
+    // ✅ Calcul correct de la livraison : Livraison = Total - (Sous-total - Réduction)
+    const shipping = total - (subtotal - discount);
 
     return (
         <Document>
@@ -348,7 +349,7 @@ const OrderReceiptPDF = ({ order, currency }) => {
                             {order.paymentType === 'COD' ? 'Paiement à la livraison' : 'Paiement en ligne'}
                         </Text>
                     </View>
-                    {/* ✅ Ligne code promo : affiché qu'il y en ait un ou non */}
+                    {/* Code promo */}
                     <View style={styles.statusRow}>
                         <Text style={styles.statusLabel}>Code promo</Text>
                         {couponCode ? (
@@ -361,7 +362,6 @@ const OrderReceiptPDF = ({ order, currency }) => {
 
                 {/* TABLEAU PRODUITS */}
                 <View style={styles.table}>
-                    {/* ✅ En-têtes blancs sur fond noir — on applique headerCell sur chaque colonne */}
                     <View style={styles.tableHeader}>
                         <Text style={[styles.headerCell, { width: '45%' }]}>PRODUIT</Text>
                         <Text style={[styles.headerCell, { width: '15%', textAlign: 'center' }]}>QTÉ</Text>
@@ -394,7 +394,6 @@ const OrderReceiptPDF = ({ order, currency }) => {
                             <Text style={styles.totalValue}>{formatPrice(subtotal)}</Text>
                         </View>
 
-                        {/* ✅ Réduction affichée seulement si > 0 */}
                         {discount > 0 && (
                             <View style={styles.totalRow}>
                                 <Text style={styles.totalLabel}>
@@ -406,7 +405,6 @@ const OrderReceiptPDF = ({ order, currency }) => {
                             </View>
                         )}
 
-                        {/* ✅ Livraison toujours affichée avec son montant ou "Gratuit" */}
                         <View style={styles.totalRow}>
                             <Text style={styles.totalLabel}>Livraison</Text>
                             <Text style={styles.totalValue}>
