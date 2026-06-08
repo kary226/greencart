@@ -4,7 +4,7 @@ import { categories } from '../../assets/assets'
 import toast from 'react-hot-toast'
 
 const ProductList = () => {
-    const {products, currency, axios, fetchProducts} = useAppContext()
+    const { products, currency, axios, fetchProducts } = useAppContext()
     const [editProduct, setEditProduct] = useState(null)
     const [colorInput, setColorInput] = useState('')
     const [sizeInput, setSizeInput] = useState('')
@@ -27,13 +27,13 @@ const ProductList = () => {
         fetchCategories();
     }, []);
 
-    const toggleStock = async (id, inStock)=>{
+    const toggleStock = async (id, inStock) => {
         try {
-            const { data } = await axios.post('/api/product/stock', {id, inStock});
-            if (data.success){
+            const { data } = await axios.post('/api/product/stock', { id, inStock });
+            if (data.success) {
                 await fetchProducts();
                 toast.success(data.message)
-            }else{
+            } else {
                 toast.error(data.message)
             }
         } catch (error) {
@@ -73,7 +73,7 @@ const ProductList = () => {
                 offerPrice: editProduct.offerPrice,
                 variants: editProduct.variants,
             })
-            if (data.success){
+            if (data.success) {
                 toast.success(data.message)
                 await fetchProducts()
                 setEditProduct(null)
@@ -88,8 +88,8 @@ const ProductList = () => {
     const handleDelete = async (id) => {
         if (!window.confirm('Supprimer ce produit ?')) return
         try {
-            const { data } = await axios.post('/api/product/delete', {id})
-            if (data.success){
+            const { data } = await axios.post('/api/product/delete', { id })
+            if (data.success) {
                 toast.success(data.message)
                 await fetchProducts()
             } else {
@@ -114,7 +114,7 @@ const ProductList = () => {
             size: sizeInput.trim().toUpperCase() || null,
             stock: Number(stockInput)
         }
-        setEditProduct({...editProduct, variants: [...editProduct.variants, newVariant]})
+        setEditProduct({ ...editProduct, variants: [...editProduct.variants, newVariant] })
         setColorInput('')
         setSizeInput('')
         setStockInput('')
@@ -130,208 +130,307 @@ const ProductList = () => {
     const updateVariantStock = (index, stock) => {
         const updated = [...editProduct.variants]
         updated[index].stock = Number(stock)
-        setEditProduct({...editProduct, variants: updated})
+        setEditProduct({ ...editProduct, variants: updated })
     }
 
     return (
-        <div className="no-scrollbar flex-1 h-[95vh] overflow-y-scroll flex flex-col justify-between">
-            <div className="w-full md:p-10 p-4">
-                <h2 className="pb-4 text-lg font-medium">All Products</h2>
+        <div className="bg-gray-50 min-h-screen">
+            <div className="p-6">
+                {/* Header */}
+                <div className="mb-6">
+                    <h1 className="text-2xl font-bold text-gray-900">Liste des produits</h1>
+                    <p className="text-sm text-gray-500 mt-1">Gérez tous vos produits</p>
+                </div>
+
                 {products.length === 0 ? (
-                    <p className="text-gray-500 text-sm">Aucun produit trouvé.</p>
+                    <div className="text-center py-16 bg-white rounded-xl border border-gray-100">
+                        <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+                            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                        </svg>
+                        <p className="text-gray-500">Aucun produit trouvé</p>
+                    </div>
                 ) : (
-                    <div className="flex flex-col items-center max-w-4xl w-full overflow-hidden rounded-md bg-white border border-gray-500/20">
-                        <table className="md:table-auto table-fixed w-full overflow-hidden">
-                            <thead className="text-gray-900 text-sm text-left">
-                                <tr>
-                                    <th className="px-4 py-3 font-semibold truncate">Produit</th>
-                                    <th className="px-4 py-3 font-semibold truncate">Catégorie(s)</th>
-                                    <th className="px-4 py-3 font-semibold truncate hidden md:block">Prix</th>
-                                    <th className="px-4 py-3 font-semibold truncate">Stock</th>
-                                    <th className="px-4 py-3 font-semibold truncate">En vente</th>
-                                    <th className="px-4 py-3 font-semibold truncate">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="text-sm text-gray-500">
-                                {products.map((product) => (
-                                    <tr key={product._id} className="border-t border-gray-500/20">
-                                        <td className="md:px-4 pl-2 md:pl-4 py-3 flex items-center space-x-3 truncate">
-                                            <div className="border border-gray-300 rounded p-2">
-                                                <img src={product.image[0]} alt="Product" className="w-16" />
-                                            </div>
-                                            <span className="truncate max-sm:hidden w-full">{product.name}</span>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            {product.categories ? (
-                                                <div className="flex flex-wrap gap-1">
-                                                    {product.categories.map((cat, idx) => (
-                                                        <span key={idx} className="text-xs bg-gray-100 px-2 py-0.5 rounded-full">
-                                                            {cat}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                product.category || '—'
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-3 max-sm:hidden">{product.offerPrice} {currency}</td>
-                                        <td className="px-4 py-3">
-                                            {product.variants?.length > 0 ? (
-                                                <div className="flex flex-col gap-0.5">
-                                                    {product.variants.map((v, i) => (
-                                                        <span key={i} className={`text-xs font-medium ${
-                                                            v.stock === 0 ? 'text-red-500' :
-                                                            v.stock <= 5 ? 'text-orange-500' :
-                                                            'text-green-600'
-                                                        }`}>
-                                                            {v.color || ''}{v.color && v.size ? ' / ' : ''}{v.size || ''} : {v.stock === 0 ? 'Épuisé' : `${v.stock} restants`}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <span className="text-gray-400">—</span>
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <label className="relative inline-flex items-center cursor-pointer text-gray-900 gap-3">
-                                                <input onClick={()=> toggleStock(product._id, !product.inStock)} checked={product.inStock} type="checkbox" className="sr-only peer" readOnly />
-                                                <div className="w-12 h-7 bg-slate-300 rounded-full peer peer-checked:bg-blue-600 transition-colors duration-200"></div>
-                                                <span className="dot absolute left-1 top-1 w-5 h-5 bg-white rounded-full transition-transform duration-200 ease-in-out peer-checked:translate-x-5"></span>
-                                            </label>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex gap-2">
-                                                <button onClick={() => handleEdit(product)}
-                                                className="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded transition">
-                                                    ✏️ Modifier
-                                                </button>
-                                                <button onClick={() => handleDelete(product._id)}
-                                                className="text-xs bg-red-50 text-red-500 hover:bg-red-100 px-3 py-1.5 rounded transition">
-                                                    🗑️ Supprimer
-                                                </button>
-                                            </div>
-                                        </td>
+                    <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead>
+                                    <tr className="bg-gray-50 border-b border-gray-100">
+                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Produit</th>
+                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Catégorie(s)</th>
+                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Prix</th>
+                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Stock</th>
+                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">En vente</th>
+                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {products.map((product) => (
+                                        <tr key={product._id} className="hover:bg-gray-50 transition">
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                                                        <img src={product.image[0]} alt={product.name} className="w-full h-full object-cover" />
+                                                    </div>
+                                                    <span className="font-medium text-gray-900">{product.name}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex flex-wrap gap-1">
+                                                    {product.categories?.length > 0 ? (
+                                                        product.categories.map((cat, idx) => (
+                                                            <span key={idx} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                                                                {cat}
+                                                            </span>
+                                                        ))
+                                                    ) : (
+                                                        <span className="text-gray-400">—</span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 font-medium text-gray-900">
+                                                {product.offerPrice} {currency}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {product.variants?.length > 0 ? (
+                                                    <div className="space-y-0.5">
+                                                        {product.variants.map((v, i) => (
+                                                            <span key={i} className={`text-xs font-medium ${
+                                                                v.stock === 0 ? 'text-red-500' :
+                                                                v.stock <= 5 ? 'text-orange-500' :
+                                                                'text-green-600'
+                                                            }`}>
+                                                                {v.color || ''}{v.color && v.size ? ' / ' : ''}{v.size || ''}: {v.stock === 0 ? 'Épuisé' : `${v.stock} restants`}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-gray-400">—</span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <label className="relative inline-flex items-center cursor-pointer">
+                                                    <input 
+                                                        onClick={() => toggleStock(product._id, !product.inStock)} 
+                                                        checked={product.inStock} 
+                                                        type="checkbox" 
+                                                        className="sr-only peer" 
+                                                        readOnly 
+                                                    />
+                                                    <div className="w-10 h-5 bg-gray-300 rounded-full peer peer-checked:bg-red-500 transition-colors duration-200"></div>
+                                                    <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform duration-200 peer-checked:translate-x-5"></div>
+                                                </label>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex gap-2">
+                                                    <button 
+                                                        onClick={() => handleEdit(product)}
+                                                        className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition"
+                                                    >
+                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                            <path d="M17 3l4 4-7 7H10v-4l7-7z"/>
+                                                            <path d="M4 20h16"/>
+                                                        </svg>
+                                                        Modifier
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleDelete(product._id)}
+                                                        className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition"
+                                                    >
+                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                            <line x1="18" y1="6" x2="6" y2="18"/>
+                                                            <line x1="6" y1="6" x2="18" y2="18"/>
+                                                        </svg>
+                                                        Supprimer
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 )}
             </div>
 
             {/* Modal de modification */}
             {editProduct && (
-                <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-4">
-                        <div className="flex justify-between items-center">
-                            <h3 className="text-lg font-medium">Modifier le produit</h3>
-                            <button onClick={() => setEditProduct(null)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setEditProduct(null)}>
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                        {/* Modal Header */}
+                        <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-white">
+                            <h3 className="text-lg font-semibold text-gray-900">Modifier le produit</h3>
+                            <button 
+                                onClick={() => setEditProduct(null)} 
+                                className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition"
+                            >
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"/>
+                                    <line x1="6" y1="6" x2="18" y2="18"/>
+                                </svg>
+                            </button>
                         </div>
 
-                        <div className="flex flex-col gap-1">
-                            <label className="text-sm font-medium">Nom</label>
-                            <input value={editProduct.name} onChange={e => setEditProduct({...editProduct, name: e.target.value})}
-                            className="border border-gray-300 rounded px-3 py-2 outline-none text-sm" />
-                        </div>
-
-                        <div className="flex flex-col gap-1">
-                            <label className="text-sm font-medium">Description</label>
-                            <textarea value={editProduct.description} onChange={e => setEditProduct({...editProduct, description: e.target.value})}
-                            rows={3} className="border border-gray-300 rounded px-3 py-2 outline-none text-sm resize-none" />
-                        </div>
-
-                        <div className="flex flex-col gap-2">
-                            <label className="text-sm font-medium">Catégories (sélection multiple)</label>
-                            <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 border border-gray-300 rounded">
-                                {categoriesList.map((cat) => (
-                                    <button
-                                        key={cat._id}
-                                        type="button"
-                                        onClick={() => handleCategoryToggle(cat.slug)}
-                                        className={`px-3 py-1.5 rounded-full text-sm transition ${
-                                            selectedCategories.includes(cat.slug)
-                                                ? 'bg-primary text-white'
-                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                        }`}
-                                    >
-                                        {cat.name}
-                                    </button>
-                                ))}
-                            </div>
-                            <p className="text-xs text-gray-400">
-                                {selectedCategories.length} catégorie(s) sélectionnée(s)
-                            </p>
-                        </div>
-
-                        <div className="flex gap-4">
-                            <div className="flex-1 flex flex-col gap-1">
-                                <label className="text-sm font-medium">Prix original</label>
-                                <input type="number" value={editProduct.price} onChange={e => setEditProduct({...editProduct, price: e.target.value})}
-                                className="border border-gray-300 rounded px-3 py-2 outline-none text-sm" />
-                            </div>
-                            <div className="flex-1 flex flex-col gap-1">
-                                <label className="text-sm font-medium">Prix promo</label>
-                                <input type="number" value={editProduct.offerPrice} onChange={e => setEditProduct({...editProduct, offerPrice: e.target.value})}
-                                className="border border-gray-300 rounded px-3 py-2 outline-none text-sm" />
-                            </div>
-                        </div>
-
-                        <div className="flex flex-col gap-2">
-                            <label className="text-sm font-medium">Variantes</label>
-                            <div className="flex gap-2 flex-wrap">
-                                <input value={colorInput} onChange={e => setColorInput(e.target.value)}
-                                type="text" placeholder="Couleur"
-                                className="flex-1 min-w-20 border border-gray-300 rounded px-3 py-2 outline-none text-sm" />
-                                <input value={sizeInput} onChange={e => setSizeInput(e.target.value)}
-                                type="text" placeholder="Taille"
-                                className="flex-1 min-w-20 border border-gray-300 rounded px-3 py-2 outline-none text-sm" />
-                                <input value={stockInput} onChange={e => setStockInput(e.target.value)}
-                                type="number" placeholder="Stock"
-                                className="w-20 border border-gray-300 rounded px-3 py-2 outline-none text-sm" />
-                                <button type="button" onClick={addVariant}
-                                className="px-3 py-2 bg-primary text-white rounded text-sm">+</button>
+                        {/* Modal Body */}
+                        <div className="p-5 space-y-4 overflow-y-auto max-h-[calc(90vh-140px)]">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Nom</label>
+                                <input 
+                                    value={editProduct.name} 
+                                    onChange={e => setEditProduct({ ...editProduct, name: e.target.value })}
+                                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                />
                             </div>
 
-                            {editProduct.variants.length > 0 && (
-                                <div className="border border-gray-200 rounded overflow-hidden">
-                                    <table className="w-full text-sm">
-                                        <thead className="bg-gray-50 text-gray-600">
-                                            <tr>
-                                                <th className="px-3 py-2 text-left">Couleur</th>
-                                                <th className="px-3 py-2 text-left">Taille</th>
-                                                <th className="px-3 py-2 text-left">Stock</th>
-                                                <th className="px-3 py-2"></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {editProduct.variants.map((v, i) => (
-                                                <tr key={i} className="border-t border-gray-100">
-                                                    <td className="px-3 py-2">{v.color || '—'}</td>
-                                                    <td className="px-3 py-2">{v.size || '—'}</td>
-                                                    <td className="px-3 py-2">
-                                                        <input type="number" value={v.stock}
-                                                        onChange={e => updateVariantStock(i, e.target.value)}
-                                                        className="w-16 border border-gray-300 rounded px-2 py-1 outline-none text-sm" />
-                                                    </td>
-                                                    <td className="px-3 py-2">
-                                                        <button type="button" onClick={() => removeVariant(i)}
-                                                        className="text-red-400 hover:text-red-600 text-xs">✕</button>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                <textarea 
+                                    value={editProduct.description} 
+                                    onChange={e => setEditProduct({ ...editProduct, description: e.target.value })}
+                                    rows={3} 
+                                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none resize-none"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Catégories</label>
+                                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 border border-gray-200 rounded-xl bg-gray-50">
+                                    {categoriesList.map((cat) => (
+                                        <button
+                                            key={cat._id}
+                                            type="button"
+                                            onClick={() => handleCategoryToggle(cat.slug)}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                                                selectedCategories.includes(cat.slug)
+                                                    ? 'bg-red-500 text-white'
+                                                    : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
+                                            }`}
+                                        >
+                                            {cat.name}
+                                        </button>
+                                    ))}
                                 </div>
-                            )}
+                                <p className="text-xs text-gray-400 mt-1">
+                                    {selectedCategories.length} catégorie(s) sélectionnée(s)
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Prix original</label>
+                                    <input 
+                                        type="number" 
+                                        value={editProduct.price} 
+                                        onChange={e => setEditProduct({ ...editProduct, price: e.target.value })}
+                                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Prix promo</label>
+                                    <input 
+                                        type="number" 
+                                        value={editProduct.offerPrice} 
+                                        onChange={e => setEditProduct({ ...editProduct, offerPrice: e.target.value })}
+                                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Variantes</label>
+                                <div className="flex gap-2 mb-3">
+                                    <input 
+                                        value={colorInput} 
+                                        onChange={e => setColorInput(e.target.value)}
+                                        type="text" 
+                                        placeholder="Couleur"
+                                        className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                    />
+                                    <input 
+                                        value={sizeInput} 
+                                        onChange={e => setSizeInput(e.target.value)}
+                                        type="text" 
+                                        placeholder="Taille"
+                                        className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                    />
+                                    <input 
+                                        value={stockInput} 
+                                        onChange={e => setStockInput(e.target.value)}
+                                        type="number" 
+                                        placeholder="Stock"
+                                        className="w-24 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                    />
+                                    <button 
+                                        type="button" 
+                                        onClick={addVariant}
+                                        className="px-4 py-2 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 transition"
+                                    >
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <circle cx="12" cy="12" r="10"/>
+                                            <line x1="12" y1="8" x2="12" y2="16"/>
+                                            <line x1="8" y1="12" x2="16" y2="12"/>
+                                        </svg>
+                                    </button>
+                                </div>
+
+                                {editProduct.variants.length > 0 && (
+                                    <div className="border border-gray-200 rounded-xl overflow-hidden">
+                                        <table className="w-full text-sm">
+                                            <thead className="bg-gray-50">
+                                                <tr>
+                                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Couleur</th>
+                                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Taille</th>
+                                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Stock</th>
+                                                    <th className="px-3 py-2 w-10"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100">
+                                                {editProduct.variants.map((v, i) => (
+                                                    <tr key={i}>
+                                                        <td className="px-3 py-2 text-sm text-gray-600">{v.color || '—'}</td>
+                                                        <td className="px-3 py-2 text-sm text-gray-600">{v.size || '—'}</td>
+                                                        <td className="px-3 py-2">
+                                                            <input 
+                                                                type="number" 
+                                                                value={v.stock}
+                                                                onChange={e => updateVariantStock(i, e.target.value)}
+                                                                className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:border-red-500 outline-none"
+                                                            />
+                                                        </td>
+                                                        <td className="px-3 py-2">
+                                                            <button 
+                                                                type="button" 
+                                                                onClick={() => removeVariant(i)}
+                                                                className="text-red-400 hover:text-red-600 transition"
+                                                            >
+                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                                    <line x1="18" y1="6" x2="6" y2="18"/>
+                                                                    <line x1="6" y1="6" x2="18" y2="18"/>
+                                                                </svg>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
-                        <div className="flex gap-3 pt-2">
-                            <button onClick={() => setEditProduct(null)}
-                            className="flex-1 py-2 border border-gray-300 rounded text-sm text-gray-600 hover:bg-gray-50 transition">
+                        {/* Modal Footer */}
+                        <div className="p-5 border-t border-gray-100 flex gap-3 bg-gray-50">
+                            <button 
+                                onClick={() => setEditProduct(null)}
+                                className="flex-1 py-2.5 border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-100 transition"
+                            >
                                 Annuler
                             </button>
-                            <button onClick={handleUpdate}
-                            className="flex-1 py-2 bg-primary text-white rounded text-sm hover:bg-primary-dull transition">
+                            <button 
+                                onClick={handleUpdate}
+                                className="flex-1 py-2.5 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 transition"
+                            >
                                 Sauvegarder
                             </button>
                         </div>

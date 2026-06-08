@@ -22,7 +22,6 @@ const LocationManager = () => {
     const [bulkCommuneForm, setBulkCommuneForm] = useState({ names: '', cityId: '' });
     const [selectedCityFilter, setSelectedCityFilter] = useState('');
 
-    // Charger les données
     const fetchCities = async () => {
         try {
             const { data } = await axios.get('/api/location/admin/cities');
@@ -45,7 +44,6 @@ const LocationManager = () => {
         Promise.all([fetchCities(), fetchCommunes()]).finally(() => setLoading(false));
     }, []);
 
-    // ==================== VILLES ====================
     const handleCitySubmit = async (e) => {
         e.preventDefault();
         try {
@@ -85,7 +83,6 @@ const LocationManager = () => {
         }
     };
 
-    // ==================== COMMUNES ====================
     const handleCommuneSubmit = async (e) => {
         e.preventDefault();
         try {
@@ -109,7 +106,6 @@ const LocationManager = () => {
         }
     };
 
-    // Ajout en masse des communes
     const handleBulkCommuneSubmit = async (e) => {
         e.preventDefault();
         
@@ -122,7 +118,6 @@ const LocationManager = () => {
             return;
         }
 
-        // Séparer les noms par virgule et nettoyer
         const namesList = bulkCommuneForm.names
             .split(',')
             .map(name => name.trim())
@@ -183,27 +178,46 @@ const LocationManager = () => {
         : communes;
 
     if (loading) {
-        return <div className="p-10 text-center">Chargement...</div>;
+        return (
+            <div className="flex items-center justify-center h-[80vh]">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-red-500 mx-auto"></div>
+                    <p className="mt-4 text-sm text-gray-500">Chargement...</p>
+                </div>
+            </div>
+        );
     }
 
     return (
-        <div className="no-scrollbar flex-1 h-[95vh] overflow-y-scroll">
-            <div className="md:p-10 p-4 space-y-6">
-                <h2 className="text-2xl font-bold">Gestion des localisations</h2>
+        <div className="bg-gray-50 min-h-screen">
+            <div className="p-6 space-y-6">
+                {/* Header */}
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">Gestion des localisations</h1>
+                    <p className="text-sm text-gray-500 mt-1">Gérez les villes et communes</p>
+                </div>
 
-                {/* Onglets */}
-                <div className="flex gap-4 border-b">
+                {/* Tabs */}
+                <div className="flex gap-1 border-b border-gray-200">
                     <button
                         onClick={() => setActiveTab('cities')}
-                        className={`pb-2 px-4 ${activeTab === 'cities' ? 'border-b-2 border-primary text-primary font-semibold' : 'text-gray-500'}`}
+                        className={`px-6 py-2.5 text-sm font-medium rounded-t-lg transition ${
+                            activeTab === 'cities' 
+                                ? 'bg-white text-red-500 border-b-2 border-red-500' 
+                                : 'text-gray-500 hover:text-gray-700'
+                        }`}
                     >
-                        🏙️ Villes
+                        Villes
                     </button>
                     <button
                         onClick={() => setActiveTab('communes')}
-                        className={`pb-2 px-4 ${activeTab === 'communes' ? 'border-b-2 border-primary text-primary font-semibold' : 'text-gray-500'}`}
+                        className={`px-6 py-2.5 text-sm font-medium rounded-t-lg transition ${
+                            activeTab === 'communes' 
+                                ? 'bg-white text-red-500 border-b-2 border-red-500' 
+                                : 'text-gray-500 hover:text-gray-700'
+                        }`}
                     >
-                        📍 Communes
+                        Communes
                     </button>
                 </div>
 
@@ -217,65 +231,78 @@ const LocationManager = () => {
                                     setCityForm({ name: '' });
                                     setShowCityForm(!showCityForm);
                                 }}
-                                className="bg-primary text-white px-4 py-2 rounded-lg hover:opacity-90 transition"
+                                className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 transition shadow-sm"
                             >
-                                {showCityForm ? 'Annuler' : '+ Ajouter une ville'}
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <line x1="12" y1="8" x2="12" y2="16"/>
+                                    <line x1="8" y1="12" x2="16" y2="12"/>
+                                </svg>
+                                {showCityForm ? 'Annuler' : 'Ajouter une ville'}
                             </button>
                         </div>
 
                         {showCityForm && (
-                            <form onSubmit={handleCitySubmit} className="bg-white border rounded-xl p-6 mb-6 space-y-4">
-                                <h3 className="text-lg font-semibold">{editingCity ? 'Modifier' : 'Ajouter'} une ville</h3>
-                                <input
-                                    type="text"
-                                    placeholder="Nom de la ville"
-                                    value={cityForm.name}
-                                    onChange={(e) => setCityForm({ ...cityForm, name: e.target.value })}
-                                    className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:border-primary"
-                                    required
-                                />
-                                <button type="submit" className="bg-primary text-white px-6 py-2 rounded-lg">
-                                    {editingCity ? 'Mettre à jour' : 'Ajouter'}
-                                </button>
-                            </form>
+                            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-6">
+                                <div className="p-6 border-b border-gray-100">
+                                    <h2 className="text-lg font-semibold text-gray-900">
+                                        {editingCity ? 'Modifier la ville' : 'Nouvelle ville'}
+                                    </h2>
+                                </div>
+                                <form onSubmit={handleCitySubmit} className="p-6 space-y-4">
+                                    <input
+                                        type="text"
+                                        placeholder="Nom de la ville"
+                                        value={cityForm.name}
+                                        onChange={(e) => setCityForm({ ...cityForm, name: e.target.value })}
+                                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                        required
+                                    />
+                                    <button type="submit" className="px-6 py-2 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 transition">
+                                        {editingCity ? 'Mettre à jour' : 'Ajouter'}
+                                    </button>
+                                </form>
+                            </div>
                         )}
 
-                        <div className="overflow-x-auto">
-                            <table className="w-full bg-white border rounded-xl">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="px-4 py-3 text-left">Nom</th>
-                                        <th className="px-4 py-3 text-left">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {cities.map((city) => (
-                                        <tr key={city._id} className="border-t">
-                                            <td className="px-4 py-3 font-medium">{city.name}</td>
-                                            <td className="px-4 py-3">
-                                                <div className="flex gap-2">
-                                                    <button
-                                                        onClick={() => {
-                                                            setEditingCity(city);
-                                                            setCityForm({ name: city.name });
-                                                            setShowCityForm(true);
-                                                        }}
-                                                        className="text-sm bg-blue-50 text-blue-600 px-3 py-1 rounded"
-                                                    >
-                                                        Modifier
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDeleteCity(city._id)}
-                                                        className="text-sm bg-red-50 text-red-500 px-3 py-1 rounded"
-                                                    >
-                                                        Supprimer
-                                                    </button>
-                                                </div>
-                                            </td>
+                        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="bg-gray-50 border-b border-gray-100">
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Nom</th>
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {cities.map((city) => (
+                                            <tr key={city._id} className="hover:bg-gray-50 transition">
+                                                <td className="px-6 py-4 font-medium text-gray-900">{city.name}</td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            onClick={() => {
+                                                                setEditingCity(city);
+                                                                setCityForm({ name: city.name });
+                                                                setShowCityForm(true);
+                                                            }}
+                                                            className="text-xs px-3 py-1.5 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition"
+                                                        >
+                                                            Modifier
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteCity(city._id)}
+                                                            className="text-xs px-3 py-1.5 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition"
+                                                        >
+                                                            Supprimer
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -283,11 +310,11 @@ const LocationManager = () => {
                 {/* Section Communes */}
                 {activeTab === 'communes' && (
                     <div>
-                        <div className="flex justify-between items-center mb-4 flex-wrap gap-3">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
                             <select
                                 value={selectedCityFilter}
                                 onChange={(e) => setSelectedCityFilter(e.target.value)}
-                                className="border border-gray-300 rounded-lg px-4 py-2 outline-none"
+                                className="border border-gray-200 rounded-xl px-4 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
                             >
                                 <option value="">Toutes les villes</option>
                                 {cities.map(city => (
@@ -302,129 +329,148 @@ const LocationManager = () => {
                                         setShowCommuneForm(!showCommuneForm);
                                         setShowBulkCommuneForm(false);
                                     }}
-                                    className="bg-primary text-white px-4 py-2 rounded-lg hover:opacity-90 transition"
+                                    className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 transition shadow-sm"
                                 >
-                                    {showCommuneForm ? 'Annuler' : '+ Ajouter une commune'}
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <line x1="12" y1="8" x2="12" y2="16"/>
+                                        <line x1="8" y1="12" x2="16" y2="12"/>
+                                    </svg>
+                                    {showCommuneForm ? 'Annuler' : 'Ajouter une commune'}
                                 </button>
                                 <button
                                     onClick={() => {
                                         setShowBulkCommuneForm(!showBulkCommuneForm);
                                         setShowCommuneForm(false);
                                     }}
-                                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:opacity-90 transition"
+                                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition shadow-sm"
                                 >
-                                    📦 Ajouter plusieurs
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <rect x="2" y="4" width="20" height="16" rx="2"/>
+                                        <line x1="2" y1="10" x2="22" y2="10"/>
+                                    </svg>
+                                    Ajouter plusieurs
                                 </button>
                             </div>
                         </div>
 
-                        {/* Formulaire ajout simple */}
                         {showCommuneForm && (
-                            <form onSubmit={handleCommuneSubmit} className="bg-white border rounded-xl p-6 mb-6 space-y-4">
-                                <h3 className="text-lg font-semibold">{editingCommune ? 'Modifier' : 'Ajouter'} une commune</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <select
-                                        value={communeForm.cityId}
-                                        onChange={(e) => setCommuneForm({ ...communeForm, cityId: e.target.value })}
-                                        className="border border-gray-300 rounded-lg px-4 py-2 outline-none"
-                                        required
-                                    >
-                                        <option value="">Sélectionner une ville</option>
-                                        {cities.map(city => (
-                                            <option key={city._id} value={city._id}>{city.name}</option>
-                                        ))}
-                                    </select>
-                                    <input
-                                        type="text"
-                                        placeholder="Nom de la commune"
-                                        value={communeForm.name}
-                                        onChange={(e) => setCommuneForm({ ...communeForm, name: e.target.value })}
-                                        className="border border-gray-300 rounded-lg px-4 py-2 outline-none"
-                                        required
-                                    />
+                            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-6">
+                                <div className="p-6 border-b border-gray-100">
+                                    <h2 className="text-lg font-semibold text-gray-900">
+                                        {editingCommune ? 'Modifier la commune' : 'Nouvelle commune'}
+                                    </h2>
                                 </div>
-                                <button type="submit" className="bg-primary text-white px-6 py-2 rounded-lg">
-                                    {editingCommune ? 'Mettre à jour' : 'Ajouter'}
-                                </button>
-                            </form>
+                                <form onSubmit={handleCommuneSubmit} className="p-6 space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <select
+                                            value={communeForm.cityId}
+                                            onChange={(e) => setCommuneForm({ ...communeForm, cityId: e.target.value })}
+                                            className="border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                            required
+                                        >
+                                            <option value="">Sélectionner une ville</option>
+                                            {cities.map(city => (
+                                                <option key={city._id} value={city._id}>{city.name}</option>
+                                            ))}
+                                        </select>
+                                        <input
+                                            type="text"
+                                            placeholder="Nom de la commune"
+                                            value={communeForm.name}
+                                            onChange={(e) => setCommuneForm({ ...communeForm, name: e.target.value })}
+                                            className="border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                            required
+                                        />
+                                    </div>
+                                    <button type="submit" className="px-6 py-2 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 transition">
+                                        {editingCommune ? 'Mettre à jour' : 'Ajouter'}
+                                    </button>
+                                </form>
+                            </div>
                         )}
 
-                        {/* Formulaire ajout en masse */}
                         {showBulkCommuneForm && (
-                            <form onSubmit={handleBulkCommuneSubmit} className="bg-white border rounded-xl p-6 mb-6 space-y-4">
-                                <h3 className="text-lg font-semibold">Ajouter plusieurs communes en une fois</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <select
-                                        value={bulkCommuneForm.cityId}
-                                        onChange={(e) => setBulkCommuneForm({ ...bulkCommuneForm, cityId: e.target.value })}
-                                        className="border border-gray-300 rounded-lg px-4 py-2 outline-none"
-                                        required
-                                    >
-                                        <option value="">Sélectionner une ville</option>
-                                        {cities.map(city => (
-                                            <option key={city._id} value={city._id}>{city.name}</option>
-                                        ))}
-                                    </select>
-                                    <textarea
-                                        placeholder="Noms des communes (séparés par des virgules)&#10;Ex: Cocody, Marcory, Yopougon, Plateau"
-                                        value={bulkCommuneForm.names}
-                                        onChange={(e) => setBulkCommuneForm({ ...bulkCommuneForm, names: e.target.value })}
-                                        rows={4}
-                                        className="border border-gray-300 rounded-lg px-4 py-2 outline-none focus:border-primary"
-                                        required
-                                    />
+                            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-6">
+                                <div className="p-6 border-b border-gray-100">
+                                    <h2 className="text-lg font-semibold text-gray-900">Ajouter plusieurs communes</h2>
                                 </div>
-                                <p className="text-xs text-gray-400">
-                                    💡 Séparez chaque commune par une virgule. Exemple: "Cocody, Marcory, Yopougon, Plateau"
-                                </p>
-                                <button type="submit" className="bg-green-600 text-white px-6 py-2 rounded-lg hover:opacity-90 transition">
-                                    Ajouter toutes les communes
-                                </button>
-                            </form>
+                                <form onSubmit={handleBulkCommuneSubmit} className="p-6 space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <select
+                                            value={bulkCommuneForm.cityId}
+                                            onChange={(e) => setBulkCommuneForm({ ...bulkCommuneForm, cityId: e.target.value })}
+                                            className="border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                            required
+                                        >
+                                            <option value="">Sélectionner une ville</option>
+                                            {cities.map(city => (
+                                                <option key={city._id} value={city._id}>{city.name}</option>
+                                            ))}
+                                        </select>
+                                        <textarea
+                                            placeholder="Noms des communes (séparés par des virgules)&#10;Ex: Cocody, Marcory, Yopougon, Plateau"
+                                            value={bulkCommuneForm.names}
+                                            onChange={(e) => setBulkCommuneForm({ ...bulkCommuneForm, names: e.target.value })}
+                                            rows={4}
+                                            className="border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                            required
+                                        />
+                                    </div>
+                                    <p className="text-xs text-gray-400">
+                                        Séparez chaque commune par une virgule. Exemple: "Cocody, Marcory, Yopougon, Plateau"
+                                    </p>
+                                    <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition">
+                                        Ajouter toutes les communes
+                                    </button>
+                                </form>
+                            </div>
                         )}
 
-                        <div className="overflow-x-auto">
-                            <table className="w-full bg-white border rounded-xl">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="px-4 py-3 text-left">Ville</th>
-                                        <th className="px-4 py-3 text-left">Commune</th>
-                                        <th className="px-4 py-3 text-left">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredCommunes.map((commune) => (
-                                        <tr key={commune._id} className="border-t">
-                                            <td className="px-4 py-3">{commune.cityId?.name || '-'}</td>
-                                            <td className="px-4 py-3 font-medium">{commune.name}</td>
-                                            <td className="px-4 py-3">
-                                                <div className="flex gap-2">
-                                                    <button
-                                                        onClick={() => {
-                                                            setEditingCommune(commune);
-                                                            setCommuneForm({
-                                                                name: commune.name,
-                                                                cityId: commune.cityId?._id || commune.cityId
-                                                            });
-                                                            setShowCommuneForm(true);
-                                                            setShowBulkCommuneForm(false);
-                                                        }}
-                                                        className="text-sm bg-blue-50 text-blue-600 px-3 py-1 rounded"
-                                                    >
-                                                        Modifier
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDeleteCommune(commune._id)}
-                                                        className="text-sm bg-red-50 text-red-500 px-3 py-1 rounded"
-                                                    >
-                                                        Supprimer
-                                                    </button>
-                                                </div>
-                                            </td>
+                        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="bg-gray-50 border-b border-gray-100">
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Ville</th>
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Commune</th>
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {filteredCommunes.map((commune) => (
+                                            <tr key={commune._id} className="hover:bg-gray-50 transition">
+                                                <td className="px-6 py-4 text-sm text-gray-500">{commune.cityId?.name || '-'}</td>
+                                                <td className="px-6 py-4 font-medium text-gray-900">{commune.name}</td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            onClick={() => {
+                                                                setEditingCommune(commune);
+                                                                setCommuneForm({
+                                                                    name: commune.name,
+                                                                    cityId: commune.cityId?._id || commune.cityId
+                                                                });
+                                                                setShowCommuneForm(true);
+                                                                setShowBulkCommuneForm(false);
+                                                            }}
+                                                            className="text-xs px-3 py-1.5 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition"
+                                                        >
+                                                            Modifier
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteCommune(commune._id)}
+                                                            className="text-xs px-3 py-1.5 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition"
+                                                        >
+                                                            Supprimer
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 )}

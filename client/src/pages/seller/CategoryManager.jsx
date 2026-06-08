@@ -67,7 +67,6 @@ const CategoryManager = () => {
         return name.toLowerCase().replace(/\s/g, '-').replace(/[^a-z0-9-]/g, '');
     };
 
-    // Activer / Désactiver une catégorie
     const toggleCategoryStatus = async (id, currentStatus) => {
         try {
             const { data } = await axios.post('/api/category/toggle-status', { id });
@@ -159,14 +158,25 @@ const CategoryManager = () => {
     };
 
     if (loading) {
-        return <div className="p-10 text-center">Chargement...</div>;
+        return (
+            <div className="flex items-center justify-center h-[80vh]">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-red-500 mx-auto"></div>
+                    <p className="mt-4 text-sm text-gray-500">Chargement des catégories...</p>
+                </div>
+            </div>
+        );
     }
 
     return (
-        <div className="no-scrollbar flex-1 h-[95vh] overflow-y-scroll">
-            <div className="md:p-10 p-4 space-y-6">
+        <div className="bg-gray-50 min-h-screen">
+            <div className="p-6 space-y-6">
+                {/* Header */}
                 <div className="flex justify-between items-center">
-                    <h2 className="text-2xl font-bold">Gestion des catégories</h2>
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">Catégories</h1>
+                        <p className="text-sm text-gray-500 mt-1">Gérez les catégories de produits</p>
+                    </div>
                     <button
                         onClick={() => {
                             setEditingCategory(null);
@@ -178,222 +188,248 @@ const CategoryManager = () => {
                             setCropShape('rect');
                             setShowForm(!showForm);
                         }}
-                        className="bg-primary text-white px-4 py-2 rounded-lg hover:opacity-90 transition"
+                        className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 transition shadow-sm"
                     >
-                        {showForm ? 'Annuler' : '+ Ajouter une catégorie'}
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="8" x2="12" y2="16"/>
+                            <line x1="8" y1="12" x2="16" y2="12"/>
+                        </svg>
+                        {showForm ? 'Annuler' : 'Ajouter une catégorie'}
                     </button>
                 </div>
 
                 {/* Formulaire */}
                 {showForm && (
-                    <form onSubmit={handleSubmit} className="bg-white border rounded-xl p-6 space-y-4">
-                        <h3 className="text-lg font-semibold">{editingCategory ? 'Modifier' : 'Ajouter'} une catégorie</h3>
-                        
-                        <div>
-                            <label className="block text-sm font-medium mb-2">Type d'image</label>
-                            <div className="flex gap-4">
-                                <label className="flex items-center gap-2">
-                                    <input
-                                        type="radio"
-                                        value="url"
-                                        checked={imageType === 'url'}
-                                        onChange={() => {
-                                            setImageType('url');
-                                            setImageFile(null);
-                                        }}
-                                    />
-                                    <span>Lien URL</span>
-                                </label>
-                                <label className="flex items-center gap-2">
-                                    <input
-                                        type="radio"
-                                        value="upload"
-                                        checked={imageType === 'upload'}
-                                        onChange={() => {
-                                            setImageType('upload');
-                                            setImageUrl('');
-                                        }}
-                                    />
-                                    <span>Uploader une image</span>
-                                </label>
-                            </div>
+                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                        <div className="p-6 border-b border-gray-100">
+                            <h2 className="text-lg font-semibold text-gray-900">
+                                {editingCategory ? 'Modifier la catégorie' : 'Nouvelle catégorie'}
+                            </h2>
                         </div>
-
-                        {imageType === 'upload' && (
+                        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+                            {/* Type d'image */}
                             <div>
-                                <label className="block text-sm font-medium mb-2">Mode de recadrage</label>
-                                <div className="flex gap-4 mb-3">
-                                    <label className="flex items-center gap-2">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Source de l'image</label>
+                                <div className="flex gap-6">
+                                    <label className="flex items-center gap-2 cursor-pointer">
                                         <input
                                             type="radio"
-                                            value="rect"
-                                            checked={cropShape === 'rect'}
-                                            onChange={() => setCropShape('rect')}
+                                            value="url"
+                                            checked={imageType === 'url'}
+                                            onChange={() => {
+                                                setImageType('url');
+                                                setImageFile(null);
+                                            }}
+                                            className="w-4 h-4 text-red-500 focus:ring-red-500"
                                         />
-                                        <span>Carré (classique)</span>
+                                        <span className="text-sm text-gray-700">Lien URL</span>
                                     </label>
-                                    <label className="flex items-center gap-2">
+                                    <label className="flex items-center gap-2 cursor-pointer">
                                         <input
                                             type="radio"
-                                            value="round"
-                                            checked={cropShape === 'round'}
-                                            onChange={() => setCropShape('round')}
+                                            value="upload"
+                                            checked={imageType === 'upload'}
+                                            onChange={() => {
+                                                setImageType('upload');
+                                                setImageUrl('');
+                                            }}
+                                            className="w-4 h-4 text-red-500 focus:ring-red-500"
                                         />
-                                        <span>Cercle</span>
+                                        <span className="text-sm text-gray-700">Uploader une image</span>
                                     </label>
                                 </div>
-
-                                <label className="block text-sm font-medium mb-1">Image (upload)</label>
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={handleImageFileChange}
-                                    className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:border-primary"
-                                    required={!editingCategory && imageType === 'upload'}
-                                />
-                                <p className="text-xs text-gray-400 mt-1">
-                                    {cropShape === 'rect' ? 'Recadrage carré (classique)' : 'Recadrage en cercle (sans fond)'}
-                                </p>
                             </div>
-                        )}
 
-                        {imageType === 'url' && (
+                            {imageType === 'upload' && (
+                                <>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Format d'image</label>
+                                        <div className="flex gap-6">
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    value="rect"
+                                                    checked={cropShape === 'rect'}
+                                                    onChange={() => setCropShape('rect')}
+                                                    className="w-4 h-4 text-red-500"
+                                                />
+                                                <span className="text-sm text-gray-700">Carré</span>
+                                            </label>
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    value="round"
+                                                    checked={cropShape === 'round'}
+                                                    onChange={() => setCropShape('round')}
+                                                    className="w-4 h-4 text-red-500"
+                                                />
+                                                <span className="text-sm text-gray-700">Cercle</span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Image (upload)</label>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleImageFileChange}
+                                            className="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                            required={!editingCategory && imageType === 'upload'}
+                                        />
+                                        <p className="text-xs text-gray-400 mt-1">
+                                            {cropShape === 'rect' ? 'Recadrage carré (classique)' : 'Recadrage en cercle'}
+                                        </p>
+                                    </div>
+                                </>
+                            )}
+
+                            {imageType === 'url' && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">URL de l'image</label>
+                                    <input
+                                        type="text"
+                                        value={imageUrl}
+                                        onChange={handleImageUrlChange}
+                                        className="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                        placeholder="https://exemple.com/icone.png"
+                                        required={!editingCategory && imageType === 'url'}
+                                    />
+                                </div>
+                            )}
+
+                            {imagePreview && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Aperçu</label>
+                                    <img 
+                                        src={imagePreview} 
+                                        alt="Aperçu" 
+                                        className={`w-16 h-16 object-cover border border-gray-200 ${cropShape === 'round' ? 'rounded-full' : 'rounded-lg'}`} 
+                                    />
+                                </div>
+                            )}
+
                             <div>
-                                <label className="block text-sm font-medium mb-1">URL de l'image</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Nom de la catégorie</label>
                                 <input
                                     type="text"
-                                    value={imageUrl}
-                                    onChange={handleImageUrlChange}
-                                    className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:border-primary"
-                                    placeholder="https://exemple.com/icone.png"
-                                    required={!editingCategory && imageType === 'url'}
+                                    value={formData.name}
+                                    onChange={(e) => {
+                                        const name = e.target.value;
+                                        setFormData({ 
+                                            ...formData, 
+                                            name,
+                                            slug: generateSlug(name)
+                                        });
+                                    }}
+                                    className="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                    required
                                 />
                             </div>
-                        )}
 
-                        {imagePreview && (
                             <div>
-                                <label className="block text-sm font-medium mb-1">Aperçu</label>
-                                <img 
-                                    src={imagePreview} 
-                                    alt="Aperçu" 
-                                    className={`w-16 h-16 object-cover border ${cropShape === 'round' ? 'rounded-full' : 'rounded-lg'}`} 
-                                />
-                            </div>
-                        )}
-
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Nom de la catégorie</label>
-                            <input
-                                type="text"
-                                value={formData.name}
-                                onChange={(e) => {
-                                    const name = e.target.value;
-                                    setFormData({ 
-                                        ...formData, 
-                                        name,
-                                        slug: generateSlug(name)
-                                    });
-                                }}
-                                className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:border-primary"
-                                required
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Slug (identifiant URL)</label>
-                            <input
-                                type="text"
-                                value={formData.slug}
-                                onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                                className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:border-primary bg-gray-50"
-                                required
-                            />
-                            <p className="text-xs text-gray-400 mt-1">Ex: fruits, legumes-boissons</p>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Couleur de fond</label>
-                            <div className="flex gap-2">
-                                <input
-                                    type="color"
-                                    value={formData.bgColor}
-                                    onChange={(e) => setFormData({ ...formData, bgColor: e.target.value })}
-                                    className="w-12 h-10 rounded border cursor-pointer"
-                                />
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Slug (identifiant URL)</label>
                                 <input
                                     type="text"
-                                    value={formData.bgColor}
-                                    onChange={(e) => setFormData({ ...formData, bgColor: e.target.value })}
-                                    className="flex-1 border border-gray-300 rounded-lg px-4 py-2 outline-none focus:border-primary"
+                                    value={formData.slug}
+                                    onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                                    className="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm bg-gray-50 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                    required
                                 />
+                                <p className="text-xs text-gray-400 mt-1">Ex: fruits, legumes-boissons</p>
                             </div>
-                        </div>
 
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Ordre d'affichage</label>
-                            <input
-                                type="number"
-                                value={formData.order}
-                                onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value) })}
-                                className="w-32 border border-gray-300 rounded-lg px-4 py-2 outline-none focus:border-primary"
-                            />
-                        </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Couleur de fond</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="color"
+                                        value={formData.bgColor}
+                                        onChange={(e) => setFormData({ ...formData, bgColor: e.target.value })}
+                                        className="w-12 h-10 rounded-lg border border-gray-200 cursor-pointer"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={formData.bgColor}
+                                        onChange={(e) => setFormData({ ...formData, bgColor: e.target.value })}
+                                        className="flex-1 border border-gray-200 rounded-xl px-4 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                    />
+                                </div>
+                            </div>
 
-                        <button type="submit" className="bg-primary text-white px-6 py-2 rounded-lg hover:opacity-90 transition">
-                            {editingCategory ? 'Mettre à jour' : 'Ajouter'}
-                        </button>
-                    </form>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Ordre d'affichage</label>
+                                <input
+                                    type="number"
+                                    value={formData.order}
+                                    onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value) })}
+                                    className="w-32 border border-gray-200 rounded-xl px-4 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                />
+                                <p className="text-xs text-gray-400 mt-1">Plus le nombre est petit, plus la catégorie apparaît tôt</p>
+                            </div>
+
+                            <div className="flex gap-3 pt-4">
+                                <button type="submit" className="px-6 py-2 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 transition">
+                                    {editingCategory ? 'Mettre à jour' : 'Ajouter la catégorie'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowForm(false)}
+                                    className="px-6 py-2 border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition"
+                                >
+                                    Annuler
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 )}
 
-                {/* Liste des catégories avec bouton Activer/Désactiver */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Liste des catégories */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                     {categories.map((category) => (
-                        <div key={category._id} className="bg-white border rounded-xl overflow-hidden shadow-sm">
-                            <div className="p-4 flex items-center gap-4">
+                        <div key={category._id} className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md transition">
+                            <div className="p-5 flex items-start gap-4">
                                 {category.image && (
                                     <img 
                                         src={category.image} 
                                         alt={category.name} 
-                                        className="w-16 h-16 object-cover rounded-full" 
+                                        className="w-14 h-14 object-cover rounded-full border border-gray-100"
                                     />
                                 )}
                                 <div className="flex-1">
-                                    <h3 className="font-semibold text-lg">{category.name}</h3>
-                                    <p className="text-xs text-gray-400">slug: {category.slug}</p>
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="font-semibold text-gray-900">{category.name}</h3>
+                                        <div className={`w-2 h-2 rounded-full ${category.active ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                                    </div>
+                                    <p className="text-xs text-gray-400 mt-0.5">slug: {category.slug}</p>
                                     <p className="text-xs text-gray-400">ordre: {category.order}</p>
-                                    <p className="text-xs">
-                                        Statut: 
-                                        <span className={`ml-1 ${category.active ? 'text-green-600' : 'text-red-500'}`}>
-                                            {category.active ? 'Actif' : 'Inactif'}
-                                        </span>
-                                    </p>
                                     <div className="flex items-center gap-2 mt-2">
-                                        <div className="w-6 h-6 rounded-full border" style={{ backgroundColor: category.bgColor }}></div>
+                                        <div className="w-5 h-5 rounded-full border border-gray-200" style={{ backgroundColor: category.bgColor }}></div>
                                         <span className="text-xs text-gray-500">{category.bgColor}</span>
                                     </div>
                                 </div>
                             </div>
-                            <div className="p-4 border-t flex gap-2 flex-wrap">
+                            <div className="px-5 pb-5 pt-2 flex gap-2">
                                 <button
                                     onClick={() => handleEdit(category)}
-                                    className="text-sm bg-blue-50 text-blue-600 px-3 py-1.5 rounded hover:bg-blue-100 transition"
+                                    className="text-xs px-3 py-1.5 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition"
                                 >
                                     Modifier
                                 </button>
                                 <button
                                     onClick={() => toggleCategoryStatus(category._id, category.active)}
-                                    className={`text-sm px-3 py-1.5 rounded transition ${
+                                    className={`text-xs px-3 py-1.5 rounded-lg transition ${
                                         category.active 
-                                            ? 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100' 
-                                            : 'bg-green-50 text-green-600 hover:bg-green-100'
+                                            ? 'text-yellow-600 bg-yellow-50 hover:bg-yellow-100' 
+                                            : 'text-green-600 bg-green-50 hover:bg-green-100'
                                     }`}
                                 >
                                     {category.active ? 'Désactiver' : 'Activer'}
                                 </button>
                                 <button
                                     onClick={() => handleDelete(category._id)}
-                                    className="text-sm bg-red-50 text-red-500 px-3 py-1.5 rounded hover:bg-red-100 transition"
+                                    className="text-xs px-3 py-1.5 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition"
                                 >
                                     Supprimer
                                 </button>
@@ -403,7 +439,16 @@ const CategoryManager = () => {
                 </div>
 
                 {categories.length === 0 && !showForm && (
-                    <p className="text-gray-500 text-center py-10">Aucune catégorie. Cliquez sur "Ajouter une catégorie" pour commencer.</p>
+                    <div className="text-center py-16 bg-white rounded-xl border border-gray-100">
+                        <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <rect x="3" y="3" width="7" height="7" rx="1"/>
+                            <rect x="14" y="3" width="7" height="7" rx="1"/>
+                            <rect x="3" y="14" width="7" height="7" rx="1"/>
+                            <rect x="14" y="14" width="7" height="7" rx="1"/>
+                        </svg>
+                        <p className="text-gray-500">Aucune catégorie</p>
+                        <p className="text-sm text-gray-400 mt-1">Cliquez sur "Ajouter une catégorie" pour commencer</p>
+                    </div>
                 )}
             </div>
 

@@ -111,8 +111,8 @@ const CouponManager = () => {
             discountValue: coupon.discountValue,
             minPurchase: coupon.minPurchase || '',
             maxDiscount: coupon.maxDiscount || '',
-            startDate: coupon.startDate.split('T')[0],
-            endDate: coupon.endDate.split('T')[0],
+            startDate: coupon.startDate?.split('T')[0] || '',
+            endDate: coupon.endDate?.split('T')[0] || '',
             usageLimit: coupon.usageLimit || '',
             usagePerUser: coupon.usagePerUser || '1',
             isActive: coupon.isActive
@@ -120,39 +120,38 @@ const CouponManager = () => {
         setShowForm(true);
     };
 
-    const getStatusBadge = (coupon) => {
+    const getStatusStyle = (coupon) => {
         const now = new Date();
         const start = new Date(coupon.startDate);
         const end = new Date(coupon.endDate);
         
-        if (!coupon.isActive) return 'bg-gray-100 text-gray-500';
-        if (now < start) return 'bg-yellow-100 text-yellow-700';
-        if (now > end) return 'bg-red-100 text-red-700';
-        if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) return 'bg-red-100 text-red-700';
-        return 'bg-green-100 text-green-700';
-    };
-
-    const getStatusText = (coupon) => {
-        const now = new Date();
-        const start = new Date(coupon.startDate);
-        const end = new Date(coupon.endDate);
-        
-        if (!coupon.isActive) return 'Désactivé';
-        if (now < start) return 'À venir';
-        if (now > end) return 'Expiré';
-        if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) return 'Épuisé';
-        return 'Actif';
+        if (!coupon.isActive) return { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Désactivé' };
+        if (now < start) return { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'À venir' };
+        if (now > end) return { bg: 'bg-red-100', text: 'text-red-700', label: 'Expiré' };
+        if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) return { bg: 'bg-red-100', text: 'text-red-700', label: 'Épuisé' };
+        return { bg: 'bg-green-100', text: 'text-green-700', label: 'Actif' };
     };
 
     if (loading) {
-        return <div className="p-10 text-center">Chargement...</div>;
+        return (
+            <div className="flex items-center justify-center h-[80vh]">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-red-500 mx-auto"></div>
+                    <p className="mt-4 text-sm text-gray-500">Chargement des codes promo...</p>
+                </div>
+            </div>
+        );
     }
 
     return (
-        <div className="no-scrollbar flex-1 h-[95vh] overflow-y-scroll">
-            <div className="md:p-10 p-4 space-y-6">
+        <div className="bg-gray-50 min-h-screen">
+            <div className="p-6 space-y-6">
+                {/* Header */}
                 <div className="flex justify-between items-center">
-                    <h2 className="text-2xl font-bold">Codes promo</h2>
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">Codes promo</h1>
+                        <p className="text-sm text-gray-500 mt-1">Gérez les réductions et promotions</p>
+                    </div>
                     <button
                         onClick={() => {
                             setEditingCoupon(null);
@@ -170,214 +169,244 @@ const CouponManager = () => {
                             });
                             setShowForm(!showForm);
                         }}
-                        className="bg-primary text-white px-4 py-2 rounded-lg hover:opacity-90 transition"
+                        className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 transition shadow-sm"
                     >
-                        {showForm ? 'Annuler' : '+ Ajouter un code promo'}
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="8" x2="12" y2="16"/>
+                            <line x1="8" y1="12" x2="16" y2="12"/>
+                        </svg>
+                        {showForm ? 'Annuler' : 'Ajouter un code promo'}
                     </button>
                 </div>
 
                 {/* Formulaire */}
                 {showForm && (
-                    <form onSubmit={handleSubmit} className="bg-white border rounded-xl p-6 space-y-4">
-                        <h3 className="text-lg font-semibold">{editingCoupon ? 'Modifier' : 'Ajouter'} un code promo</h3>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Code promo *</label>
-                                <input
-                                    type="text"
-                                    value={formData.code}
-                                    onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                                    className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:border-primary uppercase"
-                                    placeholder="EX: PROMO20"
-                                    required
-                                />
+                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                        <div className="p-6 border-b border-gray-100">
+                            <h2 className="text-lg font-semibold text-gray-900">
+                                {editingCoupon ? 'Modifier le code promo' : 'Nouveau code promo'}
+                            </h2>
+                        </div>
+                        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Code promo *</label>
+                                    <input
+                                        type="text"
+                                        value={formData.code}
+                                        onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none uppercase"
+                                        placeholder="EX: PROMO20"
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Type de réduction *</label>
+                                    <select
+                                        value={formData.discountType}
+                                        onChange={(e) => setFormData({ ...formData, discountType: e.target.value })}
+                                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                    >
+                                        <option value="percentage">Pourcentage (%)</option>
+                                        <option value="fixed">Montant fixe (FCFA)</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Valeur de réduction *</label>
+                                    <input
+                                        type="number"
+                                        value={formData.discountValue}
+                                        onChange={(e) => setFormData({ ...formData, discountValue: e.target.value })}
+                                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                        placeholder={formData.discountType === 'percentage' ? 'Ex: 20' : 'Ex: 1000'}
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Montant minimum d'achat</label>
+                                    <input
+                                        type="number"
+                                        value={formData.minPurchase}
+                                        onChange={(e) => setFormData({ ...formData, minPurchase: e.target.value })}
+                                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                        placeholder="Optionnel"
+                                    />
+                                    <p className="text-xs text-gray-400 mt-1">Minimum d'achat requis</p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Réduction maximale</label>
+                                    <input
+                                        type="number"
+                                        value={formData.maxDiscount}
+                                        onChange={(e) => setFormData({ ...formData, maxDiscount: e.target.value })}
+                                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                        placeholder="Optionnel (pour %)"/>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Nombre max d'utilisations</label>
+                                    <input
+                                        type="number"
+                                        value={formData.usageLimit}
+                                        onChange={(e) => setFormData({ ...formData, usageLimit: e.target.value })}
+                                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                        placeholder="Illimité"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Utilisations par utilisateur</label>
+                                    <input
+                                        type="number"
+                                        value={formData.usagePerUser}
+                                        onChange={(e) => setFormData({ ...formData, usagePerUser: e.target.value })}
+                                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Date de début *</label>
+                                    <input
+                                        type="date"
+                                        value={formData.startDate}
+                                        onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Date de fin *</label>
+                                    <input
+                                        type="date"
+                                        value={formData.endDate}
+                                        onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                        required
+                                    />
+                                </div>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium mb-1">Type de réduction *</label>
-                                <select
-                                    value={formData.discountType}
-                                    onChange={(e) => setFormData({ ...formData, discountType: e.target.value })}
-                                    className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:border-primary"
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={formData.isActive}
+                                        onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                                        className="w-4 h-4 text-red-500 focus:ring-red-500 rounded"
+                                    />
+                                    <span className="text-sm text-gray-700">Activer immédiatement</span>
+                                </label>
+                            </div>
+
+                            <div className="flex gap-3 pt-4">
+                                <button type="submit" className="px-6 py-2 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 transition">
+                                    {editingCoupon ? 'Mettre à jour' : 'Ajouter le code promo'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowForm(false)}
+                                    className="px-6 py-2 border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition"
                                 >
-                                    <option value="percentage">Pourcentage (%)</option>
-                                    <option value="fixed">Montant fixe (FCFA)</option>
-                                </select>
+                                    Annuler
+                                </button>
                             </div>
-
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Valeur de réduction *</label>
-                                <input
-                                    type="number"
-                                    value={formData.discountValue}
-                                    onChange={(e) => setFormData({ ...formData, discountValue: e.target.value })}
-                                    className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:border-primary"
-                                    placeholder={formData.discountType === 'percentage' ? 'Ex: 20' : 'Ex: 1000'}
-                                    required
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Montant minimum d'achat</label>
-                                <input
-                                    type="number"
-                                    value={formData.minPurchase}
-                                    onChange={(e) => setFormData({ ...formData, minPurchase: e.target.value })}
-                                    className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:border-primary"
-                                    placeholder="Ex: 5000 (optionnel)"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Réduction maximale</label>
-                                <input
-                                    type="number"
-                                    value={formData.maxDiscount}
-                                    onChange={(e) => setFormData({ ...formData, maxDiscount: e.target.value })}
-                                    className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:border-primary"
-                                    placeholder="Ex: 2000 (optionnel, % uniquement)"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Nombre max d'utilisations total</label>
-                                <input
-                                    type="number"
-                                    value={formData.usageLimit}
-                                    onChange={(e) => setFormData({ ...formData, usageLimit: e.target.value })}
-                                    className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:border-primary"
-                                    placeholder="Ex: 100 (optionnel)"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Utilisations par utilisateur</label>
-                                <input
-                                    type="number"
-                                    value={formData.usagePerUser}
-                                    onChange={(e) => setFormData({ ...formData, usagePerUser: e.target.value })}
-                                    className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:border-primary"
-                                    placeholder="Ex: 1 (défaut)"
-                                />
-                                <p className="text-xs text-gray-400 mt-1">Nombre de fois qu'un même utilisateur peut utiliser ce code</p>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Date de début *</label>
-                                <input
-                                    type="date"
-                                    value={formData.startDate}
-                                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                                    className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:border-primary"
-                                    required
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Date de fin *</label>
-                                <input
-                                    type="date"
-                                    value={formData.endDate}
-                                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                                    className="w-full border border-gray-300 rounded-lg px-4 py-2 outline-none focus:border-primary"
-                                    required
-                                />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="flex items-center gap-2">
-                                <input
-                                    type="checkbox"
-                                    checked={formData.isActive}
-                                    onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                                    className="w-4 h-4"
-                                />
-                                <span className="text-sm font-medium">Activer immédiatement</span>
-                            </label>
-                        </div>
-
-                        <button type="submit" className="bg-primary text-white px-6 py-2 rounded-lg hover:opacity-90 transition">
-                            {editingCoupon ? 'Mettre à jour' : 'Ajouter'}
-                        </button>
-                    </form>
+                        </form>
+                    </div>
                 )}
 
                 {/* Liste des coupons */}
-                <div className="overflow-x-auto">
-                    <table className="w-full bg-white border rounded-xl overflow-hidden">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-4 py-3 text-left">Code</th>
-                                <th className="px-4 py-3 text-left">Réduction</th>
-                                <th className="px-4 py-3 text-left">Min. d'achat</th>
-                                <th className="px-4 py-3 text-left">Validité</th>
-                                <th className="px-4 py-3 text-left">Utilisations</th>
-                                <th className="px-4 py-3 text-left">Par utilisateur</th>
-                                <th className="px-4 py-3 text-left">Statut</th>
-                                <th className="px-4 py-3 text-left">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                            {coupons.map((coupon) => (
-                                <tr key={coupon._id} className="hover:bg-gray-50">
-                                    <td className="px-4 py-3 font-mono font-bold text-primary">{coupon.code}</td>
-                                    <td className="px-4 py-3">
-                                        {coupon.discountType === 'percentage' 
-                                            ? `${coupon.discountValue}%` 
-                                            : `${coupon.discountValue} FCFA`}
-                                    </td>
-                                    <td className="px-4 py-3">{coupon.minPurchase > 0 ? `${coupon.minPurchase} FCFA` : '-'}</td>
-                                    <td className="px-4 py-3 text-sm">
-                                        {new Date(coupon.startDate).toLocaleDateString()}<br/>
-                                        → {new Date(coupon.endDate).toLocaleDateString()}
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        {coupon.usedCount} / {coupon.usageLimit || '∞'}
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        {coupon.usagePerUser || 1} fois
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(coupon)}`}>
-                                            {getStatusText(coupon)}
-                                        </span>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => handleToggleStatus(coupon._id, coupon.isActive)}
-                                                className={`text-sm px-3 py-1 rounded transition ${
-                                                    coupon.isActive 
-                                                        ? 'bg-red-50 text-red-500 hover:bg-red-100' 
-                                                        : 'bg-green-50 text-green-500 hover:bg-green-100'
-                                                }`}
-                                            >
-                                                {coupon.isActive ? 'Désactiver' : 'Activer'}
-                                            </button>
-                                            <button
-                                                onClick={() => handleEdit(coupon)}
-                                                className="text-sm bg-blue-50 text-blue-600 px-3 py-1 rounded hover:bg-blue-100 transition"
-                                            >
-                                                Modifier
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(coupon._id)}
-                                                className="text-sm bg-red-50 text-red-500 px-3 py-1 rounded hover:bg-red-100 transition"
-                                            >
-                                                Supprimer
-                                            </button>
-                                        </div>
-                                    </td>
+                <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead>
+                                <tr className="bg-gray-50 border-b border-gray-100">
+                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Code</th>
+                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Réduction</th>
+                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Min. d'achat</th>
+                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Validité</th>
+                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Utilisations</th>
+                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Statut</th>
+                                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {coupons.map((coupon) => {
+                                    const status = getStatusStyle(coupon);
+                                    return (
+                                        <tr key={coupon._id} className="hover:bg-gray-50 transition">
+                                            <td className="px-6 py-4">
+                                                <span className="font-mono text-sm font-bold text-gray-900">{coupon.code}</span>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-600">
+                                                {coupon.discountType === 'percentage' 
+                                                    ? `${coupon.discountValue}%` 
+                                                    : `${coupon.discountValue.toLocaleString()} FCFA`}
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-600">
+                                                {coupon.minPurchase > 0 ? `${coupon.minPurchase.toLocaleString()} FCFA` : '-'}
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">
+                                                {new Date(coupon.startDate).toLocaleDateString()} <br/>
+                                                <span className="text-xs">→ {new Date(coupon.endDate).toLocaleDateString()}</span>
+                                             </td>
+                                            <td className="px-6 py-4 text-sm text-gray-600">
+                                                {coupon.usedCount} / {coupon.usageLimit || '∞'}
+                                             </td>
+                                            <td className="px-6 py-4">
+                                                <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${status.bg} ${status.text}`}>
+                                                    {status.label}
+                                                </span>
+                                             </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => handleToggleStatus(coupon._id, coupon.isActive)}
+                                                        className={`text-xs px-3 py-1.5 rounded-lg transition ${
+                                                            coupon.isActive 
+                                                                ? 'text-yellow-600 bg-yellow-50 hover:bg-yellow-100' 
+                                                                : 'text-green-600 bg-green-50 hover:bg-green-100'
+                                                        }`}
+                                                    >
+                                                        {coupon.isActive ? 'Désactiver' : 'Activer'}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleEdit(coupon)}
+                                                        className="text-xs px-3 py-1.5 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition"
+                                                    >
+                                                        Modifier
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDelete(coupon._id)}
+                                                        className="text-xs px-3 py-1.5 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition"
+                                                    >
+                                                        Supprimer
+                                                    </button>
+                                                </div>
+                                             </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 {coupons.length === 0 && !showForm && (
-                    <p className="text-gray-500 text-center py-10">Aucun code promo. Cliquez sur "Ajouter un code promo" pour commencer.</p>
+                    <div className="text-center py-16 bg-white rounded-xl border border-gray-100">
+                        <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <path d="M2 12l2-2 2 2 2-2 2 2 2-2 2 2 2-2 2 2"/>
+                            <path d="M2 4h20v16H2z"/>
+                            <line x1="8" y1="12" x2="16" y2="12"/>
+                        </svg>
+                        <p className="text-gray-500">Aucun code promo</p>
+                        <p className="text-sm text-gray-400 mt-1">Cliquez sur "Ajouter un code promo" pour commencer</p>
+                    </div>
                 )}
             </div>
         </div>

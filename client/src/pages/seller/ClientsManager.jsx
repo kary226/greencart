@@ -75,162 +75,216 @@ const ClientsManager = () => {
     };
 
     return (
-        <div className="no-scrollbar flex-1 h-[95vh] overflow-y-scroll">
-            <div className="md:p-10 p-4 space-y-6">
-                <div className="flex justify-between items-center flex-wrap gap-3">
-                    <div>
-                        <h2 className="text-2xl font-bold">Gestion des clients</h2>
-                        <p className="text-gray-500 text-sm mt-1">Rechercher un client et voir ses commandes</p>
-                    </div>
+        <div className="bg-gray-50 min-h-screen">
+            <div className="p-6 space-y-6">
+                {/* Header */}
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">Clients</h1>
+                    <p className="text-sm text-gray-500 mt-1">Rechercher un client et consulter ses commandes</p>
                 </div>
 
-                <div className="bg-white p-4 rounded-lg shadow-sm border">
-                    <div className="flex gap-3">
-                        <input
-                            type="text"
-                            placeholder="Rechercher par nom, email ou téléphone..."
-                            value={searchTerm}
-                            onChange={(e) => {
-                                setSearchTerm(e.target.value);
-                                setCurrentPage(1);
-                            }}
-                            className="flex-1 border border-gray-300 rounded-lg px-4 py-2 outline-none focus:border-primary"
-                        />
+                {/* Barre de recherche */}
+                <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        <div className="flex-1">
+                            <input
+                                type="text"
+                                placeholder="Rechercher par nom, email ou téléphone..."
+                                value={searchTerm}
+                                onChange={(e) => {
+                                    setSearchTerm(e.target.value);
+                                    setCurrentPage(1);
+                                }}
+                                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none transition"
+                            />
+                        </div>
                         <button
                             onClick={() => fetchClients()}
-                            className="bg-primary text-white px-6 py-2 rounded-lg hover:opacity-90 transition"
+                            className="flex items-center justify-center gap-2 px-6 py-2.5 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 transition shadow-sm"
                         >
-                            🔍 Rechercher
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <circle cx="11" cy="11" r="8"/>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                            </svg>
+                            Rechercher
                         </button>
                     </div>
                 </div>
 
+                {/* Tableau des clients */}
                 {loading ? (
-                    <div className="text-center py-10">Chargement...</div>
+                    <div className="flex items-center justify-center py-16">
+                        <div className="text-center">
+                            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-red-500 mx-auto"></div>
+                            <p className="mt-4 text-sm text-gray-500">Chargement des clients...</p>
+                        </div>
+                    </div>
                 ) : clients.length === 0 ? (
-                    <div className="text-center py-10 text-gray-500">Aucun client trouvé</div>
+                    <div className="text-center py-16 bg-white rounded-xl border border-gray-100">
+                        <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                            <circle cx="12" cy="7" r="4"/>
+                        </svg>
+                        <p className="text-gray-500">Aucun client trouvé</p>
+                        <p className="text-sm text-gray-400 mt-1">Essayez une autre recherche</p>
+                    </div>
                 ) : (
-                    <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-                        <table className="w-full">
-                            <thead className="bg-gray-50 border-b">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Client</th>
-                                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Email</th>
-                                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Téléphone</th>
-                                    <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">Date d'inscription</th>
-                                    <th className="px-6 py-3 text-center text-sm font-medium text-gray-500">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {clients.map((client) => (
-                                    <tr key={client._id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4">
-                                            <div>
-                                                <p className="font-medium">{client.firstName} {client.lastName}</p>
-                                                <p className="text-xs text-gray-400">{client.name}</p>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 text-gray-600">{client.email}</td>
-                                        <td className="px-6 py-4 text-gray-600">{client.phone || '-'}</td>
-                                        <td className="px-6 py-4 text-gray-500 text-sm">
-                                            {new Date(client.createdAt).toLocaleDateString('fr-FR')}
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <button
-                                                onClick={() => viewClientOrders(client)}
-                                                className="bg-blue-50 text-blue-600 px-4 py-1.5 rounded-lg hover:bg-blue-100 transition text-sm"
-                                            >
-                                                📦 Voir commandes
-                                            </button>
-                                        </td>
+                    <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead>
+                                    <tr className="bg-gray-50 border-b border-gray-100">
+                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Client</th>
+                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</th>
+                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Téléphone</th>
+                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Inscrit le</th>
+                                        <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {clients.map((client) => (
+                                        <tr key={client._id} className="hover:bg-gray-50 transition">
+                                            <td className="px-6 py-4">
+                                                <p className="font-medium text-gray-900">{client.firstName} {client.lastName}</p>
+                                                <p className="text-xs text-gray-400">{client.name}</p>
+                                            </td>
+                                            <td className="px-6 py-4 text-gray-600 text-sm">{client.email}</td>
+                                            <td className="px-6 py-4 text-gray-600 text-sm">{client.phone || '-'}</td>
+                                            <td className="px-6 py-4 text-gray-500 text-sm">
+                                                {new Date(client.createdAt).toLocaleDateString('fr-FR')}
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <button
+                                                    onClick={() => viewClientOrders(client)}
+                                                    className="inline-flex items-center gap-2 px-4 py-1.5 text-sm text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition"
+                                                >
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                        <rect x="2" y="4" width="20" height="16" rx="2"/>
+                                                        <line x1="8" y1="2" x2="8" y2="6"/>
+                                                        <line x1="16" y1="2" x2="16" y2="6"/>
+                                                        <line x1="2" y1="10" x2="22" y2="10"/>
+                                                    </svg>
+                                                    Commandes
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 )}
 
+                {/* Pagination */}
                 {totalPages > 1 && (
-                    <div className="flex justify-center gap-2 mt-4">
+                    <div className="flex justify-center items-center gap-2">
                         <button
                             onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                             disabled={currentPage === 1}
-                            className="px-3 py-1 border rounded disabled:opacity-50"
+                            className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
                         >
-                            ◀
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polyline points="15 18 9 12 15 6"/>
+                            </svg>
                         </button>
-                        <span className="px-3 py-1">
+                        <span className="px-4 py-2 text-sm text-gray-600">
                             Page {currentPage} / {totalPages}
                         </span>
                         <button
                             onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                             disabled={currentPage === totalPages}
-                            className="px-3 py-1 border rounded disabled:opacity-50"
+                            className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
                         >
-                            ▶
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polyline points="9 18 15 12 9 6"/>
+                            </svg>
                         </button>
                     </div>
                 )}
             </div>
 
+            {/* Modal des commandes */}
             {showOrdersModal && selectedClient && (
-                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
-                        <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={closeModal}>
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+                        {/* Modal Header */}
+                        <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-white">
                             <div>
-                                <h3 className="text-lg font-semibold">
+                                <h3 className="text-lg font-semibold text-gray-900">
                                     Commandes de {selectedClient.firstName} {selectedClient.lastName}
                                 </h3>
-                                <p className="text-sm text-gray-500">{selectedClient.email} | {selectedClient.phone || 'Pas de téléphone'}</p>
+                                <p className="text-sm text-gray-500 mt-0.5">{selectedClient.email} | {selectedClient.phone || 'Pas de téléphone'}</p>
                             </div>
-                            <button onClick={closeModal} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
+                            <button 
+                                onClick={closeModal} 
+                                className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition"
+                            >
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"/>
+                                    <line x1="6" y1="6" x2="18" y2="18"/>
+                                </svg>
+                            </button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                        {/* Modal Body */}
+                        <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-gray-50">
                             {loadingOrders ? (
-                                <div className="text-center py-10">Chargement des commandes...</div>
+                                <div className="flex items-center justify-center py-12">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
+                                </div>
                             ) : clientOrders.length === 0 ? (
-                                <div className="text-center py-10 text-gray-500">Aucune commande pour ce client</div>
+                                <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
+                                    <svg className="w-12 h-12 mx-auto text-gray-300 mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                        <rect x="2" y="4" width="20" height="16" rx="2"/>
+                                        <line x1="8" y1="2" x2="8" y2="6"/>
+                                        <line x1="16" y1="2" x2="16" y2="6"/>
+                                        <line x1="2" y1="10" x2="22" y2="10"/>
+                                    </svg>
+                                    <p className="text-gray-500">Aucune commande pour ce client</p>
+                                </div>
                             ) : (
                                 clientOrders.map((order, idx) => (
-                                    <div key={idx} className="border rounded-lg p-4 space-y-3">
-                                        <div className="flex justify-between items-center">
+                                    <div key={idx} className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition">
+                                        {/* En-tête commande */}
+                                        <div className="flex justify-between items-start">
                                             <div>
-                                                <p className="font-medium">Commande #{order._id.slice(-8)}</p>
-                                                <p className="text-xs text-gray-400">
-                                                    {new Date(order.createdAt).toLocaleDateString('fr-FR')}
+                                                <p className="font-mono text-sm font-medium text-gray-900">#{order._id.slice(-8)}</p>
+                                                <p className="text-xs text-gray-400 mt-0.5">
+                                                    {new Date(order.createdAt).toLocaleDateString('fr-FR')} à {new Date(order.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                                                 </p>
                                             </div>
-                                            <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(order.status)}`}>
+                                            <span className={`text-xs px-3 py-1 rounded-full font-medium ${getStatusColor(order.status)}`}>
                                                 {getStatusLabel(order.status)}
                                             </span>
                                         </div>
 
-                                        <div className="border-t pt-3">
-                                            <p className="text-sm font-medium mb-2">Articles commandés :</p>
+                                        {/* Articles */}
+                                        <div className="border-t border-gray-100 pt-3 mt-3">
+                                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Articles commandés</p>
                                             <div className="space-y-2">
                                                 {order.items.map((item, i) => (
                                                     <div key={i} className="flex justify-between items-center text-sm">
-                                                        <div>
-                                                            <span className="font-medium">{item.product?.name || 'Produit'}</span>
-                                                            {item.color && <span className="text-xs text-gray-400 ml-2">🎨 {item.color}</span>}
-                                                            {item.size && <span className="text-xs text-gray-400 ml-2">📐 {item.size}</span>}
-                                                            <span className="text-xs text-gray-400 ml-2">x {item.quantity}</span>
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <span className="font-medium text-gray-800">{item.product?.name || 'Produit'}</span>
+                                                            {item.color && <span className="text-xs text-gray-400 px-2 py-0.5 bg-gray-100 rounded-full">{item.color}</span>}
+                                                            {item.size && <span className="text-xs text-gray-400 px-2 py-0.5 bg-gray-100 rounded-full">{item.size}</span>}
+                                                            <span className="text-xs text-gray-400">x {item.quantity}</span>
                                                         </div>
-                                                        <span className="font-medium text-primary">
-                                                            {(item.priceAtOrder || item.product?.offerPrice || 0) * item.quantity} FCFA
+                                                        <span className="font-medium text-gray-900">
+                                                            {((item.priceAtOrder || item.product?.offerPrice || 0) * item.quantity).toLocaleString()} FCFA
                                                         </span>
                                                     </div>
                                                 ))}
                                             </div>
                                         </div>
 
-                                        <div className="border-t pt-3 flex justify-between items-center">
-                                            <p className="text-sm text-gray-500">
+                                        {/* Total */}
+                                        <div className="border-t border-gray-100 pt-3 mt-3 flex justify-between items-center">
+                                            <p className="text-xs text-gray-500">
                                                 {order.paymentType === "COD" ? "Paiement à la livraison" : "Paiement en ligne"}
                                             </p>
-                                            <p className="font-bold text-primary">
-                                                Total: {order.amount} FCFA
+                                            <p className="font-bold text-red-500">
+                                                Total: {order.amount.toLocaleString()} FCFA
                                             </p>
                                         </div>
                                     </div>
@@ -238,8 +292,12 @@ const ClientsManager = () => {
                             )}
                         </div>
 
-                        <div className="p-4 border-t bg-gray-50">
-                            <button onClick={closeModal} className="w-full py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition">
+                        {/* Modal Footer */}
+                        <div className="p-4 border-t border-gray-100 bg-white">
+                            <button 
+                                onClick={closeModal} 
+                                className="w-full py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200 transition"
+                            >
                                 Fermer
                             </button>
                         </div>
