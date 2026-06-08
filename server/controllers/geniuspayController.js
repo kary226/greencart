@@ -64,12 +64,7 @@ export const initiateGeniusPay = async (req, res) => {
             status: "pending_payment",
         });
 
-        // === ENVOI DES EMAILS ===
-        const user = await User.findById(userId);
-        if (user && user.email) {
-            await sendOrderConfirmationEmail(user.email, order._id.toString(), finalAmount);
-            await sendAdminNotificationEmail(order._id.toString(), finalAmount, `${completeAddress.firstName} ${completeAddress.lastName}`, user.email);
-        }
+        // ✅ SUPPRESSION DES EMAILS ICI (déplacés dans le webhook)
 
         // Formater le téléphone au format international (GENIUSPAY EXIGE +225XXXXXXXXX)
         let phone = completeAddress.phone;
@@ -217,6 +212,34 @@ export const geniuspayWebhook = async (req, res) => {
             // 5. Vider le panier de l'utilisateur
             await User.findByIdAndUpdate(userId, { cartItems: {} });
             console.log(`🗑️ Panier vidé pour l'utilisateur ${userId}`);
+
+            // 6. ✅ ENVOI DES EMAILS APRÈS CONFIRMATION
+            const user = await User.findById(userId);
+            const Address = mongoose.model('address');
+            const address = await Address.findById(order.address);
+            
+            if (user && user.email && address) {
+                try {
+                    await sendOrderConfirmationEmail(
+                        user.email, 
+                        order._id.toString(), 
+                        order.amount
+                    );
+                    console.log(`📧 Email de confirmation envoyé à ${user.email}`);
+                    
+                    await sendAdminNotificationEmail(
+                        order._id.toString(), 
+                        order.amount, 
+                        `${address.firstName} ${address.lastName}`, 
+                        user.email
+                    );
+                    console.log(`📧 Email admin envoyé pour commande ${order._id.toString().slice(-8)}`);
+                } catch (emailError) {
+                    console.error("❌ Erreur envoi emails:", emailError);
+                }
+            } else {
+                console.warn("⚠️ Impossible d'envoyer les emails: utilisateur ou adresse manquant");
+            }
 
             console.log(`✅✅✅ Commande ${orderId} finalisée avec succès ✅✅✅`);
         } else if (event === 'payment.failed') {
