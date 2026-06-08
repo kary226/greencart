@@ -3,15 +3,27 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
 
 const Navbar = () => {
-  const { cartItems, wishlist, user, searchQuery, setSearchQuery, axios, products } = useAppContext();
+  const { cartItems, wishlist, user, searchQuery, setSearchQuery, axios, products, logoutUser } = useAppContext();
   const [query, setQuery] = useState(searchQuery || "");
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [categories, setCategories] = useState([]);
+  const [menuOpen, setMenuOpen] = useState(false);
   const suggestionsRef = useRef(null);
+  const menuRef = useRef(null);
   const navigate = useNavigate();
 
   const cartCount = cartItems ? Object.values(cartItems).reduce((a, b) => a + b, 0) : 0;
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -109,13 +121,112 @@ const Navbar = () => {
     }
   };
 
+  const handleLogout = () => {
+    setMenuOpen(false);
+    logoutUser();
+  };
+
+  const handleHelp = () => {
+    setMenuOpen(false);
+    if (window.Tawk_API) {
+      window.Tawk_API.showWidget();
+      window.Tawk_API.maximize();
+    } else {
+      const script = document.createElement('script');
+      script.async = true;
+      script.src = 'https://embed.tawk.to/6a26a25d683c831c304cb5ea/1jqjekfae';
+      script.charset = 'UTF-8';
+      script.setAttribute('crossorigin', '*');
+      document.body.appendChild(script);
+      setTimeout(() => {
+        if (window.Tawk_API) {
+          window.Tawk_API.showWidget();
+          window.Tawk_API.maximize();
+        }
+      }, 1000);
+    }
+  };
+
   return (
     <>
       <header className="ramci-navbar">
         <div className="ramci-nav-top">
-          <button className="ramci-menu-btn" aria-label="Menu">
-            <span /><span /><span />
-          </button>
+          {/* Menu hamburger avec dropdown */}
+          <div className="ramci-menu-container" ref={menuRef}>
+            <button 
+              className="ramci-menu-btn" 
+              aria-label="Menu"
+              onClick={() => setMenuOpen(!menuOpen)}
+            >
+              <span /><span /><span />
+            </button>
+            
+            {menuOpen && (
+              <div className="ramci-dropdown-menu">
+                <Link to="/" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                    <polyline points="9,22 9,12 15,12 15,22"/>
+                  </svg>
+                  Accueil
+                </Link>
+                <Link to="/products" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+                    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                  </svg>
+                  Produits
+                </Link>
+                <Link to="/categories" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <rect x="3" y="3" width="7" height="7" rx="1"/>
+                    <rect x="14" y="3" width="7" height="7" rx="1"/>
+                    <rect x="3" y="14" width="7" height="7" rx="1"/>
+                    <rect x="14" y="14" width="7" height="7" rx="1"/>
+                  </svg>
+                  Catégories
+                </Link>
+                <Link to="/my-orders" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <rect x="2" y="4" width="20" height="16" rx="2"/>
+                    <line x1="8" y1="2" x2="8" y2="6"/>
+                    <line x1="16" y1="2" x2="16" y2="6"/>
+                    <line x1="2" y1="10" x2="22" y2="10"/>
+                  </svg>
+                  Mes commandes
+                </Link>
+                <Link to="/account" className="dropdown-item" onClick={() => setMenuOpen(false)}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                  </svg>
+                  Mon compte
+                </Link>
+                <div className="dropdown-divider"></div>
+                <button className="dropdown-item help-btn" onClick={handleHelp}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                  Besoin d'aide
+                </button>
+                {user && (
+                  <>
+                    <div className="dropdown-divider"></div>
+                    <button className="dropdown-item logout-btn" onClick={handleLogout}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                        <polyline points="16 17 21 12 16 7"/>
+                        <line x1="21" y1="12" x2="9" y2="12"/>
+                      </svg>
+                      Déconnexion
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
 
           <Link to="/" className="ramci-logo">RAMCI</Link>
 
@@ -126,7 +237,6 @@ const Navbar = () => {
               </svg>
             </Link>
             
-            {/* ✅ VRAI LOGO PANIER MODERNE */}
             <Link to="/cart" className="ramci-nav-icon ramci-cart-icon" aria-label="Panier">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
@@ -208,6 +318,11 @@ const Navbar = () => {
           justify-content: space-between;
           padding: 14px 16px 10px;
         }
+        
+        .ramci-menu-container {
+          position: relative;
+        }
+        
         .ramci-menu-btn {
           background: none;
           border: none;
@@ -223,10 +338,63 @@ const Navbar = () => {
           height: 1.5px;
           background: #111;
           border-radius: 2px;
+          transition: all 0.2s;
         }
         .ramci-menu-btn span:nth-child(1) { width: 22px; }
         .ramci-menu-btn span:nth-child(2) { width: 16px; }
         .ramci-menu-btn span:nth-child(3) { width: 19px; }
+        
+        .ramci-dropdown-menu {
+          position: absolute;
+          top: 100%;
+          left: 0;
+          min-width: 220px;
+          background: white;
+          border-radius: 16px;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+          margin-top: 12px;
+          overflow: hidden;
+          z-index: 1000;
+          border: 1px solid #f0ede8;
+        }
+        
+        .dropdown-item {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 16px;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 14px;
+          color: #333;
+          text-decoration: none;
+          cursor: pointer;
+          transition: background 0.2s;
+          width: 100%;
+          background: none;
+          border: none;
+          text-align: left;
+        }
+        .dropdown-item:hover {
+          background: #faf8f5;
+        }
+        
+        .dropdown-divider {
+          height: 1px;
+          background: #f0ede8;
+          margin: 4px 0;
+        }
+        
+        .logout-btn {
+          color: #e53935;
+        }
+        .logout-btn:hover {
+          background: #fef2f2;
+        }
+        
+        .help-btn {
+          color: #111;
+        }
+
         .ramci-logo {
           font-family: 'Cormorant Garamond', Georgia, serif;
           font-size: 26px;
@@ -238,6 +406,7 @@ const Navbar = () => {
           left: 50%;
           transform: translateX(-50%);
         }
+        
         .ramci-nav-actions { display: flex; align-items: center; gap: 4px; }
         .ramci-nav-icon {
           position: relative;
@@ -269,6 +438,7 @@ const Navbar = () => {
           justify-content: center;
           padding: 0 3px;
         }
+        
         .ramci-search-form {
           position: relative;
           display: flex;
@@ -298,6 +468,7 @@ const Navbar = () => {
           padding: 0;
           opacity: .7;
         }
+        
         .search-suggestions {
           position: absolute;
           top: calc(100% + 6px);
