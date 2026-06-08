@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react'
 import { useAppContext } from '../context/AppContext'
+import { ChevronLeft, ChevronRight, Package, Grid } from 'lucide-react'
 
 const Categories = () => {
 
@@ -19,12 +20,12 @@ const Categories = () => {
     }
 
     const scrollLeft = () => {
-        scrollRef.current.scrollBy({ left: -250, behavior: 'smooth' })
+        scrollRef.current.scrollBy({ left: -280, behavior: 'smooth' })
         setTimeout(checkScrollPosition, 300)
     }
 
     const scrollRight = () => {
-        scrollRef.current.scrollBy({ left: 250, behavior: 'smooth' })
+        scrollRef.current.scrollBy({ left: 280, behavior: 'smooth' })
         setTimeout(checkScrollPosition, 300)
     }
 
@@ -55,10 +56,12 @@ const Categories = () => {
 
     if (loading) {
         return (
-            <div className='mt-16'>
-                <p className='text-2xl md:text-3xl font-medium'>Catégories</p>
-                <div className='flex justify-center py-10'>
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <div className="bg-white pt-20 pb-10 px-4">
+                <div className="max-w-7xl mx-auto">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Catégories</h2>
+                    <div className="flex justify-center py-10">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
+                    </div>
                 </div>
             </div>
         )
@@ -69,63 +72,96 @@ const Categories = () => {
     }
 
     return (
-        <div className='mt-16'>
-            <p className='text-2xl md:text-3xl font-medium'>Catégories</p>
-
-            <div className='relative mt-6'>
-                
-                {/* Flèche gauche - visible sur TOUS les écrans */}
-                {showLeftArrow && (
-                    <button 
-                        onClick={scrollLeft}
-                        className='absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow-md rounded-full w-8 h-8 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition border border-gray-200'
-                    >
-                        ‹
-                    </button>
-                )}
-
-                {/* Liste des catégories - défilement horizontal TOUJOURS actif */}
-                <div 
-                    ref={scrollRef} 
-                    onScroll={checkScrollPosition}
-                    className='flex overflow-x-auto gap-3 pb-2 px-8 [&::-webkit-scrollbar]:hidden scroll-smooth'
-                    style={{ scrollbarWidth: 'none' }}
-                >
-                    {categories.map((category, index) => (
-                        <div key={index}
-                            className='group cursor-pointer py-3 px-2 gap-2 rounded-lg flex flex-col justify-center items-center flex-shrink-0 w-24'
-                            onClick={() => {
-                                navigate(`/products/${category.slug}`);
-                                scrollTo(0, 0);
-                            }}
+        <div className="bg-white pt-8 pb-6 px-4">
+            <div className="max-w-7xl mx-auto">
+                {/* En-tête */}
+                <div className="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 className="text-2xl font-bold text-gray-900">Catégories</h2>
+                        <div className="w-12 h-0.5 bg-red-500 rounded-full mt-2"></div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button 
+                            onClick={() => navigate('/categories')}
+                            className="text-sm text-gray-500 hover:text-red-500 transition flex items-center gap-1"
                         >
-                            <div className='rounded-full w-16 h-16 flex items-center justify-center overflow-hidden'
-                                style={{ backgroundColor: category.bgColor || '#f0f0f0' }}>
-                                {category.image ? (
-                                    <img 
-                                        src={category.image} 
-                                        alt={category.name} 
-                                        className='group-hover:scale-108 transition w-full h-full object-cover'
-                                    />
-                                ) : (
-                                    <span className="text-2xl">📁</span>
-                                )}
-                            </div>
-                            <p className='text-xs font-medium text-center'>{category.name}</p>
-                        </div>
-                    ))}
+                            <Grid size={14} />
+                            Voir tout
+                        </button>
+                    </div>
                 </div>
 
-                {/* Flèche droite - visible sur TOUS les écrans */}
-                {showRightArrow && (
-                    <button 
-                        onClick={scrollRight}
-                        className='absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow-md rounded-full w-8 h-8 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition border border-gray-200'
-                    >
-                        ›
-                    </button>
-                )}
+                {/* Carrousel */}
+                <div className='relative'>
+                    
+                    {/* Flèche gauche */}
+                    {showLeftArrow && (
+                        <button 
+                            onClick={scrollLeft}
+                            className='absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow-lg rounded-full w-10 h-10 flex items-center justify-center text-gray-700 hover:bg-gray-100 hover:text-red-500 transition border border-gray-200 -ml-3'
+                        >
+                            <ChevronLeft size={20} />
+                        </button>
+                    )}
 
+                    {/* Liste des catégories */}
+                    <div 
+                        ref={scrollRef} 
+                        onScroll={checkScrollPosition}
+                        className='flex overflow-x-auto gap-4 pb-3 px-2 scroll-smooth'
+                        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                    >
+                        <style>{`
+                            div::-webkit-scrollbar {
+                                display: none;
+                            }
+                        `}</style>
+                        
+                        {categories.map((category, index) => (
+                            <div key={index}
+                                className='group cursor-pointer flex-shrink-0 w-24 text-center transition-transform hover:-translate-y-1 duration-200'
+                                onClick={() => {
+                                    navigate(`/products?categories=${category.slug}`);
+                                    scrollTo(0, 0);
+                                }}
+                            >
+                                {/* Cercle image */}
+                                <div className='relative mx-auto mb-3'>
+                                    <div className='w-20 h-20 rounded-full overflow-hidden shadow-md transition-all duration-300 group-hover:shadow-lg group-hover:scale-105'
+                                        style={{ backgroundColor: category.bgColor || '#f3f4f6' }}>
+                                        {category.image ? (
+                                            <img 
+                                                src={category.image} 
+                                                alt={category.name} 
+                                                className='w-full h-full object-cover'
+                                            />
+                                        ) : (
+                                            <div className='w-full h-full flex items-center justify-center'>
+                                                <Package size={28} className="text-gray-400" />
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                
+                                {/* Nom */}
+                                <p className='text-sm font-medium text-gray-700 group-hover:text-red-500 transition line-clamp-1'>
+                                    {category.name}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Flèche droite */}
+                    {showRightArrow && (
+                        <button 
+                            onClick={scrollRight}
+                            className='absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow-lg rounded-full w-10 h-10 flex items-center justify-center text-gray-700 hover:bg-gray-100 hover:text-red-500 transition border border-gray-200 -mr-3'
+                        >
+                            <ChevronRight size={20} />
+                        </button>
+                    )}
+
+                </div>
             </div>
         </div>
     )
