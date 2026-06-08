@@ -144,7 +144,7 @@ const Dashboard = () => {
                     labels: ['Paiement à la livraison', 'Carte bancaire', 'Mobile Money'],
                     datasets: [{
                         data: [paymentCount.COD, paymentCount.Online, paymentCount.GeniusPay],
-                        backgroundColor: ['#F59E0B', '#3B82F6', '#10B981'],
+                        backgroundColor: ['#111111', '#e53935', '#333333'],
                         borderWidth: 0,
                     }]
                 })
@@ -199,11 +199,11 @@ const Dashboard = () => {
             datasets: [{
                 label: `Chiffre d'affaires (${currency})`,
                 data: monthlyData,
-                borderColor: '#10B981',
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                borderColor: '#e53935',
+                backgroundColor: 'rgba(229, 57, 53, 0.05)',
                 tension: 0.4,
                 fill: true,
-                pointBackgroundColor: '#10B981',
+                pointBackgroundColor: '#e53935',
                 pointBorderColor: '#fff',
                 pointBorderWidth: 2,
                 pointRadius: 4,
@@ -233,7 +233,7 @@ const Dashboard = () => {
             datasets: [{
                 label: 'Ventes par catégorie',
                 data: sortedCategories.map(c => c[1]),
-                backgroundColor: ['#10B981', '#3B82F6', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4'],
+                backgroundColor: ['#111111', '#e53935', '#333333', '#e53935', '#111111', '#e53935'],
                 borderRadius: 8,
             }]
         })
@@ -259,7 +259,7 @@ const Dashboard = () => {
             labels: ['Commandée', 'Confirmée', 'Expédiée', 'En livraison', 'Livrée', 'Annulée'],
             datasets: [{
                 data: Object.values(statusCount),
-                backgroundColor: ['#F59E0B', '#3B82F6', '#8B5CF6', '#F97316', '#10B981', '#EF4444'],
+                backgroundColor: ['#111111', '#333333', '#e53935', '#e53935', '#10b981', '#e53935'],
                 borderWidth: 0,
             }]
         })
@@ -269,7 +269,6 @@ const Dashboard = () => {
         fetchDashboardData()
     }, [])
 
-    // Analyse mensuelle (mois sélectionné)
     const selectedMonthRevenue = monthlySalesData[selectedMonth] || 0
     const selectedMonthOrders = allOrders.filter(o => new Date(o.createdAt).getMonth() === selectedMonth).length
     const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
@@ -278,7 +277,7 @@ const Dashboard = () => {
         return (
             <div className="flex items-center justify-center h-[80vh]">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto"></div>
                     <p className="mt-4 text-gray-500">Chargement du tableau de bord...</p>
                 </div>
             </div>
@@ -286,46 +285,101 @@ const Dashboard = () => {
     }
 
     return (
-        <div className="no-scrollbar flex-1 h-[95vh] overflow-y-scroll">
-            <div className="md:p-10 p-4 space-y-6">
+        <div className="no-scrollbar flex-1 h-[95vh] overflow-y-scroll bg-gray-50">
+            <div className="md:p-8 p-4 space-y-6">
                 
                 {/* En-tête */}
                 <div className="flex justify-between items-center flex-wrap gap-3">
                     <div>
-                        <h2 className="text-2xl font-bold text-gray-800">Tableau de bord</h2>
-                        <p className="text-gray-500 text-sm">Vue d'ensemble et analyses avancées</p>
+                        <h2 className="text-2xl font-bold text-gray-900">Tableau de bord</h2>
+                        <p className="text-gray-500 text-sm mt-1">Vue d'ensemble et analyses avancées</p>
+                        <div className="w-16 h-0.5 bg-red-500 rounded-full mt-2"></div>
                     </div>
-                    <button onClick={fetchDashboardData} className="text-primary hover:bg-primary/10 p-2 rounded-full transition">🔄 Actualiser</button>
+                    <button 
+                        onClick={fetchDashboardData} 
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition shadow-sm"
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                        Actualiser
+                    </button>
                 </div>
 
-                {/* KPI Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-5 text-white shadow-lg">
-                        <p className="text-sm opacity-90">Commandes totales</p>
-                        <p className="text-3xl font-bold">{stats.totalOrders}</p>
+                {/* KPI Cards - Thème Noir/Rouge */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm text-gray-500">Commandes totales</p>
+                                <p className="text-3xl font-bold text-gray-900 mt-1">{stats.totalOrders}</p>
+                            </div>
+                            <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#e53935" strokeWidth="1.8">
+                                    <rect x="2" y="4" width="20" height="16" rx="2"/>
+                                    <line x1="8" y1="2" x2="8" y2="6"/>
+                                    <line x1="16" y1="2" x2="16" y2="6"/>
+                                    <line x1="2" y1="10" x2="22" y2="10"/>
+                                </svg>
+                            </div>
+                        </div>
                     </div>
-                    <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-5 text-white shadow-lg">
-                        <p className="text-sm opacity-90">Chiffre d'affaires</p>
-                        <p className="text-2xl font-bold">{stats.totalRevenue.toLocaleString()} {currency}</p>
+                    
+                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm text-gray-500">Chiffre d'affaires</p>
+                                <p className="text-2xl font-bold text-gray-900 mt-1">{stats.totalRevenue.toLocaleString()} {currency}</p>
+                            </div>
+                            <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="1.8">
+                                    <line x1="12" y1="1" x2="12" y2="23"/>
+                                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                                </svg>
+                            </div>
+                        </div>
                     </div>
-                    <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-xl p-5 text-white shadow-lg">
-                        <p className="text-sm opacity-90">Panier moyen</p>
-                        <p className="text-2xl font-bold">{Math.round(stats.avgOrderValue).toLocaleString()} {currency}</p>
+                    
+                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm text-gray-500">Panier moyen</p>
+                                <p className="text-2xl font-bold text-gray-900 mt-1">{Math.round(stats.avgOrderValue).toLocaleString()} {currency}</p>
+                            </div>
+                            <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="1.8">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <path d="M12 6v6l4 2"/>
+                                </svg>
+                            </div>
+                        </div>
                     </div>
-                    <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-5 text-white shadow-lg">
-                        <p className="text-sm opacity-90">Taux de livraison</p>
-                        <p className="text-2xl font-bold">{Math.round(stats.conversionRate)}%</p>
+                    
+                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm text-gray-500">Taux de livraison</p>
+                                <p className="text-2xl font-bold text-gray-900 mt-1">{Math.round(stats.conversionRate)}%</p>
+                            </div>
+                            <div className="w-12 h-12 bg-orange-50 rounded-full flex items-center justify-center">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="1.8">
+                                    <path d="M22 12A10 10 0 0 0 12 2v10z"/>
+                                    <path d="M12 2a10 10 0 0 0 0 20"/>
+                                </svg>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                {/* Analyse mensuelle personnalisée */}
-                <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-                    <h3 className="font-semibold text-gray-800 mb-4">📆 Analyse mensuelle</h3>
+                {/* Analyse mensuelle */}
+                <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                    <h3 className="font-semibold text-gray-900 mb-4">Analyse mensuelle</h3>
                     <div className="flex flex-wrap gap-4 mb-4">
                         <select 
                             value={selectedMonth}
                             onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                            className="text-sm border border-gray-300 rounded-md px-3 py-2 outline-none"
+                            className="text-sm border border-gray-200 rounded-xl px-4 py-2 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
                         >
                             {monthNames.map((month, idx) => (
                                 <option key={idx} value={idx}>{month}</option>
@@ -333,29 +387,29 @@ const Dashboard = () => {
                         </select>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-gray-50 rounded-lg p-4 text-center">
+                        <div className="bg-gray-50 rounded-xl p-5 text-center">
                             <p className="text-sm text-gray-500">Chiffre d'affaires</p>
-                            <p className="text-2xl font-bold text-primary">{selectedMonthRevenue.toLocaleString()} {currency}</p>
+                            <p className="text-2xl font-bold text-red-500">{selectedMonthRevenue.toLocaleString()} {currency}</p>
                         </div>
-                        <div className="bg-gray-50 rounded-lg p-4 text-center">
+                        <div className="bg-gray-50 rounded-xl p-5 text-center">
                             <p className="text-sm text-gray-500">Nombre de commandes</p>
-                            <p className="text-2xl font-bold text-primary">{selectedMonthOrders}</p>
+                            <p className="text-2xl font-bold text-gray-900">{selectedMonthOrders}</p>
                         </div>
                     </div>
                 </div>
 
-                {/* Graphiques principaux */}
+                {/* Graphiques */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     
                     {/* CA mensuel */}
-                    <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+                    <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="font-semibold text-gray-800">📈 Évolution du CA</h3>
+                            <h3 className="font-semibold text-gray-900">Évolution du CA</h3>
                             {availableYears.length > 0 && (
                                 <select 
                                     value={selectedYear}
                                     onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                                    className="text-sm border border-gray-300 rounded-md px-3 py-1 outline-none"
+                                    className="text-sm border border-gray-200 rounded-xl px-3 py-1.5 outline-none focus:border-red-500"
                                 >
                                     {availableYears.map(year => (
                                         <option key={year} value={year}>{year}</option>
@@ -367,8 +421,8 @@ const Dashboard = () => {
                     </div>
 
                     {/* Répartition des statuts */}
-                    <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                        <h3 className="font-semibold text-gray-800 mb-4">🥧 Répartition des commandes</h3>
+                    <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                        <h3 className="font-semibold text-gray-900 mb-4">Répartition des commandes</h3>
                         <div className="w-64 mx-auto">
                             {statusChartData.datasets && <Doughnut data={statusChartData} options={{ responsive: true }} />}
                         </div>
@@ -379,14 +433,14 @@ const Dashboard = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     
                     {/* Ventes par catégorie */}
-                    <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                        <h3 className="font-semibold text-gray-800 mb-4">📊 Ventes par catégorie</h3>
+                    <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                        <h3 className="font-semibold text-gray-900 mb-4">Ventes par catégorie</h3>
                         {categoryChartData.datasets && <Bar data={categoryChartData} options={{ responsive: true }} />}
                     </div>
 
                     {/* Moyens de paiement */}
-                    <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                        <h3 className="font-semibold text-gray-800 mb-4">💳 Moyens de paiement</h3>
+                    <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                        <h3 className="font-semibold text-gray-900 mb-4">Moyens de paiement</h3>
                         <div className="w-64 mx-auto">
                             {paymentChartData.datasets && <Doughnut data={paymentChartData} options={{ responsive: true }} />}
                         </div>
@@ -397,8 +451,8 @@ const Dashboard = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     
                     {/* Ventes 7 jours */}
-                    <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                        <h3 className="font-semibold text-gray-800 mb-4">📅 Ventes (7 derniers jours)</h3>
+                    <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                        <h3 className="font-semibold text-gray-900 mb-4">Ventes (7 derniers jours)</h3>
                         {dailySales.length > 0 && (
                             <Bar 
                                 data={{
@@ -410,7 +464,7 @@ const Dashboard = () => {
                                     datasets: [{
                                         label: `Ventes (${currency})`,
                                         data: dailySales,
-                                        backgroundColor: '#10B981',
+                                        backgroundColor: '#e53935',
                                         borderRadius: 8,
                                     }]
                                 }}
@@ -420,16 +474,16 @@ const Dashboard = () => {
                     </div>
 
                     {/* Top 5 produits */}
-                    <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                        <h3 className="font-semibold text-gray-800 mb-4">🏆 Top 5 produits</h3>
+                    <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                        <h3 className="font-semibold text-gray-900 mb-4">Top 5 produits</h3>
                         {topProducts.length === 0 ? (
                             <p className="text-gray-400 text-center py-8">Aucune donnée</p>
                         ) : (
                             <div className="space-y-3">
                                 {topProducts.map((product, idx) => (
-                                    <div key={idx} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
-                                        <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center font-bold text-primary">{idx + 1}</div>
-                                        {product.image && <img src={product.image} alt={product.name} className="w-10 h-10 object-cover rounded" />}
+                                    <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                                        <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center font-bold text-white text-sm">{idx + 1}</div>
+                                        {product.image && <img src={product.image} alt={product.name} className="w-12 h-12 object-cover rounded-lg" />}
                                         <div className="flex-1">
                                             <p className="font-medium text-gray-800 text-sm">{product.name}</p>
                                             <p className="text-xs text-gray-400">{product.quantity} vendus</p>
@@ -442,13 +496,13 @@ const Dashboard = () => {
                 </div>
 
                 {/* Stock faible */}
-                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-                    <div className="p-4 border-b border-gray-200 bg-gray-50">
-                        <h3 className="font-semibold text-gray-800">⚠️ Produits en stock faible (≤5)</h3>
+                <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                    <div className="p-5 border-b border-gray-100 bg-gray-50">
+                        <h3 className="font-semibold text-gray-900">⚠️ Produits en stock faible (≤5)</h3>
                     </div>
                     <div className="divide-y divide-gray-100">
                         {stats.lowStockProducts.length === 0 ? (
-                            <p className="p-4 text-gray-400 text-center">✅ Aucun produit en stock faible</p>
+                            <p className="p-5 text-gray-400 text-center">Aucun produit en stock faible</p>
                         ) : (
                             stats.lowStockProducts.map((product, idx) => {
                                 let minStock = null
@@ -457,7 +511,7 @@ const Dashboard = () => {
                                 return (
                                     <div key={idx} className="p-4 hover:bg-gray-50 transition">
                                         <div className="flex items-center gap-3">
-                                            <img src={product.image?.[0]} alt={product.name} className="w-12 h-12 object-cover rounded border" />
+                                            <img src={product.image?.[0]} alt={product.name} className="w-12 h-12 object-cover rounded-lg border border-gray-200" />
                                             <div className="flex-1">
                                                 <p className="font-medium text-gray-800">{product.name}</p>
                                                 <p className="text-xs text-gray-500">{product.category}</p>
@@ -476,9 +530,9 @@ const Dashboard = () => {
                 </div>
 
                 {/* Dernières commandes */}
-                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-                    <div className="p-4 border-b border-gray-200 bg-gray-50">
-                        <h3 className="font-semibold text-gray-800">📋 Dernières commandes</h3>
+                <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                    <div className="p-5 border-b border-gray-100 bg-gray-50">
+                        <h3 className="font-semibold text-gray-900">Dernières commandes</h3>
                     </div>
                     <div className="divide-y divide-gray-100">
                         {allOrders.slice(0, 5).map((order, idx) => (
@@ -489,7 +543,7 @@ const Dashboard = () => {
                                         <p className="text-xs text-gray-400">{new Date(order.createdAt).toLocaleDateString()}</p>
                                     </div>
                                     <div className="text-right">
-                                        <p className="font-bold text-primary">{order.amount.toLocaleString()} {currency}</p>
+                                        <p className="font-bold text-red-500">{order.amount.toLocaleString()} {currency}</p>
                                         <p className="text-xs text-gray-400">{order.paymentType === "COD" ? "Paiement à la livraison" : "Paiement en ligne"}</p>
                                     </div>
                                 </div>
