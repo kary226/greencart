@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 
 const SellerLayout = () => {
 
-    const { axios, navigate } = useAppContext();
+    const { axios, navigate, setIsSeller } = useAppContext();
 
     const sidebarLinks = [
         { name: "Tableau de bord", path: "/seller", icon: "dashboard" },
@@ -117,10 +117,17 @@ const SellerLayout = () => {
     const logout = async () => {
         try {
             const { data } = await axios.get('/api/seller/logout');
-            if (data.success) {
+            if(data.success){
+                // ✅ SUPPRIMER LE TOKEN ADMIN
+                localStorage.removeItem('sellerToken');
+                // ✅ SUPPRIMER LE HEADER AUTHORIZATION
+                delete axios.defaults.headers.common['Authorization'];
+                // ✅ RÉINITIALISER L'ÉTAT isSeller
+                setIsSeller(false);
                 toast.success(data.message);
-                navigate('/');
-            } else {
+                // ✅ REDIRIGER VERS LA PAGE DE CONNEXION ADMIN
+                navigate('/seller/login');
+            }else{
                 toast.error(data.message);
             }
         } catch (error) {

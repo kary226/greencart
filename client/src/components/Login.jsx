@@ -2,6 +2,7 @@ import React from 'react'
 import { Link } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext';
 import toast from 'react-hot-toast';
+import { X, Mail, Lock, User, LogIn, UserPlus } from 'lucide-react';
 
 const Login = () => {
 
@@ -34,54 +35,172 @@ const Login = () => {
     }
 
     return (
-        <div onClick={() => setShowUserLogin(false)} className='fixed top-0 bottom-0 left-0 right-0 z-30 flex items-center text-sm text-gray-600 bg-black/50'>
-
-            <form onSubmit={onSubmitHandler} onClick={(e) => e.stopPropagation()} className="flex flex-col gap-4 m-auto items-start p-8 py-12 w-80 sm:w-[352px] rounded-lg shadow-xl border border-gray-200 bg-white">
-                <p className="text-2xl font-medium m-auto">
-                    <span className="text-primary">GreenCart</span> {state === "login" ? "Connexion" : "Inscription"}
-                </p>
-                {state === "register" && (
-                    <>
-                        <div className="w-full">
-                            <p>Prénom</p>
-                            <input onChange={(e) => setFirstName(e.target.value)} value={firstName} placeholder="Votre prénom" className="border border-gray-200 rounded w-full p-2 mt-1 outline-primary" type="text" required />
-                        </div>
-                        <div className="w-full">
-                            <p>Nom</p>
-                            <input onChange={(e) => setLastName(e.target.value)} value={lastName} placeholder="Votre nom" className="border border-gray-200 rounded w-full p-2 mt-1 outline-primary" type="text" required />
-                        </div>
-                    </>
-                )}
-                <div className="w-full">
-                    <p>Email</p>
-                    <input onChange={(e) => setEmail(e.target.value)} value={email} placeholder="exemple@email.com" className="border border-gray-200 rounded w-full p-2 mt-1 outline-primary" type="email" required />
-                </div>
-                <div className="w-full">
-                    <p>Mot de passe</p>
-                    <input onChange={(e) => setPassword(e.target.value)} value={password} placeholder="Votre mot de passe" className="border border-gray-200 rounded w-full p-2 mt-1 outline-primary" type="password" required />
-                </div>
-                {state === "register" ? (
-                    <p>
-                        J'ai déjà un compte <span onClick={() => setState("login")} className="text-primary cursor-pointer">Se connecter</span>
-                    </p>
-                ) : (
-                    <>
-                        <p>
-                        Vous n'avez pas de compte ? <span onClick={() => setState("register")} className="text-primary cursor-pointer">Créer un compte</span>
-                        </p>
-                        <Link
-                            to="/forgot-password"
-                            onClick={() => setShowUserLogin(false)}
-                            className="text-sm text-primary hover:underline mt-1 block text-center"
-                        >
-                            Mot de passe oublié ?
-                        </Link>
-                    </>
-                )}
-                <button disabled={loading} className="bg-primary hover:bg-primary-dull transition-all text-white w-full py-2 rounded-md cursor-pointer disabled:opacity-50">
-                    {loading ? "Chargement..." : (state === "register" ? "S'inscrire" : "Se connecter")}
+        <div 
+            onClick={() => setShowUserLogin(false)} 
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-all"
+        >
+            <form 
+                onSubmit={onSubmitHandler} 
+                onClick={(e) => e.stopPropagation()} 
+                className="relative w-full max-w-md mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden animate-fade-in-up"
+            >
+                {/* Bouton fermer */}
+                <button
+                    type="button"
+                    onClick={() => setShowUserLogin(false)}
+                    className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition"
+                >
+                    <X size={18} />
                 </button>
+
+                {/* En-tête */}
+                <div className="text-center pt-8 pb-4">
+                    <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                        {state === "login" ? (
+                            <LogIn size={24} className="text-red-500" />
+                        ) : (
+                            <UserPlus size={24} className="text-red-500" />
+                        )}
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900">
+                        {state === "login" ? "Connexion" : "Créer un compte"}
+                    </h2>
+                    <p className="text-sm text-gray-500 mt-1">
+                        {state === "login" 
+                            ? "Connectez-vous à votre compte" 
+                            : "Inscrivez-vous pour commencer"}
+                    </p>
+                </div>
+
+                {/* Corps du formulaire */}
+                <div className="px-6 pb-6 space-y-4">
+                    {state === "register" && (
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Prénom</label>
+                                <div className="relative">
+                                    <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                    <input 
+                                        onChange={(e) => setFirstName(e.target.value)} 
+                                        value={firstName} 
+                                        placeholder="Votre prénom" 
+                                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition text-sm" 
+                                        type="text" 
+                                        required 
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Nom</label>
+                                <div className="relative">
+                                    <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                    <input 
+                                        onChange={(e) => setLastName(e.target.value)} 
+                                        value={lastName} 
+                                        placeholder="Votre nom" 
+                                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition text-sm" 
+                                        type="text" 
+                                        required 
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <div className="relative">
+                            <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input 
+                                onChange={(e) => setEmail(e.target.value)} 
+                                value={email} 
+                                placeholder="exemple@email.com" 
+                                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition text-sm" 
+                                type="email" 
+                                required 
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
+                        <div className="relative">
+                            <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input 
+                                onChange={(e) => setPassword(e.target.value)} 
+                                value={password} 
+                                placeholder="Votre mot de passe" 
+                                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition text-sm" 
+                                type="password" 
+                                required 
+                            />
+                        </div>
+                    </div>
+
+                    {state === "register" ? (
+                        <p className="text-center text-sm text-gray-500">
+                            J'ai déjà un compte{" "}
+                            <button 
+                                type="button"
+                                onClick={() => setState("login")} 
+                                className="text-red-500 font-medium hover:text-red-600 transition"
+                            >
+                                Se connecter
+                            </button>
+                        </p>
+                    ) : (
+                        <div className="space-y-2">
+                            <p className="text-center text-sm text-gray-500">
+                                Vous n'avez pas de compte ?{" "}
+                                <button 
+                                    type="button"
+                                    onClick={() => setState("register")} 
+                                    className="text-red-500 font-medium hover:text-red-600 transition"
+                                >
+                                    Créer un compte
+                                </button>
+                            </p>
+                            <Link
+                                to="/forgot-password"
+                                onClick={() => setShowUserLogin(false)}
+                                className="block text-center text-sm text-red-500 hover:text-red-600 transition"
+                            >
+                                Mot de passe oublié ?
+                            </Link>
+                        </div>
+                    )}
+
+                    <button 
+                        disabled={loading} 
+                        className="w-full mt-2 py-2.5 bg-red-500 text-white rounded-xl font-medium hover:bg-red-600 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                    >
+                        {loading ? (
+                            <div className="flex items-center justify-center gap-2">
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                <span>Chargement...</span>
+                            </div>
+                        ) : (
+                            state === "register" ? "S'inscrire" : "Se connecter"
+                        )}
+                    </button>
+                </div>
             </form>
+
+            <style>{`
+                @keyframes fade-in-up {
+                    from {
+                        opacity: 0;
+                        transform: translateY(20px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
+                .animate-fade-in-up {
+                    animation: fade-in-up 0.3s ease-out;
+                }
+            `}</style>
         </div>
     )
 }

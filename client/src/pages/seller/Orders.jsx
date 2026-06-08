@@ -6,29 +6,29 @@ import toast from 'react-hot-toast'
 import * as XLSX from 'xlsx'
 import { PDFDownloadLink } from '@react-pdf/renderer'
 import OrderReceiptPDF from '../../components/OrderReceiptPDF'
+import { Package, Calendar, Truck, CheckCircle, XCircle, Clock, Download, Filter, Search, RefreshCw, FileText, Eye } from 'lucide-react'
 
 const Orders = () => {
-    const {currency, axios} = useAppContext()
+    const { currency, axios } = useAppContext()
     const [orders, setOrders] = useState([])
     const [filteredOrders, setFilteredOrders] = useState([])
     const [updatingStatus, setUpdatingStatus] = useState(null)
     const [selectedImage, setSelectedImage] = useState(null)
     const location = useLocation()
     
-    // Filtres
     const [statusFilter, setStatusFilter] = useState('all')
     const [dateFilter, setDateFilter] = useState('all')
     const [searchTerm, setSearchTerm] = useState('')
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
 
-    const fetchOrders = async () =>{
+    const fetchOrders = async () => {
         try {
             const { data } = await axios.get('/api/order/seller');
-            if(data.success){
+            if (data.success) {
                 setOrders(data.orders)
                 setFilteredOrders(data.orders)
-            }else{
+            } else {
                 toast.error(data.message)
             }
         } catch (error) {
@@ -43,10 +43,10 @@ const Orders = () => {
                 orderId,
                 status: newStatus
             });
-            if(data.success){
+            if (data.success) {
                 toast.success(`Statut mis à jour : ${newStatus}`);
                 fetchOrders();
-            }else{
+            } else {
                 toast.error(data.message)
             }
         } catch (error) {
@@ -68,7 +68,22 @@ const Orders = () => {
         return statusMap[status] || status;
     };
 
-    // Fonction d'export Excel améliorée
+    const getStatusIcon = (status) => {
+        switch (status) {
+            case 'Delivered': return <CheckCircle size={14} className="text-green-600" />;
+            case 'Cancelled': return <XCircle size={14} className="text-red-600" />;
+            case 'Shipped': case 'Out for Delivery': return <Truck size={14} className="text-purple-600" />;
+            default: return <Clock size={14} className="text-blue-600" />;
+        }
+    };
+
+    const getStatusColor = (status) => {
+        if (status === 'Delivered') return 'bg-green-100 text-green-700';
+        if (status === 'Cancelled') return 'bg-red-100 text-red-700';
+        if (status === 'Shipped' || status === 'Out for Delivery') return 'bg-purple-100 text-purple-700';
+        return 'bg-blue-100 text-blue-700';
+    };
+
     const exportToExcel = () => {
         if (filteredOrders.length === 0) {
             toast.error('Aucune commande à exporter');
@@ -76,8 +91,6 @@ const Orders = () => {
         }
 
         const exportDateTime = new Date();
-        const formattedExportDate = exportDateTime.toLocaleDateString('fr-FR');
-        const formattedExportTime = exportDateTime.toLocaleTimeString('fr-FR');
 
         const exportData = filteredOrders.map(order => {
             const orderDate = new Date(order.createdAt);
@@ -111,13 +124,12 @@ const Orders = () => {
 
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Commandes');
-        const fileName = `commandes_GreenCart_${exportDateTime.toISOString().slice(0, 19).replace(/:/g, '-')}.xlsx`;
+        const fileName = `commandes_${exportDateTime.toISOString().slice(0, 19).replace(/:/g, '-')}.xlsx`;
         XLSX.writeFile(workbook, fileName);
         
         toast.success(`${filteredOrders.length} commande(s) exportée(s)`);
     };
 
-    // Appliquer les filtres
     useEffect(() => {
         let filtered = [...orders]
 
@@ -166,224 +178,252 @@ const Orders = () => {
         return filteredOrders.reduce((sum, order) => sum + order.amount, 0)
     }
 
-    useEffect(()=>{
+    useEffect(() => {
         fetchOrders();
-    },[location.pathname])
+    }, [location.pathname])
 
     return (
-        <>
-            <div className='no-scrollbar flex-1 h-[95vh] overflow-y-scroll'>
-                <div className="md:p-10 p-4 space-y-4">
-                    <div className="flex justify-between items-center flex-wrap gap-3">
-                        <div>
-                            <h2 className="text-lg font-medium">Liste des commandes</h2>
-                            {filteredOrders.length > 0 && (
-                                <p className="text-sm text-gray-500 mt-1">
-                                    Total des ventes : {getTotalSales()} {currency}
-                                </p>
-                            )}
-                        </div>
-                        <button
-                            onClick={exportToExcel}
-                            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition text-sm flex items-center gap-2"
-                        >
-                            📊 Exporter Excel ({filteredOrders.length})
-                        </button>
+        <div className="bg-gray-50 min-h-screen">
+            <div className="p-6 space-y-6">
+                {/* Header */}
+                <div className="flex justify-between items-center flex-wrap gap-3">
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">Commandes</h1>
+                        <p className="text-sm text-gray-500 mt-1">Gérez toutes les commandes des clients</p>
+                        {filteredOrders.length > 0 && (
+                            <p className="text-sm text-gray-500 mt-1">
+                                Total des ventes : <span className="font-semibold text-red-500">{getTotalSales().toLocaleString()} {currency}</span>
+                            </p>
+                        )}
                     </div>
-                    
-                    {/* Barre de filtres */}
-                    <div className="bg-gray-50 p-4 rounded-lg space-y-3">
-                        <div className="flex flex-wrap gap-3 items-center">
+                    <button
+                        onClick={exportToExcel}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 transition shadow-sm"
+                    >
+                        <Download size={16} />
+                        Exporter ({filteredOrders.length})
+                    </button>
+                </div>
+
+                {/* Filtres */}
+                <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+                    <div className="flex flex-wrap gap-3 items-center">
+                        <div className="flex items-center gap-2">
+                            <Filter size={16} className="text-gray-400" />
                             <select 
                                 value={statusFilter}
                                 onChange={(e) => setStatusFilter(e.target.value)}
-                                className="text-sm border border-gray-300 rounded-md px-3 py-2 outline-none"
+                                className="text-sm border border-gray-200 rounded-xl px-4 py-2 outline-none focus:border-red-500"
                             >
-                                <option value="all">📋 Tous les statuts ({orders.length})</option>
-                                <option value="Order Placed">🟡 Commandée ({getStatusCount('Order Placed')})</option>
-                                <option value="Confirmed">🔵 Confirmée ({getStatusCount('Confirmed')})</option>
-                                <option value="Shipped">🟣 Expédiée ({getStatusCount('Shipped')})</option>
-                                <option value="Out for Delivery">🟠 En livraison ({getStatusCount('Out for Delivery')})</option>
-                                <option value="Delivered">🟢 Livrée ({getStatusCount('Delivered')})</option>
-                                <option value="Cancelled">🔴 Annulée ({getStatusCount('Cancelled')})</option>
+                                <option value="all">Tous les statuts ({orders.length})</option>
+                                <option value="Order Placed">Commandée ({getStatusCount('Order Placed')})</option>
+                                <option value="Confirmed">Confirmée ({getStatusCount('Confirmed')})</option>
+                                <option value="Shipped">Expédiée ({getStatusCount('Shipped')})</option>
+                                <option value="Out for Delivery">En livraison ({getStatusCount('Out for Delivery')})</option>
+                                <option value="Delivered">Livrée ({getStatusCount('Delivered')})</option>
+                                <option value="Cancelled">Annulée ({getStatusCount('Cancelled')})</option>
                             </select>
+                        </div>
 
+                        <div className="flex items-center gap-2">
+                            <Calendar size={16} className="text-gray-400" />
                             <select 
                                 value={dateFilter}
                                 onChange={(e) => setDateFilter(e.target.value)}
-                                className="text-sm border border-gray-300 rounded-md px-3 py-2 outline-none"
+                                className="text-sm border border-gray-200 rounded-xl px-4 py-2 outline-none focus:border-red-500"
                             >
-                                <option value="all">📅 Toutes les dates</option>
-                                <option value="today">📆 Aujourd'hui</option>
-                                <option value="week">📆 Cette semaine</option>
-                                <option value="month">📆 Ce mois</option>
-                                <option value="custom">📆 Période personnalisée</option>
+                                <option value="all">Toutes les dates</option>
+                                <option value="today">Aujourd'hui</option>
+                                <option value="week">Cette semaine</option>
+                                <option value="month">Ce mois</option>
+                                <option value="custom">Période personnalisée</option>
                             </select>
-
-                            <input
-                                type="text"
-                                placeholder="🔍 Rechercher par n° commande"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="flex-1 min-w-[200px] text-sm border border-gray-300 rounded-md px-3 py-2 outline-none focus:border-primary"
-                            />
                         </div>
 
-                        {dateFilter === 'custom' && (
-                            <div className="flex flex-wrap gap-3">
-                                <input
-                                    type="date"
-                                    value={startDate}
-                                    onChange={(e) => setStartDate(e.target.value)}
-                                    className="text-sm border border-gray-300 rounded-md px-3 py-2 outline-none"
-                                />
-                                <span className="text-gray-500">→</span>
-                                <input
-                                    type="date"
-                                    value={endDate}
-                                    onChange={(e) => setEndDate(e.target.value)}
-                                    className="text-sm border border-gray-300 rounded-md px-3 py-2 outline-none"
-                                />
-                            </div>
-                        )}
-
-                        {(statusFilter !== 'all' || dateFilter !== 'all' || searchTerm) && (
-                            <button
-                                onClick={() => {
-                                    setStatusFilter('all')
-                                    setDateFilter('all')
-                                    setSearchTerm('')
-                                    setStartDate('')
-                                    setEndDate('')
-                                }}
-                                className="text-xs text-primary hover:underline"
-                            >
-                                ✕ Réinitialiser les filtres
-                            </button>
-                        )}
+                        <div className="flex-1 flex items-center gap-2 min-w-[200px]">
+                            <Search size={16} className="text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Rechercher par n° commande"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="flex-1 text-sm border border-gray-200 rounded-xl px-4 py-2 outline-none focus:border-red-500"
+                            />
+                        </div>
                     </div>
 
-                    <p className="text-sm text-gray-500">
-                        {filteredOrders.length} commande(s) affichée(s) sur {orders.length} totale(s)
-                    </p>
+                    {dateFilter === 'custom' && (
+                        <div className="flex flex-wrap gap-3 mt-4 pt-3 border-t border-gray-100">
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                                className="text-sm border border-gray-200 rounded-xl px-4 py-2 outline-none focus:border-red-500"
+                            />
+                            <span className="text-gray-400">→</span>
+                            <input
+                                type="date"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                                className="text-sm border border-gray-200 rounded-xl px-4 py-2 outline-none focus:border-red-500"
+                            />
+                        </div>
+                    )}
 
-                    {filteredOrders.length === 0 ? (
-                        <p className="text-gray-500 text-center py-10">Aucune commande ne correspond aux filtres</p>
-                    ) : (
-                        filteredOrders.map((order, index) => (
-                            <div key={index} className="flex flex-col p-5 max-w-4xl rounded-md border border-gray-300 space-y-3">
-                                
-                                <div className="flex flex-wrap justify-between items-center border-b border-gray-200 pb-2">
-                                    <p className="text-xs text-gray-400">📦 Commande : {order._id.slice(-8)}</p>
-                                    <p className="text-sm text-gray-500">📅 {new Date(order.createdAt).toLocaleDateString()}</p>
+                    {(statusFilter !== 'all' || dateFilter !== 'all' || searchTerm) && (
+                        <button
+                            onClick={() => {
+                                setStatusFilter('all')
+                                setDateFilter('all')
+                                setSearchTerm('')
+                                setStartDate('')
+                                setEndDate('')
+                            }}
+                            className="flex items-center gap-1 text-xs text-red-500 hover:text-red-600 mt-2"
+                        >
+                            <RefreshCw size={12} />
+                            Réinitialiser les filtres
+                        </button>
+                    )}
+                </div>
+
+                <p className="text-sm text-gray-500">
+                    {filteredOrders.length} commande(s) affichée(s) sur {orders.length} totale(s)
+                </p>
+
+                {filteredOrders.length === 0 ? (
+                    <div className="text-center py-16 bg-white rounded-xl border border-gray-100">
+                        <Package size={48} className="mx-auto text-gray-300 mb-4" />
+                        <p className="text-gray-500">Aucune commande ne correspond aux filtres</p>
+                    </div>
+                ) : (
+                    <div className="space-y-5">
+                        {filteredOrders.map((order, index) => (
+                            <div key={index} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition">
+                                {/* En-tête commande */}
+                                <div className="bg-gray-50 px-5 py-3 border-b border-gray-100 flex flex-wrap justify-between items-center gap-2">
+                                    <div className="flex items-center gap-3">
+                                        <Package size={16} className="text-gray-400" />
+                                        <span className="text-xs font-mono text-gray-500">#{order._id.slice(-8)}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <Calendar size={14} className="text-gray-400" />
+                                        <span className="text-xs text-gray-500">{new Date(order.createdAt).toLocaleDateString()}</span>
+                                    </div>
                                 </div>
 
-                                <div className="flex flex-col gap-5">
-                                    
-                                    <div className="flex gap-5">
-                                        <img className="w-12 h-12 object-cover" src={assets.box_icon} alt="boxIcon" />
-                                        <div className="flex-1">
-                                            {order.items.map((item, idx) => (
-                                                <div key={idx} className="flex items-center gap-3 mb-3 pb-2 border-b border-gray-100 last:border-0">
-                                                    {item.product?.image?.[0] && (
+                                <div className="p-5 space-y-4">
+                                    {/* Items */}
+                                    <div className="space-y-3">
+                                        {order.items.map((item, idx) => (
+                                            <div key={idx} className="flex gap-3 pb-3 border-b border-gray-100 last:border-0">
+                                                {item.product?.image?.[0] && (
+                                                    <div 
+                                                        className="w-14 h-14 rounded-lg overflow-hidden cursor-pointer bg-gray-100 flex-shrink-0"
+                                                        onClick={() => setSelectedImage(item.product.image[0])}
+                                                    >
                                                         <img 
                                                             src={item.product.image[0]} 
                                                             alt={item.product?.name || 'Produit'}
-                                                            className="w-14 h-14 object-cover rounded border border-gray-200 cursor-pointer hover:opacity-80 transition"
-                                                            onClick={() => setSelectedImage(item.product.image[0])}
+                                                            className="w-full h-full object-cover hover:opacity-80 transition"
                                                         />
-                                                    )}
-                                                    <div className="flex-1">
-                                                        <p className="font-medium">
-                                                            {item.product?.name || 'Produit indisponible'}{" "} 
-                                                            <span className="text-primary">x {item.quantity}</span>
-                                                        </p>
-                                                        <div className="flex gap-2 mt-1 flex-wrap">
-                                                            {item.color && item.color !== 'null' && (
-                                                                <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">
-                                                                    🎨 {item.color}
-                                                                </span>
-                                                            )}
-                                                            {item.size && item.size !== 'null' && (
-                                                                <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full text-gray-600">
-                                                                     {item.size}
-                                                                </span>
-                                                            )}
-                                                        </div>
                                                     </div>
-                                                    <p className="font-medium text-primary whitespace-nowrap">
-                                                        {(item.priceAtOrder || item.product?.offerPrice || 0) * item.quantity}{currency}
+                                                )}
+                                                <div className="flex-1">
+                                                    <p className="font-medium text-gray-900">
+                                                        {item.product?.name || 'Produit indisponible'} 
+                                                        <span className="text-red-500 ml-1">x{item.quantity}</span>
                                                     </p>
+                                                    <div className="flex gap-2 mt-1">
+                                                        {item.color && item.color !== 'null' && (
+                                                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                                                                {item.color}
+                                                            </span>
+                                                        )}
+                                                        {item.size && item.size !== 'null' && (
+                                                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                                                                {item.size}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            ))}
-                                        </div>
+                                                <p className="font-medium text-red-500 whitespace-nowrap">
+                                                    {((item.priceAtOrder || item.product?.offerPrice || 0) * item.quantity).toLocaleString()} {currency}
+                                                </p>
+                                            </div>
+                                        ))}
                                     </div>
 
-                                    {/* SECTION LIVRAISON CORRIGÉE AVEC COMMUNE */}
-                                    <div className="text-sm md:text-base text-black/60 bg-gray-50 p-3 rounded-lg">
-                                        <p className='text-black/80 font-medium mb-1'>📍 Livraison</p>
-                                        <p>{order.address.firstName} {order.address.lastName}</p>
-                                        <p>{order.address.street}</p>
-                                        <p>{order.address.communeName}, {order.address.cityName || order.address.city}</p>
-                                        <p>{order.address.phone}</p>
+                                    {/* Adresse livraison */}
+                                    <div className="bg-gray-50 rounded-xl p-3">
+                                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Livraison</p>
+                                        <p className="text-sm text-gray-700">{order.address.firstName} {order.address.lastName}</p>
+                                        <p className="text-sm text-gray-600">{order.address.street}</p>
+                                        <p className="text-sm text-gray-600">{order.address.communeName}, {order.address.cityName || order.address.city}</p>
+                                        <p className="text-sm text-gray-600">{order.address.phone}</p>
                                     </div>
 
+                                    {/* Totaux */}
                                     <div className="flex flex-wrap justify-between items-center">
-                                        <div className="flex flex-col text-sm">
-                                            <p> {order.paymentType === "COD" ? "Paiement à la livraison" : "Paiement en ligne"}</p>
-                                            <p> {order.isPaid ? "✅ Payé" : "⏳ En attente"}</p>
+                                        <div>
+                                            <p className="text-xs text-gray-500">{order.paymentType === "COD" ? "Paiement à la livraison" : "Paiement en ligne"}</p>
+                                            <p className="text-xs text-gray-500 mt-0.5">{order.isPaid ? "Payé" : "En attente"}</p>
                                         </div>
-                                        <p className="font-bold text-xl text-primary">
-                                            Total: {order.amount}{currency}
+                                        <p className="text-xl font-bold text-red-500">
+                                            {order.amount.toLocaleString()} {currency}
                                         </p>
                                     </div>
-                                </div>
 
-                                <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-gray-200">
-                                    <div className="flex items-center gap-3">
-                                        <span className="text-sm font-medium text-gray-600">Statut :</span>
-                                        <span className={`text-sm px-3 py-1 rounded-full ${
-                                            order.status === 'Delivered' ? 'bg-emerald-100 text-emerald-700' :
-                                            order.status === 'Cancelled' ? 'bg-red-100 text-red-700' :
-                                            order.status === 'Shipped' || order.status === 'Out for Delivery' ? 'bg-purple-100 text-purple-700' :
-                                            'bg-blue-100 text-blue-700'
-                                        }`}>
-                                            {getStatusLabel(order.status)}
-                                        </span>
-                                    </div>
-                                    
-                                    <div className="flex items-center gap-2">
-                                        <select 
-                                            defaultValue={order.status}
-                                            onChange={(e) => updateOrderStatus(order._id, e.target.value)}
-                                            disabled={updatingStatus === order._id}
-                                            className="text-sm border border-gray-300 rounded-md px-3 py-1.5 outline-none focus:border-primary"
-                                        >
-                                            <option value="Order Placed">Commandée</option>
-                                            <option value="Confirmed">Confirmée</option>
-                                            <option value="Shipped">Expédiée</option>
-                                            <option value="Out for Delivery">En livraison</option>
-                                            <option value="Delivered">Livrée</option>
-                                            <option value="Cancelled">Annulée</option>
-                                        </select>
-                                        {updatingStatus === order._id && (
-                                            <span className="text-xs text-gray-400">Mise à jour...</span>
-                                        )}
-                                        <PDFDownloadLink
-                                            document={<OrderReceiptPDF order={order} currency={currency} />}
-                                            fileName={`facture_${order._id.slice(-8)}.pdf`}
-                                            className="text-sm bg-blue-50 text-blue-600 px-3 py-1 rounded hover:bg-blue-100 transition text-center"
-                                        >
-                                            {({ loading }) => loading ? '⏳...' : '📄 PDF'}
-                                        </PDFDownloadLink>
+                                    {/* Actions */}
+                                    <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-gray-100">
+                                        <div className="flex items-center gap-2">
+                                            {getStatusIcon(order.status)}
+                                            <span className={`text-xs px-2 py-1 rounded-full font-medium ${getStatusColor(order.status)}`}>
+                                                {getStatusLabel(order.status)}
+                                            </span>
+                                        </div>
+                                        
+                                        <div className="flex items-center gap-2">
+                                            <select 
+                                                defaultValue={order.status}
+                                                onChange={(e) => updateOrderStatus(order._id, e.target.value)}
+                                                disabled={updatingStatus === order._id}
+                                                className="text-sm border border-gray-200 rounded-xl px-3 py-1.5 outline-none focus:border-red-500"
+                                            >
+                                                <option value="Order Placed">Commandée</option>
+                                                <option value="Confirmed">Confirmée</option>
+                                                <option value="Shipped">Expédiée</option>
+                                                <option value="Out for Delivery">En livraison</option>
+                                                <option value="Delivered">Livrée</option>
+                                                <option value="Cancelled">Annulée</option>
+                                            </select>
+                                            {updatingStatus === order._id && (
+                                                <span className="text-xs text-gray-400">Mise à jour...</span>
+                                            )}
+                                            <PDFDownloadLink
+                                                document={<OrderReceiptPDF order={order} currency={currency} />}
+                                                fileName={`facture_${order._id.slice(-8)}.pdf`}
+                                                className="flex items-center gap-1.5 text-xs bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl hover:bg-blue-100 transition"
+                                            >
+                                                {({ loading }) => loading ? (
+                                                    <span>Chargement...</span>
+                                                ) : (
+                                                    <>
+                                                        <FileText size={12} />
+                                                        PDF
+                                                    </>
+                                                )}
+                                            </PDFDownloadLink>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        ))
-                    )}
-                </div>
+                        ))}
+                    </div>
+                )}
             </div>
 
+            {/* Modal image */}
             {selectedImage && (
                 <div 
                     className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center cursor-pointer"
@@ -393,18 +433,18 @@ const Orders = () => {
                         <img 
                             src={selectedImage} 
                             alt="Agrandissement"
-                            className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                            className="max-w-full max-h-[90vh] object-contain rounded-xl"
                         />
                         <button 
                             className="absolute top-2 right-2 bg-white rounded-full w-8 h-8 flex items-center justify-center text-black hover:bg-gray-200 transition"
                             onClick={() => setSelectedImage(null)}
                         >
-                            ✕
+                            <XCircle size={18} />
                         </button>
                     </div>
                 </div>
             )}
-        </>
+        </div>
     )
 }
 
