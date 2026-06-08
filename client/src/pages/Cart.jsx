@@ -3,7 +3,7 @@ import { useAppContext } from "../context/AppContext";
 import { assets } from "../assets/assets";
 import toast from "react-hot-toast";
 import CouponInput from "../components/CouponInput";
-import { ShoppingBag, Trash2, ArrowRight, MapPin, Truck, CreditCard, Tag, ChevronDown, Plus, X } from "lucide-react";
+import { ShoppingBag, Trash2, ArrowRight, MapPin, Truck, CreditCard, Plus } from "lucide-react";
 
 const Cart = () => {
     const { products, currency, cartItems, removeFromCart, getCartCount, updateCartItem, navigate, getCartAmount, axios, user, setCartItems, getProductIdFromKey } = useAppContext()
@@ -135,7 +135,6 @@ const Cart = () => {
     const originalAmount = getCartAmount();
     const finalAmount = (discountedAmount !== null ? discountedAmount : originalAmount) + deliveryPrice;
 
-    // Détection d'un paiement abandonné
     useEffect(() => {
         const pendingOrderId = sessionStorage.getItem('pendingOrderId');
         if (pendingOrderId && user) {
@@ -287,14 +286,14 @@ const Cart = () => {
         return (
             <div className="min-h-screen bg-white pt-20 pb-16 px-4">
                 <div className="max-w-md mx-auto text-center">
-                    <div className="w-24 h-24 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <ShoppingBag size={48} className="text-red-500" />
+                    <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <ShoppingBag size={40} className="text-red-500" />
                     </div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Votre panier est vide</h2>
-                    <p className="text-gray-500 mb-6">Ajoutez des produits à votre panier pour continuer</p>
+                    <h2 className="text-xl font-bold text-gray-900 mb-2">Votre panier est vide</h2>
+                    <p className="text-gray-500 text-sm mb-6">Ajoutez des produits à votre panier pour continuer</p>
                     <button 
                         onClick={() => navigate("/products")} 
-                        className="bg-black text-white px-6 py-3 rounded-full font-medium hover:bg-gray-800 transition shadow-lg"
+                        className="bg-black text-white px-5 py-2.5 rounded-full text-sm font-medium hover:bg-gray-800 transition shadow-lg"
                     >
                         Découvrir nos produits
                     </button>
@@ -304,42 +303,42 @@ const Cart = () => {
     }
 
     return (
-        <div className="min-h-screen bg-white pt-20 pb-24">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="min-h-screen bg-white pt-16 pb-24">
+            <div className="max-w-7xl mx-auto px-4">
                 {/* En-tête */}
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900">Mon panier</h1>
-                    <p className="text-gray-500 mt-1">{getCartCount()} article(s)</p>
-                    <div className="w-20 h-1 bg-red-500 rounded-full mt-3"></div>
+                <div className="mb-6">
+                    <h1 className="text-2xl font-bold text-gray-900">Mon panier</h1>
+                    <p className="text-gray-500 text-sm mt-1">{getCartCount()} article(s)</p>
+                    <div className="w-16 h-0.5 bg-red-500 rounded-full mt-2"></div>
                 </div>
 
-                <div className="grid lg:grid-cols-3 gap-8">
+                <div className="flex flex-col lg:flex-row lg:gap-8">
                     {/* Colonne gauche - Produits */}
-                    <div className="lg:col-span-2 space-y-4">
+                    <div className="flex-1 space-y-3">
                         {cartArray.map((product, index) => (
-                            <div key={index} className="bg-white border border-gray-100 rounded-2xl p-4 hover:shadow-md transition-shadow">
-                                <div className="flex gap-4">
+                            <div key={index} className="bg-white border border-gray-100 rounded-xl p-3">
+                                <div className="flex gap-3">
                                     <div 
                                         onClick={() => {
                                             navigate(`/products/${product.category?.toLowerCase() || 'all'}/${product._id}`);
                                             scrollTo(0, 0)
                                         }} 
-                                        className="w-24 h-24 rounded-xl overflow-hidden cursor-pointer bg-gray-50 flex-shrink-0"
+                                        className="w-20 h-20 rounded-lg overflow-hidden cursor-pointer bg-gray-50 flex-shrink-0"
                                     >
                                         <img src={product.image[0]} alt={product.name} className="w-full h-full object-cover" />
                                     </div>
                                     <div className="flex-1">
-                                        <div className="flex justify-between items-start">
+                                        <div className="flex justify-between items-start gap-2">
                                             <div>
-                                                <h3 className="font-semibold text-gray-900">{product.name}</h3>
-                                                <div className="flex gap-2 mt-1">
+                                                <h3 className="font-semibold text-gray-900 text-sm">{product.name}</h3>
+                                                <div className="flex flex-wrap gap-1 mt-1">
                                                     {product.selectedColor && (
-                                                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                                                        <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
                                                             {product.selectedColor}
                                                         </span>
                                                     )}
                                                     {product.selectedSize && (
-                                                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                                                        <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
                                                             {product.selectedSize}
                                                         </span>
                                                     )}
@@ -349,12 +348,12 @@ const Cart = () => {
                                                 onClick={() => removeFromCart(product.cartKey)} 
                                                 className="text-gray-400 hover:text-red-500 transition"
                                             >
-                                                <Trash2 size={18} />
+                                                <Trash2 size={16} />
                                             </button>
                                         </div>
-                                        <div className="flex justify-between items-end mt-4">
-                                            <div className="flex items-center gap-3">
-                                                <span className="text-sm text-gray-500">Qté :</span>
+                                        <div className="flex flex-wrap justify-between items-end mt-3 gap-2">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs text-gray-500">Qté :</span>
                                                 <select 
                                                     onChange={e => {
                                                         const newQty = Number(e.target.value)
@@ -365,19 +364,19 @@ const Cart = () => {
                                                         updateCartItem(product.cartKey, newQty)
                                                     }} 
                                                     value={product.quantity}
-                                                    className="border border-gray-200 rounded-lg px-3 py-1 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                                                    className="border border-gray-200 rounded-lg px-2 py-1 text-xs focus:border-red-500"
                                                 >
                                                     {Array(Math.min(product.variantStock || 10, 10)).fill('').map((_, i) => (
                                                         <option key={i} value={i + 1}>{i + 1}</option>
                                                     ))}
                                                 </select>
                                                 {product.variantStock !== null && (
-                                                    <span className={`text-xs ${product.variantStock === 0 ? 'text-red-500' : product.variantStock <= 5 ? 'text-orange-500' : 'text-green-600'}`}>
-                                                        ({product.variantStock} en stock)
+                                                    <span className={`text-[10px] ${product.variantStock === 0 ? 'text-red-500' : product.variantStock <= 5 ? 'text-orange-500' : 'text-green-600'}`}>
+                                                        ({product.variantStock})
                                                     </span>
                                                 )}
                                             </div>
-                                            <p className="font-bold text-gray-900">{product.offerPrice * product.quantity} {currency}</p>
+                                            <p className="font-bold text-gray-900 text-sm">{product.offerPrice * product.quantity} {currency}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -386,45 +385,45 @@ const Cart = () => {
 
                         <button 
                             onClick={() => { navigate("/products"); scrollTo(0, 0) }} 
-                            className="flex items-center gap-2 text-gray-500 hover:text-black transition mt-4"
+                            className="flex items-center gap-1 text-gray-500 hover:text-black transition text-sm mt-2"
                         >
-                            <ArrowRight size={16} className="group-hover:translate-x-1 transition" />
+                            <ArrowRight size={14} />
                             Continuer mes achats
                         </button>
                     </div>
 
-                    {/* Colonne droite - Récapitulatif */}
-                    <div className="lg:col-span-1">
-                        <div className="bg-gray-50 rounded-2xl p-6 sticky top-24">
-                            <h2 className="text-xl font-bold text-gray-900 mb-6">Récapitulatif</h2>
+                    {/* Colonne droite - Récapitulatif (mobile : en bas, desktop : sticky) */}
+                    <div className="lg:w-96 mt-6 lg:mt-0">
+                        <div className="bg-gray-50 rounded-xl p-5 sticky top-20">
+                            <h2 className="text-lg font-bold text-gray-900 mb-4">Récapitulatif</h2>
                             
                             {/* Adresse */}
-                            <div className="mb-6">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <MapPin size={18} className="text-red-500" />
-                                    <span className="text-sm font-medium text-gray-700">Adresse de livraison</span>
+                            <div className="mb-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <MapPin size={16} className="text-red-500" />
+                                    <span className="text-xs font-medium text-gray-700 uppercase tracking-wide">Adresse de livraison</span>
                                 </div>
-                                <div className="bg-white rounded-xl p-3">
-                                    <div className="flex justify-between items-start">
-                                        <p className="text-sm text-gray-600 flex-1">{formatAddress(selectedAddress)}</p>
-                                        <button onClick={() => setShowAddress(!showAddress)} className="text-red-500 text-sm font-medium hover:text-red-600">
+                                <div className="bg-white rounded-lg p-3">
+                                    <div className="flex justify-between items-start gap-2">
+                                        <p className="text-xs text-gray-600 flex-1">{formatAddress(selectedAddress)}</p>
+                                        <button onClick={() => setShowAddress(!showAddress)} className="text-red-500 text-xs font-medium shrink-0">
                                             Changer
                                         </button>
                                     </div>
                                     {showAddress && (
-                                        <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
+                                        <div className="mt-2 pt-2 border-t border-gray-100 space-y-2">
                                             {addresses.map((address, idx) => (
-                                                <div key={idx} className="flex justify-between items-center text-sm">
-                                                    <p className="text-gray-600 cursor-pointer hover:text-black" onClick={() => { setSelectedAddress(address); setShowAddress(false) }}>
+                                                <div key={idx} className="flex justify-between items-center text-xs">
+                                                    <p className="text-gray-600 cursor-pointer hover:text-black flex-1" onClick={() => { setSelectedAddress(address); setShowAddress(false) }}>
                                                         {formatAddress(address)}
                                                     </p>
-                                                    <button onClick={() => deleteAddress(address._id)} className="text-red-400 text-xs hover:text-red-600">
+                                                    <button onClick={() => deleteAddress(address._id)} className="text-red-400 text-[10px] hover:text-red-600 ml-2">
                                                         Supprimer
                                                     </button>
                                                 </div>
                                             ))}
-                                            <button onClick={() => navigate("/add-address")} className="flex items-center gap-1 text-red-500 text-sm mt-2">
-                                                <Plus size={14} /> Ajouter une adresse
+                                            <button onClick={() => navigate("/add-address")} className="flex items-center gap-1 text-red-500 text-xs mt-2">
+                                                <Plus size={12} /> Ajouter une adresse
                                             </button>
                                         </div>
                                     )}
@@ -433,10 +432,10 @@ const Cart = () => {
 
                             {/* Livraison */}
                             {deliveryTypes.length > 0 && selectedAddress?.communeId && (
-                                <div className="mb-6">
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <Truck size={18} className="text-red-500" />
-                                        <span className="text-sm font-medium text-gray-700">Mode de livraison</span>
+                                <div className="mb-4">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Truck size={16} className="text-red-500" />
+                                        <span className="text-xs font-medium text-gray-700 uppercase tracking-wide">Mode de livraison</span>
                                     </div>
                                     <select 
                                         value={selectedDeliveryType?._id || ''} 
@@ -444,7 +443,7 @@ const Cart = () => {
                                             const type = deliveryTypes.find(t => t._id === e.target.value);
                                             setSelectedDeliveryType(type);
                                         }}
-                                        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                                        className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-red-500"
                                     >
                                         {deliveryTypes.map(type => <option key={type._id} value={type._id}>{type.name}</option>)}
                                     </select>
@@ -452,15 +451,15 @@ const Cart = () => {
                             )}
 
                             {/* Paiement */}
-                            <div className="mb-6">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <CreditCard size={18} className="text-red-500" />
-                                    <span className="text-sm font-medium text-gray-700">Moyen de paiement</span>
+                            <div className="mb-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <CreditCard size={16} className="text-red-500" />
+                                    <span className="text-xs font-medium text-gray-700 uppercase tracking-wide">Moyen de paiement</span>
                                 </div>
                                 <select 
                                     onChange={e => setPaymentOption(e.target.value)} 
                                     value={paymentOption}
-                                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                                    className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-red-500"
                                 >
                                     <option value="" disabled>Sélectionner un moyen de paiement</option>
                                     <option value="GeniusPay">Mobile Money (Wave, Orange, MTN)</option>
@@ -470,24 +469,24 @@ const Cart = () => {
                             <CouponInput amount={originalAmount} onCouponApplied={handleCouponApplied} />
 
                             {/* Totaux */}
-                            <div className="mt-6 pt-4 border-t border-gray-200 space-y-2">
-                                <div className="flex justify-between text-sm text-gray-600">
+                            <div className="mt-4 pt-3 border-t border-gray-200 space-y-1.5">
+                                <div className="flex justify-between text-xs text-gray-600">
                                     <span>Sous-total</span>
                                     <span>{originalAmount} {currency}</span>
                                 </div>
                                 {appliedCoupon && (
-                                    <div className="flex justify-between text-sm text-green-600">
+                                    <div className="flex justify-between text-xs text-green-600">
                                         <span>Réduction ({appliedCoupon.code})</span>
                                         <span>- {appliedCoupon.discountAmount} {currency}</span>
                                     </div>
                                 )}
-                                <div className="flex justify-between text-sm text-gray-600">
+                                <div className="flex justify-between text-xs text-gray-600">
                                     <span>Frais de livraison</span>
                                     <span className={deliveryPrice === 0 ? 'text-green-600' : ''}>
                                         {loadingDelivery ? 'Chargement...' : deliveryPrice === 0 ? 'Gratuit' : `${deliveryPrice} ${currency}`}
                                     </span>
                                 </div>
-                                <div className="flex justify-between text-xl font-bold text-gray-900 pt-2 border-t border-gray-200">
+                                <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t border-gray-200">
                                     <span>Total</span>
                                     <span className="text-red-500">{finalAmount} {currency}</span>
                                 </div>
@@ -495,7 +494,7 @@ const Cart = () => {
 
                             <button 
                                 onClick={placeOrder} 
-                                className="w-full mt-6 bg-black text-white py-3 rounded-full font-semibold hover:bg-gray-800 transition shadow-lg"
+                                className="w-full mt-5 bg-black text-white py-3 rounded-full font-semibold text-sm hover:bg-gray-800 transition shadow-md"
                             >
                                 Confirmer et payer
                             </button>

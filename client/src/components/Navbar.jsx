@@ -126,14 +126,12 @@ const Navbar = () => {
               </svg>
             </Link>
             
-            {/* ✅ NOUVEAU LOGO PANIER MODERNE */}
+            {/* ✅ VRAI LOGO PANIER MODERNE */}
             <Link to="/cart" className="ramci-nav-icon ramci-cart-icon" aria-label="Panier">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
                 <circle cx="9" cy="21" r="1.5" />
-                <circle cx="19" cy="21" r="1.5" />
-                <path d="M3 6h18" />
-                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                <circle cx="20" cy="21" r="1.5" />
               </svg>
               {cartCount > 0 && <span className="ramci-badge">{cartCount}</span>}
             </Link>
