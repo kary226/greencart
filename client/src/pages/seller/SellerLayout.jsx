@@ -126,7 +126,7 @@ const SellerLayout = () => {
                 setIsSeller(false);
                 toast.success(data.message);
                 // ✅ REDIRIGER VERS LA PAGE DE CONNEXION ADMIN
-                navigate('/seller/login');
+                navigate('/seller');
             }else{
                 toast.error(data.message);
             }
