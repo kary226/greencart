@@ -156,7 +156,7 @@ const Footer = () => {
                         &copy; {currentYear} RAMCI. Tous droits réservés.
                     </p>
                     <p className="text-xs text-gray-400 mt-1">
-                        Conçu avec ❤️ en Côte d'Ivoire
+                        
                     </p>
                 </div>
             </div>

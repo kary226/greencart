@@ -84,6 +84,7 @@ const Orders = () => {
         return 'bg-blue-100 text-blue-700';
     };
 
+    // ✅ FONCTION EXPORT EXCEL MODERNISÉE
     const exportToExcel = () => {
         if (filteredOrders.length === 0) {
             toast.error('Aucune commande à exporter');
@@ -92,38 +93,151 @@ const Orders = () => {
 
         const exportDateTime = new Date();
 
-        const exportData = filteredOrders.map(order => {
-            const orderDate = new Date(order.createdAt);
-            
-            return {
-                'N° Commande': order._id,
-                'Date commande': orderDate.toLocaleDateString('fr-FR'),
-                'Heure commande': orderDate.toLocaleTimeString('fr-FR'),
-                'Client': `${order.address.firstName} ${order.address.lastName}`,
-                'Téléphone': order.address.phone,
-                'Quartier': order.address.street || '-',
-                'Commune': order.address.communeName || '-',
-                'Ville': order.address.cityName || order.address.city || '-',
-                'Produits': order.items.map(item => 
-                    `${item.product?.name || 'Produit indisponible'} (x${item.quantity})${item.color ? ` - ${item.color}` : ''}${item.size ? ` - ${item.size}` : ''}`
-                ).join(', '),
-                'Montant Total': `${order.amount} ${currency}`,
-                'Statut': getStatusLabel(order.status),
-                'Paiement': order.paymentType === "COD" ? "Paiement à la livraison" : "Paiement en ligne",
-                'Payé': order.isPaid ? "Oui" : "Non"
-            };
-        });
+        // 1. Créer les données avec tri alphabétique par client
+        const exportData = filteredOrders
+            .map(order => {
+                const orderDate = new Date(order.createdAt);
+                
+                return {
+                    'N° Commande': order._id,
+                    'Date': orderDate.toLocaleDateString('fr-FR'),
+                    'Heure': orderDate.toLocaleTimeString('fr-FR'),
+                    'Client': `${order.address.firstName} ${order.address.lastName}`,
+                    'Téléphone': order.address.phone,
+                    'Quartier': order.address.street || '-',
+                    'Commune': order.address.communeName || '-',
+                    'Ville': order.address.cityName || order.address.city || '-',
+                    'Produits': order.items.map(item => 
+                        `${item.product?.name || 'Produit'} (x${item.quantity})${item.color ? ` ${item.color}` : ''}${item.size ? ` ${item.size}` : ''}`
+                    ).join(', '),
+                    'Montant': order.amount,
+                    'Statut': getStatusLabel(order.status),
+                    'Paiement': order.paymentType === "COD" ? "Paiement à la livraison" : "Paiement en ligne",
+                    'Payé': order.isPaid ? "Oui" : "Non"
+                };
+            })
+            .sort((a, b) => a['Client'].localeCompare(b['Client']));
 
+        // 2. Créer la feuille de calcul
         const worksheet = XLSX.utils.json_to_sheet(exportData);
-        
+
+        // 3. Définir les largeurs de colonnes
         worksheet['!cols'] = [
-            { wch: 25 }, { wch: 15 }, { wch: 12 }, { wch: 25 },
-            { wch: 15 }, { wch: 25 }, { wch: 15 }, { wch: 15 },
-            { wch: 60 }, { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 8 }
+            { wch: 28 },  // N° Commande
+            { wch: 12 },  // Date
+            { wch: 10 },  // Heure
+            { wch: 28 },  // Client
+            { wch: 15 },  // Téléphone
+            { wch: 25 },  // Quartier
+            { wch: 20 },  // Commune
+            { wch: 20 },  // Ville
+            { wch: 60 },  // Produits
+            { wch: 15 },  // Montant
+            { wch: 15 },  // Statut
+            { wch: 25 },  // Paiement
+            { wch: 8 }    // Payé
         ];
 
+        // 4. Style des en-têtes (noir, blanc, gras)
+        const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1:M1');
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+            const address = XLSX.utils.encode_cell({ r: 0, c: C });
+            if (!worksheet[address]) continue;
+            worksheet[address].s = {
+                font: { bold: true, sz: 11, color: { rgb: "FFFFFF" } },
+                fill: { fgColor: { rgb: "111111" }, patternType: "solid" },
+                alignment: { horizontal: "center", vertical: "center" }
+            };
+        }
+
+        // 5. Appliquer des couleurs conditionnelles pour les statuts
+        exportData.forEach((row, idx) => {
+            const rowNum = idx + 2; // +2 car la ligne 1 est l'en-tête
+            
+            // Colonne Statut (index K = 10)
+            const statusCell = XLSX.utils.encode_cell({ r: rowNum, c: 10 });
+            if (worksheet[statusCell]) {
+                let color = "000000";
+                if (row['Statut'] === 'Livrée') color = "10B981";
+                else if (row['Statut'] === 'Annulée') color = "EF4444";
+                else if (row['Statut'] === 'Expédiée' || row['Statut'] === 'En livraison') color = "8B5CF6";
+                else if (row['Statut'] === 'Confirmée') color = "3B82F6";
+                else color = "F59E0B";
+                
+                worksheet[statusCell].s = {
+                    font: { bold: true, color: { rgb: color } },
+                    alignment: { horizontal: "center" }
+                };
+            }
+            
+            // Colonne Montant (index J = 9)
+            const amountCell = XLSX.utils.encode_cell({ r: rowNum, c: 9 });
+            if (worksheet[amountCell]) {
+                worksheet[amountCell].s = {
+                    font: { bold: true },
+                    alignment: { horizontal: "right" },
+                    numFmt: '#,##0.00'
+                };
+            }
+            
+            // Colonne Payé (index M = 12)
+            const paidCell = XLSX.utils.encode_cell({ r: rowNum, c: 12 });
+            if (worksheet[paidCell]) {
+                worksheet[paidCell].s = {
+                    font: { bold: true, color: { rgb: row['Payé'] === 'Oui' ? "10B981" : "EF4444" } },
+                    alignment: { horizontal: "center" }
+                };
+            }
+        });
+
+        // 6. Créer le classeur
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Commandes');
+
+        // 7. Ajouter une feuille de récapitulatif
+        const summaryData = [
+            ['RAPPORT DES COMMANDES', ''],
+            ['Date d\'export', exportDateTime.toLocaleDateString('fr-FR')],
+            ['Heure d\'export', exportDateTime.toLocaleTimeString('fr-FR')],
+            ['Total commandes', filteredOrders.length],
+            ['Montant total', `${filteredOrders.reduce((sum, o) => sum + o.amount, 0).toLocaleString()} ${currency}`],
+            [''],
+            ['RÉPARTITION PAR STATUT', ''],
+            ...Object.entries({
+                'Commandée': orders.filter(o => o.status === 'Order Placed').length,
+                'Confirmée': orders.filter(o => o.status === 'Confirmed').length,
+                'Expédiée': orders.filter(o => o.status === 'Shipped').length,
+                'En livraison': orders.filter(o => o.status === 'Out for Delivery').length,
+                'Livrée': orders.filter(o => o.status === 'Delivered').length,
+                'Annulée': orders.filter(o => o.status === 'Cancelled').length
+            }).map(([label, count]) => [label, count]),
+            [''],
+            ['RÉPARTITION PAR PAIEMENT', ''],
+            ...Object.entries({
+                'Paiement à la livraison': orders.filter(o => o.paymentType === 'COD').length,
+                'Paiement en ligne': orders.filter(o => o.paymentType !== 'COD').length
+            }).map(([label, count]) => [label, count])
+        ];
+
+        const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+        summarySheet['!cols'] = [{ wch: 30 }, { wch: 20 }];
+        
+        // Style pour l'en-tête du résumé
+        const summaryRange = XLSX.utils.decode_range(summarySheet['!ref'] || 'A1:B1');
+        for (let C = summaryRange.s.c; C <= summaryRange.e.c; ++C) {
+            const address = XLSX.utils.encode_cell({ r: 0, c: C });
+            if (summarySheet[address]) {
+                summarySheet[address].s = {
+                    font: { bold: true, sz: 14, color: { rgb: "FFFFFF" } },
+                    fill: { fgColor: { rgb: "111111" }, patternType: "solid" },
+                    alignment: { horizontal: "center" }
+                };
+            }
+        }
+
+        XLSX.utils.book_append_sheet(workbook, summarySheet, 'Résumé');
+
+        // 8. Sauvegarder le fichier
         const fileName = `commandes_${exportDateTime.toISOString().slice(0, 19).replace(/:/g, '-')}.xlsx`;
         XLSX.writeFile(workbook, fileName);
         
