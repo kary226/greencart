@@ -154,6 +154,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 10,
         borderBottomWidth: 1,
         borderBottomColor: '#f3f4f6',
+        backgroundColor: '#ffffff',
     },
     productCol: { width: '45%', fontSize: 9, color: '#374151' },
     qtyCol: { width: '15%', fontSize: 9, color: '#374151', textAlign: 'center' },
@@ -243,6 +244,10 @@ const getStatusLabel = (status) => {
     return map[status] || status;
 };
 
+const formatPrice = (price) => {
+    return price.toLocaleString('fr-FR').replace(/,/g, ' ') + ' FCFA';
+};
+
 const OrderReceiptPDF = ({ order, currency }) => {
     if (!order || !order.address) {
         return (
@@ -259,8 +264,10 @@ const OrderReceiptPDF = ({ order, currency }) => {
     const orderDate = new Date(order.createdAt);
     const subtotal = order.items.reduce((sum, item) => 
         sum + ((item.priceAtOrder || item.product?.offerPrice || 0) * item.quantity), 0);
-    const discount = subtotal - order.amount;
+    const discount = order.discountAmount || 0;
+    const couponCode = order.couponApplied || null;
     const shipping = order.deliveryPrice || 0;
+    const total = order.amount;
 
     return (
         <Document>
@@ -335,10 +342,10 @@ const OrderReceiptPDF = ({ order, currency }) => {
                             </Text>
                             <Text style={styles.qtyCol}>{item.quantity}</Text>
                             <Text style={styles.priceCol}>
-                                {(item.priceAtOrder || item.product?.offerPrice || 0).toLocaleString()} {currency}
+                                {formatPrice(item.priceAtOrder || item.product?.offerPrice || 0)}
                             </Text>
                             <Text style={styles.totalCol}>
-                                {((item.priceAtOrder || item.product?.offerPrice || 0) * item.quantity).toLocaleString()} {currency}
+                                {formatPrice((item.priceAtOrder || item.product?.offerPrice || 0) * item.quantity)}
                             </Text>
                         </View>
                     ))}
@@ -349,23 +356,23 @@ const OrderReceiptPDF = ({ order, currency }) => {
                     <View style={styles.totalsBox}>
                         <View style={styles.totalRow}>
                             <Text style={styles.totalLabel}>Sous-total</Text>
-                            <Text style={styles.totalValue}>{subtotal.toLocaleString()} {currency}</Text>
+                            <Text style={styles.totalValue}>{formatPrice(subtotal)}</Text>
                         </View>
                         {discount > 0 && (
                             <View style={styles.totalRow}>
-                                <Text style={styles.totalLabel}>Réduction</Text>
-                                <Text style={[styles.totalValue, { color: '#e53935' }]}>- {discount.toLocaleString()} {currency}</Text>
+                                <Text style={styles.totalLabel}>
+                                    Réduction {couponCode ? `(${couponCode})` : ''}
+                                </Text>
+                                <Text style={[styles.totalValue, { color: '#e53935' }]}>- {formatPrice(discount)}</Text>
                             </View>
                         )}
-                        {shipping > 0 && (
-                            <View style={styles.totalRow}>
-                                <Text style={styles.totalLabel}>Livraison</Text>
-                                <Text style={styles.totalValue}>{shipping.toLocaleString()} {currency}</Text>
-                            </View>
-                        )}
+                        <View style={styles.totalRow}>
+                            <Text style={styles.totalLabel}>Livraison</Text>
+                            <Text style={styles.totalValue}>{shipping > 0 ? formatPrice(shipping) : 'Gratuit'}</Text>
+                        </View>
                         <View style={styles.grandTotalRow}>
                             <Text style={styles.grandTotalLabel}>TOTAL TTC</Text>
-                            <Text style={styles.grandTotalValue}>{order.amount.toLocaleString()} {currency}</Text>
+                            <Text style={styles.grandTotalValue}>{formatPrice(total)}</Text>
                         </View>
                     </View>
                 </View>
@@ -373,7 +380,7 @@ const OrderReceiptPDF = ({ order, currency }) => {
                 {/* FOOTER */}
                 <View style={styles.footer}>
                     <Text style={styles.footerText}>Merci de votre confiance</Text>
-                    <Text style={styles.footerText}>www.ramci.com | contact@ramci.com</Text>
+                    <Text style={styles.footerText}>www.greencart.vercel.app | contact@ramci.com</Text>
                     <Text style={styles.footerText}>Ce document fait office de facture</Text>
                 </View>
             </Page>
