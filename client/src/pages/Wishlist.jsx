@@ -4,7 +4,7 @@ import ProductCard from '../components/ProductCard';
 import { Heart } from 'lucide-react';
 
 const Wishlist = () => {
-    const { wishlist, fetchWishlist, user } = useAppContext();
+    const { wishlist, fetchWishlist, user, setShowUserLogin } = useAppContext(); // ← AJOUTE setShowUserLogin
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -17,6 +17,10 @@ const Wishlist = () => {
         loadWishlist();
     }, [user]);
 
+    const handleLoginClick = () => {
+        setShowUserLogin(true); // ← UTILISE setShowUserLogin
+    };
+
     if (!user) {
         return (
             <div className="min-h-screen bg-white pt-20 pb-16 px-4">
@@ -27,7 +31,7 @@ const Wishlist = () => {
                     <h2 className="text-xl font-bold text-gray-900 mb-2">Connectez-vous</h2>
                     <p className="text-gray-500 text-sm mb-6">Connectez-vous pour voir vos favoris</p>
                     <button 
-                        onClick={() => window.dispatchEvent(new CustomEvent('openLogin'))}
+                        onClick={handleLoginClick} // ← UTILISE handleLoginClick
                         className="bg-black text-white px-6 py-2.5 rounded-full text-sm font-medium hover:bg-gray-800 transition shadow-sm"
                     >
                         Se connecter
