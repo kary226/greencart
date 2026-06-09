@@ -9,11 +9,20 @@ const Navbar = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [categories, setCategories] = useState([]);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const suggestionsRef = useRef(null);
   const menuRef = useRef(null);
   const navigate = useNavigate();
 
   const cartCount = cartItems ? Object.values(cartItems).reduce((a, b) => a + b, 0) : 0;
+
+  // État pour les filtres
+  const [filters, setFilters] = useState({
+    category: '',
+    minPrice: '',
+    maxPrice: '',
+    sortBy: 'relevance'
+  });
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -147,6 +156,50 @@ const Navbar = () => {
     }
   };
 
+  const handleFilterClick = () => {
+    setShowFilters(!showFilters);
+  };
+
+  const applyFilters = () => {
+    let url = '/products?';
+    const params = [];
+    
+    if (query.trim()) {
+      params.push(`search=${encodeURIComponent(query.trim())}`);
+    }
+    if (filters.category) {
+      params.push(`categories=${encodeURIComponent(filters.category)}`);
+    }
+    if (filters.minPrice) {
+      params.push(`minPrice=${filters.minPrice}`);
+    }
+    if (filters.maxPrice) {
+      params.push(`maxPrice=${filters.maxPrice}`);
+    }
+    if (filters.sortBy !== 'relevance') {
+      params.push(`sort=${filters.sortBy}`);
+    }
+    
+    url += params.join('&');
+    setShowFilters(false);
+    navigate(url);
+  };
+
+  const resetFilters = () => {
+    setFilters({
+      category: '',
+      minPrice: '',
+      maxPrice: '',
+      sortBy: 'relevance'
+    });
+    setShowFilters(false);
+    if (query.trim()) {
+      navigate(`/products?search=${encodeURIComponent(query.trim())}`);
+    } else {
+      navigate('/products');
+    }
+  };
+
   return (
     <>
       <header className="ramci-navbar">
@@ -260,7 +313,7 @@ const Navbar = () => {
             onFocus={() => query.trim() && setShowSuggestions(true)}
             className="ramci-search-input"
           />
-          <button type="button" className="ramci-filter-btn" aria-label="Filtres">
+          <button type="button" onClick={handleFilterClick} className="ramci-filter-btn" aria-label="Filtres">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2">
               <line x1="4" y1="6" x2="20" y2="6"/>
               <line x1="8" y1="12" x2="16" y2="12"/>
@@ -301,6 +354,75 @@ const Navbar = () => {
           )}
         </form>
       </header>
+
+      {/* Modal Filtres */}
+      {showFilters && (
+        <div className="filters-modal" onClick={() => setShowFilters(false)}>
+          <div className="filters-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="filters-header">
+              <h3>Filtrer les résultats</h3>
+              <button onClick={() => setShowFilters(false)}>✕</button>
+            </div>
+            
+            <div className="filters-body">
+              <div className="filter-group">
+                <label>Catégorie</label>
+                <select 
+                  value={filters.category} 
+                  onChange={(e) => setFilters({...filters, category: e.target.value})}
+                >
+                  <option value="">Toutes les catégories</option>
+                  {categories.map(cat => (
+                    <option key={cat._id} value={cat.slug}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="filter-group">
+                <label>Prix minimum</label>
+                <input 
+                  type="number" 
+                  placeholder="0"
+                  value={filters.minPrice}
+                  onChange={(e) => setFilters({...filters, minPrice: e.target.value})}
+                />
+              </div>
+
+              <div className="filter-group">
+                <label>Prix maximum</label>
+                <input 
+                  type="number" 
+                  placeholder="Illimité"
+                  value={filters.maxPrice}
+                  onChange={(e) => setFilters({...filters, maxPrice: e.target.value})}
+                />
+              </div>
+
+              <div className="filter-group">
+                <label>Trier par</label>
+                <select 
+                  value={filters.sortBy} 
+                  onChange={(e) => setFilters({...filters, sortBy: e.target.value})}
+                >
+                  <option value="relevance">Pertinence</option>
+                  <option value="price_asc">Prix croissant</option>
+                  <option value="price_desc">Prix décroissant</option>
+                  <option value="newest">Plus récents</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="filters-footer">
+              <button onClick={resetFilters} className="reset-btn">
+                Réinitialiser
+              </button>
+              <button onClick={applyFilters} className="apply-btn">
+                Appliquer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=DM+Sans:wght@400;500;600&display=swap');
@@ -525,6 +647,123 @@ const Navbar = () => {
           transition: color .15s;
         }
         .suggestion-see-all:hover { color: #111; }
+
+        /* Filtres modal */
+        .filters-modal {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0,0,0,0.5);
+          z-index: 1001;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .filters-modal-content {
+          background: white;
+          border-radius: 20px;
+          width: 90%;
+          max-width: 400px;
+          overflow: hidden;
+          animation: fadeInUp 0.3s ease;
+        }
+
+        .filters-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 16px 20px;
+          border-bottom: 1px solid #eee;
+        }
+
+        .filters-header h3 {
+          font-size: 18px;
+          font-weight: 600;
+          margin: 0;
+        }
+
+        .filters-header button {
+          background: none;
+          border: none;
+          font-size: 20px;
+          cursor: pointer;
+          color: #999;
+        }
+
+        .filters-body {
+          padding: 20px;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .filter-group {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .filter-group label {
+          font-size: 13px;
+          font-weight: 500;
+          color: #666;
+        }
+
+        .filter-group select,
+        .filter-group input {
+          padding: 10px 12px;
+          border: 1px solid #e0e0e0;
+          border-radius: 12px;
+          font-size: 14px;
+          outline: none;
+        }
+
+        .filter-group select:focus,
+        .filter-group input:focus {
+          border-color: #e53935;
+        }
+
+        .filters-footer {
+          display: flex;
+          gap: 12px;
+          padding: 16px 20px;
+          border-top: 1px solid #eee;
+        }
+
+        .reset-btn {
+          flex: 1;
+          padding: 10px;
+          background: #f5f5f5;
+          border: none;
+          border-radius: 40px;
+          font-weight: 500;
+          cursor: pointer;
+        }
+
+        .apply-btn {
+          flex: 1;
+          padding: 10px;
+          background: #111;
+          color: white;
+          border: none;
+          border-radius: 40px;
+          font-weight: 500;
+          cursor: pointer;
+        }
+
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
       `}</style>
     </>
   );
