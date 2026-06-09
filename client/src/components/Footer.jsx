@@ -56,7 +56,8 @@ const Footer = () => {
 
                     {/* Colonne 1 - Logo & Infos */}
                     <div className="md:col-span-4">
-                        <img className="h-8 w-auto mb-4" src={assets.logo} alt="logo" />
+                        {/* ✅ LOGO AGRANDI : h-12 au lieu de h-8 */}
+                        <img className="h-12 w-auto mb-4" src={assets.logo} alt="logo" />
                         <p className="text-sm text-gray-500 mb-4 max-w-md">
                             Votre satisfaction est notre priorité. Découvrez une expérience de shopping unique avec des produits de qualité.
                         </p>
