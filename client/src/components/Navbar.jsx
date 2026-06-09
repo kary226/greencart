@@ -13,6 +13,7 @@ const Navbar = () => {
   const suggestionsRef = useRef(null);
   const menuRef = useRef(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const cartCount = cartItems ? Object.values(cartItems).reduce((a, b) => a + b, 0) : 0;
 
@@ -23,6 +24,22 @@ const Navbar = () => {
     maxPrice: '',
     sortBy: 'relevance'
   });
+
+  // Vérifier si un filtre est actif
+  const hasActiveFilters = () => {
+    return filters.category !== '' || filters.minPrice !== '' || filters.maxPrice !== '' || filters.sortBy !== 'relevance';
+  };
+
+  // Lire les filtres depuis l'URL au chargement
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    setFilters({
+      category: params.get('categories') || '',
+      minPrice: params.get('minPrice') || '',
+      maxPrice: params.get('maxPrice') || '',
+      sortBy: params.get('sort') || 'relevance'
+    });
+  }, [location.search]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -313,13 +330,20 @@ const Navbar = () => {
             onFocus={() => query.trim() && setShowSuggestions(true)}
             className="ramci-search-input"
           />
-          <button type="button" onClick={handleFilterClick} className="ramci-filter-btn" aria-label="Filtres">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2">
-              <line x1="4" y1="6" x2="20" y2="6"/>
-              <line x1="8" y1="12" x2="16" y2="12"/>
-              <line x1="11" y1="18" x2="13" y2="18"/>
-            </svg>
-          </button>
+          
+          {/* Bouton filtre avec indicateur */}
+          <div className="filter-btn-wrapper">
+            <button type="button" onClick={handleFilterClick} className="ramci-filter-btn" aria-label="Filtres">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2">
+                <line x1="4" y1="6" x2="20" y2="6"/>
+                <line x1="8" y1="12" x2="16" y2="12"/>
+                <line x1="11" y1="18" x2="13" y2="18"/>
+              </svg>
+            </button>
+            {hasActiveFilters() && (
+              <span className="filter-active-dot"></span>
+            )}
+          </div>
 
           {showSuggestions && (
             <div className="search-suggestions">
@@ -379,7 +403,7 @@ const Navbar = () => {
               </div>
 
               <div className="filter-group">
-                <label>Prix minimum</label>
+                <label>Prix minimum (FCFA)</label>
                 <input 
                   type="number" 
                   placeholder="0"
@@ -389,7 +413,7 @@ const Navbar = () => {
               </div>
 
               <div className="filter-group">
-                <label>Prix maximum</label>
+                <label>Prix maximum (FCFA)</label>
                 <input 
                   type="number" 
                   placeholder="Illimité"
@@ -581,6 +605,13 @@ const Navbar = () => {
           outline: none;
         }
         .ramci-search-input::placeholder { color: #aaa; }
+        
+        /* Wrapper pour le bouton filtre avec indicateur */
+        .filter-btn-wrapper {
+          position: relative;
+          display: inline-flex;
+        }
+        
         .ramci-filter-btn {
           background: none;
           border: none;
@@ -589,6 +620,22 @@ const Navbar = () => {
           align-items: center;
           padding: 0;
           opacity: .7;
+          transition: opacity 0.2s;
+        }
+        .ramci-filter-btn:hover {
+          opacity: 1;
+        }
+        
+        .filter-active-dot {
+          position: absolute;
+          top: -3px;
+          right: -3px;
+          width: 8px;
+          height: 8px;
+          background-color: #e53935;
+          border-radius: 50%;
+          border: 1px solid white;
+          box-shadow: 0 0 2px rgba(0,0,0,0.1);
         }
         
         .search-suggestions {
