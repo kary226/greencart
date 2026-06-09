@@ -19,13 +19,13 @@ export const register = async (req, res) => {
         const { firstName, lastName, email, password } = req.body;
 
         if ((!firstName && !lastName) || !email || !password) {
-            return res.json({ success: false, message: 'Missing Details' });
+            return res.json({ success: false, message: 'Tous les champs sont requis' });
         }
 
         const existingUser = await User.findOne({ email });
 
         if (existingUser) {
-            return res.json({ success: false, message: 'User already exists' });
+            return res.json({ success: false, message: 'Cet email est déjà utilisé' });
         }
 
         const name = getFullName(firstName, lastName);
@@ -59,25 +59,25 @@ export const register = async (req, res) => {
     }
 };
 
-// Login User : /api/user/login
+// Login User : /api/user/login (traduit)
 export const login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
         if (!email || !password) {
-            return res.json({ success: false, message: 'Email and password are required' });
+            return res.json({ success: false, message: 'Email et mot de passe requis' });
         }
 
         const user = await User.findOne({ email });
 
         if (!user) {
-            return res.json({ success: false, message: 'Invalid email or password' });
+            return res.json({ success: false, message: 'Email ou mot de passe incorrect' });
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
 
         if (!isMatch) {
-            return res.json({ success: false, message: 'Invalid email or password' });
+            return res.json({ success: false, message: 'Email ou mot de passe incorrect' });
         }
 
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
@@ -130,7 +130,7 @@ export const isAuth = async (req, res) => {
 // Logout User : /api/user/logout
 export const logout = async (req, res) => {
     try {
-        return res.json({ success: true, message: "Logged Out" });
+        return res.json({ success: true, message: "Déconnexion réussie" });
     } catch (error) {
         console.log(error.message);
         res.json({ success: false, message: error.message });
@@ -147,7 +147,6 @@ export const updateUser = async (req, res) => {
             return res.json({ success: false, message: "Utilisateur non trouvé" });
         }
 
-        // Mettre à jour les champs
         if (firstName !== undefined) user.firstName = firstName;
         if (lastName !== undefined) user.lastName = lastName;
         if (email !== undefined) user.email = email;
@@ -156,10 +155,8 @@ export const updateUser = async (req, res) => {
         if (cityId !== undefined) user.cityId = cityId;
         if (communeId !== undefined) user.communeId = communeId;
 
-        // Recalculer le nom complet
         user.name = getFullName(user.firstName, user.lastName);
 
-        // Mettre à jour les noms de ville/commune
         if (cityId) {
             const City = await import('../models/City.js').then(m => m.default);
             const city = await City.findById(cityId);
@@ -216,7 +213,7 @@ export const getAllClients = async (req, res) => {
         
         const clients = await User.find(query)
             .select('-password -resetPasswordToken -resetPasswordExpires')
-            .sort({ lastName: 1 })  // ← Tri alphabétique par NOM (A→Z)
+            .sort({ lastName: 1 })
             .skip(skip)
             .limit(parseInt(limit));
         
@@ -237,7 +234,6 @@ export const getAllClients = async (req, res) => {
 
 // ==================== MOT DE PASSE OUBLIÉ ====================
 
-// Demande de réinitialisation de mot de passe
 export const forgotPassword = async (req, res) => {
     try {
         const { email } = req.body;
@@ -264,7 +260,6 @@ export const forgotPassword = async (req, res) => {
     }
 };
 
-// Réinitialisation du mot de passe
 export const resetPassword = async (req, res) => {
     try {
         const { token, newPassword } = req.body;
@@ -275,7 +270,7 @@ export const resetPassword = async (req, res) => {
         });
 
         if (!user) {
-            return res.json({ success: false, message: "Token invalide ou expiré" });
+            return res.json({ success: false, message: "Lien invalide ou expiré" });
         }
 
         const hashedPassword = await bcrypt.hash(newPassword, 10);

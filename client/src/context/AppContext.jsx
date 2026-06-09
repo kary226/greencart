@@ -22,12 +22,10 @@ if (initialToken) {
     setAuthToken(initialToken);
 }
 
-// Clés pour le localStorage
 const RECENTLY_VIEWED_KEY = 'greencart_recently_viewed';
 const CART_KEY = 'greencart_cart';
 const MAX_RECENT_ITEMS = 5;
 
-// Charger le panier depuis localStorage
 const loadCartFromLocalStorage = () => {
     const savedCart = localStorage.getItem(CART_KEY);
     if (savedCart) {
@@ -57,7 +55,6 @@ export const AppContextProvider = ({ children }) => {
     const [recentlyViewed, setRecentlyViewed] = useState([]);
     const [orders, setOrders] = useState([]);
 
-    // Fonction pour sauvegarder le panier dans localStorage
     const setCartItems = (newCart) => {
         setCartItemsState(newCart);
         localStorage.setItem(CART_KEY, JSON.stringify(newCart));
@@ -126,10 +123,11 @@ export const AppContextProvider = ({ children }) => {
 
     const fetchUser = async () => {
         try {
-            const { data } = await axios.get('/api/user/is-auth');
+            const { data } = await axios.get('/api/user/is-auth', {
+                headers: { Authorization: `Bearer ${getToken()}` }
+            });
             if (data.success) {
                 setUser(data.user);
-                // Fusionner le panier local avec celui du serveur
                 const localCart = loadCartFromLocalStorage();
                 const serverCart = data.user.cartItems || {};
                 const mergedCart = { ...serverCart, ...localCart };
@@ -137,6 +135,9 @@ export const AppContextProvider = ({ children }) => {
                 await fetchOrders();
             }
         } catch (error) {
+            if (error.response?.data?.redirectToLogin) {
+                setShowUserLogin(true);
+            }
             setUser(null);
         }
     };
@@ -157,7 +158,11 @@ export const AppContextProvider = ({ children }) => {
             const { data } = await axios.get('/api/wishlist/list');
             if (data.success) setWishlist(data.wishlist);
         } catch (error) {
-            console.error(error);
+            if (error.response?.data?.redirectToLogin) {
+                setShowUserLogin(true);
+            } else {
+                console.error(error);
+            }
         }
     };
 
@@ -175,7 +180,12 @@ export const AppContextProvider = ({ children }) => {
                 toast.error(data.message);
             }
         } catch (error) {
-            toast.error(error.message);
+            if (error.response?.data?.redirectToLogin) {
+                setShowUserLogin(true);
+                toast.error("Veuillez vous connecter");
+            } else {
+                toast.error(error.message);
+            }
         }
     };
 
@@ -189,7 +199,12 @@ export const AppContextProvider = ({ children }) => {
                 toast.error(data.message);
             }
         } catch (error) {
-            toast.error(error.message);
+            if (error.response?.data?.redirectToLogin) {
+                setShowUserLogin(true);
+                toast.error("Veuillez vous connecter");
+            } else {
+                toast.error(error.message);
+            }
         }
     };
 
@@ -197,7 +212,6 @@ export const AppContextProvider = ({ children }) => {
         return wishlist.some(item => item._id === productId);
     };
 
-    // addToCart SANS TOAST (pour éviter le double message)
     const addToCart = (productId, color = null, size = null) => {
         const key = getCartKey(productId, color, size);
         let cartData = structuredClone(cartItems);
@@ -207,7 +221,6 @@ export const AppContextProvider = ({ children }) => {
             cartData[key] = 1;
         }
         setCartItems(cartData);
-        // PAS DE TOAST ICI
     };
 
     const addToCartWithQuantity = (productId, quantity, color = null, size = null) => {
@@ -275,7 +288,6 @@ export const AppContextProvider = ({ children }) => {
                 localStorage.setItem('token', data.token);
                 setAuthToken(data.token);
                 setUser(data.user);
-                // Fusionner le panier local avec celui du serveur
                 const localCart = loadCartFromLocalStorage();
                 const serverCart = data.user.cartItems || {};
                 const mergedCart = { ...serverCart, ...localCart };
@@ -287,7 +299,7 @@ export const AppContextProvider = ({ children }) => {
                 toast.error(data.message);
             }
         } catch (error) {
-            toast.error(error.message);
+            toast.error(error.response?.data?.message || error.message);
         }
     };
 

@@ -5,7 +5,12 @@ const authUser = async (req, res, next) => {
     const authHeader = req.headers.authorization;
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.json({ success: false, message: 'Not Authorized - Token manquant' });
+        // ✅ Renvoyer une réponse 401 avec indicateur de redirection
+        return res.status(401).json({ 
+            success: false, 
+            message: 'Veuillez vous connecter pour continuer',
+            redirectToLogin: true 
+        });
     }
     
     const token = authHeader.split(' ')[1];
@@ -15,11 +20,27 @@ const authUser = async (req, res, next) => {
         if (tokenDecode.id) {
             req.body.userId = tokenDecode.id;
         } else {
-            return res.json({ success: false, message: 'Not Authorized - Token invalide' });
+            return res.status(401).json({ 
+                success: false, 
+                message: 'Session expirée, veuillez vous reconnecter',
+                redirectToLogin: true 
+            });
         }
         next();
     } catch (error) {
-        res.json({ success: false, message: error.message });
+        // ✅ Gestion des erreurs de token (expiré, invalide)
+        if (error.name === 'TokenExpiredError') {
+            return res.status(401).json({ 
+                success: false, 
+                message: 'Session expirée, veuillez vous reconnecter',
+                redirectToLogin: true 
+            });
+        }
+        return res.status(401).json({ 
+            success: false, 
+            message: 'Token invalide, veuillez vous reconnecter',
+            redirectToLogin: true 
+        });
     }
 };
 
