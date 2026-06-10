@@ -18,6 +18,11 @@ const ProductDetails = () => {
     const [selectedSize, setSelectedSize] = useState(null)
     const [variantData, setVariantData] = useState(null)
     const scrollContainerRef = useRef(null);
+    const thumbnailRefs = useRef([]);
+    
+    // États pour les erreurs inline
+    const [colorError, setColorError] = useState('')
+    const [sizeError, setSizeError] = useState('')
     
     // Pour le swipe sur l'image principale
     const [touchStart, setTouchStart] = useState(0);
@@ -27,6 +32,17 @@ const ProductDetails = () => {
     const [totalReviews, setTotalReviews] = useState(0);
 
     const product = products.find((item)=> item._id === id);
+
+    // Faire défiler automatiquement la miniature correspondante
+    useEffect(() => {
+        if (scrollContainerRef.current && thumbnailRefs.current[currentImageIndex]) {
+            thumbnailRefs.current[currentImageIndex].scrollIntoView({
+                behavior: 'smooth',
+                block: 'nearest',
+                inline: 'center'
+            });
+        }
+    }, [currentImageIndex]);
 
     // Récupérer la variante par défaut (première couleur disponible)
     useEffect(() => {
@@ -50,9 +66,16 @@ const ProductDetails = () => {
                 setVariantData(variant)
                 const startIndex = variant.startImageIndex || 0
                 setCurrentImageIndex(startIndex)
+                // Effacer l'erreur quand une couleur est sélectionnée
+                setColorError('')
             }
         }
     }, [selectedColor, product])
+
+    // Effacer l'erreur de taille quand une taille est sélectionnée
+    useEffect(() => {
+        if (selectedSize) setSizeError('')
+    }, [selectedSize])
 
     useEffect(() => {
         if (product) {
@@ -150,11 +173,13 @@ const ProductDetails = () => {
 
     const handleAddToCart = () => {
         if (uniqueColors.length > 0 && !selectedColor) {
-            toast.error('Veuillez choisir une couleur')
+            setColorError('Veuillez choisir une couleur')
+            document.getElementById('color-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
             return
         }
         if (uniqueSizes.length > 0 && !selectedSize) {
-            toast.error('Veuillez choisir une taille')
+            setSizeError('Veuillez choisir une taille')
+            document.getElementById('size-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
             return
         }
         if (variantStock !== null && variantStock === 0) {
@@ -171,11 +196,13 @@ const ProductDetails = () => {
 
     const handleBuyNow = () => {
         if (uniqueColors.length > 0 && !selectedColor) {
-            toast.error('Veuillez choisir une couleur')
+            setColorError('Veuillez choisir une couleur')
+            document.getElementById('color-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
             return
         }
         if (uniqueSizes.length > 0 && !selectedSize) {
-            toast.error('Veuillez choisir une taille')
+            setSizeError('Veuillez choisir une taille')
+            document.getElementById('size-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
             return
         }
         if (variantStock !== null && variantStock === 0) {
@@ -267,6 +294,8 @@ const ProductDetails = () => {
         setAverageRating(4);
         setTotalReviews(0);
         setVariantData(null)
+        setColorError('')
+        setSizeError('')
     },[products, id])
 
     if (!product) return null;
@@ -312,6 +341,7 @@ const ProductDetails = () => {
                                     {allImages.map((img, idx) => (
                                         <div 
                                             key={idx} 
+                                            ref={el => thumbnailRefs.current[idx] = el}
                                             onClick={() => setCurrentImageIndex(idx)}
                                             className={`thumbnail-item ${currentImageIndex === idx ? 'active' : ''}`}
                                         >
@@ -357,7 +387,7 @@ const ProductDetails = () => {
                         </p>
 
                         {uniqueColors.length > 0 && (
-                            <div className="option-group">
+                            <div id="color-section" className="option-group">
                                 <p className="option-label">
                                     Couleur : <span style={{color: variantData?.colorCode}}>{selectedColor || 'Non sélectionnée'}</span>
                                 </p>
@@ -394,11 +424,21 @@ const ProductDetails = () => {
                                         )
                                     })}
                                 </div>
+                                {colorError && (
+                                    <div className="error-message">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <circle cx="12" cy="12" r="10"/>
+                                            <line x1="12" y1="8" x2="12" y2="12"/>
+                                            <line x1="12" y1="16" x2="12.01" y2="16"/>
+                                        </svg>
+                                        <span>{colorError}</span>
+                                    </div>
+                                )}
                             </div>
                         )}
 
                         {uniqueSizes.length > 0 && (
-                            <div className="option-group">
+                            <div id="size-section" className="option-group">
                                 <p className="option-label">
                                     Taille : <span>{selectedSize || 'Non sélectionnée'}</span>
                                 </p>
@@ -414,6 +454,16 @@ const ProductDetails = () => {
                                         </button>
                                     ))}
                                 </div>
+                                {sizeError && (
+                                    <div className="error-message">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <circle cx="12" cy="12" r="10"/>
+                                            <line x1="12" y1="8" x2="12" y2="12"/>
+                                            <line x1="12" y1="16" x2="12.01" y2="16"/>
+                                        </svg>
+                                        <span>{sizeError}</span>
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -836,6 +886,24 @@ const ProductDetails = () => {
                     border-color: #eee;
                     text-decoration: line-through;
                     cursor: not-allowed;
+                }
+
+                .error-message {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    background: #fef2f2;
+                    color: #e53935;
+                    font-size: 11px;
+                    font-weight: 500;
+                    padding: 8px 12px;
+                    border-radius: 10px;
+                    margin-top: 10px;
+                    border: 1px solid #fecaca;
+                }
+
+                .error-message svg {
+                    flex-shrink: 0;
                 }
 
                 .product-description {

@@ -32,7 +32,6 @@ const ProductReviews = ({ productId, onDataChange }) => {
         fetchReviews();
     }, [productId]);
 
-    // Envoyer les données au composant parent (ProductDetails)
     useEffect(() => {
         if (!loading && onDataChange) {
             onDataChange({
@@ -116,39 +115,49 @@ const ProductReviews = ({ productId, onDataChange }) => {
     };
 
     if (loading) {
-        return <div className="mt-8 text-center py-4">Chargement des avis...</div>;
+        return <div className="mt-8 text-center py-4 text-gray-400">Chargement des avis...</div>;
     }
 
     return (
-        <div className="mt-12 border-t pt-8">
-            <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
-                <div>
-                    <h3 className="text-2xl font-semibold">Avis clients</h3>
-                    <div className="flex items-center gap-3 mt-2">
-                        {renderStars(averageRating)}
-                        <span className="text-lg font-medium">{averageRating}/5</span>
-                        <span className="text-gray-400">({totalReviews} avis)</span>
+        <div className="mt-8 border-t border-gray-100 pt-6">
+            <div className="flex justify-between items-center mb-5 flex-wrap gap-4">
+                <div className="flex items-center gap-4">
+                    <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white p-2 rounded-xl shadow-md">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-semibold text-gray-800">Avis clients</h3>
+                        <div className="flex items-center gap-2 mt-1">
+                            {renderStars(averageRating)}
+                            <span className="text-sm font-medium">{averageRating}/5</span>
+                            <span className="text-xs text-gray-400">({totalReviews} avis)</span>
+                        </div>
                     </div>
                 </div>
                 {!showForm && (
                     <button
                         onClick={() => setShowForm(true)}
-                        className="px-4 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition"
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl text-sm font-medium hover:opacity-90 transition shadow-md"
                     >
-                        ✍️ Donner mon avis
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M12 5v14m-7-7h14"/>
+                        </svg>
+                        Donner mon avis
                     </button>
                 )}
             </div>
 
             {showForm && (
-                <form onSubmit={handleSubmitReview} className="bg-gray-50 p-4 rounded-xl mb-6">
+                <form onSubmit={handleSubmitReview} className="bg-gray-50 p-4 rounded-xl mb-6 border border-gray-100">
                     <div className="flex justify-between items-center mb-3">
-                        <p className="font-medium">Votre note :</p>
+                        <p className="font-medium text-sm">Votre note :</p>
                         {renderStars(rating, true, setRating, setHoverRating)}
                         <button
                             type="button"
                             onClick={() => setShowForm(false)}
-                            className="text-gray-400 hover:text-gray-600"
+                            className="text-gray-400 hover:text-gray-600 text-lg"
                         >
                             ✕
                         </button>
@@ -158,43 +167,43 @@ const ProductReviews = ({ productId, onDataChange }) => {
                         onChange={(e) => setComment(e.target.value)}
                         placeholder="Partagez votre expérience avec ce produit..."
                         rows={4}
-                        className="w-full border border-gray-300 rounded-lg p-3 outline-none focus:border-primary resize-none"
+                        className="w-full border border-gray-200 rounded-xl p-3 text-sm outline-none focus:border-primary resize-none"
                     />
                     <button
                         type="submit"
-                        className="mt-3 px-6 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition"
+                        className="mt-3 px-5 py-2 bg-primary text-white rounded-xl text-sm font-medium hover:opacity-90 transition"
                     >
                         Publier mon avis
                     </button>
                 </form>
             )}
 
-            <div className="space-y-6">
+            <div className="space-y-5">
                 {reviews.length === 0 ? (
-                    <p className="text-gray-400 text-center py-8">Aucun avis pour le moment. Soyez le premier à donner votre avis !</p>
+                    <p className="text-gray-400 text-center py-6 text-sm">Aucun avis pour le moment. Soyez le premier !</p>
                 ) : (
                     reviews.map((review) => (
-                        <div key={review._id} className="border-b border-gray-200 pb-5">
+                        <div key={review._id} className="border-b border-gray-100 pb-4">
                             <div className="flex justify-between items-start flex-wrap gap-2">
                                 <div>
                                     <div className="flex items-center gap-2">
-                                        <span className="font-semibold">{review.userName}</span>
+                                        <span className="font-semibold text-sm">{review.userName}</span>
                                         {review.verified && (
-                                            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-                                                Achat vérifié
+                                            <span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-full">
+                                                ✓ Achat vérifié
                                             </span>
                                         )}
                                     </div>
                                     {renderStars(review.rating)}
                                 </div>
-                                <span className="text-sm text-gray-400">
+                                <span className="text-xs text-gray-400">
                                     {new Date(review.createdAt).toLocaleDateString()}
                                 </span>
                             </div>
-                            <p className="text-gray-600 mt-2">{review.comment}</p>
+                            <p className="text-gray-600 mt-2 text-sm">{review.comment}</p>
                             <button
                                 onClick={() => markHelpful(review._id)}
-                                className="text-xs text-gray-400 hover:text-primary mt-2 transition"
+                                className="flex items-center gap-1 text-xs text-gray-400 hover:text-primary mt-2 transition"
                             >
                                 👍 Utile ({review.helpful || 0})
                             </button>
