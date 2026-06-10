@@ -19,10 +19,14 @@ const ProductDetails = () => {
     const [variantData, setVariantData] = useState(null)
     const scrollContainerRef = useRef(null);
     const thumbnailRefs = useRef([]);
+    const colorSectionRef = useRef(null);
+    const sizeSectionRef = useRef(null);
     
     // États pour les erreurs inline
     const [colorError, setColorError] = useState('')
     const [sizeError, setSizeError] = useState('')
+    const [highlightColor, setHighlightColor] = useState(false)
+    const [highlightSize, setHighlightSize] = useState(false)
     
     // Pour le swipe sur l'image principale
     const [touchStart, setTouchStart] = useState(0);
@@ -66,15 +70,19 @@ const ProductDetails = () => {
                 setVariantData(variant)
                 const startIndex = variant.startImageIndex || 0
                 setCurrentImageIndex(startIndex)
-                // Effacer l'erreur quand une couleur est sélectionnée
+                // Effacer l'erreur et le highlight quand une couleur est sélectionnée
                 setColorError('')
+                setHighlightColor(false)
             }
         }
     }, [selectedColor, product])
 
     // Effacer l'erreur de taille quand une taille est sélectionnée
     useEffect(() => {
-        if (selectedSize) setSizeError('')
+        if (selectedSize) {
+            setSizeError('')
+            setHighlightSize(false)
+        }
     }, [selectedSize])
 
     useEffect(() => {
@@ -171,50 +179,56 @@ const ProductDetails = () => {
         return 'text-green-600'
     }
 
-    const handleAddToCart = () => {
+    const scrollToElement = (ref, setHighlight) => {
+        if (ref.current) {
+            ref.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            setHighlight(true)
+            setTimeout(() => setHighlight(false), 1500)
+        }
+    }
+
+    const validateAndProceed = (action) => {
+        let hasError = false
+        
         if (uniqueColors.length > 0 && !selectedColor) {
             setColorError('Veuillez choisir une couleur')
-            document.getElementById('color-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-            return
+            scrollToElement(colorSectionRef, setHighlightColor)
+            hasError = true
         }
-        if (uniqueSizes.length > 0 && !selectedSize) {
+        
+        if (!hasError && uniqueSizes.length > 0 && !selectedSize) {
             setSizeError('Veuillez choisir une taille')
-            document.getElementById('size-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-            return
+            scrollToElement(sizeSectionRef, setHighlightSize)
+            hasError = true
         }
+        
+        if (hasError) return false
+        
         if (variantStock !== null && variantStock === 0) {
             toast.error('Ce variant est épuisé')
-            return
+            return false
         }
+        
         if (variantStock !== null && currentQty >= variantStock) {
             toast.error(`Stock limité à ${variantStock} unités`)
-            return
+            return false
         }
-        addToCart(product._id, selectedColor, selectedSize)
-        toast.success('Ajouté au panier')
+        
+        return true
+    }
+
+    const handleAddToCart = () => {
+        if (validateAndProceed('add')) {
+            addToCart(product._id, selectedColor, selectedSize)
+            toast.success('Ajouté au panier')
+        }
     }
 
     const handleBuyNow = () => {
-        if (uniqueColors.length > 0 && !selectedColor) {
-            setColorError('Veuillez choisir une couleur')
-            document.getElementById('color-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-            return
+        if (validateAndProceed('buy')) {
+            addToCart(product._id, selectedColor, selectedSize)
+            navigate("/cart")
         }
-        if (uniqueSizes.length > 0 && !selectedSize) {
-            setSizeError('Veuillez choisir une taille')
-            document.getElementById('size-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-            return
-        }
-        if (variantStock !== null && variantStock === 0) {
-            toast.error('Ce variant est épuisé')
-            return
-        }
-        if (variantStock !== null && currentQty >= variantStock) {
-            toast.error(`Stock limité à ${variantStock} unités`)
-            return
-        }
-        addToCart(product._id, selectedColor, selectedSize)
-        navigate("/cart")
     }
 
     const isOutOfStock = variantStock === 0;
@@ -296,6 +310,8 @@ const ProductDetails = () => {
         setVariantData(null)
         setColorError('')
         setSizeError('')
+        setHighlightColor(false)
+        setHighlightSize(false)
     },[products, id])
 
     if (!product) return null;
@@ -387,7 +403,10 @@ const ProductDetails = () => {
                         </p>
 
                         {uniqueColors.length > 0 && (
-                            <div id="color-section" className="option-group">
+                            <div 
+                                ref={colorSectionRef}
+                                className={`option-group ${highlightColor ? 'highlight-error' : ''}`}
+                            >
                                 <p className="option-label">
                                     Couleur : <span style={{color: variantData?.colorCode}}>{selectedColor || 'Non sélectionnée'}</span>
                                 </p>
@@ -438,7 +457,10 @@ const ProductDetails = () => {
                         )}
 
                         {uniqueSizes.length > 0 && (
-                            <div id="size-section" className="option-group">
+                            <div 
+                                ref={sizeSectionRef}
+                                className={`option-group ${highlightSize ? 'highlight-error' : ''}`}
+                            >
                                 <p className="option-label">
                                     Taille : <span>{selectedSize || 'Non sélectionnée'}</span>
                                 </p>
@@ -511,7 +533,6 @@ const ProductDetails = () => {
                 <div className="floating-buttons">
                     <button 
                         onClick={handleAddToCart}
-                        disabled={isOutOfStock}
                         className="floating-btn floating-btn-cart"
                     >
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -523,7 +544,6 @@ const ProductDetails = () => {
                     </button>
                     <button 
                         onClick={handleBuyNow}
-                        disabled={isOutOfStock}
                         className="floating-btn floating-btn-buy"
                     >
                         Acheter
@@ -777,6 +797,21 @@ const ProductDetails = () => {
 
                 .option-group {
                     margin-bottom: 14px;
+                    transition: all 0.3s ease;
+                }
+
+                .option-group.highlight-error {
+                    background: #fef2f2;
+                    border-radius: 12px;
+                    padding: 8px;
+                    margin: -8px -8px 14px -8px;
+                    animation: shake 0.5s ease-in-out;
+                }
+
+                @keyframes shake {
+                    0%, 100% { transform: translateX(0); }
+                    25% { transform: translateX(-5px); }
+                    75% { transform: translateX(5px); }
                 }
 
                 .option-label {
