@@ -15,13 +15,24 @@ const getFullName = (firstName, lastName) => {
 // ==================== GOOGLE OAUTH ====================
 
 export const googleAuth = (req, res) => {
-    const redirectUri = `${process.env.BACKEND_URL}/api/user/google/callback`;
+    // Utiliser l'URL du serveur actuel au lieu de process.env
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const redirectUri = `${baseUrl}/api/user/google/callback`;
+    
+    console.log('🔐 Google Auth - Redirect URI:', redirectUri);
+    console.log('📧 Google Client ID existe:', !!process.env.GOOGLE_CLIENT_ID);
+    
     const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.GOOGLE_CLIENT_ID}&redirect_uri=${redirectUri}&response_type=code&scope=profile email`;
+    
     res.redirect(googleAuthUrl);
 };
 
 export const googleCallback = async (req, res) => {
     const { code } = req.query;
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const redirectUri = `${baseUrl}/api/user/google/callback`;
+    
+    console.log('🔄 Google Callback - Redirect URI:', redirectUri);
     
     try {
         const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
@@ -31,12 +42,18 @@ export const googleCallback = async (req, res) => {
                 code,
                 client_id: process.env.GOOGLE_CLIENT_ID,
                 client_secret: process.env.GOOGLE_CLIENT_SECRET,
-                redirect_uri: `${process.env.BACKEND_URL}/api/user/google/callback`,
+                redirect_uri: redirectUri,
                 grant_type: 'authorization_code'
             })
         });
         
         const tokenData = await tokenResponse.json();
+        
+        if (tokenData.error) {
+            console.error('Token error:', tokenData);
+            throw new Error(tokenData.error_description || 'Token exchange failed');
+        }
+        
         const { access_token } = tokenData;
         
         const userResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
@@ -70,11 +87,13 @@ export const googleCallback = async (req, res) => {
         
         const jwtToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
         
-        res.redirect(`${process.env.FRONTEND_URL}?token=${jwtToken}`);
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        res.redirect(`${frontendUrl}?token=${jwtToken}`);
         
     } catch (error) {
         console.error('Google auth error:', error);
-        res.redirect(`${process.env.FRONTEND_URL}?error=google_auth_failed`);
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        res.redirect(`${frontendUrl}?error=google_auth_failed`);
     }
 };
 
