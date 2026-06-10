@@ -73,11 +73,9 @@ const ProductDetails = () => {
         if (!touchStart || !touchEnd) return;
         const diff = touchStart - touchEnd;
         if (diff > 50) {
-            // Swipe gauche → image suivante
             setCurrentImageIndex((prev) => (prev + 1) % allImages.length);
         }
         if (diff < -50) {
-            // Swipe droite → image précédente
             setCurrentImageIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
         }
         setTouchStart(0);
@@ -283,7 +281,7 @@ const ProductDetails = () => {
                 url={`https://greencart-ci.vercel.app/products/${getProductCategory()?.toLowerCase()}/${product._id}`}
             />
             
-            <div className="product-details-page pb-28">
+            <div className="product-details-page">
                 <div className="breadcrumb-container">
                     <Link to={"/"}>Accueil</Link> /
                     <Link to={"/products"}> Articles</Link> /
@@ -293,7 +291,6 @@ const ProductDetails = () => {
 
                 <div className="product-main">
                     <div className="product-gallery">
-                        {/* Image principale avec swipe */}
                         <div 
                             className="main-image-container"
                             onTouchStart={handleTouchStart}
@@ -303,10 +300,9 @@ const ProductDetails = () => {
                             <img src={allImages[currentImageIndex]} alt={product.name} className="main-image" />
                         </div>
                         
-                        {/* Miniatures avec flèches */}
                         {allImages.length > 1 && (
                             <div className="thumbnail-carousel">
-                                <button onClick={() => scrollImages('left')} className="carousel-nav carousel-prev" aria-label="Images précédentes">
+                                <button onClick={() => scrollImages('left')} className="carousel-nav carousel-prev">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                         <path d="M15 18l-6-6 6-6"/>
                                     </svg>
@@ -324,7 +320,7 @@ const ProductDetails = () => {
                                     ))}
                                 </div>
                                 
-                                <button onClick={() => scrollImages('right')} className="carousel-nav carousel-next" aria-label="Images suivantes">
+                                <button onClick={() => scrollImages('right')} className="carousel-nav carousel-next">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                         <path d="M9 18l6-6-6-6"/>
                                     </svg>
@@ -360,7 +356,6 @@ const ProductDetails = () => {
                             {getStockLabel(currentStock)}
                         </p>
 
-                        {/* Boutons couleurs */}
                         {uniqueColors.length > 0 && (
                             <div className="option-group">
                                 <p className="option-label">
@@ -402,7 +397,6 @@ const ProductDetails = () => {
                             </div>
                         )}
 
-                        {/* Boutons tailles */}
                         {uniqueSizes.length > 0 && (
                             <div className="option-group">
                                 <p className="option-label">
@@ -470,19 +464,19 @@ const ProductDetails = () => {
                         disabled={isOutOfStock}
                         className="floating-btn floating-btn-cart"
                     >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
                             <line x1="3" y1="6" x2="21" y2="6"/>
                             <path d="M16 10a4 4 0 0 1-8 0"/>
                         </svg>
-                        Ajouter au panier
+                        Ajouter
                     </button>
                     <button 
                         onClick={handleBuyNow}
                         disabled={isOutOfStock}
                         className="floating-btn floating-btn-buy"
                     >
-                        Acheter maintenant
+                        Acheter
                     </button>
                 </div>
             </div>
@@ -491,12 +485,12 @@ const ProductDetails = () => {
                 .product-details-page {
                     max-width: 1280px;
                     margin: 0 auto;
-                    padding: 20px 16px 80px;
+                    padding: 12px 12px 65px;
                 }
 
                 .breadcrumb-container {
-                    margin-bottom: 24px;
-                    font-size: 13px;
+                    margin-bottom: 12px;
+                    font-size: 11px;
                     color: #888;
                 }
                 .breadcrumb-container a {
@@ -514,13 +508,13 @@ const ProductDetails = () => {
                 .product-main {
                     display: flex;
                     flex-direction: column;
-                    gap: 32px;
+                    gap: 16px;
                 }
 
                 @media (min-width: 768px) {
                     .product-main {
                         flex-direction: row;
-                        gap: 48px;
+                        gap: 32px;
                     }
                     .product-gallery {
                         flex: 1;
@@ -533,14 +527,15 @@ const ProductDetails = () => {
                 .product-gallery {
                     display: flex;
                     flex-direction: column;
-                    gap: 16px;
+                    gap: 10px;
                 }
 
                 .main-image-container {
                     width: 100%;
                     aspect-ratio: 1/1;
+                    max-height: 380px;
                     background: #f5f3f0;
-                    border-radius: 20px;
+                    border-radius: 16px;
                     overflow: hidden;
                     cursor: grab;
                 }
@@ -559,12 +554,12 @@ const ProductDetails = () => {
                 .thumbnail-carousel {
                     display: flex;
                     align-items: center;
-                    gap: 8px;
+                    gap: 6px;
                 }
 
                 .carousel-nav {
-                    width: 36px;
-                    height: 36px;
+                    width: 30px;
+                    height: 30px;
                     border-radius: 50%;
                     background: white;
                     border: 1px solid #e8e3dc;
@@ -584,7 +579,7 @@ const ProductDetails = () => {
 
                 .thumbnail-scroll {
                     display: flex;
-                    gap: 10px;
+                    gap: 8px;
                     overflow-x: auto;
                     scroll-behavior: smooth;
                     scrollbar-width: thin;
@@ -592,7 +587,7 @@ const ProductDetails = () => {
                 }
 
                 .thumbnail-scroll::-webkit-scrollbar {
-                    height: 3px;
+                    height: 2px;
                 }
 
                 .thumbnail-scroll::-webkit-scrollbar-track {
@@ -606,10 +601,10 @@ const ProductDetails = () => {
                 }
 
                 .thumbnail-item {
-                    width: 70px;
-                    height: 70px;
+                    width: 55px;
+                    height: 55px;
                     flex-shrink: 0;
-                    border-radius: 12px;
+                    border-radius: 10px;
                     overflow: hidden;
                     cursor: pointer;
                     border: 2px solid transparent;
@@ -632,13 +627,13 @@ const ProductDetails = () => {
 
                 .stars-container {
                     display: flex;
-                    gap: 4px;
+                    gap: 3px;
                     align-items: center;
                 }
 
                 .star {
-                    width: 18px;
-                    height: 18px;
+                    width: 15px;
+                    height: 15px;
                 }
 
                 .star-full {
@@ -657,73 +652,73 @@ const ProductDetails = () => {
                 }
 
                 .product-title {
-                    font-size: 24px;
+                    font-size: 18px;
                     font-weight: 600;
                     color: #111;
-                    margin-bottom: 12px;
+                    margin-bottom: 6px;
                     line-height: 1.3;
                 }
 
                 @media (min-width: 768px) {
                     .product-title {
-                        font-size: 28px;
+                        font-size: 24px;
                     }
                 }
 
                 .product-rating {
                     display: flex;
                     align-items: center;
-                    gap: 8px;
-                    margin-bottom: 16px;
+                    gap: 6px;
+                    margin-bottom: 10px;
                     flex-wrap: wrap;
                 }
 
                 .rating-value {
-                    font-size: 14px;
+                    font-size: 12px;
                     font-weight: 500;
                     color: #111;
                 }
 
                 .rating-count {
-                    font-size: 13px;
+                    font-size: 11px;
                     color: #888;
                 }
 
                 .product-pricing-vertical {
                     display: flex;
                     flex-direction: column;
-                    gap: 4px;
-                    margin-bottom: 12px;
+                    gap: 2px;
+                    margin-bottom: 8px;
                 }
                 .old-price-vertical {
-                    font-size: 15px;
+                    font-size: 13px;
                     color: #bbb;
                     text-decoration: line-through;
                 }
                 .price-row {
                     display: flex;
                     align-items: center;
-                    gap: 12px;
+                    gap: 10px;
                     flex-wrap: wrap;
                 }
                 .current-price-vertical {
-                    font-size: 28px;
+                    font-size: 22px;
                     font-weight: 700;
                     color: #111;
                 }
                 .discount-badge {
                     background: #e53935;
                     color: white;
-                    font-size: 12px;
+                    font-size: 11px;
                     font-weight: 600;
-                    padding: 4px 10px;
+                    padding: 3px 8px;
                     border-radius: 20px;
                 }
 
                 .stock-info {
-                    font-size: 13px;
+                    font-size: 12px;
                     font-weight: 500;
-                    margin-bottom: 20px;
+                    margin-bottom: 12px;
                 }
 
                 .text-red-500 { color: #e53935; }
@@ -731,13 +726,13 @@ const ProductDetails = () => {
                 .text-green-600 { color: #4caf50; }
 
                 .option-group {
-                    margin-bottom: 24px;
+                    margin-bottom: 14px;
                 }
 
                 .option-label {
-                    font-size: 14px;
+                    font-size: 13px;
                     font-weight: 500;
-                    margin-bottom: 12px;
+                    margin-bottom: 8px;
                     color: #333;
                 }
 
@@ -749,13 +744,13 @@ const ProductDetails = () => {
                 .colors-buttons {
                     display: flex;
                     flex-wrap: wrap;
-                    gap: 12px;
-                    margin-bottom: 12px;
+                    gap: 10px;
+                    margin-bottom: 8px;
                 }
 
                 .color-btn {
-                    width: 40px;
-                    height: 40px;
+                    width: 32px;
+                    height: 32px;
                     border-radius: 50%;
                     border: 2px solid #e8e3dc;
                     cursor: pointer;
@@ -785,7 +780,7 @@ const ProductDetails = () => {
                     top: 50%;
                     left: 50%;
                     width: 2px;
-                    height: 30px;
+                    height: 24px;
                     background: #e53935;
                     transform: translate(-50%, -50%) rotate(45deg);
                 }
@@ -793,11 +788,11 @@ const ProductDetails = () => {
                 .color-names {
                     display: flex;
                     flex-wrap: wrap;
-                    gap: 16px;
+                    gap: 12px;
                 }
 
                 .color-name {
-                    font-size: 13px;
+                    font-size: 12px;
                     color: #888;
                     cursor: pointer;
                     transition: color 0.2s;
@@ -815,16 +810,16 @@ const ProductDetails = () => {
                 .sizes-buttons {
                     display: flex;
                     flex-wrap: wrap;
-                    gap: 10px;
+                    gap: 8px;
                 }
 
                 .size-btn {
-                    width: 48px;
-                    height: 48px;
-                    border-radius: 12px;
+                    width: 42px;
+                    height: 42px;
+                    border-radius: 10px;
                     border: 1.5px solid #e8e3dc;
                     background: white;
-                    font-size: 14px;
+                    font-size: 13px;
                     font-weight: 500;
                     cursor: pointer;
                     transition: all 0.2s;
@@ -844,87 +839,87 @@ const ProductDetails = () => {
                 }
 
                 .product-description {
-                    margin: 20px 0;
+                    margin: 12px 0;
                 }
 
                 .desc-title {
-                    font-size: 16px;
+                    font-size: 14px;
                     font-weight: 600;
-                    margin-bottom: 10px;
+                    margin-bottom: 6px;
                     color: #111;
                 }
 
                 .product-description ul {
                     list-style: disc;
-                    padding-left: 20px;
+                    padding-left: 18px;
                     color: #666;
-                    font-size: 14px;
-                    line-height: 1.6;
+                    font-size: 12px;
+                    line-height: 1.5;
                 }
 
                 .product-description li {
-                    margin-bottom: 6px;
+                    margin-bottom: 4px;
                 }
 
                 .cart-indicator {
-                    font-size: 13px;
+                    font-size: 12px;
                     color: #111;
                     font-weight: 500;
-                    margin-top: 16px;
+                    margin-top: 10px;
                 }
 
                 .related-section {
-                    margin-top: 60px;
+                    margin-top: 30px;
                 }
 
                 .section-header {
                     text-align: center;
-                    margin-bottom: 32px;
+                    margin-bottom: 20px;
                 }
 
                 .section-title {
-                    font-size: 24px;
+                    font-size: 20px;
                     font-weight: 600;
                     color: #111;
-                    margin-bottom: 8px;
+                    margin-bottom: 6px;
                 }
 
                 .title-underline {
-                    width: 60px;
-                    height: 3px;
+                    width: 50px;
+                    height: 2px;
                     background: #111;
-                    border-radius: 3px;
+                    border-radius: 2px;
                     margin: 0 auto;
                 }
 
                 .related-grid {
                     display: grid;
                     grid-template-columns: repeat(2, 1fr);
-                    gap: 16px;
+                    gap: 12px;
                 }
 
                 @media (min-width: 640px) {
                     .related-grid {
                         grid-template-columns: repeat(3, 1fr);
-                        gap: 20px;
+                        gap: 16px;
                     }
                 }
 
                 @media (min-width: 1024px) {
                     .related-grid {
                         grid-template-columns: repeat(4, 1fr);
-                        gap: 24px;
+                        gap: 20px;
                     }
                 }
 
                 .view-more-btn {
                     display: block;
-                    margin: 32px auto 0;
-                    padding: 12px 32px;
+                    margin: 24px auto 0;
+                    padding: 10px 24px;
                     border: 1.5px solid #e8e3dc;
                     border-radius: 40px;
                     background: white;
-                    font-size: 14px;
+                    font-size: 13px;
                     font-weight: 500;
                     color: #111;
                     cursor: pointer;
@@ -945,21 +940,21 @@ const ProductDetails = () => {
                     background: rgba(255,255,255,0.98);
                     backdrop-filter: blur(10px);
                     border-top: 1px solid #eee;
-                    padding: 12px 20px;
+                    padding: 8px 16px;
                     z-index: 1000;
-                    box-shadow: 0 -4px 20px rgba(0,0,0,0.05);
+                    box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
                 }
 
                 .floating-buttons {
                     display: flex;
-                    gap: 12px;
+                    gap: 10px;
                 }
 
                 .floating-btn {
                     flex: 1;
-                    padding: 14px 20px;
-                    border-radius: 14px;
-                    font-size: 14px;
+                    padding: 10px 12px;
+                    border-radius: 40px;
+                    font-size: 13px;
                     font-weight: 600;
                     cursor: pointer;
                     transition: all 0.2s;
@@ -967,7 +962,7 @@ const ProductDetails = () => {
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    gap: 8px;
+                    gap: 6px;
                 }
 
                 .floating-btn-cart {
