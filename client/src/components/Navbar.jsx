@@ -327,16 +327,17 @@ const Navbar = () => {
           <Link to="/" className="ramci-logo">RAMCI</Link>
 
           <div className="ramci-nav-actions">
-            {/* NOUVEAU BOUTON D'INSTALLATION PWA */}
+            {/* Bouton d'installation PWA moderne avec flèche vers le bas */}
             <button 
-              className="ramci-nav-icon install-icon-btn" 
+              className="install-pwa-btn"
               onClick={handleInstallClick}
               aria-label="Installer l'application"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M12 5v14m-7-7h14"/>
-                <path d="M5 12l7-7 7 7"/>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 5v14m0 0-4-4m4 4 4-4"/>
+                <path d="M5 12h14"/>
               </svg>
+              <span>Télécharger</span>
             </button>
 
             <Link to="/wishlist" className="ramci-nav-icon" aria-label="Favoris">
@@ -370,7 +371,7 @@ const Navbar = () => {
             className="ramci-search-input"
           />
           
-          {/* Bouton filtre avec indicateur - uniquement */}
+          {/* Bouton filtre avec indicateur */}
           <div className="filter-btn-wrapper">
             <button type="button" onClick={handleFilterClick} className="ramci-filter-btn" aria-label="Filtres">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2">
@@ -595,7 +596,93 @@ const Navbar = () => {
         .ramci-nav-actions { 
           display: flex; 
           align-items: center; 
-          gap: 4px; 
+          gap: 8px; 
+        }
+        
+        /* BOUTON PWA MODERNE - FLÈCHE VERS LE BAS */
+        .install-pwa-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+          border: none;
+          border-radius: 40px;
+          padding: 8px 14px;
+          color: white;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+          position: relative;
+          overflow: hidden;
+        }
+        
+        .install-pwa-btn svg {
+          stroke: white;
+          transition: transform 0.2s ease;
+        }
+        
+        .install-pwa-btn span {
+          letter-spacing: 0.3px;
+        }
+        
+        /* Animation d'attraction */
+        .install-pwa-btn::before {
+          content: '';
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 0;
+          height: 0;
+          border-radius: 50%;
+          background: rgba(255,255,255,0.3);
+          transform: translate(-50%, -50%);
+          transition: width 0.6s, height 0.6s;
+        }
+        
+        .install-pwa-btn:hover::before {
+          width: 200%;
+          height: 200%;
+        }
+        
+        .install-pwa-btn:hover {
+          background: linear-gradient(135deg, #e53935 0%, #c62828 100%);
+          transform: scale(1.03);
+          box-shadow: 0 4px 12px rgba(229, 57, 53, 0.4);
+        }
+        
+        .install-pwa-btn:hover svg {
+          transform: translateY(2px);
+        }
+        
+        /* Animation de pulsation pour attirer l'attention */
+        .install-pwa-btn {
+          animation: pulse-ring 1.8s ease-in-out infinite;
+        }
+        
+        @keyframes pulse-ring {
+          0% {
+            box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.4);
+          }
+          70% {
+            box-shadow: 0 0 0 6px rgba(229, 57, 53, 0);
+          }
+          100% {
+            box-shadow: 0 0 0 0 rgba(229, 57, 53, 0);
+          }
+        }
+        
+        /* Version sombre (si le thème noir est activé) */
+        @media (prefers-color-scheme: dark) {
+          .install-pwa-btn {
+            background: linear-gradient(135deg, #e53935 0%, #b71c1c 100%);
+            box-shadow: 0 2px 8px rgba(229, 57, 53, 0.3);
+          }
+          .install-pwa-btn span {
+            color: white;
+          }
         }
         
         .ramci-nav-icon {
@@ -613,12 +700,6 @@ const Navbar = () => {
           cursor: pointer;
         }
         .ramci-nav-icon:hover { opacity: .6; }
-        
-        /* Style spécifique pour le bouton d'installation dans la barre d'actions */
-        .install-icon-btn svg {
-          stroke: #111;
-          stroke-width: 1.8;
-        }
         
         .ramci-cart-icon { position: relative; }
         .ramci-badge {
@@ -660,7 +741,6 @@ const Navbar = () => {
         }
         .ramci-search-input::placeholder { color: #aaa; }
         
-        /* Wrapper pour le bouton filtre avec indicateur */
         .filter-btn-wrapper {
           position: relative;
           display: inline-flex;
@@ -853,6 +933,19 @@ const Navbar = () => {
           border-radius: 40px;
           font-weight: 500;
           cursor: pointer;
+        }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+          .install-pwa-btn span {
+            display: none;
+          }
+          .install-pwa-btn {
+            padding: 8px 10px;
+          }
+          .ramci-nav-actions {
+            gap: 4px;
+          }
         }
 
         @keyframes fadeInUp {
