@@ -12,93 +12,6 @@ const getFullName = (firstName, lastName) => {
     return '';
 };
 
-// ==================== GOOGLE OAUTH ====================
-
-export const googleAuth = (req, res) => {
-    // Utiliser l'URL du serveur actuel au lieu de process.env
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
-    const redirectUri = `${baseUrl}/api/user/google/callback`;
-    
-    console.log('🔐 Google Auth - Redirect URI:', redirectUri);
-    console.log('📧 Google Client ID existe:', !!process.env.GOOGLE_CLIENT_ID);
-    
-    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.GOOGLE_CLIENT_ID}&redirect_uri=${redirectUri}&response_type=code&scope=profile email`;
-    
-    res.redirect(googleAuthUrl);
-};
-
-export const googleCallback = async (req, res) => {
-    const { code } = req.query;
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
-    const redirectUri = `${baseUrl}/api/user/google/callback`;
-    
-    console.log('🔄 Google Callback - Redirect URI:', redirectUri);
-    
-    try {
-        const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-                code,
-                client_id: process.env.GOOGLE_CLIENT_ID,
-                client_secret: process.env.GOOGLE_CLIENT_SECRET,
-                redirect_uri: redirectUri,
-                grant_type: 'authorization_code'
-            })
-        });
-        
-        const tokenData = await tokenResponse.json();
-        
-        if (tokenData.error) {
-            console.error('Token error:', tokenData);
-            throw new Error(tokenData.error_description || 'Token exchange failed');
-        }
-        
-        const { access_token } = tokenData;
-        
-        const userResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-            headers: { Authorization: `Bearer ${access_token}` }
-        });
-        
-        const userData = await userResponse.json();
-        const { id: googleId, email, name, picture } = userData;
-        
-        let user = await User.findOne({ $or: [{ email }, { googleId }] });
-        
-        if (!user) {
-            const nameParts = name.split(' ');
-            const firstName = nameParts[0] || '';
-            const lastName = nameParts.slice(1).join(' ') || '';
-            
-            user = await User.create({
-                firstName,
-                lastName,
-                name,
-                email,
-                googleId,
-                avatar: picture,
-                password: null
-            });
-        } else if (!user.googleId) {
-            user.googleId = googleId;
-            user.avatar = picture;
-            await user.save();
-        }
-        
-        const jwtToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
-        
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-        res.redirect(`${frontendUrl}?token=${jwtToken}`);
-        
-    } catch (error) {
-        console.error('Google auth error:', error);
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-        res.redirect(`${frontendUrl}?error=google_auth_failed`);
-    }
-};
-
-// ==================== REGISTER ====================
-
 export const register = async (req, res) => {
     try {
         const { firstName, lastName, email, password } = req.body;
@@ -144,8 +57,6 @@ export const register = async (req, res) => {
     }
 };
 
-// ==================== LOGIN ====================
-
 export const login = async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -158,10 +69,6 @@ export const login = async (req, res) => {
 
         if (!user) {
             return res.json({ success: false, message: 'Email ou mot de passe incorrect' });
-        }
-
-        if (!user.password) {
-            return res.json({ success: false, message: 'Ce compte utilise Google. Connectez-vous avec Google.' });
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
@@ -180,8 +87,7 @@ export const login = async (req, res) => {
                 lastName: user.lastName,
                 name: user.name,
                 email: user.email,
-                phone: user.phone || '',
-                avatar: user.avatar || null
+                phone: user.phone || ''
             },
             token
         });
@@ -190,8 +96,6 @@ export const login = async (req, res) => {
         res.json({ success: false, message: error.message });
     }
 };
-
-// ==================== IS AUTH ====================
 
 export const isAuth = async (req, res) => {
     try {
@@ -210,8 +114,7 @@ export const isAuth = async (req, res) => {
                 cityId: user.cityId,
                 communeId: user.communeId,
                 cityName: user.cityName,
-                communeName: user.communeName,
-                avatar: user.avatar || null
+                communeName: user.communeName
             }
         });
     } catch (error) {
@@ -219,8 +122,6 @@ export const isAuth = async (req, res) => {
         res.json({ success: false, message: error.message });
     }
 };
-
-// ==================== LOGOUT ====================
 
 export const logout = async (req, res) => {
     try {
@@ -230,8 +131,6 @@ export const logout = async (req, res) => {
         res.json({ success: false, message: error.message });
     }
 };
-
-// ==================== UPDATE USER ====================
 
 export const updateUser = async (req, res) => {
     try {
@@ -288,8 +187,6 @@ export const updateUser = async (req, res) => {
     }
 };
 
-// ==================== ADMIN : Récupérer tous les clients ====================
-
 export const getAllClients = async (req, res) => {
     try {
         const { search = '', page = 1, limit = 20 } = req.query;
@@ -326,8 +223,6 @@ export const getAllClients = async (req, res) => {
         res.json({ success: false, message: error.message });
     }
 };
-
-// ==================== MOT DE PASSE OUBLIÉ ====================
 
 export const forgotPassword = async (req, res) => {
     try {
