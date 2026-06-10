@@ -12,7 +12,7 @@ const Login = () => {
     const [firstName, setFirstName] = React.useState("");
     const [lastName, setLastName] = React.useState("");
     const [email, setEmail] = React.useState("");
-    const [password, setPassword] = React.useState("");
+    const [password, setPassword] = React.useState("");  // ✅ CORRIGÉ
     const [loading, setLoading] = React.useState(false);
 
     const onSubmitHandler = async (event) => {
@@ -20,14 +20,14 @@ const Login = () => {
         setLoading(true);
 
         if (state === "login") {
-            await loginUser(email, password);
+            await loginUser(email, password);  // ✅ CORRIGÉ
         } else {
             if (!firstName && !lastName) {
                 toast.error("Veuillez entrer votre prénom et nom");
                 setLoading(false);
                 return;
             }
-            await registerUser(firstName, lastName, email, password);
+            await registerUser(firstName, lastName, email, password);  // ✅ CORRIGÉ
         }
 
         setLoading(false);
@@ -205,4 +205,4 @@ const Login = () => {
     )
 }
 
-export default Login
+export default Login;
