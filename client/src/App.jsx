@@ -33,6 +33,7 @@ import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentError from './pages/PaymentError';
 import Loading from './components/Loading';
 import BottomNav from './components/BottomNav';
+import toast from 'react-hot-toast';
 
 const App = () => {
 
@@ -43,6 +44,24 @@ const App = () => {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [location.pathname]);
+
+  // ✅ Vérifier si on revient de Google
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    const error = urlParams.get('error');
+    
+    if (error === 'google_auth_failed') {
+      toast.error("Erreur de connexion avec Google");
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return;
+    }
+    
+    if (token) {
+      localStorage.setItem('token', token);
+      window.location.href = '/';
+    }
+  }, []);
 
   return (
     <div className='text-default min-h-screen text-gray-700 bg-white'>
@@ -89,7 +108,6 @@ const App = () => {
         }}
       />
 
-      {/* pt-16 a été supprimé pour enlever l'espace blanc en haut */}
       <div className={`${isSellerPath ? "" : "px-4 pb-20"}`}>
         <Routes>
           <Route path='/' element={<Home />} />

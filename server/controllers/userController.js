@@ -3,7 +3,6 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 
-// Helper pour générer le nom complet
 const getFullName = (firstName, lastName) => {
     const first = (firstName || '').trim();
     const last = (lastName || '').trim();
@@ -13,7 +12,74 @@ const getFullName = (firstName, lastName) => {
     return '';
 };
 
-// Register User : /api/user/register
+// ==================== GOOGLE OAUTH ====================
+
+export const googleAuth = (req, res) => {
+    const redirectUri = `${process.env.BACKEND_URL}/api/user/google/callback`;
+    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.GOOGLE_CLIENT_ID}&redirect_uri=${redirectUri}&response_type=code&scope=profile email`;
+    res.redirect(googleAuthUrl);
+};
+
+export const googleCallback = async (req, res) => {
+    const { code } = req.query;
+    
+    try {
+        const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                code,
+                client_id: process.env.GOOGLE_CLIENT_ID,
+                client_secret: process.env.GOOGLE_CLIENT_SECRET,
+                redirect_uri: `${process.env.BACKEND_URL}/api/user/google/callback`,
+                grant_type: 'authorization_code'
+            })
+        });
+        
+        const tokenData = await tokenResponse.json();
+        const { access_token } = tokenData;
+        
+        const userResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+            headers: { Authorization: `Bearer ${access_token}` }
+        });
+        
+        const userData = await userResponse.json();
+        const { id: googleId, email, name, picture } = userData;
+        
+        let user = await User.findOne({ $or: [{ email }, { googleId }] });
+        
+        if (!user) {
+            const nameParts = name.split(' ');
+            const firstName = nameParts[0] || '';
+            const lastName = nameParts.slice(1).join(' ') || '';
+            
+            user = await User.create({
+                firstName,
+                lastName,
+                name,
+                email,
+                googleId,
+                avatar: picture,
+                password: null
+            });
+        } else if (!user.googleId) {
+            user.googleId = googleId;
+            user.avatar = picture;
+            await user.save();
+        }
+        
+        const jwtToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        
+        res.redirect(`${process.env.FRONTEND_URL}?token=${jwtToken}`);
+        
+    } catch (error) {
+        console.error('Google auth error:', error);
+        res.redirect(`${process.env.FRONTEND_URL}?error=google_auth_failed`);
+    }
+};
+
+// ==================== REGISTER ====================
+
 export const register = async (req, res) => {
     try {
         const { firstName, lastName, email, password } = req.body;
@@ -59,7 +125,8 @@ export const register = async (req, res) => {
     }
 };
 
-// Login User : /api/user/login (traduit)
+// ==================== LOGIN ====================
+
 export const login = async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -72,6 +139,10 @@ export const login = async (req, res) => {
 
         if (!user) {
             return res.json({ success: false, message: 'Email ou mot de passe incorrect' });
+        }
+
+        if (!user.password) {
+            return res.json({ success: false, message: 'Ce compte utilise Google. Connectez-vous avec Google.' });
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
@@ -90,7 +161,8 @@ export const login = async (req, res) => {
                 lastName: user.lastName,
                 name: user.name,
                 email: user.email,
-                phone: user.phone || ''
+                phone: user.phone || '',
+                avatar: user.avatar || null
             },
             token
         });
@@ -100,7 +172,8 @@ export const login = async (req, res) => {
     }
 };
 
-// Check Auth : /api/user/is-auth
+// ==================== IS AUTH ====================
+
 export const isAuth = async (req, res) => {
     try {
         const { userId } = req.body;
@@ -118,7 +191,8 @@ export const isAuth = async (req, res) => {
                 cityId: user.cityId,
                 communeId: user.communeId,
                 cityName: user.cityName,
-                communeName: user.communeName
+                communeName: user.communeName,
+                avatar: user.avatar || null
             }
         });
     } catch (error) {
@@ -127,7 +201,8 @@ export const isAuth = async (req, res) => {
     }
 };
 
-// Logout User : /api/user/logout
+// ==================== LOGOUT ====================
+
 export const logout = async (req, res) => {
     try {
         return res.json({ success: true, message: "Déconnexion réussie" });
@@ -137,7 +212,8 @@ export const logout = async (req, res) => {
     }
 };
 
-// Update User : /api/user/update
+// ==================== UPDATE USER ====================
+
 export const updateUser = async (req, res) => {
     try {
         const { userId, firstName, lastName, email, phone, street, cityId, communeId } = req.body;

@@ -68,8 +68,6 @@ export const AppContextProvider = ({ children }) => {
         return key.split('_')[0];
     };
 
-    // ==================== PRODUITS RÉCEMMENT VUS ====================
-
     const addToRecentlyViewed = (product) => {
         if (!product || !product._id) return;
         
@@ -94,8 +92,6 @@ export const AppContextProvider = ({ children }) => {
         }
     };
 
-    // ==================== COMMANDES ====================
-    
     const fetchOrders = async () => {
         if (!user) return;
         try {
@@ -108,8 +104,6 @@ export const AppContextProvider = ({ children }) => {
             setOrders([]);
         }
     };
-
-    // ==================== AUTHENTIFICATION ====================
 
     const fetchSeller = async () => {
         try {
@@ -326,6 +320,42 @@ export const AppContextProvider = ({ children }) => {
         }
     };
 
+    const googleLogin = async () => {
+        try {
+            window.location.href = `${import.meta.env.VITE_BACKEND_URL}/api/user/google`;
+        } catch (error) {
+            toast.error("Erreur lors de la connexion avec Google");
+        }
+    };
+
+    const handleGoogleCallback = async () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        
+        if (token) {
+            localStorage.setItem('token', token);
+            setAuthToken(token);
+            
+            try {
+                const { data } = await axios.get('/api/user/is-auth', {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (data.success) {
+                    setUser(data.user);
+                    const localCart = loadCartFromLocalStorage();
+                    const serverCart = data.user.cartItems || {};
+                    const mergedCart = { ...serverCart, ...localCart };
+                    setCartItems(mergedCart);
+                    await fetchOrders();
+                    toast.success("Connexion avec Google réussie");
+                    navigate('/');
+                }
+            } catch (error) {
+                toast.error("Erreur lors de la récupération des données");
+            }
+        }
+    };
+
     const logoutUser = async () => {
         try {
             await axios.post('/api/user/logout');
@@ -350,6 +380,7 @@ export const AppContextProvider = ({ children }) => {
         fetchSeller();
         fetchProducts();
         loadRecentlyViewed();
+        handleGoogleCallback();
     }, []);
 
     useEffect(() => {
@@ -382,7 +413,7 @@ export const AppContextProvider = ({ children }) => {
         searchQuery, setSearchQuery, getCartAmount, getCartCount,
         axios, fetchProducts, setCartItems, getCartKey, getProductIdFromKey,
         wishlist, addToWishlist, removeFromWishlist, isInWishlist, fetchWishlist,
-        fetchUser, loginUser, registerUser, logoutUser,
+        fetchUser, loginUser, registerUser, logoutUser, googleLogin,
         recentlyViewed, addToRecentlyViewed,
         orders
     };

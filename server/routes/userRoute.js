@@ -1,5 +1,5 @@
 import express from 'express';
-import { isAuth, login, logout, register, updateUser, forgotPassword, resetPassword, getAllClients } from '../controllers/userController.js';
+import { isAuth, login, logout, register, updateUser, forgotPassword, resetPassword, getAllClients, googleAuth, googleCallback } from '../controllers/userController.js';
 import authUser from '../middlewares/authUser.js';
 import authSeller from '../middlewares/authSeller.js';
 
@@ -12,6 +12,10 @@ userRouter.post('/logout', authUser, logout);
 userRouter.post('/update', authUser, updateUser);
 userRouter.post('/forgot-password', forgotPassword);
 userRouter.post('/reset-password', resetPassword);
+
+// Routes Google OAuth
+userRouter.get('/google', googleAuth);
+userRouter.get('/google/callback', googleCallback);
 
 // Admin routes
 userRouter.get('/admin/clients', authSeller, getAllClients);

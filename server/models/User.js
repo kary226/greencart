@@ -3,9 +3,11 @@ import mongoose from "mongoose";
 const userSchema = new mongoose.Schema({
     firstName: { type: String, default: '' },
     lastName: { type: String, default: '' },
-    name: { type: String, required: true }, // Conservé pour compatibilité
+    name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
+    password: { type: String, required: false },
+    googleId: { type: String, default: null },
+    avatar: { type: String, default: null },
     cartItems: { type: Object, default: {} },
     wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: 'product' }],
     phone: { type: String, default: '' },
@@ -14,7 +16,6 @@ const userSchema = new mongoose.Schema({
     communeId: { type: mongoose.Schema.Types.ObjectId, ref: 'commune', default: null },
     cityName: { type: String, default: '' },
     communeName: { type: String, default: '' },
-    // Champs pour la récupération de mot de passe
     resetPasswordToken: { type: String, default: null },
     resetPasswordExpires: { type: Date, default: null }
 }, { minimize: false })
