@@ -16,7 +16,7 @@ const ProductDetails = () => {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [selectedColor, setSelectedColor] = useState(null)
     const [selectedSize, setSelectedSize] = useState(null)
-    const [variantData, setVariantData] = useState(null) // Données de la variante sélectionnée
+    const [variantData, setVariantData] = useState(null)
     const scrollContainerRef = useRef(null);
     
     const [averageRating, setAverageRating] = useState(4);
@@ -30,9 +30,12 @@ const ProductDetails = () => {
             const defaultVariant = product.variants[0]
             setSelectedColor(defaultVariant.color)
             setVariantData(defaultVariant)
-            setCurrentImageIndex(0)
+            // Démarrer à l'index défini pour cette couleur
+            const startIndex = defaultVariant.startImageIndex || 0
+            setCurrentImageIndex(startIndex)
         } else {
             setVariantData(null)
+            setCurrentImageIndex(0)
         }
     }, [product])
 
@@ -42,7 +45,9 @@ const ProductDetails = () => {
             const variant = product.variants.find(v => v.color === selectedColor)
             if (variant) {
                 setVariantData(variant)
-                setCurrentImageIndex(0) // Réinitialiser l'index des images
+                // ← CHANGEMENT : Utiliser startImageIndex au lieu de 0
+                const startIndex = variant.startImageIndex || 0
+                setCurrentImageIndex(startIndex)
             }
         }
     }, [selectedColor, product])
@@ -71,10 +76,8 @@ const ProductDetails = () => {
     const uniqueColors = product && product.variants ? [...new Set(product.variants.map(v => v.color).filter(Boolean))] : []
     const uniqueSizes = product && product.variants ? [...new Set(product.variants.map(v => v.size).filter(Boolean))] : []
 
-    // Images à afficher (priorité aux images de la variante, sinon images par défaut)
-    const currentImages = variantData?.images?.length > 0 
-        ? variantData.images 
-        : (product?.image || [])
+    // TOUTES les images du produit (dans l'ordre)
+    const allImages = product?.image || []
 
     // Prix à afficher (prix variante ou prix par défaut)
     const currentPrice = variantData?.price || product?.price
@@ -217,10 +220,9 @@ const ProductDetails = () => {
         setTotalReviews(data.totalReviews);
     };
 
-    // Changement de couleur manuel par l'utilisateur
     const handleColorSelect = (color) => {
         setSelectedColor(selectedColor === color ? null : color)
-        setSelectedSize(null) // Réinitialiser la taille quand on change de couleur
+        setSelectedSize(null)
     }
 
     useEffect(()=>{
@@ -254,7 +256,7 @@ const ProductDetails = () => {
                 title={product.name}
                 description={getProductDescription()}
                 keywords={`${product.name}, ${product.category}, vêtements, accessoires, Ramci, Côte d'Ivoire, Abidjan`}
-                image={currentImages[0]}
+                image={allImages[0]}
                 url={`https://greencart-ci.vercel.app/products/${getProductCategory()?.toLowerCase()}/${product._id}`}
             />
             
@@ -269,10 +271,10 @@ const ProductDetails = () => {
                 <div className="product-main">
                     <div className="product-gallery">
                         <div className="main-image-container">
-                            <img src={currentImages[currentImageIndex]} alt={product.name} className="main-image" />
+                            <img src={allImages[currentImageIndex]} alt={product.name} className="main-image" />
                         </div>
                         
-                        {currentImages.length > 1 && (
+                        {allImages.length > 1 && (
                             <div className="thumbnail-carousel">
                                 <button onClick={() => scrollImages('left')} className="carousel-nav carousel-prev">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -281,13 +283,13 @@ const ProductDetails = () => {
                                 </button>
                                 
                                 <div className="thumbnail-scroll" ref={scrollContainerRef}>
-                                    {currentImages.map((img, idx) => (
+                                    {allImages.map((img, idx) => (
                                         <div 
                                             key={idx} 
                                             onClick={() => setCurrentImageIndex(idx)}
                                             className={`thumbnail-item ${currentImageIndex === idx ? 'active' : ''}`}
                                         >
-                                            <img src={img} alt={`${product.name} - ${variantData?.color || ''} vue ${idx + 1}`} />
+                                            <img src={img} alt={`${product.name} - vue ${idx + 1}`} />
                                         </div>
                                     ))}
                                 </div>
@@ -715,7 +717,6 @@ const ProductDetails = () => {
                     gap: 10px;
                 }
 
-                /* STYLES POUR LES BOUTONS DE COULEURS */
                 .colors-buttons {
                     display: flex;
                     gap: 12px;

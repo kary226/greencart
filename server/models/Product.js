@@ -7,7 +7,7 @@ const variantSchema = new mongoose.Schema({
     price: { type: Number, default: 0 },            // Prix spécifique à cette variante
     offerPrice: { type: Number, default: 0 },       // Prix promo spécifique
     stock: { type: Number, default: 0 },
-    images: [{ type: String, default: [] }]         // ← NOUVEAU : tableau d'images par couleur
+    startImageIndex: { type: Number, default: 0 }   // ← NOUVEAU : index de la première photo associée (ex: 0, 3, 6...)
 });
 
 const productSchema = new mongoose.Schema({
@@ -15,7 +15,7 @@ const productSchema = new mongoose.Schema({
     description: { type: Array, required: true },
     price: { type: Number, required: true },        // Prix par défaut
     offerPrice: { type: Number, required: true },   // Prix promo par défaut
-    image: { type: Array, required: true },         // Images par défaut
+    image: { type: Array, required: true },         // TOUTES les images du produit (dans l'ordre)
     categories: [{ type: String, required: true }],
     inStock: { type: Boolean, default: true },
     variants: [variantSchema]

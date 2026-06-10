@@ -13,7 +13,7 @@ const AddProduct = () => {
     const [offerPrice, setOfferPrice] = useState('');
     const [categoriesList, setCategoriesList] = useState([]);
 
-    // Variants améliorés avec prix, stock et images
+    // Variants
     const [variants, setVariants] = useState([])
     const [colorInput, setColorInput] = useState('')
     const [colorCodeInput, setColorCodeInput] = useState('#000000')
@@ -21,7 +21,7 @@ const AddProduct = () => {
     const [stockInput, setStockInput] = useState('')
     const [variantPriceInput, setVariantPriceInput] = useState('')
     const [variantOfferPriceInput, setVariantOfferPriceInput] = useState('')
-    const [variantImages, setVariantImages] = useState([])
+    const [startImageIndexInput, setStartImageIndexInput] = useState(0)  // ← NOUVEAU
     const [editingVariantIndex, setEditingVariantIndex] = useState(null)
 
     const { axios } = useAppContext()
@@ -41,15 +41,6 @@ const AddProduct = () => {
         fetchCategories();
     }, []);
 
-    const handleVariantImageUpload = (e) => {
-        const newFiles = Array.from(e.target.files)
-        setVariantImages([...variantImages, ...newFiles])
-    }
-
-    const removeVariantImage = (index) => {
-        setVariantImages(variantImages.filter((_, i) => i !== index))
-    }
-
     const addVariant = () => {
         if (!colorInput.trim()) {
             toast.error('Entrez une couleur')
@@ -67,7 +58,7 @@ const AddProduct = () => {
             stock: Number(stockInput),
             price: variantPriceInput ? Number(variantPriceInput) : 0,
             offerPrice: variantOfferPriceInput ? Number(variantOfferPriceInput) : 0,
-            images: variantImages.map(img => img) // Stockage temporaire, sera uploadé plus tard
+            startImageIndex: Number(startImageIndexInput)  // ← NOUVEAU : index de départ
         }
 
         if (editingVariantIndex !== null) {
@@ -79,14 +70,14 @@ const AddProduct = () => {
             setVariants([...variants, newVariant])
         }
 
-        // Reset du formulaire
+        // Reset
         setColorInput('')
         setColorCodeInput('#000000')
         setSizeInput('')
         setStockInput('')
         setVariantPriceInput('')
         setVariantOfferPriceInput('')
-        setVariantImages([])
+        setStartImageIndexInput(0)
     }
 
     const editVariant = (index) => {
@@ -97,7 +88,7 @@ const AddProduct = () => {
         setStockInput(variant.stock.toString())
         setVariantPriceInput(variant.price?.toString() || '')
         setVariantOfferPriceInput(variant.offerPrice?.toString() || '')
-        setVariantImages([])
+        setStartImageIndexInput(variant.startImageIndex || 0)
         setEditingVariantIndex(index)
     }
 
@@ -111,7 +102,7 @@ const AddProduct = () => {
             setStockInput('')
             setVariantPriceInput('')
             setVariantOfferPriceInput('')
-            setVariantImages([])
+            setStartImageIndexInput(0)
         }
     }
 
@@ -131,60 +122,20 @@ const AddProduct = () => {
             return;
         }
 
-        // Upload des images des variantes
-        const variantImagesUrls = []
-        for (const variant of variants) {
-            const variantImageUrls = []
-            for (const img of variant.images) {
-                if (img instanceof File) {
-                    const formData = new FormData()
-                    formData.append('image', img)
-                    try {
-                        const { data } = await axios.post('/api/upload/image', formData)
-                        if (data.success) {
-                            variantImageUrls.push(data.url)
-                        }
-                    } catch (error) {
-                        console.error('Upload failed:', error)
-                    }
-                } else {
-                    variantImageUrls.push(img)
-                }
-            }
-            variantImagesUrls.push(variantImageUrls)
-        }
-
-        // Construire les variantes avec les URLs des images
-        const processedVariants = variants.map((variant, idx) => ({
-            ...variant,
-            images: variantImagesUrls[idx] || []
-        }))
-
         const productData = {
             name,
             description: description.split('\n'),
             categories: selectedCategories,
             price,
             offerPrice,
-            variants: processedVariants,
-            imagesPerVariant: 1 // Nombre d'images par variante
+            variants: variants,
         }
 
         const formData = new FormData();
         formData.append('productData', JSON.stringify(productData));
         
-        // Ajouter toutes les images (principales + variantes)
         for (let i = 0; i < files.length; i++) {
             formData.append('images', files[i])
-        }
-        
-        // Ajouter les images des variantes
-        for (const variant of variants) {
-            for (const img of variant.images) {
-                if (img instanceof File) {
-                    formData.append('images', img)
-                }
-            }
         }
 
         try {
@@ -214,9 +165,9 @@ const AddProduct = () => {
 
                 {/* Images principales du produit */}
                 <div>
-                    <p className="text-base font-medium">Images principales du produit</p>
+                    <p className="text-base font-medium">Images du produit (dans l'ordre)</p>
                     <div className="flex flex-wrap items-center gap-3 mt-2">
-                        {Array(4).fill('').map((_, index) => (
+                        {Array(8).fill('').map((_, index) => (
                             <label key={index} htmlFor={`image${index}`}>
                                 <input onChange={(e) => {
                                     const updatedFiles = [...files];
@@ -224,29 +175,30 @@ const AddProduct = () => {
                                     setFiles(updatedFiles)
                                 }}
                                     type="file" id={`image${index}`} hidden />
-                                <img className="max-w-24 cursor-pointer" src={files[index] ? URL.createObjectURL(files[index]) : assets.upload_area} alt="uploadArea" width={100} height={100} />
+                                <img className="max-w-20 cursor-pointer border rounded" src={files[index] ? URL.createObjectURL(files[index]) : assets.upload_area} alt="uploadArea" width={80} height={80} />
                             </label>
                         ))}
                     </div>
+                    <p className="text-xs text-gray-400 mt-2">💡 L'ordre des photos est important. Photo 1,2,3 = Rouge | Photo 4,5,6 = Bleu, etc.</p>
                 </div>
 
-                {/* Nom du produit */}
+                {/* Nom */}
                 <div className="flex flex-col gap-1 max-w-md">
-                    <label className="text-base font-medium" htmlFor="product-name">Nom du produit</label>
+                    <label className="text-base font-medium">Nom du produit</label>
                     <input onChange={(e) => setName(e.target.value)} value={name}
-                        id="product-name" type="text" placeholder="Type here" className="outline-none md:py-2.5 py-2 px-3 rounded border border-gray-500/40" required />
+                        type="text" placeholder="Type here" className="outline-none md:py-2.5 py-2 px-3 rounded border border-gray-500/40" required />
                 </div>
 
                 {/* Description */}
                 <div className="flex flex-col gap-1 max-w-md">
-                    <label className="text-base font-medium" htmlFor="product-description">Description</label>
+                    <label className="text-base font-medium">Description</label>
                     <textarea onChange={(e) => setDescription(e.target.value)} value={description}
-                        id="product-description" rows={4} className="outline-none md:py-2.5 py-2 px-3 rounded border border-gray-500/40 resize-none" placeholder="Type here"></textarea>
+                        rows={4} className="outline-none md:py-2.5 py-2 px-3 rounded border border-gray-500/40 resize-none"></textarea>
                 </div>
 
-                {/* Catégories multiples */}
+                {/* Catégories */}
                 <div className="w-full flex flex-col gap-2">
-                    <label className="text-base font-medium">Catégories (sélection multiple)</label>
+                    <label className="text-base font-medium">Catégories</label>
                     <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 border border-gray-500/40 rounded">
                         {categoriesList.map((item) => (
                             <button
@@ -262,32 +214,26 @@ const AddProduct = () => {
                             </button>
                         ))}
                     </div>
-                    <p className="text-xs text-gray-400">
-                        {selectedCategories.length} catégorie(s) sélectionnée(s)
-                    </p>
                 </div>
 
                 {/* Prix par défaut */}
                 <div className="flex items-center gap-5 flex-wrap">
-                    <div className="flex-1 flex flex-col gap-1 w-32">
-                        <label className="text-base font-medium" htmlFor="product-price">Prix par défaut</label>
+                    <div className="flex-1 flex flex-col gap-1">
+                        <label className="text-base font-medium">Prix par défaut</label>
                         <input onChange={(e) => setPrice(e.target.value)} value={price}
-                            id="product-price" type="number" placeholder="0" className="outline-none md:py-2.5 py-2 px-3 rounded border border-gray-500/40" required />
+                            type="number" placeholder="0" className="outline-none md:py-2.5 py-2 px-3 rounded border border-gray-500/40" required />
                     </div>
-                    <div className="flex-1 flex flex-col gap-1 w-32">
-                        <label className="text-base font-medium" htmlFor="offer-price">Prix promo défaut</label>
+                    <div className="flex-1 flex flex-col gap-1">
+                        <label className="text-base font-medium">Prix promo défaut</label>
                         <input onChange={(e) => setOfferPrice(e.target.value)} value={offerPrice}
-                            id="offer-price" type="number" placeholder="0" className="outline-none md:py-2.5 py-2 px-3 rounded border border-gray-500/40" required />
+                            type="number" placeholder="0" className="outline-none md:py-2.5 py-2 px-3 rounded border border-gray-500/40" required />
                     </div>
                 </div>
 
-                {/* AJOUT VARIANTE PAR COULEUR */}
+                {/* VARIANTES PAR COULEUR */}
                 <div className="flex flex-col gap-3 max-w-md border-t pt-4">
-                    <label className="text-base font-medium text-primary">
-                        ✨ Variantes par couleur
-                    </label>
+                    <label className="text-base font-medium text-primary">✨ Variantes par couleur</label>
 
-                    {/* Formulaire d'ajout de variante */}
                     <div className="bg-gray-50 p-3 rounded-lg space-y-3">
                         <div className="flex gap-2 items-center">
                             <input value={colorInput} onChange={e => setColorInput(e.target.value)}
@@ -315,45 +261,47 @@ const AddProduct = () => {
                                 className="flex-1 outline-none py-2 px-3 rounded border border-gray-300 text-sm" />
                         </div>
 
-                        {/* Upload images pour cette couleur */}
+                        {/* Index de départ */}
                         <div>
-                            <p className="text-xs text-gray-500 mb-1">Images pour cette couleur</p>
-                            <div className="flex flex-wrap gap-2">
-                                {variantImages.map((img, idx) => (
-                                    <div key={idx} className="relative">
-                                        <img src={URL.createObjectURL(img)} alt={`variant-${idx}`} className="w-12 h-12 object-cover rounded" />
-                                        <button type="button" onClick={() => removeVariantImage(idx)} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 text-xs">×</button>
-                                    </div>
-                                ))}
-                                <label className="w-12 h-12 border-2 border-dashed border-gray-300 rounded flex items-center justify-center cursor-pointer hover:border-primary">
-                                    <input type="file" multiple accept="image/*" onChange={handleVariantImageUpload} className="hidden" />
-                                    <span className="text-xl text-gray-400">+</span>
-                                </label>
-                            </div>
+                            <label className="text-xs text-gray-600 mb-1 block">
+                                Position de départ (0 = première photo)
+                            </label>
+                            <input 
+                                value={startImageIndexInput} 
+                                onChange={e => setStartImageIndexInput(Number(e.target.value))}
+                                type="number" 
+                                min="0"
+                                placeholder="Ex: 0 pour Rouge, 3 pour Bleu"
+                                className="w-full outline-none py-2 px-3 rounded border border-gray-300 text-sm"
+                            />
+                            <p className="text-xs text-gray-400 mt-1">
+                                💡 Exemple: Rouge commence à 0, Bleu commence à 3
+                            </p>
                         </div>
 
                         <button type="button" onClick={addVariant}
                             className="w-full py-2 bg-primary text-white rounded text-sm font-medium">
-                            {editingVariantIndex !== null ? 'Mettre à jour la variante' : '+ Ajouter cette couleur'}
+                            {editingVariantIndex !== null ? 'Mettre à jour' : '+ Ajouter cette couleur'}
                         </button>
                     </div>
 
-                    {/* Liste des variantes existantes */}
+                    {/* Liste des variantes */}
                     {variants.length > 0 && (
                         <div className="mt-2 border border-gray-200 rounded overflow-hidden">
                             <table className="w-full text-sm">
-                                <thead className="bg-gray-50 text-gray-600">
+                                <thead className="bg-gray-50">
                                     <tr>
                                         <th className="px-3 py-2 text-left">Couleur</th>
                                         <th className="px-3 py-2 text-left">Taille</th>
                                         <th className="px-3 py-2 text-left">Prix</th>
                                         <th className="px-3 py-2 text-left">Stock</th>
-                                        <th className="px-3 py-2"></th>
+                                        <th className="px-3 py-2 text-left">Départ</th>
+                                        <th></th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {variants.map((v, i) => (
-                                        <tr key={i} className="border-t border-gray-100">
+                                        <tr key={i} className="border-t">
                                             <td className="px-3 py-2">
                                                 <div className="flex items-center gap-2">
                                                     <div className="w-4 h-4 rounded-full" style={{ backgroundColor: v.colorCode }}></div>
@@ -361,14 +309,12 @@ const AddProduct = () => {
                                                 </div>
                                             </td>
                                             <td className="px-3 py-2">{v.size || '—'}</td>
-                                            <td className="px-3 py-2">
-                                                {v.price ? `${v.price} FCFA` : '—'}
-                                                {v.offerPrice && <span className="text-xs text-green-500 ml-1">promo</span>}
-                                            </td>
+                                            <td className="px-3 py-2">{v.price ? `${v.price} FCFA` : '—'}</td>
                                             <td className="px-3 py-2 font-medium text-green-600">{v.stock}</td>
-                                            <td className="px-3 py-2 space-x-2">
-                                                <button type="button" onClick={() => editVariant(i)} className="text-blue-400 hover:text-blue-600 text-xs">✏️</button>
-                                                <button type="button" onClick={() => removeVariant(i)} className="text-red-400 hover:text-red-600 text-xs">✕</button>
+                                            <td className="px-3 py-2 font-medium text-blue-600">{v.startImageIndex || 0}</td>
+                                            <td className="px-3 py-2">
+                                                <button type="button" onClick={() => editVariant(i)} className="text-blue-400 mr-2">✏️</button>
+                                                <button type="button" onClick={() => removeVariant(i)} className="text-red-400">✕</button>
                                             </td>
                                         </tr>
                                     ))}
@@ -376,9 +322,6 @@ const AddProduct = () => {
                             </table>
                         </div>
                     )}
-                    <p className="text-xs text-gray-400">
-                        💡 Chaque couleur peut avoir son propre prix, stock et images.
-                    </p>
                 </div>
 
                 <button type="submit" className="px-8 py-2.5 bg-primary text-white font-medium rounded cursor-pointer">
