@@ -10,18 +10,42 @@ import RecentlyViewed from "../components/RecentlyViewed";
 
 const ProductDetails = () => {
 
-    const {products, navigate, currency, addToCart, cartItems, getCartKey, addToRecentlyViewed} = useAppContext()
+    const {products, navigate, currency, addToCart, cartItems, getCartKey, addToRecentlyViewed, axios} = useAppContext()
     const {id} = useParams()
     const [relatedProducts, setRelatedProducts] = useState([]);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [selectedColor, setSelectedColor] = useState(null)
     const [selectedSize, setSelectedSize] = useState(null)
+    const [variantData, setVariantData] = useState(null) // Données de la variante sélectionnée
     const scrollContainerRef = useRef(null);
     
     const [averageRating, setAverageRating] = useState(4);
     const [totalReviews, setTotalReviews] = useState(0);
 
     const product = products.find((item)=> item._id === id);
+
+    // Récupérer la variante par défaut (première couleur disponible)
+    useEffect(() => {
+        if (product && product.variants && product.variants.length > 0) {
+            const defaultVariant = product.variants[0]
+            setSelectedColor(defaultVariant.color)
+            setVariantData(defaultVariant)
+            setCurrentImageIndex(0)
+        } else {
+            setVariantData(null)
+        }
+    }, [product])
+
+    // Mettre à jour variantData quand la couleur change
+    useEffect(() => {
+        if (product && product.variants && selectedColor) {
+            const variant = product.variants.find(v => v.color === selectedColor)
+            if (variant) {
+                setVariantData(variant)
+                setCurrentImageIndex(0) // Réinitialiser l'index des images
+            }
+        }
+    }, [selectedColor, product])
 
     useEffect(() => {
         if (product) {
@@ -43,19 +67,27 @@ const ProductDetails = () => {
         return product?.description || ''
     }
 
-    const uniqueColors = product ? [...new Set(product.variants?.map(v => v.color).filter(Boolean))] : []
-    const uniqueSizes = product ? [...new Set(product.variants?.map(v => v.size).filter(Boolean))] : []
+    // Récupérer les couleurs UNIQUES depuis les variantes
+    const uniqueColors = product && product.variants ? [...new Set(product.variants.map(v => v.color).filter(Boolean))] : []
+    const uniqueSizes = product && product.variants ? [...new Set(product.variants.map(v => v.size).filter(Boolean))] : []
+
+    // Images à afficher (priorité aux images de la variante, sinon images par défaut)
+    const currentImages = variantData?.images?.length > 0 
+        ? variantData.images 
+        : (product?.image || [])
+
+    // Prix à afficher (prix variante ou prix par défaut)
+    const currentPrice = variantData?.price || product?.price
+    const currentOfferPrice = variantData?.offerPrice || product?.offerPrice
+    const currentStock = variantData?.stock ?? product?.stock ?? 0
 
     const getVariantStock = () => {
-        if (!product?.variants?.length) return null
+        if (!product?.variants?.length) return product?.inStock ? product?.stock : 0
         const variant = product.variants.find(v =>
             (selectedColor ? v.color === selectedColor : !v.color) &&
             (selectedSize ? v.size === selectedSize : !v.size)
-        ) || product.variants.find(v =>
-            (selectedColor ? v.color === selectedColor : true) &&
-            (selectedSize ? v.size === selectedSize : true)
         )
-        return variant ? variant.stock : null
+        return variant ? variant.stock : 0
     }
 
     const isSizeAvailable = (size) => {
@@ -185,6 +217,12 @@ const ProductDetails = () => {
         setTotalReviews(data.totalReviews);
     };
 
+    // Changement de couleur manuel par l'utilisateur
+    const handleColorSelect = (color) => {
+        setSelectedColor(selectedColor === color ? null : color)
+        setSelectedSize(null) // Réinitialiser la taille quand on change de couleur
+    }
+
     useEffect(()=>{
         if(products.length > 0 && product){
             let productsCopy = products.slice();
@@ -205,6 +243,7 @@ const ProductDetails = () => {
         setCurrentImageIndex(0)
         setAverageRating(4);
         setTotalReviews(0);
+        setVariantData(null)
     },[products, id])
 
     if (!product) return null;
@@ -215,7 +254,7 @@ const ProductDetails = () => {
                 title={product.name}
                 description={getProductDescription()}
                 keywords={`${product.name}, ${product.category}, vêtements, accessoires, Ramci, Côte d'Ivoire, Abidjan`}
-                image={product.image[0]}
+                image={currentImages[0]}
                 url={`https://greencart-ci.vercel.app/products/${getProductCategory()?.toLowerCase()}/${product._id}`}
             />
             
@@ -230,10 +269,10 @@ const ProductDetails = () => {
                 <div className="product-main">
                     <div className="product-gallery">
                         <div className="main-image-container">
-                            <img src={product.image[currentImageIndex]} alt={product.name} className="main-image" />
+                            <img src={currentImages[currentImageIndex]} alt={product.name} className="main-image" />
                         </div>
                         
-                        {product.image.length > 1 && (
+                        {currentImages.length > 1 && (
                             <div className="thumbnail-carousel">
                                 <button onClick={() => scrollImages('left')} className="carousel-nav carousel-prev">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -242,13 +281,13 @@ const ProductDetails = () => {
                                 </button>
                                 
                                 <div className="thumbnail-scroll" ref={scrollContainerRef}>
-                                    {product.image.map((img, idx) => (
+                                    {currentImages.map((img, idx) => (
                                         <div 
                                             key={idx} 
                                             onClick={() => setCurrentImageIndex(idx)}
                                             className={`thumbnail-item ${currentImageIndex === idx ? 'active' : ''}`}
                                         >
-                                            <img src={img} alt={`${product.name} - vue ${idx + 1}`} />
+                                            <img src={img} alt={`${product.name} - ${variantData?.color || ''} vue ${idx + 1}`} />
                                         </div>
                                     ))}
                                 </div>
@@ -271,43 +310,64 @@ const ProductDetails = () => {
                             <span className="rating-count">({totalReviews} avis)</span>
                         </div>
 
-                        {/* PRIX MODIFIÉS : DISPOSITION VERTICALE */}
+                        {/* PRIX DYNAMIQUE selon la couleur */}
                         <div className="product-pricing-vertical">
-                            {product.offerPrice && product.offerPrice < product.price && (
-                                <div className="old-price-vertical">{product.price} {currency}</div>
+                            {currentOfferPrice && currentOfferPrice < currentPrice && (
+                                <div className="old-price-vertical">{currentPrice} {currency}</div>
                             )}
                             <div className="price-row">
                                 <span className="current-price-vertical">
-                                    {product.offerPrice && product.offerPrice < product.price ? product.offerPrice : product.price} {currency}
+                                    {currentOfferPrice && currentOfferPrice < currentPrice ? currentOfferPrice : currentPrice} {currency}
                                 </span>
-                                {product.offerPrice && product.offerPrice < product.price && (
-                                    <span className="discount-badge">-{Math.round(((product.price - product.offerPrice) / product.price) * 100)}%</span>
+                                {currentOfferPrice && currentOfferPrice < currentPrice && (
+                                    <span className="discount-badge">-{Math.round(((currentPrice - currentOfferPrice) / currentPrice) * 100)}%</span>
                                 )}
                             </div>
                         </div>
 
-                        {getStockLabel(variantStock) && (
-                            <p className={`stock-info ${getStockColor(variantStock)}`}>
-                                {getStockLabel(variantStock)}
-                            </p>
-                        )}
+                        {/* STOCK DYNAMIQUE selon la couleur */}
+                        <p className={`stock-info ${getStockColor(currentStock)}`}>
+                            {getStockLabel(currentStock)}
+                        </p>
 
+                        {/* BOUTONS DE COULEURS DYNAMIQUES avec code couleur */}
                         {uniqueColors.length > 0 && (
                             <div className="option-group">
                                 <p className="option-label">
-                                    Couleur : <span>{selectedColor || 'Non sélectionnée'}</span>
+                                    Couleur : <span style={{color: variantData?.colorCode}}>{selectedColor || 'Non sélectionnée'}</span>
                                 </p>
-                                <div className="option-buttons">
-                                    {uniqueColors.map((color, i) => (
-                                        <button 
-                                            key={i} 
-                                            onClick={() => setSelectedColor(selectedColor === color ? null : color)}
-                                            disabled={!isColorAvailable(color)}
-                                            className={`option-btn ${!isColorAvailable(color) ? 'disabled' : selectedColor === color ? 'active' : ''}`}
-                                        >
-                                            {color}
-                                        </button>
-                                    ))}
+                                <div className="option-buttons colors-buttons">
+                                    {uniqueColors.map((color, i) => {
+                                        const variant = product.variants.find(v => v.color === color)
+                                        const isAvailable = variant?.stock > 0
+                                        const isSelected = selectedColor === color
+                                        return (
+                                            <button 
+                                                key={i} 
+                                                onClick={() => handleColorSelect(color)}
+                                                disabled={!isAvailable}
+                                                className={`color-btn ${!isAvailable ? 'disabled' : isSelected ? 'active' : ''}`}
+                                                style={{backgroundColor: variant?.colorCode || '#000000'}}
+                                                title={color}
+                                            >
+                                                {!isAvailable && <span className="out-of-strip"></span>}
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                                <div className="color-names">
+                                    {uniqueColors.map((color, i) => {
+                                        const isSelected = selectedColor === color
+                                        return (
+                                            <span 
+                                                key={i} 
+                                                className={`color-name ${isSelected ? 'active' : ''}`}
+                                                onClick={() => handleColorSelect(color)}
+                                            >
+                                                {color}
+                                            </span>
+                                        )
+                                    })}
                                 </div>
                             </div>
                         )}
@@ -592,7 +652,6 @@ const ProductDetails = () => {
                     color: #888;
                 }
 
-                /* NOUVEAUX STYLES PRIX VERTICAL */
                 .product-pricing-vertical {
                     display: flex;
                     flex-direction: column;
@@ -654,6 +713,72 @@ const ProductDetails = () => {
                     display: flex;
                     flex-wrap: wrap;
                     gap: 10px;
+                }
+
+                /* STYLES POUR LES BOUTONS DE COULEURS */
+                .colors-buttons {
+                    display: flex;
+                    gap: 12px;
+                    margin-bottom: 12px;
+                }
+
+                .color-btn {
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 50%;
+                    border: 2px solid #e8e3dc;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    position: relative;
+                }
+
+                .color-btn.active {
+                    border-color: #111;
+                    transform: scale(1.1);
+                    box-shadow: 0 0 0 2px white, 0 0 0 4px #111;
+                }
+
+                .color-btn:hover:not(.disabled) {
+                    transform: scale(1.05);
+                    border-color: #111;
+                }
+
+                .color-btn.disabled {
+                    opacity: 0.4;
+                    cursor: not-allowed;
+                    position: relative;
+                }
+
+                .out-of-strip {
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    width: 2px;
+                    height: 30px;
+                    background: #e53935;
+                    transform: translate(-50%, -50%) rotate(45deg);
+                }
+
+                .color-names {
+                    display: flex;
+                    gap: 16px;
+                    flex-wrap: wrap;
+                }
+
+                .color-name {
+                    font-size: 13px;
+                    color: #888;
+                    cursor: pointer;
+                    transition: color 0.2s;
+                }
+
+                .color-name:hover {
+                    color: #111;
+                }
+
+                .color-name.active {
+                    color: #111;
+                    font-weight: 600;
                 }
 
                 .option-btn {

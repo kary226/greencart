@@ -7,10 +7,14 @@ const ProductList = () => {
     const { products, currency, axios, fetchProducts } = useAppContext()
     const [editProduct, setEditProduct] = useState(null)
     const [colorInput, setColorInput] = useState('')
+    const [colorCodeInput, setColorCodeInput] = useState('#000000')
     const [sizeInput, setSizeInput] = useState('')
     const [stockInput, setStockInput] = useState('')
+    const [variantPriceInput, setVariantPriceInput] = useState('')
+    const [variantOfferPriceInput, setVariantOfferPriceInput] = useState('')
     const [categoriesList, setCategoriesList] = useState([])
     const [selectedCategories, setSelectedCategories] = useState([])
+    const [editingVariantIndex, setEditingVariantIndex] = useState(null)
 
     const fetchCategories = async () => {
         try {
@@ -50,8 +54,12 @@ const ProductList = () => {
         })
         setSelectedCategories(product.categories || [])
         setColorInput('')
+        setColorCodeInput('#000000')
         setSizeInput('')
         setStockInput('')
+        setVariantPriceInput('')
+        setVariantOfferPriceInput('')
+        setEditingVariantIndex(null)
     }
 
     const handleCategoryToggle = (categorySlug) => {
@@ -101,30 +109,65 @@ const ProductList = () => {
     }
 
     const addVariant = () => {
-        if (!colorInput.trim() && !sizeInput.trim()) {
-            toast.error('Entrez au moins une couleur ou une taille')
+        if (!colorInput.trim()) {
+            toast.error('Entrez une couleur')
             return
         }
         if (!stockInput || Number(stockInput) < 0) {
             toast.error('Entrez un stock valide')
             return
         }
+
         const newVariant = {
-            color: colorInput.trim() || null,
+            color: colorInput.trim(),
+            colorCode: colorCodeInput,
             size: sizeInput.trim().toUpperCase() || null,
-            stock: Number(stockInput)
+            stock: Number(stockInput),
+            price: variantPriceInput ? Number(variantPriceInput) : 0,
+            offerPrice: variantOfferPriceInput ? Number(variantOfferPriceInput) : 0,
+            images: editProduct.variants.find(v => v.color === colorInput)?.images || []
         }
-        setEditProduct({ ...editProduct, variants: [...editProduct.variants, newVariant] })
+
+        if (editingVariantIndex !== null) {
+            const updatedVariants = [...editProduct.variants]
+            updatedVariants[editingVariantIndex] = newVariant
+            setEditProduct({ ...editProduct, variants: updatedVariants })
+            setEditingVariantIndex(null)
+        } else {
+            setEditProduct({ ...editProduct, variants: [...editProduct.variants, newVariant] })
+        }
+
         setColorInput('')
+        setColorCodeInput('#000000')
         setSizeInput('')
         setStockInput('')
+        setVariantPriceInput('')
+        setVariantOfferPriceInput('')
+    }
+
+    const editVariant = (index) => {
+        const variant = editProduct.variants[index]
+        setColorInput(variant.color)
+        setColorCodeInput(variant.colorCode || '#000000')
+        setSizeInput(variant.size || '')
+        setStockInput(variant.stock.toString())
+        setVariantPriceInput(variant.price?.toString() || '')
+        setVariantOfferPriceInput(variant.offerPrice?.toString() || '')
+        setEditingVariantIndex(index)
     }
 
     const removeVariant = (index) => {
-        setEditProduct({
-            ...editProduct,
-            variants: editProduct.variants.filter((_, i) => i !== index)
-        })
+        const updatedVariants = editProduct.variants.filter((_, i) => i !== index)
+        setEditProduct({ ...editProduct, variants: updatedVariants })
+        if (editingVariantIndex === index) {
+            setEditingVariantIndex(null)
+            setColorInput('')
+            setColorCodeInput('#000000')
+            setSizeInput('')
+            setStockInput('')
+            setVariantPriceInput('')
+            setVariantOfferPriceInput('')
+        }
     }
 
     const updateVariantStock = (index, stock) => {
@@ -133,10 +176,19 @@ const ProductList = () => {
         setEditProduct({ ...editProduct, variants: updated })
     }
 
+    const updateVariantPrice = (index, price, isOfferPrice = false) => {
+        const updated = [...editProduct.variants]
+        if (isOfferPrice) {
+            updated[index].offerPrice = Number(price)
+        } else {
+            updated[index].price = Number(price)
+        }
+        setEditProduct({ ...editProduct, variants: updated })
+    }
+
     return (
         <div className="bg-gray-50 min-h-screen">
             <div className="p-6">
-                {/* Header */}
                 <div className="mb-6">
                     <h1 className="text-2xl font-bold text-gray-900">Liste des produits</h1>
                     <p className="text-sm text-gray-500 mt-1">Gérez tous vos produits</p>
@@ -159,7 +211,7 @@ const ProductList = () => {
                                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Produit</th>
                                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Catégorie(s)</th>
                                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Prix</th>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Stock</th>
+                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Variantes</th>
                                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">En vente</th>
                                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                                     </tr>
@@ -170,7 +222,7 @@ const ProductList = () => {
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                                                        <img src={product.image[0]} alt={product.name} className="w-full h-full object-cover" />
+                                                        <img src={product.image?.[0]} alt={product.name} className="w-full h-full object-cover" />
                                                     </div>
                                                     <span className="font-medium text-gray-900">{product.name}</span>
                                                 </div>
@@ -193,15 +245,21 @@ const ProductList = () => {
                                             </td>
                                             <td className="px-6 py-4">
                                                 {product.variants?.length > 0 ? (
-                                                    <div className="space-y-0.5">
+                                                    <div className="space-y-1">
                                                         {product.variants.map((v, i) => (
-                                                            <span key={i} className={`text-xs font-medium ${
-                                                                v.stock === 0 ? 'text-red-500' :
-                                                                v.stock <= 5 ? 'text-orange-500' :
-                                                                'text-green-600'
-                                                            }`}>
-                                                                {v.color || ''}{v.color && v.size ? ' / ' : ''}{v.size || ''}: {v.stock === 0 ? 'Épuisé' : `${v.stock} restants`}
-                                                            </span>
+                                                            <div key={i} className="flex items-center gap-2 text-xs">
+                                                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: v.colorCode || '#000' }}></div>
+                                                                <span className="font-medium">{v.color}</span>
+                                                                {v.size && <span className="text-gray-400">/{v.size}</span>}
+                                                                <span className={`font-medium ${
+                                                                    v.stock === 0 ? 'text-red-500' :
+                                                                    v.stock <= 5 ? 'text-orange-500' :
+                                                                    'text-green-600'
+                                                                }`}>
+                                                                    : {v.stock === 0 ? 'Épuisé' : `${v.stock} restants`}
+                                                                </span>
+                                                                {v.price > 0 && <span className="text-gray-400 ml-1">({v.price} FCFA)</span>}
+                                                            </div>
                                                         ))}
                                                     </div>
                                                 ) : (
@@ -257,8 +315,7 @@ const ProductList = () => {
             {/* Modal de modification */}
             {editProduct && (
                 <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setEditProduct(null)}>
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
-                        {/* Modal Header */}
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
                         <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-white">
                             <h3 className="text-lg font-semibold text-gray-900">Modifier le produit</h3>
                             <button 
@@ -272,7 +329,6 @@ const ProductList = () => {
                             </button>
                         </div>
 
-                        {/* Modal Body */}
                         <div className="p-5 space-y-4 overflow-y-auto max-h-[calc(90vh-140px)]">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Nom</label>
@@ -338,39 +394,61 @@ const ProductList = () => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Variantes</label>
-                                <div className="flex gap-2 mb-3">
-                                    <input 
-                                        value={colorInput} 
-                                        onChange={e => setColorInput(e.target.value)}
-                                        type="text" 
-                                        placeholder="Couleur"
-                                        className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
-                                    />
-                                    <input 
-                                        value={sizeInput} 
-                                        onChange={e => setSizeInput(e.target.value)}
-                                        type="text" 
-                                        placeholder="Taille"
-                                        className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
-                                    />
-                                    <input 
-                                        value={stockInput} 
-                                        onChange={e => setStockInput(e.target.value)}
-                                        type="number" 
-                                        placeholder="Stock"
-                                        className="w-24 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
-                                    />
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Variantes par couleur</label>
+                                <div className="bg-gray-50 p-3 rounded-xl space-y-3 mb-3">
+                                    <div className="flex gap-2 items-center">
+                                        <input 
+                                            value={colorInput} 
+                                            onChange={e => setColorInput(e.target.value)}
+                                            type="text" 
+                                            placeholder="Couleur (ex: Rouge)"
+                                            className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                        />
+                                        <input 
+                                            value={colorCodeInput} 
+                                            onChange={e => setColorCodeInput(e.target.value)}
+                                            type="color" 
+                                            className="w-12 h-10 rounded-xl border border-gray-200 cursor-pointer"
+                                        />
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <input 
+                                            value={sizeInput} 
+                                            onChange={e => setSizeInput(e.target.value)}
+                                            type="text" 
+                                            placeholder="Taille (optionnel)"
+                                            className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                        />
+                                        <input 
+                                            value={stockInput} 
+                                            onChange={e => setStockInput(e.target.value)}
+                                            type="number" 
+                                            placeholder="Stock"
+                                            className="w-24 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                        />
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <input 
+                                            value={variantPriceInput} 
+                                            onChange={e => setVariantPriceInput(e.target.value)}
+                                            type="number" 
+                                            placeholder="Prix (optionnel)"
+                                            className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                        />
+                                        <input 
+                                            value={variantOfferPriceInput} 
+                                            onChange={e => setVariantOfferPriceInput(e.target.value)}
+                                            type="number" 
+                                            placeholder="Prix promo (optionnel)"
+                                            className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                        />
+                                    </div>
                                     <button 
                                         type="button" 
                                         onClick={addVariant}
-                                        className="px-4 py-2 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 transition"
+                                        className="w-full py-2 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 transition"
                                     >
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                            <circle cx="12" cy="12" r="10"/>
-                                            <line x1="12" y1="8" x2="12" y2="16"/>
-                                            <line x1="8" y1="12" x2="16" y2="12"/>
-                                        </svg>
+                                        {editingVariantIndex !== null ? 'Mettre à jour la variante' : '+ Ajouter cette couleur'}
                                     </button>
                                 </div>
 
@@ -381,15 +459,39 @@ const ProductList = () => {
                                                 <tr>
                                                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Couleur</th>
                                                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Taille</th>
+                                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Prix</th>
                                                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Stock</th>
-                                                    <th className="px-3 py-2 w-10"></th>
+                                                    <th className="px-3 py-2 w-20"></th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-100">
                                                 {editProduct.variants.map((v, i) => (
                                                     <tr key={i}>
-                                                        <td className="px-3 py-2 text-sm text-gray-600">{v.color || '—'}</td>
+                                                        <td className="px-3 py-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-4 h-4 rounded-full" style={{ backgroundColor: v.colorCode || '#000' }}></div>
+                                                                <span className="text-sm text-gray-600">{v.color}</span>
+                                                            </div>
+                                                        </td>
                                                         <td className="px-3 py-2 text-sm text-gray-600">{v.size || '—'}</td>
+                                                        <td className="px-3 py-2">
+                                                            <div className="flex gap-1">
+                                                                <input 
+                                                                    type="number" 
+                                                                    value={v.price || ''}
+                                                                    onChange={e => updateVariantPrice(i, e.target.value, false)}
+                                                                    placeholder="Prix"
+                                                                    className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:border-red-500 outline-none"
+                                                                />
+                                                                <input 
+                                                                    type="number" 
+                                                                    value={v.offerPrice || ''}
+                                                                    onChange={e => updateVariantPrice(i, e.target.value, true)}
+                                                                    placeholder="Promo"
+                                                                    className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:border-red-500 outline-none"
+                                                                />
+                                                            </div>
+                                                        </td>
                                                         <td className="px-3 py-2">
                                                             <input 
                                                                 type="number" 
@@ -399,16 +501,27 @@ const ProductList = () => {
                                                             />
                                                         </td>
                                                         <td className="px-3 py-2">
-                                                            <button 
-                                                                type="button" 
-                                                                onClick={() => removeVariant(i)}
-                                                                className="text-red-400 hover:text-red-600 transition"
-                                                            >
-                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                                    <line x1="18" y1="6" x2="6" y2="18"/>
-                                                                    <line x1="6" y1="6" x2="18" y2="18"/>
-                                                                </svg>
-                                                            </button>
+                                                            <div className="flex gap-1">
+                                                                <button 
+                                                                    type="button" 
+                                                                    onClick={() => editVariant(i)}
+                                                                    className="text-blue-400 hover:text-blue-600 transition"
+                                                                >
+                                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                                        <path d="M17 3l4 4-7 7H10v-4l7-7z"/>
+                                                                    </svg>
+                                                                </button>
+                                                                <button 
+                                                                    type="button" 
+                                                                    onClick={() => removeVariant(i)}
+                                                                    className="text-red-400 hover:text-red-600 transition"
+                                                                >
+                                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                                        <line x1="18" y1="6" x2="6" y2="18"/>
+                                                                        <line x1="6" y1="6" x2="18" y2="18"/>
+                                                                    </svg>
+                                                                </button>
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 ))}
@@ -416,10 +529,12 @@ const ProductList = () => {
                                         </table>
                                     </div>
                                 )}
+                                <p className="text-xs text-gray-400 mt-2">
+                                    💡 Chaque couleur peut avoir son propre prix, stock et images (dans l'ajout de produit)
+                                </p>
                             </div>
                         </div>
 
-                        {/* Modal Footer */}
                         <div className="p-5 border-t border-gray-100 flex gap-3 bg-gray-50">
                             <button 
                                 onClick={() => setEditProduct(null)}
