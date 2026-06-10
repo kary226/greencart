@@ -5,18 +5,8 @@ import { BrowserRouter } from 'react-router-dom'
 import { AppContextProvider } from './context/AppContext.jsx'
 import { HelmetProvider } from 'react-helmet-async'
 
-// ✅ Enregistrement du Service Worker pour la PWA
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/registerSW.js')  // ← CHANGÉ : sw.js → registerSW.js
-      .then((registration) => {
-        console.log('✅ Service Worker enregistré avec succès:', registration.scope);
-      })
-      .catch((error) => {
-        console.log('❌ Erreur lors de l\'enregistrement du Service Worker:', error);
-      });
-  });
-}
+// ❌ SUPPRIMÉ : l'enregistrement manuel du Service Worker
+// C'est vite-plugin-pwa qui gère déjà cela automatiquement
 
 createRoot(document.getElementById('root')).render(
   <HelmetProvider>

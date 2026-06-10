@@ -11,6 +11,7 @@ const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [showIOSGuide, setShowIOSGuide] = useState(false);
   const suggestionsRef = useRef(null);
   const menuRef = useRef(null);
   const navigate = useNavigate();
@@ -18,6 +19,12 @@ const Navbar = () => {
 
   const cartCount = cartItems ? Object.values(cartItems).reduce((a, b) => a + b, 0) : 0;
   const wishlistCount = wishlist?.length || 0;
+
+  // Détection plateforme
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isAndroid = /android/i.test(navigator.userAgent);
+  const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true;
 
   // État pour les filtres
   const [filters, setFilters] = useState({
@@ -43,28 +50,43 @@ const Navbar = () => {
     });
   }, [location.search]);
 
-  // Gestion de l'installation PWA
+  // Capture de l'événement beforeinstallprompt (Android/Chrome)
   useEffect(() => {
-    const handleBeforeInstallPrompt = (e) => {
+    const handler = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
     };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
   const handleInstallClick = async () => {
+    // Déjà installée
+    if (isInStandaloneMode) return;
+
+    // Android avec prompt natif disponible → dialogue natif Chrome
     if (deferredPrompt) {
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        console.log('✅ Application installée');
-      }
+      if (outcome === 'accepted') console.log('✅ App installée');
       setDeferredPrompt(null);
-    } else {
-      alert("📱 Sur Android + Chrome : installez l'application.\n🍏 Sur iPhone : utilisez 'Partager' → 'Sur l'écran d'accueil'.");
+      return;
     }
+
+    // iOS → guide visuel étape par étape
+    if (isIOS) {
+      setShowIOSGuide(true);
+      return;
+    }
+
+    // Android sans prompt (Samsung Browser, Firefox…) → guide court
+    if (isAndroid) {
+      alert("Sur Chrome Android :\nAppuyez sur ⋮ (menu) → « Ajouter à l'écran d'accueil »");
+      return;
+    }
+
+    // Desktop Chrome sans prompt encore disponible
+    alert("Sur Chrome PC :\nCliquez sur l'icône ⊕ dans la barre d'adresse pour installer.");
   };
 
   useEffect(() => {
@@ -298,22 +320,22 @@ const Navbar = () => {
                   </svg>
                   Mon compte
                 </Link>
-                
-                {/* Séparateur avant le bouton PWA */}
+
+                {/* Installer l'app dans le menu hamburger (caché si déjà installé) */}
+                {!isInStandaloneMode && (
+                  <>
+                    <div className="dropdown-divider"></div>
+                    <button className="dropdown-item install-menu-btn" onClick={() => { setMenuOpen(false); handleInstallClick(); }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                        <path d="M12 16l-4-4h3V4h2v8h3z"/>
+                        <path d="M4 20h16v-2H4z"/>
+                      </svg>
+                      Installer l'application
+                    </button>
+                  </>
+                )}
+
                 <div className="dropdown-divider"></div>
-                
-                {/* BOUTON D'INSTALLATION PWA DANS LE MENU */}
-                <button className="dropdown-item install-menu-btn" onClick={handleInstallClick}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 5v14m0 0-4-4m4 4 4-4"/>
-                    <path d="M5 12h14"/>
-                  </svg>
-                  <span>Installer l'application</span>
-                  <span className="install-badge">⬇️</span>
-                </button>
-                
-                <div className="dropdown-divider"></div>
-                
                 <button className="dropdown-item help-btn" onClick={handleHelp}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                     <circle cx="12" cy="12" r="10"/>
@@ -322,7 +344,6 @@ const Navbar = () => {
                   </svg>
                   Besoin d'aide
                 </button>
-                
                 {user && (
                   <>
                     <div className="dropdown-divider"></div>
@@ -491,6 +512,40 @@ const Navbar = () => {
         </div>
       )}
 
+      {/* Guide installation iOS */}
+      {showIOSGuide && (
+        <div className="filters-modal" onClick={() => setShowIOSGuide(false)}>
+          <div className="filters-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="filters-header">
+              <h3>Installer RAMCI</h3>
+              <button onClick={() => setShowIOSGuide(false)}>✕</button>
+            </div>
+            <div className="ios-guide-body">
+              <div className="ios-step">
+                <div className="ios-step-num">1</div>
+                <div className="ios-step-text">
+                  Appuyez sur le bouton <strong>Partager</strong>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#007AFF" strokeWidth="2" style={{verticalAlign:'middle', margin:'0 4px'}}><path d="M8 12H3v9h18v-9h-5"/><polyline points="12 3 12 15"/><polyline points="8 7 12 3 16 7"/></svg>
+                  en bas de Safari
+                </div>
+              </div>
+              <div className="ios-step">
+                <div className="ios-step-num">2</div>
+                <div className="ios-step-text">Faites défiler et appuyez sur <strong>« Sur l'écran d'accueil »</strong></div>
+              </div>
+              <div className="ios-step">
+                <div className="ios-step-num">3</div>
+                <div className="ios-step-text">Appuyez sur <strong>Ajouter</strong> en haut à droite</div>
+              </div>
+              <p className="ios-note">⚠️ Fonctionne uniquement avec <strong>Safari</strong> sur iPhone/iPad.</p>
+            </div>
+            <div className="filters-footer">
+              <button onClick={() => setShowIOSGuide(false)} className="apply-btn">Compris !</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=DM+Sans:wght@400;500;600&display=swap');
 
@@ -591,17 +646,6 @@ const Navbar = () => {
         
         .install-menu-btn svg {
           stroke: white;
-        }
-        
-        .install-badge {
-          font-size: 12px;
-          animation: bounce 1s ease infinite;
-          display: inline-block;
-        }
-        
-        @keyframes bounce {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(2px); }
         }
         
         .logout-btn {
@@ -881,6 +925,47 @@ const Navbar = () => {
           border-radius: 40px;
           font-weight: 500;
           cursor: pointer;
+        }
+
+        /* Guide iOS */
+        .ios-guide-body {
+          padding: 20px;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+        .ios-step {
+          display: flex;
+          align-items: flex-start;
+          gap: 14px;
+        }
+        .ios-step-num {
+          min-width: 28px;
+          height: 28px;
+          background: #111;
+          color: white;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 13px;
+          font-weight: 600;
+        }
+        .ios-step-text {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 14px;
+          color: #333;
+          line-height: 1.5;
+          padding-top: 4px;
+        }
+        .ios-note {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 12px;
+          color: #888;
+          background: #faf8f5;
+          padding: 10px 12px;
+          border-radius: 10px;
+          margin: 0;
         }
 
         @keyframes fadeInUp {
