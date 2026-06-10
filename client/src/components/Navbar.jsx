@@ -11,7 +11,6 @@ const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
-  const [showInstallBtn, setShowInstallBtn] = useState(false);
   const suggestionsRef = useRef(null);
   const menuRef = useRef(null);
   const navigate = useNavigate();
@@ -48,7 +47,6 @@ const Navbar = () => {
     const handleBeforeInstallPrompt = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      setShowInstallBtn(true);
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -56,14 +54,16 @@ const Navbar = () => {
   }, []);
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      console.log('✅ Application installée');
-      setShowInstallBtn(false);
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        console.log('✅ Application installée');
+      }
+      setDeferredPrompt(null);
+    } else {
+      alert("📱 Sur Android + Chrome : installez l'application.\n🍏 Sur iPhone : utilisez 'Partager' → 'Sur l'écran d'accueil'.");
     }
-    setDeferredPrompt(null);
   };
 
   useEffect(() => {
@@ -370,21 +370,19 @@ const Navbar = () => {
             )}
           </div>
 
-          {/* Bouton d'installation PWA */}
-          {showInstallBtn && (
-            <button
-              type="button"
-              onClick={handleInstallClick}
-              className="install-app-btn"
-              aria-label="Installer l'application"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 5v14m-7-7h14"/>
-                <path d="M5 12l7-7 7 7"/>
-              </svg>
-              <span className="install-text">Installer</span>
-            </button>
-          )}
+          {/* Bouton d'installation PWA - TOUJOURS VISIBLE */}
+          <button
+            type="button"
+            onClick={handleInstallClick}
+            className="install-app-btn"
+            aria-label="Installer l'application"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 5v14m-7-7h14"/>
+              <path d="M5 12l7-7 7 7"/>
+            </svg>
+            <span className="install-text">Installer</span>
+          </button>
 
           {showSuggestions && (
             <div className="search-suggestions">
