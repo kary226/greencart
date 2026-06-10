@@ -50,7 +50,6 @@ const App = () => {
       {isSellerPath ? null : <Navbar />}
       {showUserLogin ? <Login /> : null}
 
-      {/* ✅ TOASTER MODERNISÉ - POSITION EN HAUT */}
       <Toaster 
         position="top-center"
         toastOptions={{
@@ -90,7 +89,8 @@ const App = () => {
         }}
       />
 
-      <div className={`${isSellerPath ? "" : "px-4 pt-16 pb-20"}`}>
+      {/* pt-16 a été supprimé pour enlever l'espace blanc en haut */}
+      <div className={`${isSellerPath ? "" : "px-4 pb-20"}`}>
         <Routes>
           <Route path='/' element={<Home />} />
           <Route path='/products' element={<AllProducts />} />
