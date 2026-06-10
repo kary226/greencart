@@ -10,6 +10,8 @@ const Navbar = () => {
   const [categories, setCategories] = useState([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [showInstallBtn, setShowInstallBtn] = useState(false);
   const suggestionsRef = useRef(null);
   const menuRef = useRef(null);
   const navigate = useNavigate();
@@ -40,6 +42,29 @@ const Navbar = () => {
       sortBy: params.get('sort') || 'relevance'
     });
   }, [location.search]);
+
+  // Gestion de l'installation PWA
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallBtn(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      console.log('✅ Application installée');
+      setShowInstallBtn(false);
+    }
+    setDeferredPrompt(null);
+  };
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -345,6 +370,22 @@ const Navbar = () => {
             )}
           </div>
 
+          {/* Bouton d'installation PWA */}
+          {showInstallBtn && (
+            <button
+              type="button"
+              onClick={handleInstallClick}
+              className="install-app-btn"
+              aria-label="Installer l'application"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 5v14m-7-7h14"/>
+                <path d="M5 12l7-7 7 7"/>
+              </svg>
+              <span className="install-text">Installer</span>
+            </button>
+          )}
+
           {showSuggestions && (
             <div className="search-suggestions">
               {suggestions.length > 0 ? (
@@ -636,6 +677,39 @@ const Navbar = () => {
           border-radius: 50%;
           border: 1px solid white;
           box-shadow: 0 0 2px rgba(0,0,0,0.1);
+        }
+        
+        /* Bouton d'installation PWA */
+        .install-app-btn {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          background: #111;
+          border: none;
+          border-radius: 40px;
+          padding: 6px 12px;
+          color: white;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 12px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .install-app-btn:hover {
+          background: #e53935;
+          transform: scale(1.02);
+        }
+        .install-app-btn svg {
+          stroke: white;
+        }
+        
+        @media (max-width: 480px) {
+          .install-text {
+            display: none;
+          }
+          .install-app-btn {
+            padding: 6px 8px;
+          }
         }
         
         .search-suggestions {
