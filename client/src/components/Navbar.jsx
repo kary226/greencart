@@ -17,6 +17,7 @@ const Navbar = () => {
   const location = useLocation();
 
   const cartCount = cartItems ? Object.values(cartItems).reduce((a, b) => a + b, 0) : 0;
+  const wishlistCount = wishlist?.length || 0;
 
   // État pour les filtres
   const [filters, setFilters] = useState({
@@ -326,10 +327,23 @@ const Navbar = () => {
           <Link to="/" className="ramci-logo">RAMCI</Link>
 
           <div className="ramci-nav-actions">
+            {/* NOUVEAU BOUTON D'INSTALLATION PWA */}
+            <button 
+              className="ramci-nav-icon install-icon-btn" 
+              onClick={handleInstallClick}
+              aria-label="Installer l'application"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M12 5v14m-7-7h14"/>
+                <path d="M5 12l7-7 7 7"/>
+              </svg>
+            </button>
+
             <Link to="/wishlist" className="ramci-nav-icon" aria-label="Favoris">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
               </svg>
+              {wishlistCount > 0 && <span className="ramci-badge">{wishlistCount}</span>}
             </Link>
             
             <Link to="/cart" className="ramci-nav-icon ramci-cart-icon" aria-label="Panier">
@@ -356,7 +370,7 @@ const Navbar = () => {
             className="ramci-search-input"
           />
           
-          {/* Bouton filtre avec indicateur */}
+          {/* Bouton filtre avec indicateur - uniquement */}
           <div className="filter-btn-wrapper">
             <button type="button" onClick={handleFilterClick} className="ramci-filter-btn" aria-label="Filtres">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2">
@@ -369,20 +383,6 @@ const Navbar = () => {
               <span className="filter-active-dot"></span>
             )}
           </div>
-
-          {/* Bouton d'installation PWA - TOUJOURS VISIBLE */}
-          <button
-            type="button"
-            onClick={handleInstallClick}
-            className="install-app-btn"
-            aria-label="Installer l'application"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 5v14m-7-7h14"/>
-              <path d="M5 12l7-7 7 7"/>
-            </svg>
-            <span className="install-text">Installer</span>
-          </button>
 
           {showSuggestions && (
             <div className="search-suggestions">
@@ -592,7 +592,12 @@ const Navbar = () => {
           transform: translateX(-50%);
         }
         
-        .ramci-nav-actions { display: flex; align-items: center; gap: 4px; }
+        .ramci-nav-actions { 
+          display: flex; 
+          align-items: center; 
+          gap: 4px; 
+        }
+        
         .ramci-nav-icon {
           position: relative;
           display: flex;
@@ -603,8 +608,18 @@ const Navbar = () => {
           color: #111;
           text-decoration: none;
           transition: opacity .15s;
+          background: none;
+          border: none;
+          cursor: pointer;
         }
         .ramci-nav-icon:hover { opacity: .6; }
+        
+        /* Style spécifique pour le bouton d'installation dans la barre d'actions */
+        .install-icon-btn svg {
+          stroke: #111;
+          stroke-width: 1.8;
+        }
+        
         .ramci-cart-icon { position: relative; }
         .ramci-badge {
           position: absolute;
@@ -675,39 +690,6 @@ const Navbar = () => {
           border-radius: 50%;
           border: 1px solid white;
           box-shadow: 0 0 2px rgba(0,0,0,0.1);
-        }
-        
-        /* Bouton d'installation PWA */
-        .install-app-btn {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          background: #111;
-          border: none;
-          border-radius: 40px;
-          padding: 6px 12px;
-          color: white;
-          font-family: 'DM Sans', sans-serif;
-          font-size: 12px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-        .install-app-btn:hover {
-          background: #e53935;
-          transform: scale(1.02);
-        }
-        .install-app-btn svg {
-          stroke: white;
-        }
-        
-        @media (max-width: 480px) {
-          .install-text {
-            display: none;
-          }
-          .install-app-btn {
-            padding: 6px 8px;
-          }
         }
         
         .search-suggestions {
