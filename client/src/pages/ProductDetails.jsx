@@ -30,7 +30,6 @@ const ProductDetails = () => {
             const defaultVariant = product.variants[0]
             setSelectedColor(defaultVariant.color)
             setVariantData(defaultVariant)
-            // Démarrer à l'index défini pour cette couleur
             const startIndex = defaultVariant.startImageIndex || 0
             setCurrentImageIndex(startIndex)
         } else {
@@ -45,7 +44,6 @@ const ProductDetails = () => {
             const variant = product.variants.find(v => v.color === selectedColor)
             if (variant) {
                 setVariantData(variant)
-                // ← CHANGEMENT : Utiliser startImageIndex au lieu de 0
                 const startIndex = variant.startImageIndex || 0
                 setCurrentImageIndex(startIndex)
             }
@@ -72,14 +70,12 @@ const ProductDetails = () => {
         return product?.description || ''
     }
 
-    // Récupérer les couleurs UNIQUES depuis les variantes
     const uniqueColors = product && product.variants ? [...new Set(product.variants.map(v => v.color).filter(Boolean))] : []
     const uniqueSizes = product && product.variants ? [...new Set(product.variants.map(v => v.size).filter(Boolean))] : []
 
-    // TOUTES les images du produit (dans l'ordre)
+    // TOUTES les images du produit
     const allImages = product?.image || []
 
-    // Prix à afficher (prix variante ou prix par défaut)
     const currentPrice = variantData?.price || product?.price
     const currentOfferPrice = variantData?.offerPrice || product?.offerPrice
     const currentStock = variantData?.stock ?? product?.stock ?? 0
@@ -270,13 +266,15 @@ const ProductDetails = () => {
 
                 <div className="product-main">
                     <div className="product-gallery">
+                        {/* Image principale */}
                         <div className="main-image-container">
                             <img src={allImages[currentImageIndex]} alt={product.name} className="main-image" />
                         </div>
                         
+                        {/* Miniatures avec flèches */}
                         {allImages.length > 1 && (
                             <div className="thumbnail-carousel">
-                                <button onClick={() => scrollImages('left')} className="carousel-nav carousel-prev">
+                                <button onClick={() => scrollImages('left')} className="carousel-nav carousel-prev" aria-label="Images précédentes">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                         <path d="M15 18l-6-6 6-6"/>
                                     </svg>
@@ -294,7 +292,7 @@ const ProductDetails = () => {
                                     ))}
                                 </div>
                                 
-                                <button onClick={() => scrollImages('right')} className="carousel-nav carousel-next">
+                                <button onClick={() => scrollImages('right')} className="carousel-nav carousel-next" aria-label="Images suivantes">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                         <path d="M9 18l6-6-6-6"/>
                                     </svg>
@@ -312,7 +310,6 @@ const ProductDetails = () => {
                             <span className="rating-count">({totalReviews} avis)</span>
                         </div>
 
-                        {/* PRIX DYNAMIQUE selon la couleur */}
                         <div className="product-pricing-vertical">
                             {currentOfferPrice && currentOfferPrice < currentPrice && (
                                 <div className="old-price-vertical">{currentPrice} {currency}</div>
@@ -327,18 +324,17 @@ const ProductDetails = () => {
                             </div>
                         </div>
 
-                        {/* STOCK DYNAMIQUE selon la couleur */}
                         <p className={`stock-info ${getStockColor(currentStock)}`}>
                             {getStockLabel(currentStock)}
                         </p>
 
-                        {/* BOUTONS DE COULEURS DYNAMIQUES avec code couleur */}
+                        {/* Boutons couleurs */}
                         {uniqueColors.length > 0 && (
                             <div className="option-group">
                                 <p className="option-label">
                                     Couleur : <span style={{color: variantData?.colorCode}}>{selectedColor || 'Non sélectionnée'}</span>
                                 </p>
-                                <div className="option-buttons colors-buttons">
+                                <div className="colors-buttons">
                                     {uniqueColors.map((color, i) => {
                                         const variant = product.variants.find(v => v.color === color)
                                         const isAvailable = variant?.stock > 0
@@ -374,12 +370,13 @@ const ProductDetails = () => {
                             </div>
                         )}
 
+                        {/* Boutons tailles */}
                         {uniqueSizes.length > 0 && (
                             <div className="option-group">
                                 <p className="option-label">
                                     Taille : <span>{selectedSize || 'Non sélectionnée'}</span>
                                 </p>
-                                <div className="option-buttons sizes">
+                                <div className="sizes-buttons">
                                     {uniqueSizes.map((size, i) => (
                                         <button 
                                             key={i} 
@@ -711,14 +708,9 @@ const ProductDetails = () => {
                     font-weight: 600;
                 }
 
-                .option-buttons {
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 10px;
-                }
-
                 .colors-buttons {
                     display: flex;
+                    flex-wrap: wrap;
                     gap: 12px;
                     margin-bottom: 12px;
                 }
@@ -762,8 +754,8 @@ const ProductDetails = () => {
 
                 .color-names {
                     display: flex;
-                    gap: 16px;
                     flex-wrap: wrap;
+                    gap: 16px;
                 }
 
                 .color-name {
@@ -782,33 +774,10 @@ const ProductDetails = () => {
                     font-weight: 600;
                 }
 
-                .option-btn {
-                    padding: 8px 18px;
-                    border-radius: 40px;
-                    border: 1.5px solid #e8e3dc;
-                    background: white;
-                    font-size: 13px;
-                    font-weight: 500;
-                    color: #555;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                }
-
-                .option-btn:hover:not(.disabled) {
-                    border-color: #111;
-                }
-
-                .option-btn.active {
-                    background: #111;
-                    border-color: #111;
-                    color: white;
-                }
-
-                .option-btn.disabled {
-                    color: #ccc;
-                    border-color: #eee;
-                    text-decoration: line-through;
-                    cursor: not-allowed;
+                .sizes-buttons {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 10px;
                 }
 
                 .size-btn {
