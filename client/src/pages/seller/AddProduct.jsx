@@ -21,7 +21,7 @@ const AddProduct = () => {
     const [stockInput, setStockInput] = useState('')
     const [variantPriceInput, setVariantPriceInput] = useState('')
     const [variantOfferPriceInput, setVariantOfferPriceInput] = useState('')
-    const [startImageIndexInput, setStartImageIndexInput] = useState(0)  // ← NOUVEAU
+    const [startImageIndexInput, setStartImageIndexInput] = useState(0)
     const [editingVariantIndex, setEditingVariantIndex] = useState(null)
 
     const { axios } = useAppContext()
@@ -58,7 +58,7 @@ const AddProduct = () => {
             stock: Number(stockInput),
             price: variantPriceInput ? Number(variantPriceInput) : 0,
             offerPrice: variantOfferPriceInput ? Number(variantOfferPriceInput) : 0,
-            startImageIndex: Number(startImageIndexInput)  // ← NOUVEAU : index de départ
+            startImageIndex: Number(startImageIndexInput)
         }
 
         if (editingVariantIndex !== null) {
@@ -70,7 +70,6 @@ const AddProduct = () => {
             setVariants([...variants, newVariant])
         }
 
-        // Reset
         setColorInput('')
         setColorCodeInput('#000000')
         setSizeInput('')
@@ -163,23 +162,45 @@ const AddProduct = () => {
         <div className="no-scrollbar flex-1 h-[95vh] overflow-y-scroll flex flex-col justify-between">
             <form onSubmit={onSubmitHandler} className="md:p-10 p-4 space-y-5 max-w-lg">
 
-                {/* Images principales du produit */}
+                {/* Images principales du produit - UPLOAD ILLIMITÉ */}
                 <div>
                     <p className="text-base font-medium">Images du produit (dans l'ordre)</p>
                     <div className="flex flex-wrap items-center gap-3 mt-2">
-                        {Array(8).fill('').map((_, index) => (
-                            <label key={index} htmlFor={`image${index}`}>
-                                <input onChange={(e) => {
-                                    const updatedFiles = [...files];
-                                    updatedFiles[index] = e.target.files[0]
-                                    setFiles(updatedFiles)
-                                }}
-                                    type="file" id={`image${index}`} hidden />
-                                <img className="max-w-20 cursor-pointer border rounded" src={files[index] ? URL.createObjectURL(files[index]) : assets.upload_area} alt="uploadArea" width={80} height={80} />
-                            </label>
+                        {files.map((file, index) => (
+                            <div key={index} className="relative">
+                                <img 
+                                    className="w-20 h-20 cursor-pointer border rounded object-cover" 
+                                    src={URL.createObjectURL(file)} 
+                                    alt="uploadArea" 
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const newFiles = [...files];
+                                        newFiles.splice(index, 1);
+                                        setFiles(newFiles);
+                                    }}
+                                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center"
+                                >
+                                    ✕
+                                </button>
+                            </div>
                         ))}
+                        <label className="w-20 h-20 border-2 border-dashed border-gray-300 rounded flex items-center justify-center cursor-pointer hover:border-primary">
+                            <input 
+                                onChange={(e) => {
+                                    if (e.target.files[0]) {
+                                        setFiles([...files, e.target.files[0]])
+                                    }
+                                }}
+                                type="file" 
+                                accept="image/*"
+                                className="hidden" 
+                            />
+                            <span className="text-2xl text-gray-400">+</span>
+                        </label>
                     </div>
-                    <p className="text-xs text-gray-400 mt-2">💡 L'ordre des photos est important. Photo 1,2,3 = Rouge | Photo 4,5,6 = Bleu, etc.</p>
+                    <p className="text-xs text-gray-400 mt-2">💡 Cliquez sur le + pour ajouter des images. L'ordre est important.</p>
                 </div>
 
                 {/* Nom */}
@@ -261,7 +282,6 @@ const AddProduct = () => {
                                 className="flex-1 outline-none py-2 px-3 rounded border border-gray-300 text-sm" />
                         </div>
 
-                        {/* Index de départ */}
                         <div>
                             <label className="text-xs text-gray-600 mb-1 block">
                                 Position de départ (0 = première photo)
@@ -285,7 +305,6 @@ const AddProduct = () => {
                         </button>
                     </div>
 
-                    {/* Liste des variantes */}
                     {variants.length > 0 && (
                         <div className="mt-2 border border-gray-200 rounded overflow-hidden">
                             <table className="w-full text-sm">

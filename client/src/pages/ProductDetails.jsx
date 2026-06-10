@@ -19,6 +19,10 @@ const ProductDetails = () => {
     const [variantData, setVariantData] = useState(null)
     const scrollContainerRef = useRef(null);
     
+    // Pour le swipe sur l'image principale
+    const [touchStart, setTouchStart] = useState(0);
+    const [touchEnd, setTouchEnd] = useState(0);
+    
     const [averageRating, setAverageRating] = useState(4);
     const [totalReviews, setTotalReviews] = useState(0);
 
@@ -56,6 +60,30 @@ const ProductDetails = () => {
         }
     }, [product]);
 
+    // Gestion du swipe sur l'image principale
+    const handleTouchStart = (e) => {
+        setTouchStart(e.targetTouches[0].clientX);
+    };
+
+    const handleTouchMove = (e) => {
+        setTouchEnd(e.targetTouches[0].clientX);
+    };
+
+    const handleTouchEnd = () => {
+        if (!touchStart || !touchEnd) return;
+        const diff = touchStart - touchEnd;
+        if (diff > 50) {
+            // Swipe gauche → image suivante
+            setCurrentImageIndex((prev) => (prev + 1) % allImages.length);
+        }
+        if (diff < -50) {
+            // Swipe droite → image précédente
+            setCurrentImageIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
+        }
+        setTouchStart(0);
+        setTouchEnd(0);
+    };
+
     const getProductCategory = () => {
         if (product?.categories && product.categories.length > 0) {
             return product.categories[0]
@@ -73,7 +101,6 @@ const ProductDetails = () => {
     const uniqueColors = product && product.variants ? [...new Set(product.variants.map(v => v.color).filter(Boolean))] : []
     const uniqueSizes = product && product.variants ? [...new Set(product.variants.map(v => v.size).filter(Boolean))] : []
 
-    // TOUTES les images du produit
     const allImages = product?.image || []
 
     const currentPrice = variantData?.price || product?.price
@@ -266,8 +293,13 @@ const ProductDetails = () => {
 
                 <div className="product-main">
                     <div className="product-gallery">
-                        {/* Image principale */}
-                        <div className="main-image-container">
+                        {/* Image principale avec swipe */}
+                        <div 
+                            className="main-image-container"
+                            onTouchStart={handleTouchStart}
+                            onTouchMove={handleTouchMove}
+                            onTouchEnd={handleTouchEnd}
+                        >
                             <img src={allImages[currentImageIndex]} alt={product.name} className="main-image" />
                         </div>
                         
@@ -510,12 +542,18 @@ const ProductDetails = () => {
                     background: #f5f3f0;
                     border-radius: 20px;
                     overflow: hidden;
+                    cursor: grab;
+                }
+
+                .main-image-container:active {
+                    cursor: grabbing;
                 }
 
                 .main-image {
                     width: 100%;
                     height: 100%;
                     object-fit: cover;
+                    pointer-events: none;
                 }
 
                 .thumbnail-carousel {
