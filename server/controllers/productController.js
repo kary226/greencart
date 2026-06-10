@@ -14,32 +14,20 @@ export const addProduct = async (req, res) => {
             })
         )
 
-        // Traitement des variantes avec images
-        let variantIndex = 0
-        const processedVariants = (productData.variants || []).map(variant => {
-            const variantImages = []
-            
-            // Chaque variante peut avoir plusieurs images
-            // On suppose que les images sont uploadées dans l'ordre :
-            // d'abord les images par défaut, puis images variante1, variante2...
-            const imagesPerVariant = productData.imagesPerVariant || 1
-            
-            for (let i = 0; i < imagesPerVariant; i++) {
-                if (imagesUrl[variantIndex]) {
-                    variantImages.push(imagesUrl[variantIndex])
-                    variantIndex++
-                }
-            }
-            
-            return {
-                ...variant,
-                images: variantImages.length > 0 ? variantImages : [imagesUrl[0]] // fallback
-            }
-        })
+        // Les variantes n'ont plus d'images, juste startImageIndex
+        const processedVariants = (productData.variants || []).map(variant => ({
+            color: variant.color,
+            colorCode: variant.colorCode,
+            size: variant.size || null,
+            price: variant.price || 0,
+            offerPrice: variant.offerPrice || 0,
+            stock: variant.stock || 0,
+            startImageIndex: variant.startImageIndex || 0
+        }))
 
         await Product.create({
             ...productData,
-            image: imagesUrl.slice(variantIndex), // images par défaut
+            image: imagesUrl, // TOUTES les images du produit dans l'ordre
             variants: processedVariants,
             inStock: productData.variants?.some(v => v.stock > 0) ?? true,
         })
@@ -94,10 +82,14 @@ export const updateProduct = async (req, res) => {
 
         const inStock = variants?.some(v => v.stock > 0) ?? true
 
-        // Traiter les variantes (garder les images existantes)
         const processedVariants = (variants || []).map(v => ({
-            ...v,
-            images: v.images || [] // conserver les images existantes
+            color: v.color,
+            colorCode: v.colorCode,
+            size: v.size || null,
+            price: v.price || 0,
+            offerPrice: v.offerPrice || 0,
+            stock: v.stock || 0,
+            startImageIndex: v.startImageIndex || 0
         }))
 
         await Product.findByIdAndUpdate(id, {
@@ -195,7 +187,7 @@ export const getBestSellers = async (req, res) => {
     }
 };
 
-// NOUVEAU : Récupérer les détails d'une variante spécifique
+// Récupérer les détails d'une variante spécifique
 export const getVariantDetails = async (req, res) => {
     try {
         const { productId, color } = req.body
@@ -219,7 +211,7 @@ export const getVariantDetails = async (req, res) => {
                 price: variant.price || product.price,
                 offerPrice: variant.offerPrice || product.offerPrice,
                 stock: variant.stock,
-                images: variant.images.length > 0 ? variant.images : product.image
+                startImageIndex: variant.startImageIndex || 0
             }
         })
     } catch (error) {

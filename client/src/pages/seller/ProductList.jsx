@@ -12,6 +12,7 @@ const ProductList = () => {
     const [stockInput, setStockInput] = useState('')
     const [variantPriceInput, setVariantPriceInput] = useState('')
     const [variantOfferPriceInput, setVariantOfferPriceInput] = useState('')
+    const [startImageIndexInput, setStartImageIndexInput] = useState(0)  // ← AJOUTER
     const [categoriesList, setCategoriesList] = useState([])
     const [selectedCategories, setSelectedCategories] = useState([])
     const [editingVariantIndex, setEditingVariantIndex] = useState(null)
@@ -59,6 +60,7 @@ const ProductList = () => {
         setStockInput('')
         setVariantPriceInput('')
         setVariantOfferPriceInput('')
+        setStartImageIndexInput(0)
         setEditingVariantIndex(null)
     }
 
@@ -125,7 +127,7 @@ const ProductList = () => {
             stock: Number(stockInput),
             price: variantPriceInput ? Number(variantPriceInput) : 0,
             offerPrice: variantOfferPriceInput ? Number(variantOfferPriceInput) : 0,
-            images: editProduct.variants.find(v => v.color === colorInput)?.images || []
+            startImageIndex: Number(startImageIndexInput)  // ← CORRIGÉ
         }
 
         if (editingVariantIndex !== null) {
@@ -143,6 +145,7 @@ const ProductList = () => {
         setStockInput('')
         setVariantPriceInput('')
         setVariantOfferPriceInput('')
+        setStartImageIndexInput(0)
     }
 
     const editVariant = (index) => {
@@ -153,6 +156,7 @@ const ProductList = () => {
         setStockInput(variant.stock.toString())
         setVariantPriceInput(variant.price?.toString() || '')
         setVariantOfferPriceInput(variant.offerPrice?.toString() || '')
+        setStartImageIndexInput(variant.startImageIndex || 0)
         setEditingVariantIndex(index)
     }
 
@@ -167,6 +171,7 @@ const ProductList = () => {
             setStockInput('')
             setVariantPriceInput('')
             setVariantOfferPriceInput('')
+            setStartImageIndexInput(0)
         }
     }
 
@@ -183,6 +188,12 @@ const ProductList = () => {
         } else {
             updated[index].price = Number(price)
         }
+        setEditProduct({ ...editProduct, variants: updated })
+    }
+
+    const updateVariantStartIndex = (index, startIndex) => {
+        const updated = [...editProduct.variants]
+        updated[index].startImageIndex = Number(startIndex)
         setEditProduct({ ...editProduct, variants: updated })
     }
 
@@ -259,6 +270,7 @@ const ProductList = () => {
                                                                     : {v.stock === 0 ? 'Épuisé' : `${v.stock} restants`}
                                                                 </span>
                                                                 {v.price > 0 && <span className="text-gray-400 ml-1">({v.price} FCFA)</span>}
+                                                                {v.startImageIndex > 0 && <span className="text-gray-400 ml-1">(départ: {v.startImageIndex})</span>}
                                                             </div>
                                                         ))}
                                                     </div>
@@ -443,6 +455,17 @@ const ProductList = () => {
                                             className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
                                         />
                                     </div>
+                                    <div>
+                                        <label className="text-xs text-gray-600 mb-1 block">Position de départ (0 = première photo)</label>
+                                        <input 
+                                            value={startImageIndexInput} 
+                                            onChange={e => setStartImageIndexInput(Number(e.target.value))}
+                                            type="number" 
+                                            min="0"
+                                            placeholder="Ex: 0 pour Rouge, 3 pour Bleu"
+                                            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                        />
+                                    </div>
                                     <button 
                                         type="button" 
                                         onClick={addVariant}
@@ -461,6 +484,7 @@ const ProductList = () => {
                                                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Taille</th>
                                                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Prix</th>
                                                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Stock</th>
+                                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Départ</th>
                                                     <th className="px-3 py-2 w-20"></th>
                                                 </tr>
                                             </thead>
@@ -501,6 +525,14 @@ const ProductList = () => {
                                                             />
                                                         </td>
                                                         <td className="px-3 py-2">
+                                                            <input 
+                                                                type="number" 
+                                                                value={v.startImageIndex || 0}
+                                                                onChange={e => updateVariantStartIndex(i, e.target.value)}
+                                                                className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:border-red-500 outline-none"
+                                                            />
+                                                        </td>
+                                                        <td className="px-3 py-2">
                                                             <div className="flex gap-1">
                                                                 <button 
                                                                     type="button" 
@@ -530,7 +562,7 @@ const ProductList = () => {
                                     </div>
                                 )}
                                 <p className="text-xs text-gray-400 mt-2">
-                                    💡 Chaque couleur peut avoir son propre prix, stock et images (dans l'ajout de produit)
+                                    💡 "Départ" = position de la première photo associée à cette couleur (0 = première photo)
                                 </p>
                             </div>
                         </div>
