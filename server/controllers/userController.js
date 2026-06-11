@@ -187,6 +187,8 @@ export const updateUser = async (req, res) => {
     }
 };
 
+// ==================== ADMIN : Récupérer tous les clients ====================
+
 export const getAllClients = async (req, res) => {
     try {
         const { search = '', page = 1, limit = 20 } = req.query;
@@ -209,11 +211,26 @@ export const getAllClients = async (req, res) => {
             .skip(skip)
             .limit(parseInt(limit));
         
+        // Enrichir les clients avec toutes les informations
+        const enrichedClients = clients.map(client => ({
+            _id: client._id,
+            firstName: client.firstName || '',
+            lastName: client.lastName || '',
+            name: client.name || '',
+            email: client.email,
+            phone: client.phone || '',
+            street: client.street || '',
+            cityName: client.cityName || '',
+            communeName: client.communeName || '',
+            createdAt: client.createdAt,
+            updatedAt: client.updatedAt
+        }));
+        
         const total = await User.countDocuments(query);
         
         res.json({
             success: true,
-            clients,
+            clients: enrichedClients,
             total,
             page: parseInt(page),
             pages: Math.ceil(total / parseInt(limit))
@@ -223,6 +240,8 @@ export const getAllClients = async (req, res) => {
         res.json({ success: false, message: error.message });
     }
 };
+
+// ==================== MOT DE PASSE OUBLIÉ ====================
 
 export const forgotPassword = async (req, res) => {
     try {
