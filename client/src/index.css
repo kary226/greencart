@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap');
 
 @import "tailwindcss";
 
@@ -20,6 +20,7 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  padding-bottom: 70px; /* Pour la bottom nav */
 }
 
 /* Scrollbar masquée pour les conteneurs horizontaux */
@@ -68,8 +69,8 @@ a:hover {
   }
 }
 
-/* Thème personnalisé */
-@theme {
+/* Variables CSS personnalisées */
+:root {
   /* Noir & Blanc */
   --color-primary: #111111;
   --color-primary-dark: #000000;
@@ -306,4 +307,9 @@ a:hover {
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #e53935;
+}
+
+/* Corps des pages seller - pas de padding bottom */
+.seller-layout {
+  padding-bottom: 0;
 }

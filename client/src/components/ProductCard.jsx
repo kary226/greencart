@@ -71,23 +71,31 @@ const ProductCard = ({ product }) => {
       </div>
 
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
 
         .rc-card {
           background: #fff;
           display: flex;
           flex-direction: column;
           overflow: hidden;
-          border-radius: 12px;
+          border-radius: 16px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+          transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .rc-card:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 8px 24px rgba(0,0,0,0.1);
         }
 
         .rc-card-img-wrap {
           position: relative;
           display: block;
-          aspect-ratio: 3/4;
+          aspect-ratio: 1 / 1.25;
           overflow: hidden;
           background: #f5f3f0;
           border-radius: 12px;
+          margin: 8px 8px 0 8px;
           text-decoration: none;
         }
 
@@ -114,8 +122,8 @@ const ProductCard = ({ product }) => {
           font-family: 'DM Sans', sans-serif;
           font-size: 11px;
           font-weight: 700;
-          padding: 3px 8px;
-          border-radius: 6px;
+          padding: 4px 10px;
+          border-radius: 20px;
           z-index: 2;
         }
         .rc-badge-promo {
@@ -123,7 +131,7 @@ const ProductCard = ({ product }) => {
           color: #fff;
         }
         .rc-badge-sold {
-          background: rgba(0,0,0,.55);
+          background: rgba(0,0,0,0.65);
           color: #fff;
         }
 
@@ -131,35 +139,35 @@ const ProductCard = ({ product }) => {
           position: absolute;
           top: 10px;
           right: 10px;
-          width: 32px;
-          height: 32px;
+          width: 34px;
+          height: 34px;
           border-radius: 50%;
-          background: rgba(255,255,255,.9);
+          background: rgba(255,255,255,0.95);
           border: none;
           display: flex;
           align-items: center;
           justify-content: center;
           cursor: pointer;
           z-index: 2;
-          box-shadow: 0 1px 4px rgba(0,0,0,.12);
-          transition: background .2s, transform .15s;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+          transition: background 0.2s, transform 0.15s;
         }
         .rc-wishlist-btn:hover { transform: scale(1.1); }
         .rc-wishlist-btn.active { background: #fff5f5; }
 
         .rc-card-info {
-          padding: 10px 4px 6px;
+          padding: 12px 10px 14px;
           display: flex;
           flex-direction: column;
-          gap: 4px;
+          gap: 6px;
           text-decoration: none;
         }
 
         .rc-card-name {
           font-family: 'DM Sans', sans-serif;
           font-size: 13px;
-          font-weight: 400;
-          color: #333;
+          font-weight: 500;
+          color: #222;
           margin: 0;
           line-height: 1.4;
           overflow: hidden;
@@ -177,14 +185,14 @@ const ProductCard = ({ product }) => {
 
         .rc-price {
           font-family: 'DM Sans', sans-serif;
-          font-size: 14px;
-          font-weight: 700;
-          color: #111;
+          font-size: 16px;
+          font-weight: 800;
+          color: #e53935;
         }
 
         .rc-old-price {
           font-family: 'DM Sans', sans-serif;
-          font-size: 11px;
+          font-size: 12px;
           color: #bbb;
           text-decoration: line-through;
         }

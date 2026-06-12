@@ -3,14 +3,15 @@ import { NavLink, useLocation } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
 
 const BottomNav = () => {
-  const { cartItems } = useAppContext();
+  const { cartItems, wishlist } = useAppContext();
   const location = useLocation();
   const cartCount = cartItems ? Object.values(cartItems).reduce((a, b) => a + b, 0) : 0;
+  const wishlistCount = wishlist?.length || 0;
 
   const tabs = [
     {
       to: "/",
-      label: "Acheter",
+      label: "Accueil",
       icon: (active) => (
         <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? "#111" : "none"} stroke={active ? "#111" : "#888"} strokeWidth="2">
           <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
@@ -30,7 +31,6 @@ const BottomNav = () => {
         </svg>
       ),
     },
-    // ✅ ONGLET TENDRANCES SUPPRIMÉ
     {
       to: "/my-orders",
       label: "Commandes",
@@ -43,6 +43,16 @@ const BottomNav = () => {
           <circle cx="12" cy="15" r="1"/>
           <circle cx="16" cy="15" r="1"/>
           <circle cx="8" cy="15" r="1"/>
+        </svg>
+      ),
+    },
+    {
+      to: "/wishlist",
+      label: "Favoris",
+      badge: wishlistCount,
+      icon: (active) => (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? "#e53935" : "none"} stroke={active ? "#e53935" : "#888"} strokeWidth="2">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
         </svg>
       ),
     },
@@ -95,14 +105,16 @@ const BottomNav = () => {
         .bottom-nav {
           position: fixed;
           bottom: 0;
-          left: 0; right: 0;
+          left: 0;
+          right: 0;
           z-index: 200;
           background: #fff;
-          border-top: 1px solid #e8e8e8;
           display: flex;
           align-items: stretch;
-          height: 60px;
+          height: 70px;
           padding-bottom: env(safe-area-inset-bottom);
+          box-shadow: 0 -2px 20px rgba(0,0,0,0.06);
+          border-top: 1px solid #f0f0f0;
         }
         .bnav-tab {
           flex: 1;
@@ -110,9 +122,9 @@ const BottomNav = () => {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 3px;
+          gap: 4px;
           text-decoration: none;
-          padding: 6px 0;
+          padding: 8px 0;
           position: relative;
         }
         .bnav-icon-wrap {
@@ -123,7 +135,8 @@ const BottomNav = () => {
         }
         .bnav-badge {
           position: absolute;
-          top: -5px; right: -8px;
+          top: -6px;
+          right: -10px;
           background: #e53935;
           color: #fff;
           font-size: 9px;
@@ -137,17 +150,17 @@ const BottomNav = () => {
           padding: 0 3px;
         }
         .bnav-label {
-          font-size: 10px;
+          font-size: 11px;
           color: #999;
-          font-weight: 400;
+          font-weight: 500;
           line-height: 1;
           transition: color .15s;
         }
         .bnav-label.active {
           color: #111;
-          font-weight: 700;
+          font-weight: 600;
         }
-        body { padding-bottom: 60px; }
+        body { padding-bottom: 70px; }
       `}</style>
     </>
   );

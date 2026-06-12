@@ -12,7 +12,7 @@ const SECTIONS = [
 ];
 
 const Home = () => {
-  const { products, currency, axios, orders } = useAppContext();
+  const { products, axios, orders } = useAppContext();
   const [categories, setCategories] = useState([]);
   const [activeSection, setActiveSection] = useState("trends");
   const [trendProducts, setTrendProducts] = useState([]);
@@ -30,13 +30,9 @@ const Home = () => {
     fetchCategories();
   }, []);
 
-  // Calculer les produits par popularité (nombre d'achats)
   const getTrendingProducts = () => {
     if (!products.length) return [];
-    
-    // Compter le nombre de ventes par produit
     const productSales = {};
-    
     if (orders && orders.length > 0) {
       orders.forEach(order => {
         if (order.items && order.items.length > 0) {
@@ -50,49 +46,31 @@ const Home = () => {
         }
       });
     }
-    
-    // Ajouter un score de popularité à chaque produit
     const productsWithSales = products.map(product => ({
       ...product,
       salesCount: productSales[product._id] || 0
     }));
-    
-    // Trier par nombre de ventes (du plus vendu au moins vendu)
     productsWithSales.sort((a, b) => b.salesCount - a.salesCount);
-    
     return productsWithSales.slice(0, 10);
   };
 
-  // Calculer les nouveaux produits (par date d'ajout)
   const getNewProducts = () => {
     if (!products.length) return [];
-    
-    // Trier par date de création (du plus récent au plus ancien)
     const sorted = [...products].sort((a, b) => {
       const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
       const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
       return dateB - dateA;
     });
-    
     return sorted.slice(0, 10);
   };
 
-  // Calculer les promotions (tri mixte : pourcentage + montant économisé)
   const getDealProducts = () => {
     if (!products.length) return [];
-    
-    // Filtrer les produits qui ont une offre
     const productsWithOffer = products.filter(p => p.offerPrice && p.offerPrice < p.price);
-    
-    // Calculer le score mixte pour chaque produit
     const productsWithScore = productsWithOffer.map(product => {
       const discountPercent = ((product.price - product.offerPrice) / product.price) * 100;
       const amountSaved = product.price - product.offerPrice;
-      
-      // Score = (pourcentage × 0.7) + (montant économisé / 1000 × 0.3)
-      // Diviser amountSaved par 1000 pour l'échelle
       const score = (discountPercent * 0.7) + ((amountSaved / 1000) * 0.3);
-      
       return {
         ...product,
         discountPercent: Math.round(discountPercent),
@@ -100,14 +78,10 @@ const Home = () => {
         promotionScore: score
       };
     });
-    
-    // Trier par score (du plus élevé au plus bas)
     productsWithScore.sort((a, b) => b.promotionScore - a.promotionScore);
-    
     return productsWithScore.slice(0, 10);
   };
 
-  // Mettre à jour les listes quand les produits ou commandes changent
   useEffect(() => {
     if (products.length > 0) {
       setTrendProducts(getTrendingProducts());
@@ -132,20 +106,19 @@ const Home = () => {
       <SEO title="Ramci – Mode & Tendances" description="Découvrez les meilleures offres sur Ramci." />
 
       <div className="ramci-home">
-
-        {/* ── HERO BANNER ── */}
         <section className="ramci-hero">
           <BannerCarousel position="top" />
         </section>
 
-        {/* ── CATEGORIES CERCLES ── */}
         {activeCategories.length > 0 && (
           <section className="ramci-cats-section">
             <Link to="/products" className="ramci-cat-item">
               <div className="ramci-cat-circle ramci-cat-circle-all">
                 <svg width="22" height="22" viewBox="0 0 22 22" fill="currentColor">
-                  <rect x="0" y="0" width="9" height="9" rx="2"/><rect x="13" y="0" width="9" height="9" rx="2"/>
-                  <rect x="0" y="13" width="9" height="9" rx="2"/><rect x="13" y="13" width="9" height="9" rx="2"/>
+                  <rect x="0" y="0" width="9" height="9" rx="2"/>
+                  <rect x="13" y="0" width="9" height="9" rx="2"/>
+                  <rect x="0" y="13" width="9" height="9" rx="2"/>
+                  <rect x="13" y="13" width="9" height="9" rx="2"/>
                 </svg>
               </div>
               <span className="ramci-cat-label">Tous</span>
@@ -169,7 +142,6 @@ const Home = () => {
           </section>
         )}
 
-        {/* ── SECTION PRODUITS ── */}
         <section className="ramci-products-section">
           <div className="ramci-section-header">
             <h2 className="ramci-section-title">
@@ -215,21 +187,19 @@ const Home = () => {
             <div className="ramci-empty">Aucun produit disponible</div>
           )}
         </section>
-
       </div>
 
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=DM+Sans:wght@400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=DM+Sans:wght@400;500;600;700;800&display=swap');
 
         .ramci-home {
-          background: #faf8f5;
+          background: #ffffff;
           min-height: 100vh;
-          padding-bottom: 20px;
+          padding-bottom: 90px;
         }
 
         .ramci-hero {
-          margin-bottom: 4px;
-          border-radius: 0 0 16px 16px;
+          margin-bottom: 0;
           overflow: hidden;
         }
 
@@ -237,10 +207,9 @@ const Home = () => {
           display: flex;
           overflow-x: auto;
           scrollbar-width: none;
-          padding: 18px 14px 10px;
-          gap: 6px;
+          padding: 20px 16px;
+          gap: 14px;
           background: #fff;
-          border-bottom: 1px solid #f0ede8;
         }
         .ramci-cats-section::-webkit-scrollbar { display: none; }
 
@@ -249,15 +218,15 @@ const Home = () => {
           flex-direction: column;
           align-items: center;
           gap: 7px;
-          min-width: 70px;
+          min-width: 82px;
           text-decoration: none;
           flex-shrink: 0;
           padding: 2px;
         }
 
         .ramci-cat-circle {
-          width: 60px;
-          height: 60px;
+          width: 72px;
+          height: 72px;
           border-radius: 50%;
           overflow: hidden;
           border: 1.5px solid #e8e3dc;
@@ -293,12 +262,12 @@ const Home = () => {
 
         .ramci-cat-label {
           font-family: 'DM Sans', sans-serif;
-          font-size: 10px;
+          font-size: 11px;
           font-weight: 500;
           color: #444;
           text-align: center;
           line-height: 1.3;
-          max-width: 70px;
+          max-width: 82px;
           word-break: break-word;
           white-space: normal;
           display: -webkit-box;
@@ -309,8 +278,8 @@ const Home = () => {
 
         .ramci-products-section {
           background: #fff;
-          margin-top: 10px;
-          padding: 18px 14px 20px;
+          margin-top: 0;
+          padding: 24px 16px;
         }
 
         .ramci-section-header {
@@ -322,8 +291,8 @@ const Home = () => {
 
         .ramci-section-title {
           font-family: 'DM Sans', sans-serif;
-          font-size: 17px;
-          font-weight: 700;
+          font-size: 20px;
+          font-weight: 800;
           color: #111;
           margin: 0;
         }
@@ -367,15 +336,15 @@ const Home = () => {
           margin-bottom: -1px;
         }
         .ramci-stab.active {
-          color: #111;
-          border-bottom-color: #111;
+          color: #e53935;
+          border-bottom-color: #e53935;
           font-weight: 700;
         }
 
         .ramci-grid {
           display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 16px;
         }
 
         .ramci-empty {

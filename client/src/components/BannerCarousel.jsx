@@ -146,7 +146,7 @@ const BannerCarousel = ({ position = 'top', className = '' }) => {
 
     if (loading) {
         return (
-            <div className={`w-full h-[200px] md:h-[300px] bg-gray-200 animate-pulse rounded-xl flex items-center justify-center ${className}`}>
+            <div className={`w-full h-[200px] md:h-[280px] bg-gray-200 animate-pulse flex items-center justify-center ${className}`}>
                 <p className="text-gray-400">Chargement...</p>
             </div>
         );
@@ -156,9 +156,16 @@ const BannerCarousel = ({ position = 'top', className = '' }) => {
         return null;
     }
 
+    // Style spécifique selon la position
+    const isTopPosition = position === 'top';
+    const containerStyle = isTopPosition 
+        ? { borderRadius: '0 0 16px 16px', overflow: 'hidden' }
+        : { borderRadius: '16px', overflow: 'hidden' };
+
     return (
         <div 
-            className={`relative w-full overflow-hidden rounded-xl ${className}`}
+            className={`relative w-full ${className}`}
+            style={containerStyle}
             ref={carouselRef}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
@@ -167,7 +174,6 @@ const BannerCarousel = ({ position = 'top', className = '' }) => {
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={() => setIsDragging(false)}
-            style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
         >
             {/* Conteneur du carrousel */}
             <div 
@@ -183,22 +189,22 @@ const BannerCarousel = ({ position = 'top', className = '' }) => {
                         <img
                             src={banner.image}
                             alt={banner.title || 'Bannière'}
-                            className="w-full h-[200px] md:h-[300px] lg:h-[350px] object-cover"
+                            className="w-full h-[200px] md:h-[280px] lg:h-[320px] object-cover"
                         />
                         {/* Overlay texte */}
                         {(banner.title || banner.subtitle) && (
-                            <div className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center text-white text-center p-4">
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/20 to-transparent flex flex-col items-center justify-center text-white text-center p-4">
                                 {banner.title && (
-                                    <h2 className="text-2xl md:text-4xl lg:text-5xl font-bold mb-2 drop-shadow-lg">
+                                    <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-2 drop-shadow-lg">
                                         {banner.title}
                                     </h2>
                                 )}
                                 {banner.subtitle && (
-                                    <p className="text-sm md:text-lg opacity-90 drop-shadow">
+                                    <p className="text-sm md:text-base opacity-90 drop-shadow">
                                         {banner.subtitle}
                                     </p>
                                 )}
-                                <button className="mt-4 px-6 py-2 bg-primary text-white rounded-full text-sm hover:bg-primary-dull transition shadow-lg">
+                                <button className="mt-4 px-6 py-2 bg-white text-black rounded-full text-sm font-semibold hover:bg-gray-100 transition shadow-lg">
                                     Découvrir
                                 </button>
                             </div>
@@ -206,6 +212,38 @@ const BannerCarousel = ({ position = 'top', className = '' }) => {
                     </div>
                 ))}
             </div>
+
+            {/* Flèches de navigation (optionnelles - masquées sur mobile) */}
+            {banners.length > 1 && (
+                <>
+                    <button
+                        onClick={() => {
+                            goToPrevious();
+                            resetAutoPlayTimer();
+                        }}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-white/80 hover:bg-white rounded-full flex items-center justify-center shadow-md transition-all opacity-0 group-hover:opacity-100 md:opacity-100"
+                        style={{ opacity: 0.7 }}
+                        aria-label="Précédent"
+                    >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="2.5">
+                            <path d="M15 18l-6-6 6-6"/>
+                        </svg>
+                    </button>
+                    <button
+                        onClick={() => {
+                            goToNext();
+                            resetAutoPlayTimer();
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-white/80 hover:bg-white rounded-full flex items-center justify-center shadow-md transition-all opacity-0 group-hover:opacity-100 md:opacity-100"
+                        style={{ opacity: 0.7 }}
+                        aria-label="Suivant"
+                    >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="2.5">
+                            <path d="M9 18l6-6-6-6"/>
+                        </svg>
+                    </button>
+                </>
+            )}
 
             {/* Indicateurs (dots) */}
             {banners.length > 1 && (
@@ -216,9 +254,10 @@ const BannerCarousel = ({ position = 'top', className = '' }) => {
                             onClick={() => goToSlide(index)}
                             className={`w-2 h-2 md:w-2.5 md:h-2.5 rounded-full transition-all ${
                                 currentIndex === index
-                                    ? 'bg-primary w-4 md:w-6'
-                                    : 'bg-white/60 hover:bg-white/80'
+                                    ? 'bg-white w-6 md:w-8'
+                                    : 'bg-white/50 hover:bg-white/70'
                             }`}
+                            aria-label={`Aller à l'image ${index + 1}`}
                         />
                     ))}
                 </div>
