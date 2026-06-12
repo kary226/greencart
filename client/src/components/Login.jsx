@@ -80,9 +80,13 @@ const Login = () => {
                     </button>
 
                     <div className="text-center pt-8 pb-4">
-                        {/* Logo RAMCI au lieu de l'emoji */}
-                        <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <span className="text-2xl font-bold text-red-500">RAMCI</span>
+                        {/* Logo RAMCI */}
+                        <div className="w-20 h-20 mx-auto mb-3 flex items-center justify-center">
+                            <img 
+                                src="/logo.png" 
+                                alt="RAMCI" 
+                                className="w-full h-full object-contain"
+                            />
                         </div>
                         <h2 className="text-2xl font-bold text-gray-900">
                             {state === "login" ? "Connexion" : "Créer un compte"}
