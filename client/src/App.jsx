@@ -48,10 +48,10 @@ const App = () => {
   return (
     <div className='text-default min-h-screen text-gray-700 bg-white'>
 
-      {/* Navbar cachée si : page seller OU modal de connexion ouvert */}
-      {!isSellerPath && !showUserLogin ? <Navbar /> : null}
+      {/* Navbar - visible sur toutes les pages client (pas sur seller) */}
+      {!isSellerPath && <Navbar />}
       
-      {/* Modal de connexion affiché seulement si showUserLogin true ET user non connecté */}
+      {/* Modal de connexion - seulement si demandé ET utilisateur non connecté */}
       {showUserLogin && !user ? <Login /> : null}
 
       <Toaster 
