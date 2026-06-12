@@ -74,18 +74,15 @@ const Login = () => {
                     <button
                         type="button"
                         onClick={() => setShowUserLogin(false)}
-                        className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition"
+                        className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition z-10"
                     >
                         <X size={18} />
                     </button>
 
                     <div className="text-center pt-8 pb-4">
-                        <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                            {state === "login" ? (
-                                <LogIn size={24} className="text-red-500" />
-                            ) : (
-                                <UserPlus size={24} className="text-red-500" />
-                            )}
+                        {/* Logo RAMCI au lieu de l'emoji */}
+                        <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <span className="text-2xl font-bold text-red-500">RAMCI</span>
                         </div>
                         <h2 className="text-2xl font-bold text-gray-900">
                             {state === "login" ? "Connexion" : "Créer un compte"}

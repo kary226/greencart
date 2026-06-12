@@ -33,13 +33,13 @@ import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentError from './pages/PaymentError';
 import Loading from './components/Loading';
 import BottomNav from './components/BottomNav';
-import InstallApp from './pages/InstallApp';  // ← AJOUTÉ
+import InstallApp from './pages/InstallApp';
 
 const App = () => {
 
   const location = useLocation();
   const isSellerPath = location.pathname.includes("seller");
-  const { showUserLogin, isSeller } = useAppContext()
+  const { showUserLogin, isSeller, user } = useAppContext()
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -48,8 +48,11 @@ const App = () => {
   return (
     <div className='text-default min-h-screen text-gray-700 bg-white'>
 
-      {isSellerPath ? null : <Navbar />}
-      {showUserLogin ? <Login /> : null}
+      {/* Navbar cachée si : page seller OU modal de connexion ouvert */}
+      {!isSellerPath && !showUserLogin ? <Navbar /> : null}
+      
+      {/* Modal de connexion affiché seulement si showUserLogin true ET user non connecté */}
+      {showUserLogin && !user ? <Login /> : null}
 
       <Toaster 
         position="top-center"
@@ -107,7 +110,7 @@ const App = () => {
           <Route path='/payment/error' element={<PaymentError />} />
           <Route path='/forgot-password' element={<ForgotPassword />} />
           <Route path='/reset-password' element={<ResetPassword />} />
-          <Route path='/install' element={<InstallApp />} />  {/* ← AJOUTÉ */}
+          <Route path='/install' element={<InstallApp />} />
           <Route path='/seller' element={isSeller ? <SellerLayout /> : <SellerLogin />}>
             <Route index element={<Dashboard />} />
             <Route path='add-product' element={<AddProduct />} />
