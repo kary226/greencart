@@ -387,9 +387,9 @@ const InstallApp = () => {
         }
 
         .steps-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
         }
 
         .step-card {
@@ -406,7 +406,7 @@ const InstallApp = () => {
 
         .step-img-wrap {
           position: relative;
-          aspect-ratio: 1 / 1;
+          aspect-ratio: 16 / 10;
           background: #fff;
           overflow: hidden;
         }
@@ -482,10 +482,6 @@ const InstallApp = () => {
           line-height: 1.4;
         }
 
-        @media (max-width: 360px) {
-          .steps-grid { gap: 8px; }
-          .step-card p { font-size: 11.5px; padding: 8px 10px; }
-        }
       `}</style>
     </div>
   );
