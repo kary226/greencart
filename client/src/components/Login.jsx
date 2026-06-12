@@ -88,7 +88,6 @@ const Login = () => {
                             </div>
                             
                             <div className="relative z-10">
-                                {/* Logo - format carré naturel */}
                                 <div className="flex items-center justify-center mb-8">
                                     <div className="w-24 h-24 flex items-center justify-center">
                                         <img 
@@ -124,9 +123,9 @@ const Login = () => {
 
                         {/* Right side - Form */}
                         <div className="w-full md:w-1/2 p-6 md:p-8">
-                            {/* Logo visible sur mobile - format carré */}
+                            {/* Logo visible sur mobile */}
                             <div className="md:hidden flex justify-center mb-6">
-                                <div className="w-24 h-24 flex items-center justify-center">
+                                <div className="w-20 h-20 flex items-center justify-center">
                                     <img 
                                         src="/logo.png" 
                                         alt="RAMCI" 
@@ -147,20 +146,18 @@ const Login = () => {
                             </div>
 
                             <form onSubmit={onSubmitHandler} className="space-y-4">
-                                {/* Google Button */}
-                                <div className="flex justify-center">
-                                    <div className="w-full overflow-hidden">
-                                        <GoogleLogin
-                                            onSuccess={handleGoogleSuccess}
-                                            onError={handleGoogleError}
-                                            text={state === "login" ? "signin_with" : "signup_with"}
-                                            shape="pill"
-                                            logo_alignment="center"
-                                            width="100%"
-                                            locale="fr"
-                                            theme="outline"
-                                        />
-                                    </div>
+                                {/* Google Button - Bien centré */}
+                                <div className="flex justify-center w-full">
+                                    <GoogleLogin
+                                        onSuccess={handleGoogleSuccess}
+                                        onError={handleGoogleError}
+                                        text={state === "login" ? "signin_with" : "signup_with"}
+                                        shape="pill"
+                                        logo_alignment="center"
+                                        width="100%"
+                                        locale="fr"
+                                        theme="outline"
+                                    />
                                 </div>
 
                                 {/* Divider */}
@@ -281,7 +278,6 @@ const Login = () => {
                                     )}
                                 </button>
 
-                                {/* Switch between login and register */}
                                 <p className="text-center text-xs text-gray-500">
                                     {state === "login" ? (
                                         <>
@@ -319,13 +315,6 @@ const Login = () => {
                     }
                     .animate-fade-in-up {
                         animation: fade-in-up 0.4s ease-out;
-                    }
-                    
-                    /* Ajustement pour le bouton Google sur mobile */
-                    @media (max-width: 768px) {
-                        div[style*="width: 100%"] {
-                            width: 100% !important;
-                        }
                     }
                 `}</style>
             </div>
