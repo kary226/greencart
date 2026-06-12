@@ -17,22 +17,21 @@ const InstallApp = () => {
   };
 
   const androidSteps = [
-    { img: "/images/install/android-step1.png", label: "Menu (⋮) en haut à droite" },
-    { img: "/images/install/android-step2.png", label: "« Ajouter à l'écran d'accueil »" },
-    { img: "/images/install/android-step3.png", label: "Confirmer « Installer »" },
-    { img: "/images/install/android-fin.png", label: "App installée 🎉" },
+    { img: "/images/install/android-step1.png", label: "Cliquez sur les trois points (⋮) en haut à droite" },
+    { img: "/images/install/android-step2.png", label: "Sélectionnez « Ajouter à l'écran d'accueil »" },
+    { img: "/images/install/android-step3.png", label: "Confirmez en cliquant sur « Installer »" },
+    { img: "/images/install/android-fin.png", label: "✅ L'application est installée sur votre écran d'accueil !" },
   ];
 
   const iosSteps = [
-    { img: "/images/install/ios-step1.png", label: "Bouton Partager" },
-    { img: "/images/install/ios-step2.png", label: "« En voir plus »" },
-    { img: "/images/install/ios-step3.png", label: "« Sur l'écran d'accueil »" },
-    { img: "/images/install/ios-step4.png", label: "Appuyer sur « Ajouter »" },
+    { img: "/images/install/ios-step1.png", label: "Appuyez sur le bouton « Partager »" },
+    { img: "/images/install/ios-step2.png", label: "Faites défiler et cliquez sur « En voir plus »" },
+    { img: "/images/install/ios-step3.png", label: "Sélectionnez « Sur l'écran d'accueil »" },
+    { img: "/images/install/ios-step4.png", label: "Cliquez sur « Ajouter » en haut à droite" },
   ];
 
   return (
     <div className="install-page">
-      {/* Header */}
       <div className="install-header">
         <button className="back-btn" onClick={handleBack} aria-label="Retour">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -406,31 +405,38 @@ const InstallApp = () => {
 
         .step-img-wrap {
           position: relative;
-          aspect-ratio: 16 / 10;
           background: #fff;
-          overflow: hidden;
+          padding: 20px;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-height: 200px;
         }
 
         .step-img-wrap img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
+          max-width: 100%;
+          max-height: 280px;
+          width: auto;
+          height: auto;
           display: block;
+          margin: 0 auto;
+          border-radius: 12px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
 
         .step-tag {
           position: absolute;
-          top: 8px;
-          left: 8px;
-          width: 24px;
-          height: 24px;
+          top: 12px;
+          left: 12px;
+          width: 28px;
+          height: 28px;
           background: #14142b;
           color: #fff;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 12px;
+          font-size: 13px;
           font-weight: 700;
         }
 
@@ -439,12 +445,13 @@ const InstallApp = () => {
         }
 
         .step-card p {
-          font-size: 12.5px;
+          font-size: 13px;
           color: #444;
           font-weight: 500;
           margin: 0;
-          padding: 10px 12px;
-          line-height: 1.35;
+          padding: 12px 14px;
+          line-height: 1.4;
+          text-align: center;
         }
 
         .ios-note {
@@ -481,7 +488,6 @@ const InstallApp = () => {
           margin: 0;
           line-height: 1.4;
         }
-
       `}</style>
     </div>
   );
