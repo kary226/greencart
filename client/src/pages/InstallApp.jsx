@@ -134,6 +134,18 @@ const InstallApp = () => {
                 </div>
               </div>
             </div>
+
+            {/* IMAGE DE FIN ANDROID */}
+            <div className="step final-step">
+              <div className="step-number">✓</div>
+              <div className="step-content">
+                <h3>Installation terminée !</h3>
+                <p>L'application est maintenant sur votre écran d'accueil</p>
+                <div className="step-image">
+                  <img src="/images/install/android-fin.png" alt="Installation terminée Android" />
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="success-message">
@@ -195,6 +207,18 @@ const InstallApp = () => {
                 <p>Cliquez sur "Ajouter" en haut à droite</p>
                 <div className="step-image">
                   <img src="/images/install/ios-step4.png" alt="Étape 4 iOS" />
+                </div>
+              </div>
+            </div>
+
+            {/* IMAGE DE FIN iOS */}
+            <div className="step final-step">
+              <div className="step-number">✓</div>
+              <div className="step-content">
+                <h3>Installation terminée !</h3>
+                <p>RAMCI est maintenant sur votre écran d'accueil</p>
+                <div className="step-image">
+                  <img src="/images/install/ios-fin.png" alt="Installation terminée iOS" />
                 </div>
               </div>
             </div>
@@ -403,6 +427,11 @@ const InstallApp = () => {
           border-radius: 20px;
         }
 
+        .final-step {
+          background: #e8f5e9;
+          border: 1px solid #c8e6c9;
+        }
+
         .step-number {
           width: 32px;
           height: 32px;
@@ -415,6 +444,10 @@ const InstallApp = () => {
           font-size: 16px;
           font-weight: 700;
           flex-shrink: 0;
+        }
+
+        .final-step .step-number {
+          background: #4caf50;
         }
 
         .step-content {
