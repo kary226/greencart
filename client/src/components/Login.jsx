@@ -80,8 +80,8 @@ const Login = () => {
                     </button>
 
                     <div className="text-center pt-8 pb-4">
-                        {/* Logo RAMCI - Bien visible */}
-                        <div className="w-36 h-36 mx-auto mb-4 flex items-center justify-center bg-gray-50 rounded-full p-3 shadow-sm">
+                        {/* Logo RAMCI */}
+                        <div className="w-20 h-20 mx-auto mb-4 flex items-center justify-center">
                             <img 
                                 src="/logo.png" 
                                 alt="RAMCI" 
