@@ -15,7 +15,17 @@ const ClientsManager = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [loadingOrders, setLoadingOrders] = useState(false);
-    const [loadingDetails, setLoadingDetails] = useState(false);
+
+    const formatDate = (dateString) => {
+        if (!dateString) return '-';
+        try {
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return '-';
+            return date.toLocaleDateString('fr-FR');
+        } catch (error) {
+            return '-';
+        }
+    };
 
     const fetchClients = async () => {
         setLoading(true);
@@ -36,7 +46,7 @@ const ClientsManager = () => {
         fetchClients();
     }, [searchTerm, currentPage]);
 
-    const viewClientDetails = async (client) => {
+    const viewClientDetails = (client) => {
         setSelectedClient(client);
         setClientDetails(client);
         setShowDetailsModal(true);
@@ -95,7 +105,6 @@ const ClientsManager = () => {
     return (
         <div className="bg-gray-50 min-h-screen">
             <div className="p-6 space-y-6">
-                {/* Header */}
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Clients</h1>
                     <p className="text-sm text-gray-500 mt-1">Rechercher un client, voir ses informations et ses commandes</p>
@@ -176,7 +185,7 @@ const ClientsManager = () => {
                                                 {client.cityName ? ` / ${client.cityName}` : ''}
                                             </td>
                                             <td className="px-6 py-4 text-gray-500 text-sm">
-                                                {new Date(client.createdAt).toLocaleDateString('fr-FR')}
+                                                {formatDate(client.createdAt)}
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <div className="flex items-center justify-center gap-2">
@@ -281,7 +290,7 @@ const ClientsManager = () => {
                             <div className="flex justify-between">
                                 <span className="text-sm text-gray-500">Membre depuis</span>
                                 <span className="text-sm font-medium text-gray-900">
-                                    {new Date(selectedClient.createdAt).toLocaleDateString('fr-FR')}
+                                    {formatDate(selectedClient.createdAt)}
                                 </span>
                             </div>
                         </div>
@@ -335,7 +344,7 @@ const ClientsManager = () => {
                                             <div>
                                                 <p className="font-mono text-sm font-medium text-gray-900">#{order._id.slice(-8)}</p>
                                                 <p className="text-xs text-gray-400 mt-0.5">
-                                                    {new Date(order.createdAt).toLocaleDateString('fr-FR')} à {new Date(order.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                                    {formatDate(order.createdAt)} à {new Date(order.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                                                 </p>
                                             </div>
                                             <span className={`text-xs px-3 py-1 rounded-full font-medium ${getStatusColor(order.status)}`}>
