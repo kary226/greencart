@@ -225,37 +225,29 @@ const ProductDetails = () => {
 
     const isOutOfStock = variantStock === 0;
 
-    // Fonction corrigée pour faire défiler les miniatures à partir de l'image sélectionnée
+    // Fonction corrigée : navigation entre les miniatures avec défilement intelligent
     const scrollImages = (direction) => {
-        if (scrollContainerRef.current && thumbnailRefs.current[currentImageIndex]) {
-            const container = scrollContainerRef.current;
-            const containerRect = container.getBoundingClientRect();
+        let newIndex = currentImageIndex;
+        
+        if (direction === 'left') {
+            newIndex = Math.max(0, currentImageIndex - 1);
+        } else {
+            newIndex = Math.min(allImages.length - 1, currentImageIndex + 1);
+        }
+        
+        if (newIndex !== currentImageIndex) {
+            setCurrentImageIndex(newIndex);
             
-            let scrollAmount;
-            
-            if (direction === 'left') {
-                const prevIndex = Math.max(0, currentImageIndex - 1);
-                if (thumbnailRefs.current[prevIndex]) {
-                    const prevThumbnail = thumbnailRefs.current[prevIndex];
-                    const prevRect = prevThumbnail.getBoundingClientRect();
-                    const offset = prevRect.left - containerRect.left;
-                    scrollAmount = container.scrollLeft + offset - 10;
-                } else {
-                    scrollAmount = container.scrollLeft - 120;
+            // Faire défiler la miniature nouvellement sélectionnée pour qu'elle soit visible
+            setTimeout(() => {
+                if (scrollContainerRef.current && thumbnailRefs.current[newIndex]) {
+                    thumbnailRefs.current[newIndex].scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'nearest',
+                        inline: 'center'
+                    });
                 }
-            } else {
-                const nextIndex = Math.min(allImages.length - 1, currentImageIndex + 1);
-                if (thumbnailRefs.current[nextIndex]) {
-                    const nextThumbnail = thumbnailRefs.current[nextIndex];
-                    const nextRect = nextThumbnail.getBoundingClientRect();
-                    const offset = nextRect.right - containerRect.right;
-                    scrollAmount = container.scrollLeft + offset + 10;
-                } else {
-                    scrollAmount = container.scrollLeft + 120;
-                }
-            }
-            
-            container.scrollTo({ left: scrollAmount, behavior: 'smooth' });
+            }, 50);
         }
     };
 
