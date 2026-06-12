@@ -225,11 +225,37 @@ const ProductDetails = () => {
 
     const isOutOfStock = variantStock === 0;
 
-    // Fonction corrigée pour faire défiler les miniatures
+    // Fonction corrigée pour faire défiler les miniatures à partir de l'image sélectionnée
     const scrollImages = (direction) => {
-        if (scrollContainerRef.current) {
-            const scrollAmount = direction === 'left' ? -120 : 120;
-            scrollContainerRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+        if (scrollContainerRef.current && thumbnailRefs.current[currentImageIndex]) {
+            const container = scrollContainerRef.current;
+            const containerRect = container.getBoundingClientRect();
+            
+            let scrollAmount;
+            
+            if (direction === 'left') {
+                const prevIndex = Math.max(0, currentImageIndex - 1);
+                if (thumbnailRefs.current[prevIndex]) {
+                    const prevThumbnail = thumbnailRefs.current[prevIndex];
+                    const prevRect = prevThumbnail.getBoundingClientRect();
+                    const offset = prevRect.left - containerRect.left;
+                    scrollAmount = container.scrollLeft + offset - 10;
+                } else {
+                    scrollAmount = container.scrollLeft - 120;
+                }
+            } else {
+                const nextIndex = Math.min(allImages.length - 1, currentImageIndex + 1);
+                if (thumbnailRefs.current[nextIndex]) {
+                    const nextThumbnail = thumbnailRefs.current[nextIndex];
+                    const nextRect = nextThumbnail.getBoundingClientRect();
+                    const offset = nextRect.right - containerRect.right;
+                    scrollAmount = container.scrollLeft + offset + 10;
+                } else {
+                    scrollAmount = container.scrollLeft + 120;
+                }
+            }
+            
+            container.scrollTo({ left: scrollAmount, behavior: 'smooth' });
         }
     };
 
