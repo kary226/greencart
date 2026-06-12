@@ -88,9 +88,9 @@ const Login = () => {
                             </div>
                             
                             <div className="relative z-10">
-                                {/* Logo dans la partie branding */}
+                                {/* Logo - format carré naturel */}
                                 <div className="flex items-center justify-center mb-8">
-                                    <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center p-2">
+                                    <div className="w-24 h-24 flex items-center justify-center">
                                         <img 
                                             src="/logo.png" 
                                             alt="RAMCI" 
@@ -124,9 +124,9 @@ const Login = () => {
 
                         {/* Right side - Form */}
                         <div className="w-full md:w-1/2 p-6 md:p-8">
-                            {/* Logo visible sur mobile */}
+                            {/* Logo visible sur mobile - format carré */}
                             <div className="md:hidden flex justify-center mb-6">
-                                <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center p-3 shadow-sm">
+                                <div className="w-24 h-24 flex items-center justify-center">
                                     <img 
                                         src="/logo.png" 
                                         alt="RAMCI" 
