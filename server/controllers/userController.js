@@ -71,6 +71,11 @@ export const login = async (req, res) => {
             return res.json({ success: false, message: 'Email ou mot de passe incorrect' });
         }
 
+        // Compte créé via Google sans mot de passe
+        if (!user.password) {
+            return res.json({ success: false, message: 'Ce compte utilise la connexion Google. Veuillez vous connecter avec Google.' });
+        }
+
         const isMatch = await bcrypt.compare(password, user.password);
 
         if (!isMatch) {
@@ -114,7 +119,8 @@ export const isAuth = async (req, res) => {
                 cityId: user.cityId,
                 communeId: user.communeId,
                 cityName: user.cityName,
-                communeName: user.communeName
+                communeName: user.communeName,
+                avatar: user.avatar || ''
             }
         });
     } catch (error) {
@@ -187,12 +193,78 @@ export const updateUser = async (req, res) => {
     }
 };
 
+// ==================== CONNEXION GOOGLE ====================
+
+export const googleAuth = async (req, res) => {
+    try {
+        const { credential } = req.body;
+
+        if (!credential) {
+            return res.json({ success: false, message: 'Token Google manquant' });
+        }
+
+        // Vérifier le token Google
+        const { OAuth2Client } = await import('google-auth-library');
+        const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+        const ticket = await client.verifyIdToken({
+            idToken: credential,
+            audience: process.env.GOOGLE_CLIENT_ID,
+        });
+
+        const payload = ticket.getPayload();
+        const { sub: googleId, email, given_name: firstName, family_name: lastName, picture: avatar, name } = payload;
+
+        // Chercher si l'utilisateur existe déjà
+        let user = await User.findOne({ email });
+
+        if (user) {
+            // Utilisateur existant : mettre à jour son googleId si pas encore fait
+            if (!user.googleId) {
+                user.googleId = googleId;
+                user.avatar = avatar || user.avatar;
+                await user.save();
+            }
+        } else {
+            // Nouvel utilisateur : créer le compte
+            user = await User.create({
+                googleId,
+                firstName: firstName || '',
+                lastName: lastName || '',
+                name: name || getFullName(firstName, lastName),
+                email,
+                avatar: avatar || '',
+                password: null, // pas de mot de passe pour les comptes Google
+            });
+        }
+
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+
+        return res.json({
+            success: true,
+            user: {
+                _id: user._id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                name: user.name,
+                email: user.email,
+                phone: user.phone || '',
+                avatar: user.avatar || ''
+            },
+            token
+        });
+    } catch (error) {
+        console.log('Google auth error:', error.message);
+        res.json({ success: false, message: 'Échec de la connexion Google' });
+    }
+};
+
 // ==================== ADMIN : Récupérer tous les clients ====================
 
 export const getAllClients = async (req, res) => {
     try {
         const { search = '', page = 1, limit = 20 } = req.query;
-        
+
         const query = {
             $or: [
                 { firstName: { $regex: search, $options: 'i' } },
@@ -204,14 +276,13 @@ export const getAllClients = async (req, res) => {
         };
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
-        
+
         const clients = await User.find(query)
             .select('-password -resetPasswordToken -resetPasswordExpires')
             .sort({ lastName: 1 })
             .skip(skip)
             .limit(parseInt(limit));
-        
-        // Enrichir les clients avec toutes les informations
+
         const enrichedClients = clients.map(client => ({
             _id: client._id,
             firstName: client.firstName || '',
@@ -222,12 +293,14 @@ export const getAllClients = async (req, res) => {
             street: client.street || '',
             cityName: client.cityName || '',
             communeName: client.communeName || '',
+            hasGoogleAccount: !!client.googleId,
+            avatar: client.avatar || '',
             createdAt: client.createdAt,
             updatedAt: client.updatedAt
         }));
-        
+
         const total = await User.countDocuments(query);
-        
+
         res.json({
             success: true,
             clients: enrichedClients,
@@ -250,6 +323,10 @@ export const forgotPassword = async (req, res) => {
 
         if (!user) {
             return res.json({ success: false, message: "Aucun compte associé à cet email" });
+        }
+
+        if (!user.password) {
+            return res.json({ success: false, message: "Ce compte utilise la connexion Google, pas de mot de passe à réinitialiser." });
         }
 
         const resetToken = crypto.randomBytes(32).toString('hex');

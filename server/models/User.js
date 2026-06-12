@@ -5,7 +5,9 @@ const userSchema = new mongoose.Schema({
     lastName: { type: String, default: '' },
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
+    password: { type: String, default: null },   // null pour les comptes Google
+    googleId: { type: String, default: null },    // ID unique Google
+    avatar: { type: String, default: '' },        // photo de profil Google
     cartItems: { type: Object, default: {} },
     wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: 'product' }],
     phone: { type: String, default: '' },
@@ -20,4 +22,4 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.models.user || mongoose.model('user', userSchema)
 
-export default User
+export default User;
