@@ -51,7 +51,7 @@ export const AppContextProvider = ({ children }) => {
     const navigate = useNavigate();
 
     const [user, setUser] = useState(null);
-    const [isSeller, setIsSeller] = useState(getIsSeller); // ← Charger depuis localStorage
+    const [isSeller, setIsSeller] = useState(getIsSeller);
     const [showUserLogin, setShowUserLogin] = useState(false);
     const [products, setProducts] = useState([]);
     const [cartItems, setCartItemsState] = useState(loadCartFromLocalStorage);
@@ -124,7 +124,6 @@ export const AppContextProvider = ({ children }) => {
             if (data.success) {
                 setIsSeller(true);
                 localStorage.setItem('isSeller', 'true');
-                // Si tu as des données seller à stocker
                 if (data.seller) {
                     localStorage.setItem('sellerData', JSON.stringify(data.seller));
                 }
@@ -145,6 +144,11 @@ export const AppContextProvider = ({ children }) => {
         const token = getToken();
         if (!token) return;
         
+        // Ne pas vérifier l'utilisateur sur les pages seller
+        if (window.location.pathname.includes('/seller')) {
+            return;
+        }
+        
         try {
             const { data } = await axios.get('/api/user/is-auth', {
                 headers: { Authorization: `Bearer ${token}` }
@@ -160,8 +164,11 @@ export const AppContextProvider = ({ children }) => {
                 setUser(null);
             }
         } catch (error) {
-            if (error.response?.data?.redirectToLogin) {
-                setShowUserLogin(true);
+            // Ne pas afficher le modal sur les pages seller
+            if (!window.location.pathname.includes('/seller')) {
+                if (error.response?.data?.redirectToLogin) {
+                    setShowUserLogin(true);
+                }
             }
             setUser(null);
         }
@@ -179,6 +186,9 @@ export const AppContextProvider = ({ children }) => {
 
     const fetchWishlist = async () => {
         if (!user) return;
+        // Ne pas exécuter sur les pages seller
+        if (window.location.pathname.includes('/seller')) return;
+        
         try {
             const { data } = await axios.get('/api/wishlist/list');
             if (data.success) setWishlist(data.wishlist);
@@ -369,7 +379,6 @@ export const AppContextProvider = ({ children }) => {
         }
     };
 
-    // Login seller - ajoute cette fonction si elle n'existe pas
     const loginSeller = async (email, password) => {
         try {
             const { data } = await axios.post('/api/seller/login', { email, password });
@@ -392,7 +401,6 @@ export const AppContextProvider = ({ children }) => {
         }
     };
 
-    // Logout seller
     const logoutSeller = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('isSeller');
@@ -406,12 +414,20 @@ export const AppContextProvider = ({ children }) => {
 
     useEffect(() => {
         const token = getToken();
+        const isOnSellerPage = window.location.pathname.includes('/seller');
+        
         if (token) {
-            fetchUser();
-            fetchSeller(); // ← Vérifier le statut seller au chargement
+            if (isOnSellerPage) {
+                fetchSeller();
+            } else {
+                fetchUser();
+                fetchSeller();
+            }
         } else {
             setCartItems(loadCartFromLocalStorage());
-            setIsSeller(false);
+            if (!isOnSellerPage) {
+                setIsSeller(false);
+            }
         }
         fetchProducts();
         loadRecentlyViewed();
@@ -448,7 +464,7 @@ export const AppContextProvider = ({ children }) => {
         axios, fetchProducts, setCartItems, getCartKey, getProductIdFromKey,
         wishlist, addToWishlist, removeFromWishlist, isInWishlist, fetchWishlist,
         fetchUser, loginUser, registerUser, logoutUser,
-        loginSeller, logoutSeller, // ← Exporter les nouvelles fonctions
+        loginSeller, logoutSeller,
         recentlyViewed, addToRecentlyViewed,
         orders
     };
