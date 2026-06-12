@@ -10,8 +10,10 @@ const Navbar = () => {
   const [categories, setCategories] = useState([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [showSearchModal, setShowSearchModal] = useState(false); // Nouvel état pour le modal de recherche
   const suggestionsRef = useRef(null);
   const menuRef = useRef(null);
+  const searchInputRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -44,6 +46,21 @@ const Navbar = () => {
 
   const handleInstallClick = () => {
     navigate('/install');
+  };
+
+  // Ouvrir le modal de recherche
+  const openSearchModal = () => {
+    setShowSearchModal(true);
+    setTimeout(() => {
+      searchInputRef.current?.focus();
+    }, 100);
+  };
+
+  // Fermer le modal de recherche
+  const closeSearchModal = () => {
+    setShowSearchModal(false);
+    setShowSuggestions(false);
+    setQuery("");
   };
 
   useEffect(() => {
@@ -113,7 +130,7 @@ const Navbar = () => {
   };
 
   useEffect(() => {
-    if (query.trim()) {
+    if (query.trim() && showSearchModal) {
       setShowSuggestions(true);
       const id = setTimeout(() => setSuggestions(computeSuggestions(query)), 200);
       return () => clearTimeout(id);
@@ -121,7 +138,7 @@ const Navbar = () => {
       setSuggestions([]);
       setShowSuggestions(false);
     }
-  }, [query, products, categories]);
+  }, [query, products, categories, showSearchModal]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -137,12 +154,14 @@ const Navbar = () => {
     if (query.trim()) {
       setShowSuggestions(false);
       setSearchQuery && setSearchQuery(query.trim());
+      closeSearchModal();
       navigate(`/products?search=${encodeURIComponent(query.trim())}`);
     }
   };
 
   const handleSuggestionClick = (s) => {
     setShowSuggestions(false);
+    closeSearchModal();
     if (s._type === 'category') {
       navigate(`/products?categories=${encodeURIComponent(s.slug)}`);
     } else {
@@ -319,12 +338,13 @@ const Navbar = () => {
           <Link to="/" className="ramci-logo">RAMCI</Link>
 
           <div className="ramci-nav-actions">
-            <Link to="/wishlist" className="ramci-nav-icon" aria-label="Favoris">
+            {/* Loupe pour la recherche à la place du cœur */}
+            <button className="ramci-nav-icon" onClick={openSearchModal} aria-label="Rechercher">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.35-4.35"/>
               </svg>
-              {wishlistCount > 0 && <span className="ramci-badge">{wishlistCount}</span>}
-            </Link>
+            </button>
             
             <Link to="/cart" className="ramci-nav-icon ramci-cart-icon" aria-label="Panier">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -336,67 +356,85 @@ const Navbar = () => {
             </Link>
           </div>
         </div>
-
-        <form className="ramci-search-form" onSubmit={handleSearch} ref={suggestionsRef}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2.2">
-            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-          </svg>
-          <input
-            type="text"
-            placeholder="Rechercher un article ou une catégorie..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onFocus={() => query.trim() && setShowSuggestions(true)}
-            className="ramci-search-input"
-          />
-          
-          <div className="filter-btn-wrapper">
-            <button type="button" onClick={handleFilterClick} className="ramci-filter-btn" aria-label="Filtres">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2">
-                <line x1="4" y1="6" x2="20" y2="6"/>
-                <line x1="8" y1="12" x2="16" y2="12"/>
-                <line x1="11" y1="18" x2="13" y2="18"/>
-              </svg>
-            </button>
-            {hasActiveFilters() && (
-              <span className="filter-active-dot"></span>
-            )}
-          </div>
-
-          {showSuggestions && (
-            <div className="search-suggestions">
-              {suggestions.length > 0 ? (
-                <>
-                  {suggestions.map((s, idx) => (
-                    <div
-                      key={idx}
-                      className="suggestion-item"
-                      onMouseDown={(e) => { e.preventDefault(); handleSuggestionClick(s); }}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="2">
-                        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-                      </svg>
-                      <span className="suggestion-text">{s.text}</span>
-                    </div>
-                  ))}
-                  <div className="suggestion-footer">
-                    <button
-                      type="submit"
-                      className="suggestion-see-all"
-                      onMouseDown={(e) => e.preventDefault()}
-                    >
-                      Voir tous les résultats pour «{query}»
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div className="suggestion-empty">Aucun résultat pour «{query}»</div>
-              )}
-            </div>
-          )}
-        </form>
       </header>
 
+      {/* Modal de recherche */}
+      {showSearchModal && (
+        <div className="search-modal-overlay" onClick={closeSearchModal}>
+          <div className="search-modal-container" onClick={(e) => e.stopPropagation()}>
+            <div className="search-modal-header">
+              <button className="search-modal-back" onClick={closeSearchModal}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M15 18l-6-6 6-6"/>
+                </svg>
+              </button>
+              <span className="search-modal-title">RAMCI</span>
+              <div style={{ width: 40 }}></div>
+            </div>
+
+            <form className="search-modal-form" onSubmit={handleSearch} ref={suggestionsRef}>
+              <div className="search-modal-input-wrapper">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2.2">
+                  <circle cx="11" cy="11" r="8"/>
+                  <path d="m21 21-4.35-4.35"/>
+                </svg>
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Rechercher un article ou une catégorie..."
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className="search-modal-input"
+                />
+                {query && (
+                  <button type="button" className="search-modal-clear" onClick={() => setQuery("")}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10"/>
+                      <line x1="12" y1="8" x2="12" y2="16"/>
+                      <line x1="8" y1="12" x2="16" y2="12"/>
+                    </svg>
+                  </button>
+                )}
+              </div>
+
+              {showSuggestions && (
+                <div className="search-modal-suggestions">
+                  {suggestions.length > 0 ? (
+                    <>
+                      {suggestions.map((s, idx) => (
+                        <div
+                          key={idx}
+                          className="search-suggestion-item"
+                          onMouseDown={(e) => { e.preventDefault(); handleSuggestionClick(s); }}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="2">
+                            <circle cx="11" cy="11" r="8"/>
+                            <path d="m21 21-4.35-4.35"/>
+                          </svg>
+                          <span className="search-suggestion-text">{s.text}</span>
+                        </div>
+                      ))}
+                      <div className="search-suggestion-footer">
+                        <button
+                          type="submit"
+                          className="search-suggestion-see-all"
+                          onMouseDown={(e) => e.preventDefault()}
+                        >
+                          Voir tous les résultats pour «{query}»
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="search-suggestion-empty">Aucun résultat pour «{query}»</div>
+                  )}
+                </div>
+              )}
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Filtres */}
       {showFilters && (
         <div className="filters-modal" onClick={() => setShowFilters(false)}>
           <div className="filters-modal-content" onClick={(e) => e.stopPropagation()}>
@@ -629,116 +667,180 @@ const Navbar = () => {
           justify-content: center;
           padding: 0 3px;
         }
-        
-        .ramci-search-form {
-          position: relative;
+
+        /* Modal de recherche */
+        .search-modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0,0,0,0.5);
+          z-index: 1002;
+          animation: fadeIn 0.2s ease;
+        }
+
+        .search-modal-container {
+          background: #fff;
+          height: auto;
+          max-height: 80vh;
+          border-radius: 0 0 20px 20px;
+          overflow: hidden;
+          animation: slideDown 0.3s ease;
+        }
+
+        .search-modal-header {
           display: flex;
           align-items: center;
-          margin: 0 16px 12px;
-          background: #f7f5f2;
-          border-radius: 10px;
-          padding: 10px 14px;
-          gap: 10px;
+          justify-content: space-between;
+          padding: 14px 16px;
+          border-bottom: 1px solid #f0ede8;
         }
-        .ramci-search-input {
+
+        .search-modal-back {
+          background: none;
+          border: none;
+          cursor: pointer;
+          padding: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          transition: background 0.2s;
+        }
+
+        .search-modal-back:hover {
+          background: #f5f5f5;
+        }
+
+        .search-modal-title {
+          font-family: 'Cormorant Garamond', serif;
+          font-size: 20px;
+          font-weight: 600;
+          letter-spacing: 4px;
+          color: #111;
+        }
+
+        .search-modal-form {
+          padding: 16px;
+        }
+
+        .search-modal-input-wrapper {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          background: #f7f5f2;
+          border-radius: 12px;
+          padding: 12px 16px;
+        }
+
+        .search-modal-input {
           flex: 1;
           border: none;
           background: transparent;
           font-family: 'DM Sans', sans-serif;
-          font-size: 13.5px;
+          font-size: 15px;
           color: #333;
           outline: none;
         }
-        .ramci-search-input::placeholder { color: #aaa; }
-        
-        .filter-btn-wrapper {
-          position: relative;
-          display: inline-flex;
+
+        .search-modal-input::placeholder {
+          color: #aaa;
         }
-        
-        .ramci-filter-btn {
+
+        .search-modal-clear {
           background: none;
           border: none;
           cursor: pointer;
+          padding: 4px;
           display: flex;
           align-items: center;
-          padding: 0;
-          opacity: .7;
-          transition: opacity 0.2s;
-        }
-        .ramci-filter-btn:hover {
-          opacity: 1;
-        }
-        
-        .filter-active-dot {
-          position: absolute;
-          top: -3px;
-          right: -3px;
-          width: 8px;
-          height: 8px;
-          background-color: #e53935;
+          justify-content: center;
           border-radius: 50%;
-          border: 1px solid white;
-          box-shadow: 0 0 2px rgba(0,0,0,0.1);
         }
-        
-        .search-suggestions {
-          position: absolute;
-          top: calc(100% + 6px);
-          left: 0;
-          right: 0;
+
+        .search-modal-suggestions {
+          margin-top: 16px;
           background: #fff;
           border-radius: 12px;
-          box-shadow: 0 6px 24px rgba(0,0,0,.10);
-          border: 1px solid #f0ede8;
-          z-index: 300;
           overflow: hidden;
+          border: 1px solid #f0ede8;
         }
-        .suggestion-item {
+
+        .search-suggestion-item {
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 12px;
           padding: 12px 16px;
           cursor: pointer;
           border-bottom: 1px solid #faf8f5;
-          transition: background .15s;
+          transition: background 0.15s;
         }
-        .suggestion-item:last-child { border-bottom: none; }
-        .suggestion-item:hover { background: #faf8f5; }
-        .suggestion-text {
+
+        .search-suggestion-item:last-child {
+          border-bottom: none;
+        }
+
+        .search-suggestion-item:hover {
+          background: #faf8f5;
+        }
+
+        .search-suggestion-text {
           flex: 1;
           font-family: 'DM Sans', sans-serif;
-          font-size: 13.5px;
-          font-weight: 400;
+          font-size: 14px;
           color: #222;
         }
-        .suggestion-empty {
-          padding: 16px;
+
+        .search-suggestion-empty {
+          padding: 20px;
           text-align: center;
           font-family: 'DM Sans', sans-serif;
           font-size: 13px;
           color: #bbb;
         }
-        .suggestion-footer {
-          padding: 8px 14px;
+
+        .search-suggestion-footer {
+          padding: 10px 14px;
           background: #faf8f5;
           border-top: 1px solid #f0ede8;
         }
-        .suggestion-see-all {
+
+        .search-suggestion-see-all {
           width: 100%;
           text-align: center;
           background: none;
           border: none;
           font-family: 'DM Sans', sans-serif;
-          font-size: 12.5px;
+          font-size: 13px;
           font-weight: 500;
           color: #555;
           cursor: pointer;
-          padding: 6px;
-          transition: color .15s;
+          padding: 8px;
+          transition: color 0.15s;
         }
-        .suggestion-see-all:hover { color: #111; }
 
+        .search-suggestion-see-all:hover {
+          color: #111;
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        /* Filtres modal */
         .filters-modal {
           position: fixed;
           top: 0;
