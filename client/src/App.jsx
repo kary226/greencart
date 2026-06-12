@@ -33,7 +33,6 @@ import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentError from './pages/PaymentError';
 import Loading from './components/Loading';
 import BottomNav from './components/BottomNav';
-import InstallApp from './pages/InstallApp'; // ← AJOUTER CETTE LIGNE
 
 const App = () => {
 
@@ -107,7 +106,6 @@ const App = () => {
           <Route path='/payment/error' element={<PaymentError />} />
           <Route path='/forgot-password' element={<ForgotPassword />} />
           <Route path='/reset-password' element={<ResetPassword />} />
-          <Route path='/install' element={<InstallApp />} /> {/* ← AJOUTER CETTE ROUTE */}
           <Route path='/seller' element={isSeller ? <SellerLayout /> : <SellerLogin />}>
             <Route index element={<Dashboard />} />
             <Route path='add-product' element={<AddProduct />} />
