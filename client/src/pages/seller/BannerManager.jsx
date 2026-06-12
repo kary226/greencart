@@ -6,6 +6,7 @@ import ImageCropper from '../../components/ImageCropper';
 const BannerManager = () => {
     const { axios } = useAppContext();
     const [banners, setBanners] = useState([]);
+    const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [editingBanner, setEditingBanner] = useState(null);
@@ -15,6 +16,13 @@ const BannerManager = () => {
     const [imagePreview, setImagePreview] = useState('');
     const [showCropper, setShowCropper] = useState(false);
     const [tempImageFile, setTempImageFile] = useState(null);
+    const [linkType, setLinkType] = useState('custom'); // 'category', 'product', 'custom'
+    const [selectedCategory, setSelectedCategory] = useState('');
+    const [selectedProduct, setSelectedProduct] = useState('');
+    const [products, setProducts] = useState([]);
+    const [searchProduct, setSearchProduct] = useState('');
+    const [filteredProducts, setFilteredProducts] = useState([]);
+    const [showProductDropdown, setShowProductDropdown] = useState(false);
     const [formData, setFormData] = useState({
         title: '',
         subtitle: '',
@@ -36,9 +44,45 @@ const BannerManager = () => {
         }
     };
 
+    const fetchCategories = async () => {
+        try {
+            const { data } = await axios.get('/api/category/list');
+            if (data.success) {
+                setCategories(data.categories);
+            }
+        } catch (error) {
+            console.error('Erreur chargement catégories:', error);
+        }
+    };
+
+    const fetchProducts = async () => {
+        try {
+            const { data } = await axios.get('/api/product/list');
+            if (data.success) {
+                setProducts(data.products);
+            }
+        } catch (error) {
+            console.error('Erreur chargement produits:', error);
+        }
+    };
+
     useEffect(() => {
         fetchBanners();
+        fetchCategories();
+        fetchProducts();
     }, []);
+
+    // Filtrer les produits pour la recherche
+    useEffect(() => {
+        if (searchProduct.trim()) {
+            const filtered = products.filter(p => 
+                p.name.toLowerCase().includes(searchProduct.toLowerCase())
+            );
+            setFilteredProducts(filtered.slice(0, 10));
+        } else {
+            setFilteredProducts([]);
+        }
+    }, [searchProduct, products]);
 
     const handleImageFileChange = (e) => {
         const file = e.target.files[0];
@@ -62,13 +106,79 @@ const BannerManager = () => {
         setImageFile(null);
     };
 
+    // Générer le lien en fonction du type sélectionné
+    const generateLink = () => {
+        if (linkType === 'category' && selectedCategory) {
+            const category = categories.find(c => c._id === selectedCategory);
+            return `/products/${category?.slug || category?.name?.toLowerCase()}`;
+        } else if (linkType === 'product' && selectedProduct) {
+            const product = products.find(p => p._id === selectedProduct);
+            return `/products/${product?.category?.toLowerCase()}/${product?._id}`;
+        }
+        return formData.link;
+    };
+
+    // Mettre à jour le lien quand la catégorie change
+    useEffect(() => {
+        if (linkType === 'category' && selectedCategory) {
+            const category = categories.find(c => c._id === selectedCategory);
+            if (category) {
+                const newLink = `/products/${category.slug || category.name?.toLowerCase()}`;
+                setFormData(prev => ({ ...prev, link: newLink }));
+            }
+        }
+    }, [selectedCategory, linkType, categories]);
+
+    // Mettre à jour le lien quand le produit change
+    useEffect(() => {
+        if (linkType === 'product' && selectedProduct) {
+            const product = products.find(p => p._id === selectedProduct);
+            if (product) {
+                const newLink = `/products/${product.category?.toLowerCase()}/${product._id}`;
+                setFormData(prev => ({ ...prev, link: newLink }));
+            }
+        }
+    }, [selectedProduct, linkType, products]);
+
+    const handleLinkTypeChange = (type) => {
+        setLinkType(type);
+        if (type === 'custom') {
+            // Garder le lien manuel
+        } else if (type === 'category') {
+            setSelectedCategory('');
+            setSelectedProduct('');
+            setFormData(prev => ({ ...prev, link: '/products' }));
+        } else if (type === 'product') {
+            setSelectedProduct('');
+            setSelectedCategory('');
+            setSearchProduct('');
+            setFormData(prev => ({ ...prev, link: '/products' }));
+        }
+    };
+
+    const handleCategorySelect = (categoryId) => {
+        setSelectedCategory(categoryId);
+        setSelectedProduct('');
+        setLinkType('category');
+    };
+
+    const handleProductSelect = (product) => {
+        setSelectedProduct(product._id);
+        setSelectedCategory('');
+        setSearchProduct(product.name);
+        setShowProductDropdown(false);
+        setLinkType('product');
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        const finalLink = generateLink();
         
         const formDataToSend = new FormData();
         formDataToSend.append('title', formData.title);
         formDataToSend.append('subtitle', formData.subtitle);
-        formDataToSend.append('link', formData.link);
+        formDataToSend.append('link', finalLink);
         formDataToSend.append('order', formData.order);
         formDataToSend.append('position', formData.position);
         
@@ -101,6 +211,10 @@ const BannerManager = () => {
                 setImageFile(null);
                 setImageUrl('');
                 setImagePreview('');
+                setLinkType('custom');
+                setSelectedCategory('');
+                setSelectedProduct('');
+                setSearchProduct('');
                 setFormData({ title: '', subtitle: '', link: '/products', order: 0, position: 'top' });
                 fetchBanners();
             } else {
@@ -139,6 +253,10 @@ const BannerManager = () => {
         setImageUrl(banner.image);
         setImageFile(null);
         setImageType('url');
+        setLinkType('custom');
+        setSelectedCategory('');
+        setSelectedProduct('');
+        setSearchProduct('');
         setShowForm(true);
     };
 
@@ -170,6 +288,10 @@ const BannerManager = () => {
                             setImageUrl('');
                             setImagePreview('');
                             setImageType('url');
+                            setLinkType('custom');
+                            setSelectedCategory('');
+                            setSelectedProduct('');
+                            setSearchProduct('');
                             setShowForm(!showForm);
                         }}
                         className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 transition shadow-sm"
@@ -287,16 +409,124 @@ const BannerManager = () => {
                                 <p className="text-xs text-gray-400 mt-1">Optionnel</p>
                             </div>
 
+                            {/* Type de redirection */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Lien de redirection</label>
-                                <input
-                                    type="text"
-                                    value={formData.link}
-                                    onChange={(e) => setFormData({ ...formData, link: e.target.value })}
-                                    className="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
-                                />
-                                <p className="text-xs text-gray-400 mt-1">Ex: /products, /products/fruits, /cart</p>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Type de redirection</label>
+                                <div className="flex gap-4 mb-3">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            value="custom"
+                                            checked={linkType === 'custom'}
+                                            onChange={() => handleLinkTypeChange('custom')}
+                                            className="w-4 h-4 text-red-500 focus:ring-red-500"
+                                        />
+                                        <span className="text-sm text-gray-700">Lien personnalisé</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            value="category"
+                                            checked={linkType === 'category'}
+                                            onChange={() => handleLinkTypeChange('category')}
+                                            className="w-4 h-4 text-red-500 focus:ring-red-500"
+                                        />
+                                        <span className="text-sm text-gray-700">Catégorie</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            value="product"
+                                            checked={linkType === 'product'}
+                                            onChange={() => handleLinkTypeChange('product')}
+                                            className="w-4 h-4 text-red-500 focus:ring-red-500"
+                                        />
+                                        <span className="text-sm text-gray-700">Produit</span>
+                                    </label>
+                                </div>
                             </div>
+
+                            {/* Sélection catégorie */}
+                            {linkType === 'category' && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Sélectionner une catégorie</label>
+                                    <select
+                                        value={selectedCategory}
+                                        onChange={(e) => handleCategorySelect(e.target.value)}
+                                        className="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                    >
+                                        <option value="">-- Choisir une catégorie --</option>
+                                        {categories.map((cat) => (
+                                            <option key={cat._id} value={cat._id}>
+                                                {cat.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-gray-400 mt-1">
+                                        Redirige vers la page de la catégorie sélectionnée
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Sélection produit */}
+                            {linkType === 'product' && (
+                                <div className="relative">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Sélectionner un produit</label>
+                                    <input
+                                        type="text"
+                                        value={searchProduct}
+                                        onChange={(e) => {
+                                            setSearchProduct(e.target.value);
+                                            setShowProductDropdown(true);
+                                        }}
+                                        onFocus={() => setShowProductDropdown(true)}
+                                        className="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                        placeholder="Rechercher un produit..."
+                                    />
+                                    {showProductDropdown && filteredProducts.length > 0 && (
+                                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-auto">
+                                            {filteredProducts.map((product) => (
+                                                <div
+                                                    key={product._id}
+                                                    onClick={() => handleProductSelect(product)}
+                                                    className="px-4 py-2 hover:bg-gray-50 cursor-pointer text-sm border-b border-gray-100 last:border-0"
+                                                >
+                                                    <p className="font-medium text-gray-800">{product.name}</p>
+                                                    <p className="text-xs text-gray-400">{product.category}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    <p className="text-xs text-gray-400 mt-1">
+                                        Redirige vers la page du produit sélectionné
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Lien personnalisé */}
+                            {linkType === 'custom' && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Lien de redirection</label>
+                                    <input
+                                        type="text"
+                                        value={formData.link}
+                                        onChange={(e) => setFormData({ ...formData, link: e.target.value })}
+                                        className="w-full border border-gray-200 rounded-xl px-4 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                        placeholder="Ex: /products, /promotions, /nouveautes"
+                                    />
+                                    <p className="text-xs text-gray-400 mt-1">Lien personnalisé (ex: /products, /promotions, /nouveautes)</p>
+                                </div>
+                            )}
+
+                            {/* Aperçu du lien généré */}
+                            {linkType !== 'custom' && (
+                                <div className="bg-gray-50 rounded-xl p-3">
+                                    <p className="text-xs text-gray-500 mb-1">🔗 Lien qui sera utilisé :</p>
+                                    <p className="text-sm text-gray-700 font-mono break-all">
+                                        {generateLink()}
+                                    </p>
+                                </div>
+                            )}
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Ordre d'affichage</label>
@@ -363,7 +593,7 @@ const BannerManager = () => {
                                     <p className="text-sm text-gray-500 mb-3">{banner.subtitle}</p>
                                 )}
                                 <div className="space-y-1 text-xs text-gray-400 mb-4">
-                                    <p>Lien : <span className="text-gray-600">{banner.link}</span></p>
+                                    <p>Lien : <span className="text-gray-600 break-all">{banner.link}</span></p>
                                     <p>Ordre : <span className="text-gray-600">{banner.order}</span></p>
                                 </div>
                                 <div className="flex gap-2">
