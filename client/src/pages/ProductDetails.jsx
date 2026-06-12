@@ -22,13 +22,11 @@ const ProductDetails = () => {
     const colorSectionRef = useRef(null);
     const sizeSectionRef = useRef(null);
     
-    // États pour les erreurs inline
     const [colorError, setColorError] = useState('')
     const [sizeError, setSizeError] = useState('')
     const [highlightColor, setHighlightColor] = useState(false)
     const [highlightSize, setHighlightSize] = useState(false)
     
-    // Pour le swipe sur l'image principale
     const [touchStart, setTouchStart] = useState(0);
     const [touchEnd, setTouchEnd] = useState(0);
     
@@ -37,7 +35,6 @@ const ProductDetails = () => {
 
     const product = products.find((item)=> item._id === id);
 
-    // Faire défiler automatiquement la miniature correspondante
     useEffect(() => {
         if (scrollContainerRef.current && thumbnailRefs.current[currentImageIndex]) {
             thumbnailRefs.current[currentImageIndex].scrollIntoView({
@@ -48,7 +45,6 @@ const ProductDetails = () => {
         }
     }, [currentImageIndex]);
 
-    // Récupérer la variante par défaut (première couleur disponible)
     useEffect(() => {
         if (product && product.variants && product.variants.length > 0) {
             const defaultVariant = product.variants[0]
@@ -62,7 +58,6 @@ const ProductDetails = () => {
         }
     }, [product])
 
-    // Mettre à jour variantData quand la couleur change
     useEffect(() => {
         if (product && product.variants && selectedColor) {
             const variant = product.variants.find(v => v.color === selectedColor)
@@ -70,14 +65,12 @@ const ProductDetails = () => {
                 setVariantData(variant)
                 const startIndex = variant.startImageIndex || 0
                 setCurrentImageIndex(startIndex)
-                // Effacer l'erreur et le highlight quand une couleur est sélectionnée
                 setColorError('')
                 setHighlightColor(false)
             }
         }
     }, [selectedColor, product])
 
-    // Effacer l'erreur de taille quand une taille est sélectionnée
     useEffect(() => {
         if (selectedSize) {
             setSizeError('')
@@ -91,7 +84,6 @@ const ProductDetails = () => {
         }
     }, [product]);
 
-    // Gestion du swipe sur l'image principale
     const handleTouchStart = (e) => {
         setTouchStart(e.targetTouches[0].clientX);
     };
@@ -233,6 +225,7 @@ const ProductDetails = () => {
 
     const isOutOfStock = variantStock === 0;
 
+    // Fonction corrigée pour faire défiler les miniatures
     const scrollImages = (direction) => {
         if (scrollContainerRef.current) {
             const scrollAmount = direction === 'left' ? -120 : 120;
