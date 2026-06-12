@@ -8,6 +8,11 @@ axios.defaults.withCredentials = false;
 axios.defaults.baseURL = import.meta.env.VITE_BACKEND_URL;
 
 const getToken = () => localStorage.getItem('token');
+const getIsSeller = () => localStorage.getItem('isSeller') === 'true';
+const getSellerData = () => {
+    const sellerData = localStorage.getItem('sellerData');
+    return sellerData ? JSON.parse(sellerData) : null;
+};
 
 const setAuthToken = (token) => {
     if (token) {
@@ -46,7 +51,7 @@ export const AppContextProvider = ({ children }) => {
     const navigate = useNavigate();
 
     const [user, setUser] = useState(null);
-    const [isSeller, setIsSeller] = useState(false);
+    const [isSeller, setIsSeller] = useState(getIsSeller); // ← Charger depuis localStorage
     const [showUserLogin, setShowUserLogin] = useState(false);
     const [products, setProducts] = useState([]);
     const [cartItems, setCartItemsState] = useState(loadCartFromLocalStorage);
@@ -106,19 +111,43 @@ export const AppContextProvider = ({ children }) => {
     };
 
     const fetchSeller = async () => {
-        try {
-            const { data } = await axios.get('/api/seller/is-auth');
-            if (data.success) setIsSeller(true);
-            else setIsSeller(false);
-        } catch (error) {
+        const token = getToken();
+        if (!token) {
             setIsSeller(false);
+            return;
+        }
+        
+        try {
+            const { data } = await axios.get('/api/seller/is-auth', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (data.success) {
+                setIsSeller(true);
+                localStorage.setItem('isSeller', 'true');
+                // Si tu as des données seller à stocker
+                if (data.seller) {
+                    localStorage.setItem('sellerData', JSON.stringify(data.seller));
+                }
+            } else {
+                setIsSeller(false);
+                localStorage.removeItem('isSeller');
+                localStorage.removeItem('sellerData');
+            }
+        } catch (error) {
+            console.error("Erreur fetchSeller:", error);
+            setIsSeller(false);
+            localStorage.removeItem('isSeller');
+            localStorage.removeItem('sellerData');
         }
     };
 
     const fetchUser = async () => {
+        const token = getToken();
+        if (!token) return;
+        
         try {
             const { data } = await axios.get('/api/user/is-auth', {
-                headers: { Authorization: `Bearer ${getToken()}` }
+                headers: { Authorization: `Bearer ${token}` }
             });
             if (data.success) {
                 setUser(data.user);
@@ -127,6 +156,8 @@ export const AppContextProvider = ({ children }) => {
                 const mergedCart = { ...serverCart, ...localCart };
                 setCartItems(mergedCart);
                 await fetchOrders();
+            } else {
+                setUser(null);
             }
         } catch (error) {
             if (error.response?.data?.redirectToLogin) {
@@ -324,8 +355,11 @@ export const AppContextProvider = ({ children }) => {
         try {
             await axios.post('/api/user/logout');
             localStorage.removeItem('token');
+            localStorage.removeItem('isSeller');
+            localStorage.removeItem('sellerData');
             setAuthToken(null);
             setUser(null);
+            setIsSeller(false);
             setCartItems({});
             setOrders([]);
             toast.success("Déconnexion réussie");
@@ -335,13 +369,50 @@ export const AppContextProvider = ({ children }) => {
         }
     };
 
+    // Login seller - ajoute cette fonction si elle n'existe pas
+    const loginSeller = async (email, password) => {
+        try {
+            const { data } = await axios.post('/api/seller/login', { email, password });
+            if (data.success) {
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('isSeller', 'true');
+                if (data.seller) {
+                    localStorage.setItem('sellerData', JSON.stringify(data.seller));
+                }
+                setAuthToken(data.token);
+                setIsSeller(true);
+                setUser(data.seller);
+                toast.success("Connexion vendeur réussie");
+                navigate('/seller/dashboard');
+            } else {
+                toast.error(data.message);
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || error.message);
+        }
+    };
+
+    // Logout seller
+    const logoutSeller = () => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('isSeller');
+        localStorage.removeItem('sellerData');
+        setAuthToken(null);
+        setIsSeller(false);
+        setUser(null);
+        toast.success("Déconnexion vendeur réussie");
+        navigate('/seller');
+    };
+
     useEffect(() => {
-        if (getToken()) {
+        const token = getToken();
+        if (token) {
             fetchUser();
+            fetchSeller(); // ← Vérifier le statut seller au chargement
         } else {
             setCartItems(loadCartFromLocalStorage());
+            setIsSeller(false);
         }
-        fetchSeller();
         fetchProducts();
         loadRecentlyViewed();
     }, []);
@@ -377,6 +448,7 @@ export const AppContextProvider = ({ children }) => {
         axios, fetchProducts, setCartItems, getCartKey, getProductIdFromKey,
         wishlist, addToWishlist, removeFromWishlist, isInWishlist, fetchWishlist,
         fetchUser, loginUser, registerUser, logoutUser,
+        loginSeller, logoutSeller, // ← Exporter les nouvelles fonctions
         recentlyViewed, addToRecentlyViewed,
         orders
     };
