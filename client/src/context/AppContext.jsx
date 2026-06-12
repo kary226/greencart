@@ -51,6 +51,7 @@ export const AppContextProvider = ({ children }) => {
     const navigate = useNavigate();
 
     const [user, setUser] = useState(null);
+    const [token, setToken] = useState(getToken());  // ← AJOUTÉ
     const [isSeller, setIsSeller] = useState(getIsSeller);
     const [showUserLogin, setShowUserLogin] = useState(false);
     const [products, setProducts] = useState([]);
@@ -321,6 +322,7 @@ export const AppContextProvider = ({ children }) => {
             const { data } = await axios.post('/api/user/login', { email, password });
             if (data.success) {
                 localStorage.setItem('token', data.token);
+                setToken(data.token);  // ← AJOUTÉ
                 setAuthToken(data.token);
                 setUser(data.user);
                 const localCart = loadCartFromLocalStorage();
@@ -348,6 +350,7 @@ export const AppContextProvider = ({ children }) => {
             });
             if (data.success) {
                 localStorage.setItem('token', data.token);
+                setToken(data.token);  // ← AJOUTÉ
                 setAuthToken(data.token);
                 setUser(data.user);
                 setCartItems({});
@@ -367,6 +370,7 @@ export const AppContextProvider = ({ children }) => {
             localStorage.removeItem('token');
             localStorage.removeItem('isSeller');
             localStorage.removeItem('sellerData');
+            setToken(null);  // ← AJOUTÉ
             setAuthToken(null);
             setUser(null);
             setIsSeller(false);
@@ -384,6 +388,7 @@ export const AppContextProvider = ({ children }) => {
             const { data } = await axios.post('/api/seller/login', { email, password });
             if (data.success) {
                 localStorage.setItem('token', data.token);
+                setToken(data.token);  // ← AJOUTÉ
                 localStorage.setItem('isSeller', 'true');
                 if (data.seller) {
                     localStorage.setItem('sellerData', JSON.stringify(data.seller));
@@ -405,6 +410,7 @@ export const AppContextProvider = ({ children }) => {
         localStorage.removeItem('token');
         localStorage.removeItem('isSeller');
         localStorage.removeItem('sellerData');
+        setToken(null);  // ← AJOUTÉ
         setAuthToken(null);
         setIsSeller(false);
         setUser(null);
@@ -457,7 +463,8 @@ export const AppContextProvider = ({ children }) => {
     }, [cartItems]);
 
     const value = {
-        navigate, user, setUser, setIsSeller, isSeller,
+        navigate, user, setUser, token, setToken,  // ← token et setToken AJOUTÉS
+        setIsSeller, isSeller,
         showUserLogin, setShowUserLogin, products, currency,
         addToCart, addToCartWithQuantity, updateCartItem, removeFromCart, cartItems,
         searchQuery, setSearchQuery, getCartAmount, getCartCount,
