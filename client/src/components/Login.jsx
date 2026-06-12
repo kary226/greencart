@@ -2,7 +2,7 @@ import React from 'react'
 import { Link } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext';
 import toast from 'react-hot-toast';
-import { X, Mail, Lock, User, Eye, EyeOff, ArrowRight, ShoppingBag } from 'lucide-react';
+import { X, Mail, Lock, User, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 
 const Login = () => {
@@ -65,22 +65,22 @@ const Login = () => {
         <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
             <div
                 onClick={() => setShowUserLogin(false)}
-                className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md transition-all"
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md transition-all p-4"
             >
                 <div
                     onClick={(e) => e.stopPropagation()}
-                    className="relative w-full max-w-4xl mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden animate-fade-in-up"
+                    className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl overflow-hidden animate-fade-in-up"
                 >
                     <button
                         type="button"
                         onClick={() => setShowUserLogin(false)}
-                        className="absolute top-4 right-4 z-20 w-10 h-10 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition"
+                        className="absolute top-3 right-3 z-20 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition"
                     >
-                        <X size={20} />
+                        <X size={18} />
                     </button>
 
                     <div className="flex flex-col md:flex-row">
-                        {/* Left side - Branding / Image */}
+                        {/* Left side - Branding avec Logo */}
                         <div className="hidden md:flex md:w-1/2 bg-gradient-to-br from-red-500 to-red-700 p-8 flex-col justify-between relative overflow-hidden">
                             <div className="absolute top-0 left-0 w-full h-full opacity-10">
                                 <div className="absolute -top-20 -right-20 w-64 h-64 bg-white rounded-full"></div>
@@ -88,13 +88,19 @@ const Login = () => {
                             </div>
                             
                             <div className="relative z-10">
-                                <div className="flex items-center gap-2 mb-12">
-                                    <ShoppingBag size={32} className="text-white" />
-                                    <span className="text-2xl font-bold text-white">RAMCI</span>
+                                {/* Logo dans la partie branding */}
+                                <div className="flex items-center justify-center mb-8">
+                                    <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center p-2">
+                                        <img 
+                                            src="/logo.png" 
+                                            alt="RAMCI" 
+                                            className="w-full h-full object-contain"
+                                        />
+                                    </div>
                                 </div>
                                 
-                                <div className="space-y-4">
-                                    <h3 className="text-3xl font-bold text-white">
+                                <div className="space-y-4 text-center">
+                                    <h3 className="text-2xl font-bold text-white">
                                         {state === "login" ? "Bon retour !" : "Rejoignez l'aventure"}
                                     </h3>
                                     <p className="text-white/80 text-sm leading-relaxed">
@@ -105,8 +111,8 @@ const Login = () => {
                                 </div>
                             </div>
 
-                            <div className="relative z-10">
-                                <div className="flex items-center gap-4 text-white/60 text-xs">
+                            <div className="relative z-10 text-center">
+                                <div className="flex flex-wrap items-center justify-center gap-3 text-white/60 text-xs">
                                     <span>Livraison rapide</span>
                                     <span>•</span>
                                     <span>Paiement sécurisé</span>
@@ -118,12 +124,18 @@ const Login = () => {
 
                         {/* Right side - Form */}
                         <div className="w-full md:w-1/2 p-6 md:p-8">
-                            <div className="text-center mb-6">
-                                <div className="md:hidden flex justify-center mb-4">
-                                    <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                                        <ShoppingBag size={24} className="text-red-500" />
-                                    </div>
+                            {/* Logo visible sur mobile */}
+                            <div className="md:hidden flex justify-center mb-6">
+                                <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center p-3 shadow-sm">
+                                    <img 
+                                        src="/logo.png" 
+                                        alt="RAMCI" 
+                                        className="w-full h-full object-contain"
+                                    />
                                 </div>
+                            </div>
+
+                            <div className="text-center mb-6">
                                 <h2 className="text-2xl font-bold text-gray-900">
                                     {state === "login" ? "Connexion" : "Inscription"}
                                 </h2>
@@ -137,16 +149,18 @@ const Login = () => {
                             <form onSubmit={onSubmitHandler} className="space-y-4">
                                 {/* Google Button */}
                                 <div className="flex justify-center">
-                                    <GoogleLogin
-                                        onSuccess={handleGoogleSuccess}
-                                        onError={handleGoogleError}
-                                        text={state === "login" ? "signin_with" : "signup_with"}
-                                        shape="pill"
-                                        logo_alignment="center"
-                                        width="100%"
-                                        locale="fr"
-                                        theme="outline"
-                                    />
+                                    <div className="w-full overflow-hidden">
+                                        <GoogleLogin
+                                            onSuccess={handleGoogleSuccess}
+                                            onError={handleGoogleError}
+                                            text={state === "login" ? "signin_with" : "signup_with"}
+                                            shape="pill"
+                                            logo_alignment="center"
+                                            width="100%"
+                                            locale="fr"
+                                            theme="outline"
+                                        />
+                                    </div>
                                 </div>
 
                                 {/* Divider */}
@@ -305,6 +319,13 @@ const Login = () => {
                     }
                     .animate-fade-in-up {
                         animation: fade-in-up 0.4s ease-out;
+                    }
+                    
+                    /* Ajustement pour le bouton Google sur mobile */
+                    @media (max-width: 768px) {
+                        div[style*="width: 100%"] {
+                            width: 100% !important;
+                        }
                     }
                 `}</style>
             </div>
