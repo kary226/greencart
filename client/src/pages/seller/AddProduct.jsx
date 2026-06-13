@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { assets } from '../../assets/assets';
 import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
+import ImageCropper from '../../components/ImageCropper';
 
 const AddProduct = () => {
 
@@ -12,6 +13,12 @@ const AddProduct = () => {
     const [price, setPrice] = useState('');
     const [offerPrice, setOfferPrice] = useState('');
     const [categoriesList, setCategoriesList] = useState([]);
+
+    // Crop state
+    const [showCropper, setShowCropper] = useState(false);
+    const [tempImageFile, setTempImageFile] = useState(null);
+    const [cropAspectRatio, setCropAspectRatio] = useState(16 / 9);
+    const [cropShape, setCropShape] = useState('rect');
 
     // Variants
     const [variants, setVariants] = useState([])
@@ -113,6 +120,20 @@ const AddProduct = () => {
         }
     };
 
+    const handleImageSelect = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setTempImageFile(file);
+            setShowCropper(true);
+        }
+    };
+
+    const handleCropComplete = (croppedFile) => {
+        setFiles([...files, croppedFile]);
+        setShowCropper(false);
+        setTempImageFile(null);
+    };
+
     const onSubmitHandler = async (event) => {
         event.preventDefault();
 
@@ -162,9 +183,42 @@ const AddProduct = () => {
         <div className="no-scrollbar flex-1 h-[95vh] overflow-y-scroll flex flex-col justify-between">
             <form onSubmit={onSubmitHandler} className="md:p-10 p-4 space-y-5 max-w-lg">
 
-                {/* Images principales du produit - UPLOAD ILLIMITÉ */}
+                {/* Images principales du produit */}
                 <div>
                     <p className="text-base font-medium">Images du produit (dans l'ordre)</p>
+                    
+                    <div className="mt-2 mb-3 flex flex-wrap gap-3 items-center">
+                        <span className="text-xs text-gray-600">Format recommandé :</span>
+                        <button
+                            type="button"
+                            onClick={() => { setCropAspectRatio(16/9); setCropShape('rect'); }}
+                            className={`text-xs px-3 py-1 rounded-full ${cropAspectRatio === 16/9 ? 'bg-primary text-white' : 'bg-gray-200'}`}
+                        >
+                            16:9 (Large)
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => { setCropAspectRatio(1/1); setCropShape('rect'); }}
+                            className={`text-xs px-3 py-1 rounded-full ${cropAspectRatio === 1/1 ? 'bg-primary text-white' : 'bg-gray-200'}`}
+                        >
+                            1:1 (Carré)
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => { setCropAspectRatio(4/3); setCropShape('rect'); }}
+                            className={`text-xs px-3 py-1 rounded-full ${cropAspectRatio === 4/3 ? 'bg-primary text-white' : 'bg-gray-200'}`}
+                        >
+                            4:3 (Standard)
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setShowCropper(false)}
+                            className="text-xs px-3 py-1 rounded-full bg-gray-200"
+                        >
+                            🔄 Réinitialiser
+                        </button>
+                    </div>
+
                     <div className="flex flex-wrap items-center gap-3 mt-2">
                         {files.map((file, index) => (
                             <div key={index} className="relative">
@@ -186,21 +240,20 @@ const AddProduct = () => {
                                 </button>
                             </div>
                         ))}
-                        <label className="w-20 h-20 border-2 border-dashed border-gray-300 rounded flex items-center justify-center cursor-pointer hover:border-primary">
+                        <label className="w-20 h-20 border-2 border-dashed border-gray-300 rounded flex flex-col items-center justify-center cursor-pointer hover:border-primary">
                             <input 
-                                onChange={(e) => {
-                                    if (e.target.files[0]) {
-                                        setFiles([...files, e.target.files[0]])
-                                    }
-                                }}
+                                onChange={handleImageSelect}
                                 type="file" 
                                 accept="image/*"
                                 className="hidden" 
                             />
                             <span className="text-2xl text-gray-400">+</span>
+                            <span className="text-[10px] text-gray-400">Ajouter</span>
                         </label>
                     </div>
-                    <p className="text-xs text-gray-400 mt-2">💡 Cliquez sur le + pour ajouter des images. L'ordre est important.</p>
+                    <p className="text-xs text-gray-400 mt-2">
+                        💡 Cliquez sur l'image pour la recadrer avant import. L'ordre est important.
+                    </p>
                 </div>
 
                 {/* Nom */}
@@ -306,7 +359,7 @@ const AddProduct = () => {
                     </div>
 
                     {variants.length > 0 && (
-                        <div className="mt-2 border border-gray-200 rounded overflow-hidden">
+                        <div className="mt-2 border border-gray-200 rounded overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead className="bg-gray-50">
                                     <tr>
@@ -315,7 +368,7 @@ const AddProduct = () => {
                                         <th className="px-3 py-2 text-left">Prix</th>
                                         <th className="px-3 py-2 text-left">Stock</th>
                                         <th className="px-3 py-2 text-left">Départ</th>
-                                        <th></th>
+                                        <th className="px-3 py-2 text-left">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -347,6 +400,20 @@ const AddProduct = () => {
                     AJOUTER LE PRODUIT
                 </button>
             </form>
+
+            {/* Modal de crop */}
+            {showCropper && (
+                <ImageCropper
+                    imageFile={tempImageFile}
+                    onCropComplete={handleCropComplete}
+                    onCancel={() => {
+                        setShowCropper(false);
+                        setTempImageFile(null);
+                    }}
+                    aspectRatio={cropAspectRatio}
+                    cropShape={cropShape}
+                />
+            )}
         </div>
     )
 }
