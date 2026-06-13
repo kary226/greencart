@@ -21,6 +21,7 @@ const ProductDetails = () => {
     const thumbnailRefs = useRef([]);
     const colorSectionRef = useRef(null);
     const sizeSectionRef = useRef(null);
+    const galleryRef = useRef(null);
     
     const [colorError, setColorError] = useState('')
     const [sizeError, setSizeError] = useState('')
@@ -30,12 +31,27 @@ const ProductDetails = () => {
     // Swipe states
     const [touchStart, setTouchStart] = useState(0);
     const [touchEnd, setTouchEnd] = useState(0);
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragOffset, setDragOffset] = useState(0);
+    const [galleryWidth, setGalleryWidth] = useState(1);
     
     const [averageRating, setAverageRating] = useState(4);
     const [totalReviews, setTotalReviews] = useState(0);
     const [showDetails, setShowDetails] = useState(false);
 
     const product = products.find((item)=> item._id === id);
+
+    // Mesurer la largeur de la galerie pour le swipe
+    useEffect(() => {
+        const updateWidth = () => {
+            if (galleryRef.current) {
+                setGalleryWidth(galleryRef.current.offsetWidth);
+            }
+        };
+        updateWidth();
+        window.addEventListener('resize', updateWidth);
+        return () => window.removeEventListener('resize', updateWidth);
+    }, []);
 
     useEffect(() => {
         if (scrollContainerRef.current && thumbnailRefs.current[currentImageIndex]) {
@@ -102,38 +118,54 @@ const ProductDetails = () => {
         }
     }, [product]);
 
-    // Swipe handlers
+    // Swipe handlers avec effet visuel
     const handleTouchStart = (e) => {
-        setTouchStart(e.targetTouches[0].clientX);
-        setTouchEnd(e.targetTouches[0].clientX);
+        const clientX = e.touches[0].clientX;
+        setTouchStart(clientX);
+        setTouchEnd(clientX);
+        setIsDragging(true);
     };
 
     const handleTouchMove = (e) => {
-        setTouchEnd(e.targetTouches[0].clientX);
+        if (!isDragging) return;
+        const clientX = e.touches[0].clientX;
+        setTouchEnd(clientX);
+        let offset = clientX - touchStart;
+        
+        // Résistance élastique aux extrémités
+        if (currentImageIndex === 0 && offset > 0) offset = offset * 0.35;
+        if (currentImageIndex === allImages.length - 1 && offset < 0) offset = offset * 0.35;
+        
+        setDragOffset(offset);
     };
 
     const handleTouchEnd = () => {
-        if (!touchStart || !touchEnd) {
-            setTouchStart(0);
-            setTouchEnd(0);
-            return;
-        }
+        if (!isDragging) return;
         
         const diff = touchStart - touchEnd;
         const threshold = 50;
         
         if (Math.abs(diff) > threshold) {
             if (diff > 0 && currentImageIndex < allImages.length - 1) {
-                // Swipe gauche -> suivant
                 setCurrentImageIndex(currentImageIndex + 1);
             } else if (diff < 0 && currentImageIndex > 0) {
-                // Swipe droite -> précédent
                 setCurrentImageIndex(currentImageIndex - 1);
             }
         }
         
+        setIsDragging(false);
+        setDragOffset(0);
         setTouchStart(0);
         setTouchEnd(0);
+    };
+
+    // Navigation desktop
+    const goToPrevImage = () => {
+        setCurrentImageIndex(prev => prev === 0 ? allImages.length - 1 : prev - 1);
+    };
+
+    const goToNextImage = () => {
+        setCurrentImageIndex(prev => prev === allImages.length - 1 ? 0 : prev + 1);
     };
 
     const getProductCategory = () => {
@@ -346,18 +378,27 @@ const ProductDetails = () => {
 
                 <div className="product-main">
                     <div className="product-gallery">
-                        {/* Image principale avec boutons de navigation + SWIPE */}
+                        {/* Image principale avec boutons + SWIPE avec effet visuel */}
                         <div 
                             className="main-image-container"
+                            ref={galleryRef}
                             onTouchStart={handleTouchStart}
                             onTouchMove={handleTouchMove}
                             onTouchEnd={handleTouchEnd}
                         >
-                            <img 
-                                src={allImages[currentImageIndex]} 
-                                alt={product.name} 
-                                className="main-image" 
-                            />
+                            <div 
+                                className="image-track"
+                                style={{
+                                    transform: `translateX(${-currentImageIndex * galleryWidth + dragOffset}px)`,
+                                    transition: isDragging ? 'none' : 'transform 0.3s ease-out'
+                                }}
+                            >
+                                {allImages.map((img, idx) => (
+                                    <div key={idx} className="image-slide" style={{ width: galleryWidth }}>
+                                        <img src={img} alt={`${product.name} - ${idx + 1}`} draggable="false" />
+                                    </div>
+                                ))}
+                            </div>
                             
                             {allImages.length > 1 && (
                                 <>
@@ -687,8 +728,8 @@ const ProductDetails = () => {
                     position: relative;
                     width: 100%;
                     aspect-ratio: 1/1;
-                    border-radius: 18px;
                     overflow: hidden;
+                    border-radius: 18px;
                     background: #f5f3f0;
                     cursor: grab;
                     touch-action: pan-y;
@@ -698,11 +739,26 @@ const ProductDetails = () => {
                     cursor: grabbing;
                 }
 
-                .main-image {
+                .image-track {
+                    display: flex;
+                    height: 100%;
+                    width: 100%;
+                    will-change: transform;
+                }
+
+                .image-slide {
+                    flex-shrink: 0;
+                    width: 100%;
+                    height: 100%;
+                }
+
+                .image-slide img {
                     width: 100%;
                     height: 100%;
                     object-fit: cover;
                     pointer-events: none;
+                    user-select: none;
+                    display: block;
                 }
 
                 .nav-btn {
