@@ -37,33 +37,20 @@ const ProductDetails = () => {
     const [averageRating, setAverageRating] = useState(4);
     const [totalReviews, setTotalReviews] = useState(0);
     const [showDetails, setShowDetails] = useState(false);
-    const [isMobile, setIsMobile] = useState(false);
 
     const product = products.find((item)=> item._id === id);
 
-    // Détecter si l'écran est mobile
+    // Mesurer la largeur de la galerie pour le swipe
     useEffect(() => {
-        const checkMobile = () => {
-            setIsMobile(window.innerWidth < 768);
+        const updateWidth = () => {
+            if (galleryRef.current) {
+                setGalleryWidth(galleryRef.current.offsetWidth);
+            }
         };
-        checkMobile();
-        window.addEventListener('resize', checkMobile);
-        return () => window.removeEventListener('resize', checkMobile);
+        updateWidth();
+        window.addEventListener('resize', updateWidth);
+        return () => window.removeEventListener('resize', updateWidth);
     }, []);
-
-    // Mesurer la largeur de la galerie pour le swipe (uniquement sur mobile)
-    useEffect(() => {
-        if (isMobile) {
-            const updateWidth = () => {
-                if (galleryRef.current) {
-                    setGalleryWidth(galleryRef.current.offsetWidth);
-                }
-            };
-            updateWidth();
-            window.addEventListener('resize', updateWidth);
-            return () => window.removeEventListener('resize', updateWidth);
-        }
-    }, [isMobile]);
 
     useEffect(() => {
         if (scrollContainerRef.current && thumbnailRefs.current[currentImageIndex]) {
@@ -243,18 +230,17 @@ const ProductDetails = () => {
         }
     }
 
-    // SWIPE pour mobile
+    // SWIPE pour les images (mobile ET desktop)
     const handleTouchStart = (e) => {
-        if (!isMobile) return;
-        const clientX = e.touches[0].clientX;
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         setTouchStart(clientX);
         setTouchEnd(clientX);
         setIsDragging(true);
     };
 
     const handleTouchMove = (e) => {
-        if (!isMobile || !isDragging) return;
-        const clientX = e.touches[0].clientX;
+        if (!isDragging) return;
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         setTouchEnd(clientX);
         let offset = clientX - touchStart;
         
@@ -265,7 +251,6 @@ const ProductDetails = () => {
     };
 
     const handleTouchEnd = () => {
-        if (!isMobile) return;
         if (!touchStart || !touchEnd) {
             setIsDragging(false);
             setDragOffset(0);
@@ -286,15 +271,6 @@ const ProductDetails = () => {
         setDragOffset(0);
         setTouchStart(0);
         setTouchEnd(0);
-    };
-
-    // Navigation desktop
-    const goToPrevImage = () => {
-        setCurrentImageIndex(prev => prev === 0 ? allImages.length - 1 : prev - 1);
-    };
-
-    const goToNextImage = () => {
-        setCurrentImageIndex(prev => prev === allImages.length - 1 ? 0 : prev + 1);
     };
 
     const renderStars = (rating) => {
@@ -394,71 +370,39 @@ const ProductDetails = () => {
 
                 <div className="product-main">
                     <div className="product-gallery">
-                        {/* Version MOBILE : swipe */}
-                        {isMobile && (
-                            <>
-                                <div 
-                                    className="main-image-container"
-                                    ref={galleryRef}
-                                    onTouchStart={handleTouchStart}
-                                    onTouchMove={handleTouchMove}
-                                    onTouchEnd={handleTouchEnd}
-                                >
-                                    <div 
-                                        className="image-track"
-                                        style={{
-                                            transform: `translateX(${-currentImageIndex * galleryWidth + dragOffset}px)`,
-                                            transition: isDragging ? 'none' : 'transform 0.3s ease-out'
-                                        }}
-                                    >
-                                        {allImages.map((img, idx) => (
-                                            <div key={idx} className="image-slide" style={{ width: galleryWidth }}>
-                                                <img src={img} alt={`${product.name} - ${idx + 1}`} draggable="false" />
-                                            </div>
-                                        ))}
+                        {/* Carrousel avec SWIPE */}
+                        <div 
+                            className="main-image-container"
+                            ref={galleryRef}
+                            onTouchStart={handleTouchStart}
+                            onTouchMove={handleTouchMove}
+                            onTouchEnd={handleTouchEnd}
+                            onMouseDown={handleTouchStart}
+                            onMouseMove={handleTouchMove}
+                            onMouseUp={handleTouchEnd}
+                            onMouseLeave={() => setIsDragging(false)}
+                        >
+                            <div 
+                                className="image-track"
+                                style={{
+                                    transform: `translateX(${-currentImageIndex * galleryWidth + dragOffset}px)`,
+                                    transition: isDragging ? 'none' : 'transform 0.3s ease-out',
+                                    cursor: isDragging ? 'grabbing' : 'grab'
+                                }}
+                            >
+                                {allImages.map((img, idx) => (
+                                    <div key={idx} className="image-slide" style={{ width: galleryWidth }}>
+                                        <img src={img} alt={`${product.name} - ${idx + 1}`} draggable="false" />
                                     </div>
-                                    {allImages.length > 1 && (
-                                        <div className="image-counter">
-                                            {currentImageIndex + 1} / {allImages.length}
-                                        </div>
-                                    )}
-                                </div>
-                            </>
-                        )}
-
-                        {/* Version DESKTOP : boutons de navigation */}
-                        {!isMobile && (
-                            <div className="main-image-container desktop">
-                                <img 
-                                    src={allImages[currentImageIndex]} 
-                                    alt={product.name} 
-                                    className="main-image" 
-                                />
-                                
-                                {allImages.length > 1 && (
-                                    <>
-                                        <button className="nav-btn nav-prev" onClick={goToPrevImage}>
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
-                                                <path d="M15 18l-6-6 6-6"/>
-                                            </svg>
-                                        </button>
-                                        <button className="nav-btn nav-next" onClick={goToNextImage}>
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
-                                                <path d="M9 18l6-6-6-6"/>
-                                            </svg>
-                                        </button>
-                                    </>
-                                )}
-                                
-                                {allImages.length > 1 && (
-                                    <div className="image-counter">
-                                        {currentImageIndex + 1} / {allImages.length}
-                                    </div>
-                                )}
+                                ))}
                             </div>
-                        )}
+                            {allImages.length > 1 && (
+                                <div className="image-counter">
+                                    {currentImageIndex + 1} / {allImages.length}
+                                </div>
+                            )}
+                        </div>
 
-                        {/* Points de pagination (commun aux deux versions) */}
                         {allImages.length > 1 && (
                             <div className="image-dots">
                                 {allImages.map((_, idx) => (
@@ -471,7 +415,6 @@ const ProductDetails = () => {
                             </div>
                         )}
                         
-                        {/* Miniatures (commun aux deux versions) */}
                         {allImages.length > 1 && (
                             <div className="thumbnail-scroll" ref={scrollContainerRef}>
                                 {allImages.map((img, idx) => (
@@ -505,12 +448,14 @@ const ProductDetails = () => {
                             </div>
                         </div>
 
+                        {/* ⭐ ÉTOILES - APRÈS LE PRIX */}
                         <div className="product-rating">
                             {renderStars(averageRating)}
                             <span className="rating-value">{averageRating}/5</span>
                             <span className="rating-count">({totalReviews} avis)</span>
                         </div>
 
+                        {/* COULEURS - APRÈS LES ÉTOILES (visible dès le début) */}
                         {uniqueColors.length > 0 && (
                             <div 
                                 ref={colorSectionRef}
@@ -562,12 +507,14 @@ const ProductDetails = () => {
                             </div>
                         )}
 
+                        {/* STOCK */}
                         {getStockLabel(currentStock) && (
                             <p className={`stock-info ${getStockColor(currentStock)}`}>
                                 {getStockLabel(currentStock)}
                             </p>
                         )}
 
+                        {/* TAILLES */}
                         {uniqueSizes.length > 0 && (
                             <div 
                                 ref={sizeSectionRef}
@@ -608,6 +555,7 @@ const ProductDetails = () => {
                             </p>
                         )}
 
+                        {/* Bouton DÉTAILS (accordéon) - PLUS DE MODAL */}
                         <div className="details-section">
                             <button 
                                 onClick={() => setShowDetails(!showDetails)}
@@ -754,7 +702,7 @@ const ProductDetails = () => {
                     width: 100%;
                 }
 
-                /* Styles communs */
+                /* Carrousel avec SWIPE */
                 .main-image-container {
                     position: relative;
                     width: 100%;
@@ -762,33 +710,22 @@ const ProductDetails = () => {
                     overflow: hidden;
                     border-radius: 18px;
                     background: #f5f3f0;
-                }
-
-                .main-image {
-                    width: 100%;
-                    height: 100%;
-                    object-fit: cover;
-                }
-
-                /* Version mobile - swipe */
-                .main-image-container {
-                    cursor: grab;
                     touch-action: pan-y;
                 }
-                .main-image-container:active {
-                    cursor: grabbing;
-                }
+
                 .image-track {
                     display: flex;
                     height: 100%;
                     width: 100%;
                     will-change: transform;
                 }
+
                 .image-slide {
                     flex-shrink: 0;
                     width: 100%;
                     height: 100%;
                 }
+
                 .image-slide img {
                     width: 100%;
                     height: 100%;
@@ -796,43 +733,6 @@ const ProductDetails = () => {
                     pointer-events: none;
                     user-select: none;
                     display: block;
-                }
-
-                /* Version desktop - boutons */
-                .main-image-container.desktop {
-                    cursor: default;
-                }
-                .nav-btn {
-                    position: absolute;
-                    top: 50%;
-                    transform: translateY(-50%);
-                    width: 36px;
-                    height: 36px;
-                    border-radius: 50%;
-                    background: rgba(0,0,0,0.5);
-                    backdrop-filter: blur(4px);
-                    border: none;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    z-index: 10;
-                }
-                .nav-btn:hover {
-                    background: rgba(0,0,0,0.7);
-                }
-                .nav-prev {
-                    left: 12px;
-                }
-                .nav-next {
-                    right: 12px;
-                }
-                @media (min-width: 768px) {
-                    .nav-btn {
-                        width: 40px;
-                        height: 40px;
-                    }
                 }
 
                 .image-counter {
@@ -1176,6 +1076,7 @@ const ProductDetails = () => {
                     margin-bottom: 10px;
                 }
 
+                /* Section Détails - Accordéon */
                 .details-section {
                     margin-top: 16px;
                     border-top: 1px solid #f0ede8;
