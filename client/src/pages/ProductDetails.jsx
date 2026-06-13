@@ -21,6 +21,7 @@ const ProductDetails = () => {
     const thumbnailRefs = useRef([]);
     const colorSectionRef = useRef(null);
     const sizeSectionRef = useRef(null);
+    const galleryRef = useRef(null);
     
     const [colorError, setColorError] = useState('')
     const [sizeError, setSizeError] = useState('')
@@ -31,6 +32,7 @@ const ProductDetails = () => {
     const [touchEnd, setTouchEnd] = useState(0);
     const [isDragging, setIsDragging] = useState(false);
     const [dragOffset, setDragOffset] = useState(0);
+    const [galleryWidth, setGalleryWidth] = useState(0);
     
     const [averageRating, setAverageRating] = useState(4);
     const [totalReviews, setTotalReviews] = useState(0);
@@ -85,6 +87,18 @@ const ProductDetails = () => {
             addToRecentlyViewed(product);
         }
     }, [product]);
+
+    // Mesure la largeur du conteneur de la galerie pour calculer le drag en pixels
+    useEffect(() => {
+        const updateWidth = () => {
+            if (galleryRef.current) {
+                setGalleryWidth(galleryRef.current.offsetWidth);
+            }
+        };
+        updateWidth();
+        window.addEventListener('resize', updateWidth);
+        return () => window.removeEventListener('resize', updateWidth);
+    }, []);
 
     const getProductCategory = () => {
         if (product?.categories && product.categories.length > 0) {
@@ -206,7 +220,7 @@ const ProductDetails = () => {
 
     const isOutOfStock = variantStock === 0;
 
-    // --- Gestion du swipe avec aperçu des images voisines ---
+    // --- Swipe continu : le doigt déplace réellement le ruban d'images, snap au relâchement ---
     const handleTouchStart = (e) => {
         setTouchStart(e.targetTouches[0].clientX);
         setTouchEnd(e.targetTouches[0].clientX);
@@ -218,9 +232,9 @@ const ProductDetails = () => {
         setTouchEnd(currentX);
         let offset = currentX - touchStart;
 
-        // Empêche de glisser au-delà de la première/dernière image
-        if (currentImageIndex === 0 && offset > 0) offset = offset * 0.3;
-        if (currentImageIndex === allImages.length - 1 && offset < 0) offset = offset * 0.3;
+        // Résistance élastique aux extrémités
+        if (currentImageIndex === 0 && offset > 0) offset = offset * 0.35;
+        if (currentImageIndex === allImages.length - 1 && offset < 0) offset = offset * 0.35;
 
         setDragOffset(offset);
     };
@@ -232,7 +246,7 @@ const ProductDetails = () => {
             return;
         }
         const diff = touchStart - touchEnd;
-        const threshold = 50;
+        const threshold = galleryWidth * 0.18; // ~18% de la largeur pour valider le changement
 
         if (diff > threshold && currentImageIndex < allImages.length - 1) {
             setCurrentImageIndex((prev) => prev + 1);
@@ -342,9 +356,10 @@ const ProductDetails = () => {
 
                 <div className="product-main">
                     <div className="product-gallery">
-                        {/* Carrousel "peek" : on aperçoit un bout des images voisines */}
+                        {/* Carrousel carré, swipe continu (drag en pixels réels) */}
                         <div 
                             className="main-image-container"
+                            ref={galleryRef}
                             onTouchStart={handleTouchStart}
                             onTouchMove={handleTouchMove}
                             onTouchEnd={handleTouchEnd}
@@ -352,12 +367,12 @@ const ProductDetails = () => {
                             <div 
                                 className="image-track"
                                 style={{
-                                    transform: `translateX(calc(${-currentImageIndex * 100}% + ${currentImageIndex * 24}px + ${dragOffset}px))`,
-                                    transition: isDragging ? 'none' : 'transform 0.35s cubic-bezier(0.25, 0.8, 0.25, 1)'
+                                    transform: `translateX(${-currentImageIndex * galleryWidth + dragOffset}px)`,
+                                    transition: isDragging ? 'none' : 'transform 0.4s cubic-bezier(0.22, 0.61, 0.36, 1)'
                                 }}
                             >
                                 {allImages.map((img, idx) => (
-                                    <div className="image-slide" key={idx}>
+                                    <div className="image-slide" key={idx} style={{ width: galleryWidth }}>
                                         <img src={img} alt={`${product.name} - vue ${idx + 1}`} draggable="false" />
                                     </div>
                                 ))}
@@ -370,7 +385,7 @@ const ProductDetails = () => {
                             )}
                         </div>
 
-                        {/* Indicateurs de pagination (points) */}
+                        {/* Points de pagination */}
                         {allImages.length > 1 && (
                             <div className="image-dots">
                                 {allImages.map((_, idx) => (
@@ -383,7 +398,7 @@ const ProductDetails = () => {
                             </div>
                         )}
                         
-                        {/* Miniatures sans flèches de navigation */}
+                        {/* Miniatures, sans flèches */}
                         {allImages.length > 1 && (
                             <div className="thumbnail-scroll" ref={scrollContainerRef}>
                                 {allImages.map((img, idx) => (
@@ -409,112 +424,115 @@ const ProductDetails = () => {
                             <span className="rating-count">({totalReviews} avis)</span>
                         </div>
 
-                        <div className="essential-info">
-                            <div className="product-pricing-vertical">
-                                {currentOfferPrice && currentOfferPrice < currentPrice && (
-                                    <div className="old-price-vertical">{currentPrice} {currency}</div>
-                                )}
-                                <div className="price-row">
-                                    <span className="current-price-vertical">
-                                        {currentOfferPrice && currentOfferPrice < currentPrice ? currentOfferPrice : currentPrice} {currency}
-                                    </span>
-                                    {currentOfferPrice && currentOfferPrice < currentPrice && (
-                                        <span className="discount-badge">-{Math.round(((currentPrice - currentOfferPrice) / currentPrice) * 100)}%</span>
-                                    )}
-                                </div>
-                            </div>
-
-                            <p className={`stock-info ${getStockColor(currentStock)}`}>
-                                {getStockLabel(currentStock)}
-                            </p>
-
-                            {/* Section couleurs redessinée : grille de cartes avec pastille + libellé clairement séparés */}
-                            {uniqueColors.length > 0 && (
-                                <div 
-                                    ref={colorSectionRef}
-                                    className={`option-group ${highlightColor ? 'highlight-error' : ''}`}
-                                >
-                                    <p className="option-label">
-                                        Couleur
-                                        {selectedColor && <span className="option-value"> — {selectedColor}</span>}
-                                    </p>
-                                    <div className="color-grid">
-                                        {uniqueColors.map((color, i) => {
-                                            const variant = product.variants.find(v => v.color === color)
-                                            const isAvailable = variant?.stock > 0
-                                            const isSelected = selectedColor === color
-                                            return (
-                                                <button 
-                                                    key={i} 
-                                                    onClick={() => handleColorSelect(color)}
-                                                    disabled={!isAvailable}
-                                                    className={`color-chip ${!isAvailable ? 'disabled' : isSelected ? 'active' : ''}`}
-                                                    title={color}
-                                                >
-                                                    <span 
-                                                        className="color-swatch" 
-                                                        style={{backgroundColor: variant?.colorCode || '#000000'}}
-                                                    >
-                                                        {!isAvailable && <span className="out-of-strip"></span>}
-                                                    </span>
-                                                    <span className="color-chip-label">{color}</span>
-                                                </button>
-                                            )
-                                        })}
-                                    </div>
-                                    {colorError && (
-                                        <div className="error-message">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                <circle cx="12" cy="12" r="10"/>
-                                                <line x1="12" y1="8" x2="12" y2="12"/>
-                                                <line x1="12" y1="16" x2="12.01" y2="16"/>
-                                            </svg>
-                                            <span>{colorError}</span>
-                                        </div>
-                                    )}
-                                </div>
+                        <div className="product-pricing-vertical">
+                            {currentOfferPrice && currentOfferPrice < currentPrice && (
+                                <div className="old-price-vertical">{currentPrice} {currency}</div>
                             )}
+                            <div className="price-row">
+                                <span className="current-price-vertical">
+                                    {currentOfferPrice && currentOfferPrice < currentPrice ? currentOfferPrice : currentPrice} {currency}
+                                </span>
+                                {currentOfferPrice && currentOfferPrice < currentPrice && (
+                                    <span className="discount-badge">-{Math.round(((currentPrice - currentOfferPrice) / currentPrice) * 100)}%</span>
+                                )}
+                            </div>
+                        </div>
 
-                            {uniqueSizes.length > 0 && (
-                                <div 
-                                    ref={sizeSectionRef}
-                                    className={`option-group option-group-last ${highlightSize ? 'highlight-error' : ''}`}
-                                >
-                                    <p className="option-label">
-                                        Taille
-                                        {selectedSize && <span className="option-value"> — {selectedSize}</span>}
-                                    </p>
-                                    <div className="sizes-buttons">
-                                        {uniqueSizes.map((size, i) => (
+                        <p className={`stock-info ${getStockColor(currentStock)}`}>
+                            {getStockLabel(currentStock)}
+                        </p>
+
+                        {/* Couleurs remontées juste sous le prix/stock, sans cadres : juste un rond + le nom */}
+                        {uniqueColors.length > 0 && (
+                            <div 
+                                ref={colorSectionRef}
+                                className={`option-group ${highlightColor ? 'highlight-error' : ''}`}
+                            >
+                                <p className="option-label">
+                                    Couleur
+                                    {selectedColor && <span className="option-value"> — {selectedColor}</span>}
+                                </p>
+                                <div className="color-row">
+                                    {uniqueColors.map((color, i) => {
+                                        const variant = product.variants.find(v => v.color === color)
+                                        const isAvailable = variant?.stock > 0
+                                        const isSelected = selectedColor === color
+                                        return (
                                             <button 
                                                 key={i} 
-                                                onClick={() => setSelectedSize(selectedSize === size ? null : size)}
-                                                disabled={!isSizeAvailable(size)}
-                                                className={`size-btn ${!isSizeAvailable(size) ? 'disabled' : selectedSize === size ? 'active' : ''}`}
+                                                onClick={() => handleColorSelect(color)}
+                                                disabled={!isAvailable}
+                                                className={`color-chip ${!isAvailable ? 'disabled' : isSelected ? 'active' : ''}`}
+                                                title={color}
                                             >
-                                                {size}
+                                                <span 
+                                                    className="color-swatch" 
+                                                    style={{backgroundColor: variant?.colorCode || '#000000'}}
+                                                >
+                                                    {!isAvailable && <span className="out-of-strip"></span>}
+                                                    {isSelected && isAvailable && (
+                                                        <svg className="check-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                                                            <path d="M20 6L9 17l-5-5"/>
+                                                        </svg>
+                                                    )}
+                                                </span>
+                                                <span className="color-chip-label">{color}</span>
                                             </button>
-                                        ))}
-                                    </div>
-                                    {sizeError && (
-                                        <div className="error-message">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                <circle cx="12" cy="12" r="10"/>
-                                                <line x1="12" y1="8" x2="12" y2="12"/>
-                                                <line x1="12" y1="16" x2="12.01" y2="16"/>
-                                            </svg>
-                                            <span>{sizeError}</span>
-                                        </div>
-                                    )}
+                                        )
+                                    })}
                                 </div>
-                            )}
+                                {colorError && (
+                                    <div className="error-message">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <circle cx="12" cy="12" r="10"/>
+                                            <line x1="12" y1="8" x2="12" y2="12"/>
+                                            <line x1="12" y1="16" x2="12.01" y2="16"/>
+                                        </svg>
+                                        <span>{colorError}</span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
-                            {currentQty > 0 && (
-                                <p className="cart-indicator">
-                                    {currentQty} article(s) déjà dans le panier
+                        {uniqueSizes.length > 0 && (
+                            <div 
+                                ref={sizeSectionRef}
+                                className={`option-group ${highlightSize ? 'highlight-error' : ''}`}
+                            >
+                                <p className="option-label">
+                                    Taille
+                                    {selectedSize && <span className="option-value"> — {selectedSize}</span>}
                                 </p>
-                            )}
-                        </div>
+                                <div className="sizes-buttons">
+                                    {uniqueSizes.map((size, i) => (
+                                        <button 
+                                            key={i} 
+                                            onClick={() => setSelectedSize(selectedSize === size ? null : size)}
+                                            disabled={!isSizeAvailable(size)}
+                                            className={`size-btn ${!isSizeAvailable(size) ? 'disabled' : selectedSize === size ? 'active' : ''}`}
+                                        >
+                                            {size}
+                                        </button>
+                                    ))}
+                                </div>
+                                {sizeError && (
+                                    <div className="error-message">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <circle cx="12" cy="12" r="10"/>
+                                            <line x1="12" y1="8" x2="12" y2="12"/>
+                                            <line x1="12" y1="16" x2="12.01" y2="16"/>
+                                        </svg>
+                                        <span>{sizeError}</span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {currentQty > 0 && (
+                            <p className="cart-indicator">
+                                {currentQty} article(s) déjà dans le panier
+                            </p>
+                        )}
 
                         <div className="product-description">
                             <p className="desc-title">À propos du produit</p>
@@ -621,19 +639,16 @@ const ProductDetails = () => {
                     gap: 12px;
                 }
 
-                /* --- Carrousel principal avec aperçu ("peek") --- */
+                /* --- Carrousel carré, swipe continu --- */
                 .main-image-container {
                     position: relative;
                     width: 100%;
                     aspect-ratio: 1/1;
-                    max-height: 420px;
                     overflow: hidden;
                     border-radius: 18px;
                     background: #f5f3f0;
                     cursor: grab;
-                    /* On déborde un peu sur les côtés pour laisser apparaître l'image voisine */
-                    padding: 0 24px;
-                    box-sizing: border-box;
+                    touch-action: pan-y;
                 }
 
                 .main-image-container:active {
@@ -643,27 +658,21 @@ const ProductDetails = () => {
                 .image-track {
                     display: flex;
                     height: 100%;
-                    width: 100%;
                     will-change: transform;
                 }
 
                 .image-slide {
-                    flex: 0 0 100%;
-                    width: 100%;
+                    flex-shrink: 0;
                     height: 100%;
-                    padding: 0 4px;
-                    box-sizing: border-box;
-                    border-radius: 16px;
-                    overflow: hidden;
                 }
 
                 .image-slide img {
                     width: 100%;
                     height: 100%;
                     object-fit: cover;
-                    border-radius: 16px;
                     pointer-events: none;
                     user-select: none;
+                    display: block;
                 }
 
                 .image-counter {
@@ -725,7 +734,7 @@ const ProductDetails = () => {
                     cursor: pointer;
                     border: 2px solid transparent;
                     transition: all 0.2s;
-                    opacity: 0.6;
+                    opacity: 0.55;
                 }
 
                 .thumbnail-item.active {
@@ -802,19 +811,11 @@ const ProductDetails = () => {
                     color: #888;
                 }
 
-                .essential-info {
-                    background: #fafafa;
-                    border: 1px solid #f0ede8;
-                    border-radius: 16px;
-                    padding: 14px 16px;
-                    margin-bottom: 14px;
-                }
-
                 .product-pricing-vertical {
                     display: flex;
                     flex-direction: column;
                     gap: 2px;
-                    margin-bottom: 10px;
+                    margin-bottom: 8px;
                 }
                 .old-price-vertical {
                     font-size: 13px;
@@ -844,7 +845,7 @@ const ProductDetails = () => {
                 .stock-info {
                     font-size: 12px;
                     font-weight: 500;
-                    margin-bottom: 14px;
+                    margin-bottom: 16px;
                 }
 
                 .text-red-500 { color: #e53935; }
@@ -852,19 +853,15 @@ const ProductDetails = () => {
                 .text-green-600 { color: #4caf50; }
 
                 .option-group {
-                    margin-bottom: 14px;
+                    margin-bottom: 16px;
                     transition: all 0.3s ease;
-                }
-
-                .option-group-last {
-                    margin-bottom: 0;
                 }
 
                 .option-group.highlight-error {
                     background: #fef2f2;
                     border-radius: 12px;
                     padding: 10px;
-                    margin: -10px -10px 14px -10px;
+                    margin: -10px -10px 16px -10px;
                     animation: shake 0.5s ease-in-out;
                 }
 
@@ -890,11 +887,11 @@ const ProductDetails = () => {
                     letter-spacing: normal;
                 }
 
-                /* --- Grille de couleurs : pastille + libellé bien séparés --- */
-                .color-grid {
-                    display: grid;
-                    grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
-                    gap: 8px;
+                /* --- Couleurs : rond + nom, sans cadre autour --- */
+                .color-row {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 16px 18px;
                 }
 
                 .color-chip {
@@ -902,26 +899,15 @@ const ProductDetails = () => {
                     flex-direction: column;
                     align-items: center;
                     gap: 6px;
-                    padding: 10px 6px;
-                    border-radius: 12px;
-                    border: 1.5px solid #e8e3dc;
-                    background: white;
+                    background: none;
+                    border: none;
+                    padding: 0;
                     cursor: pointer;
-                    transition: all 0.2s;
+                    transition: transform 0.15s;
                 }
 
                 .color-chip:hover:not(.disabled) {
-                    border-color: #ccc;
                     transform: translateY(-1px);
-                }
-
-                .color-chip.active {
-                    border-color: #111;
-                    background: #111;
-                }
-
-                .color-chip.active .color-chip-label {
-                    color: white;
                 }
 
                 .color-chip.disabled {
@@ -930,12 +916,25 @@ const ProductDetails = () => {
                 }
 
                 .color-swatch {
-                    width: 28px;
-                    height: 28px;
+                    width: 34px;
+                    height: 34px;
                     border-radius: 50%;
                     border: 1px solid rgba(0,0,0,0.08);
                     position: relative;
-                    flex-shrink: 0;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: box-shadow 0.15s, transform 0.15s;
+                }
+
+                .color-chip.active .color-swatch {
+                    box-shadow: 0 0 0 2px white, 0 0 0 4px #111;
+                    transform: scale(1.05);
+                }
+
+                .check-icon {
+                    color: white;
+                    filter: drop-shadow(0 0 1px rgba(0,0,0,0.5));
                 }
 
                 .out-of-strip {
@@ -943,7 +942,7 @@ const ProductDetails = () => {
                     top: 50%;
                     left: 50%;
                     width: 2px;
-                    height: 24px;
+                    height: 30px;
                     background: #e53935;
                     transform: translate(-50%, -50%) rotate(45deg);
                 }
@@ -951,13 +950,18 @@ const ProductDetails = () => {
                 .color-chip-label {
                     font-size: 11px;
                     font-weight: 500;
-                    color: #555;
+                    color: #666;
                     text-align: center;
                     line-height: 1.2;
+                    max-width: 60px;
                     white-space: nowrap;
                     overflow: hidden;
                     text-overflow: ellipsis;
-                    max-width: 100%;
+                }
+
+                .color-chip.active .color-chip-label {
+                    color: #111;
+                    font-weight: 600;
                 }
 
                 .sizes-buttons {
@@ -1013,7 +1017,7 @@ const ProductDetails = () => {
                     font-size: 12px;
                     color: #111;
                     font-weight: 500;
-                    margin-top: 10px;
+                    margin-bottom: 10px;
                 }
 
                 .product-description {
