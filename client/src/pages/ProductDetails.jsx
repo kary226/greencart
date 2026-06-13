@@ -876,11 +876,10 @@ const ProductDetails = () => {
                     position: relative;
                 }
 
-                /* CORRECTION : sélection visible sur fond noir ET blanc */
                 .color-btn.active {
-                    border-color: #fff;
+                    border-color: #111;
                     transform: scale(1.1);
-                    box-shadow: 0 0 0 2px #111, 0 0 0 4px #fff;
+                    box-shadow: 0 0 0 2px white, 0 0 0 4px #111;
                 }
 
                 .color-btn:hover:not(.disabled) {
