@@ -62,6 +62,7 @@ const ProductDetails = () => {
         }
     }, [product])
 
+    // Mettre à jour variantData quand la couleur change
     useEffect(() => {
         if (product && product.variants && selectedColor) {
             const variant = product.variants.find(v => v.color === selectedColor)
@@ -74,6 +75,24 @@ const ProductDetails = () => {
             }
         }
     }, [selectedColor, product])
+
+    // Mettre à jour le stock quand la taille change (recherche le variant exact)
+    useEffect(() => {
+        if (product && product.variants && selectedColor && selectedSize) {
+            const exactVariant = product.variants.find(v => 
+                v.color === selectedColor && v.size === selectedSize
+            )
+            if (exactVariant) {
+                setVariantData(exactVariant)
+            }
+        } else if (product && product.variants && selectedColor) {
+            // Si seulement la couleur est sélectionnée, prendre le premier variant de cette couleur
+            const colorVariant = product.variants.find(v => v.color === selectedColor)
+            if (colorVariant) {
+                setVariantData(colorVariant)
+            }
+        }
+    }, [selectedColor, selectedSize, product])
 
     useEffect(() => {
         if (selectedSize) {
