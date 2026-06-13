@@ -30,12 +30,23 @@ const ProductDetails = () => {
     // Swipe states - version simplifiée
     const [touchStart, setTouchStart] = useState(0);
     const [touchEnd, setTouchEnd] = useState(0);
+    const [isMobile, setIsMobile] = useState(false);
     
     const [averageRating, setAverageRating] = useState(4);
     const [totalReviews, setTotalReviews] = useState(0);
     const [showDetails, setShowDetails] = useState(false);
 
     const product = products.find((item)=> item._id === id);
+
+    // Détecter si l'écran est mobile
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     useEffect(() => {
         if (scrollContainerRef.current && thumbnailRefs.current[currentImageIndex]) {
@@ -102,7 +113,7 @@ const ProductDetails = () => {
         }
     }, [product]);
 
-    // Swipe handlers - version simplifiée (sans transition, juste changement d'index)
+    // Swipe handlers
     const handleTouchStart = (e) => {
         setTouchStart(e.targetTouches[0].clientX);
         setTouchEnd(e.targetTouches[0].clientX);
@@ -124,10 +135,8 @@ const ProductDetails = () => {
         
         if (Math.abs(diff) > threshold) {
             if (diff > 0 && currentImageIndex < allImages.length - 1) {
-                // Swipe gauche -> suivant
                 setCurrentImageIndex(currentImageIndex + 1);
             } else if (diff < 0 && currentImageIndex > 0) {
-                // Swipe droite -> précédent
                 setCurrentImageIndex(currentImageIndex - 1);
             }
         }
@@ -355,7 +364,7 @@ const ProductDetails = () => {
 
                 <div className="product-main">
                     <div className="product-gallery">
-                        {/* Image principale avec boutons + SWIPE simplifié */}
+                        {/* Image principale avec SWIPE (toujours actif) et flèches uniquement sur desktop */}
                         <div 
                             className="main-image-container"
                             onTouchStart={handleTouchStart}
@@ -368,7 +377,8 @@ const ProductDetails = () => {
                                 className="main-image" 
                             />
                             
-                            {allImages.length > 1 && (
+                            {/* Flèches visibles uniquement sur desktop (non mobile) */}
+                            {allImages.length > 1 && !isMobile && (
                                 <>
                                     <button 
                                         className="nav-btn nav-prev"
