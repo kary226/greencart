@@ -10,7 +10,7 @@ const Navbar = () => {
   const [categories, setCategories] = useState([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [showSearchModal, setShowSearchModal] = useState(false); // Nouvel état pour le modal de recherche
+  const [showSearchModal, setShowSearchModal] = useState(false);
   const suggestionsRef = useRef(null);
   const menuRef = useRef(null);
   const searchInputRef = useRef(null);
@@ -48,7 +48,6 @@ const Navbar = () => {
     navigate('/install');
   };
 
-  // Ouvrir le modal de recherche
   const openSearchModal = () => {
     setShowSearchModal(true);
     setTimeout(() => {
@@ -56,7 +55,6 @@ const Navbar = () => {
     }, 100);
   };
 
-  // Fermer le modal de recherche
   const closeSearchModal = () => {
     setShowSearchModal(false);
     setShowSuggestions(false);
@@ -197,10 +195,6 @@ const Navbar = () => {
     }
   };
 
-  const handleFilterClick = () => {
-    setShowFilters(!showFilters);
-  };
-
   const applyFilters = () => {
     let url = '/products?';
     const params = [];
@@ -338,7 +332,6 @@ const Navbar = () => {
           <Link to="/" className="ramci-logo">RAMCI</Link>
 
           <div className="ramci-nav-actions">
-            {/* Loupe pour la recherche à la place du cœur */}
             <button className="ramci-nav-icon" onClick={openSearchModal} aria-label="Rechercher">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <circle cx="11" cy="11" r="8"/>
@@ -358,7 +351,7 @@ const Navbar = () => {
         </div>
       </header>
 
-      {/* Modal de recherche */}
+      {/* Modal de recherche avec bouton filtre */}
       {showSearchModal && (
         <div className="search-modal-overlay" onClick={closeSearchModal}>
           <div className="search-modal-container" onClick={(e) => e.stopPropagation()}>
@@ -386,6 +379,25 @@ const Navbar = () => {
                   onChange={(e) => setQuery(e.target.value)}
                   className="search-modal-input"
                 />
+                
+                {/* Bouton Filtre */}
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    closeSearchModal();
+                    setShowFilters(true);
+                  }} 
+                  className="search-modal-filter-btn"
+                  aria-label="Filtres"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2">
+                    <line x1="4" y1="6" x2="20" y2="6"/>
+                    <line x1="8" y1="12" x2="16" y2="12"/>
+                    <line x1="11" y1="18" x2="13" y2="18"/>
+                  </svg>
+                  {hasActiveFilters() && <span className="filter-active-dot"></span>}
+                </button>
+
                 {query && (
                   <button type="button" className="search-modal-clear" onClick={() => setQuery("")}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2">
@@ -746,6 +758,36 @@ const Navbar = () => {
 
         .search-modal-input::placeholder {
           color: #aaa;
+        }
+
+        /* Bouton Filtre dans le modal de recherche */
+        .search-modal-filter-btn {
+          background: none;
+          border: none;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 8px;
+          margin: 0 4px;
+          border-radius: 50%;
+          transition: background 0.2s;
+          position: relative;
+        }
+
+        .search-modal-filter-btn:hover {
+          background: #f0f0f0;
+        }
+
+        .search-modal-filter-btn .filter-active-dot {
+          position: absolute;
+          top: 2px;
+          right: 2px;
+          width: 8px;
+          height: 8px;
+          background-color: #e53935;
+          border-radius: 50%;
+          border: 1px solid white;
         }
 
         .search-modal-clear {
