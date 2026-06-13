@@ -21,17 +21,36 @@ const ProductDetails = () => {
     const thumbnailRefs = useRef([]);
     const colorSectionRef = useRef(null);
     const sizeSectionRef = useRef(null);
+    const galleryRef = useRef(null);
     
     const [colorError, setColorError] = useState('')
     const [sizeError, setSizeError] = useState('')
     const [highlightColor, setHighlightColor] = useState(false)
     const [highlightSize, setHighlightSize] = useState(false)
     
+    const [touchStart, setTouchStart] = useState(0);
+    const [touchEnd, setTouchEnd] = useState(0);
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragOffset, setDragOffset] = useState(0);
+    const [galleryWidth, setGalleryWidth] = useState(1);
+    
     const [averageRating, setAverageRating] = useState(4);
     const [totalReviews, setTotalReviews] = useState(0);
-    const [showDescriptionModal, setShowDescriptionModal] = useState(false);
+    const [showDetails, setShowDetails] = useState(false);
 
     const product = products.find((item)=> item._id === id);
+
+    // Mesurer la largeur de la galerie pour le swipe
+    useEffect(() => {
+        const updateWidth = () => {
+            if (galleryRef.current) {
+                setGalleryWidth(galleryRef.current.offsetWidth);
+            }
+        };
+        updateWidth();
+        window.addEventListener('resize', updateWidth);
+        return () => window.removeEventListener('resize', updateWidth);
+    }, []);
 
     useEffect(() => {
         if (scrollContainerRef.current && thumbnailRefs.current[currentImageIndex]) {
@@ -97,6 +116,20 @@ const ProductDetails = () => {
             addToRecentlyViewed(product);
         }
     }, [product]);
+
+    // Scroll doux vers les tailles quand on sélectionne une couleur
+    useEffect(() => {
+        if (selectedColor && uniqueSizes.length > 0 && sizeSectionRef.current) {
+            setTimeout(() => {
+                const sizeElement = sizeSectionRef.current;
+                const elementPosition = sizeElement.getBoundingClientRect().top;
+                const offsetPosition = elementPosition + window.scrollY - 80;
+                window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+                setHighlightSize(true);
+                setTimeout(() => setHighlightSize(false), 1500);
+            }, 100);
+        }
+    }, [selectedColor]);
 
     const getProductCategory = () => {
         if (product?.categories && product.categories.length > 0) {
@@ -211,6 +244,49 @@ const ProductDetails = () => {
         }
     }
 
+    // SWIPE pour les images (mobile ET desktop)
+    const handleTouchStart = (e) => {
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        setTouchStart(clientX);
+        setTouchEnd(clientX);
+        setIsDragging(true);
+    };
+
+    const handleTouchMove = (e) => {
+        if (!isDragging) return;
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        setTouchEnd(clientX);
+        let offset = clientX - touchStart;
+        
+        if (currentImageIndex === 0 && offset > 0) offset = offset * 0.35;
+        if (currentImageIndex === allImages.length - 1 && offset < 0) offset = offset * 0.35;
+        
+        setDragOffset(offset);
+    };
+
+    const handleTouchEnd = () => {
+        if (!touchStart || !touchEnd) {
+            setIsDragging(false);
+            setDragOffset(0);
+            return;
+        }
+        const diff = touchStart - touchEnd;
+        const threshold = 50;
+        
+        if (Math.abs(diff) > threshold) {
+            if (diff > 0 && currentImageIndex < allImages.length - 1) {
+                setCurrentImageIndex(currentImageIndex + 1);
+            } else if (diff < 0 && currentImageIndex > 0) {
+                setCurrentImageIndex(currentImageIndex - 1);
+            }
+        }
+        
+        setIsDragging(false);
+        setDragOffset(0);
+        setTouchStart(0);
+        setTouchEnd(0);
+    };
+
     const renderStars = (rating) => {
         const fullStars = Math.floor(rating);
         const decimal = rating % 1;
@@ -283,6 +359,7 @@ const ProductDetails = () => {
         setSizeError('')
         setHighlightColor(false)
         setHighlightSize(false)
+        setShowDetails(false)
     },[products, id])
 
     if (!product) return null;
@@ -307,12 +384,32 @@ const ProductDetails = () => {
 
                 <div className="product-main">
                     <div className="product-gallery">
-                        <div className="main-image-container">
-                            <img 
-                                src={allImages[currentImageIndex]} 
-                                alt={product.name} 
-                                className="main-image" 
-                            />
+                        {/* Carrousel avec SWIPE */}
+                        <div 
+                            className="main-image-container"
+                            ref={galleryRef}
+                            onTouchStart={handleTouchStart}
+                            onTouchMove={handleTouchMove}
+                            onTouchEnd={handleTouchEnd}
+                            onMouseDown={handleTouchStart}
+                            onMouseMove={handleTouchMove}
+                            onMouseUp={handleTouchEnd}
+                            onMouseLeave={() => setIsDragging(false)}
+                        >
+                            <div 
+                                className="image-track"
+                                style={{
+                                    transform: `translateX(${-currentImageIndex * galleryWidth + dragOffset}px)`,
+                                    transition: isDragging ? 'none' : 'transform 0.3s ease-out',
+                                    cursor: isDragging ? 'grabbing' : 'grab'
+                                }}
+                            >
+                                {allImages.map((img, idx) => (
+                                    <div key={idx} className="image-slide" style={{ width: galleryWidth }}>
+                                        <img src={img} alt={`${product.name} - ${idx + 1}`} draggable="false" />
+                                    </div>
+                                ))}
+                            </div>
                             {allImages.length > 1 && (
                                 <div className="image-counter">
                                     {currentImageIndex + 1} / {allImages.length}
@@ -365,6 +462,14 @@ const ProductDetails = () => {
                             </div>
                         </div>
 
+                        {/* ⭐ ÉTOILES - APRÈS LE PRIX */}
+                        <div className="product-rating">
+                            {renderStars(averageRating)}
+                            <span className="rating-value">{averageRating}/5</span>
+                            <span className="rating-count">({totalReviews} avis)</span>
+                        </div>
+
+                        {/* COULEURS - APRÈS LES ÉTOILES (visible dès le début) */}
                         {uniqueColors.length > 0 && (
                             <div 
                                 ref={colorSectionRef}
@@ -416,18 +521,14 @@ const ProductDetails = () => {
                             </div>
                         )}
 
-                        <div className="product-rating">
-                            {renderStars(averageRating)}
-                            <span className="rating-value">{averageRating}/5</span>
-                            <span className="rating-count">({totalReviews} avis)</span>
-                        </div>
-
+                        {/* STOCK */}
                         {getStockLabel(currentStock) && (
                             <p className={`stock-info ${getStockColor(currentStock)}`}>
                                 {getStockLabel(currentStock)}
                             </p>
                         )}
 
+                        {/* TAILLES */}
                         {uniqueSizes.length > 0 && (
                             <div 
                                 ref={sizeSectionRef}
@@ -468,16 +569,25 @@ const ProductDetails = () => {
                             </p>
                         )}
 
-                        {/* Bouton "À propos du produit" */}
-                        <button 
-                            onClick={() => setShowDescriptionModal(true)}
-                            className="desc-btn"
-                        >
-                            À propos du produit
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M12 5v14M5 12h14"/>
-                            </svg>
-                        </button>
+                        {/* Bouton DÉTAILS (accordéon) */}
+                        <div className="details-section">
+                            <button 
+                                onClick={() => setShowDetails(!showDetails)}
+                                className={`details-btn ${showDetails ? 'active' : ''}`}
+                            >
+                                <span>Détails</span>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                    <path d={showDetails ? "M18 15L12 9L6 15" : "M6 9L12 15L18 9"}/>
+                                </svg>
+                            </button>
+                            <div className={`details-content ${showDetails ? 'open' : ''}`}>
+                                <ul>
+                                    {product.description.map((desc, index) => (
+                                        <li key={index}>{desc}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -503,30 +613,6 @@ const ProductDetails = () => {
 
                 <RecentlyViewed />
             </div>
-
-            {/* Modal "À propos du produit" */}
-            {showDescriptionModal && (
-                <div className="modal-overlay" onClick={() => setShowDescriptionModal(false)}>
-                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h3>À propos du produit</h3>
-                            <button className="modal-close" onClick={() => setShowDescriptionModal(false)}>
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <line x1="18" y1="6" x2="6" y2="18"/>
-                                    <line x1="6" y1="6" x2="18" y2="18"/>
-                                </svg>
-                            </button>
-                        </div>
-                        <div className="modal-body">
-                            <ul>
-                                {product.description.map((desc, index) => (
-                                    <li key={index}>{desc}</li>
-                                ))}
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             <div className="floating-action-bar">
                 <div className="floating-buttons">
@@ -630,19 +716,37 @@ const ProductDetails = () => {
                     width: 100%;
                 }
 
+                /* Carrousel avec SWIPE */
                 .main-image-container {
                     position: relative;
                     width: 100%;
                     aspect-ratio: 1/1;
-                    border-radius: 18px;
                     overflow: hidden;
+                    border-radius: 18px;
                     background: #f5f3f0;
+                    touch-action: pan-y;
                 }
 
-                .main-image {
+                .image-track {
+                    display: flex;
+                    height: 100%;
+                    width: 100%;
+                    will-change: transform;
+                }
+
+                .image-slide {
+                    flex-shrink: 0;
+                    width: 100%;
+                    height: 100%;
+                }
+
+                .image-slide img {
                     width: 100%;
                     height: 100%;
                     object-fit: cover;
+                    pointer-events: none;
+                    user-select: none;
+                    display: block;
                 }
 
                 .image-counter {
@@ -763,7 +867,7 @@ const ProductDetails = () => {
                     display: flex;
                     align-items: center;
                     gap: 6px;
-                    margin: 6px 0;
+                    margin: 6px 0 12px;
                     flex-wrap: wrap;
                 }
 
@@ -812,7 +916,7 @@ const ProductDetails = () => {
                 .stock-info {
                     font-size: 12px;
                     font-weight: 500;
-                    margin-bottom: 16px;
+                    margin: 8px 0;
                 }
 
                 .text-red-500 { color: #e53935; }
@@ -986,112 +1090,57 @@ const ProductDetails = () => {
                     margin-bottom: 10px;
                 }
 
-                /* Bouton "À propos du produit" */
-                .desc-btn {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    width: 100%;
-                    padding: 14px 16px;
-                    background: #faf8f5;
-                    border: 1px solid #f0ede8;
-                    border-radius: 14px;
-                    font-size: 14px;
-                    font-weight: 600;
-                    color: #111;
-                    cursor: pointer;
-                    transition: all 0.2s;
+                /* Section Détails - Accordéon */
+                .details-section {
                     margin-top: 16px;
+                    border-top: 1px solid #f0ede8;
+                    padding-top: 16px;
                 }
 
-                .desc-btn:hover {
-                    background: #f5f2ec;
-                }
-
-                /* Modal */
-                .modal-overlay {
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
-                    background: rgba(0,0,0,0.6);
-                    z-index: 1100;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    padding: 20px;
-                }
-
-                .modal-content {
-                    background: white;
-                    border-radius: 24px;
-                    max-width: 500px;
-                    width: 100%;
-                    max-height: 80vh;
-                    overflow: hidden;
-                    animation: modalFadeIn 0.3s ease;
-                }
-
-                @keyframes modalFadeIn {
-                    from {
-                        opacity: 0;
-                        transform: scale(0.95);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: scale(1);
-                    }
-                }
-
-                .modal-header {
+                .details-btn {
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
-                    padding: 18px 20px;
-                    border-bottom: 1px solid #f0ede8;
-                }
-
-                .modal-header h3 {
-                    font-size: 18px;
-                    font-weight: 600;
-                    color: #111;
-                    margin: 0;
-                }
-
-                .modal-close {
+                    width: 100%;
+                    padding: 12px 0;
                     background: none;
                     border: none;
+                    font-size: 15px;
+                    font-weight: 600;
+                    color: #111;
                     cursor: pointer;
-                    padding: 8px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    border-radius: 50%;
-                    transition: background 0.2s;
                 }
 
-                .modal-close:hover {
-                    background: #f5f5f5;
+                .details-btn svg {
+                    transition: transform 0.3s ease;
                 }
 
-                .modal-body {
-                    padding: 20px;
-                    overflow-y: auto;
-                    max-height: 60vh;
+                .details-btn.active svg {
+                    transform: rotate(180deg);
                 }
 
-                .modal-body ul {
+                .details-content {
+                    max-height: 0;
+                    overflow: hidden;
+                    transition: max-height 0.4s ease-out;
+                }
+
+                .details-content.open {
+                    max-height: 500px;
+                    transition: max-height 0.5s ease-in;
+                }
+
+                .details-content ul {
                     list-style: disc;
                     padding-left: 18px;
                     color: #666;
-                    font-size: 14px;
+                    font-size: 13px;
                     line-height: 1.6;
-                    margin: 0;
+                    margin: 8px 0 16px;
                 }
 
-                .modal-body li {
-                    margin-bottom: 8px;
+                .details-content li {
+                    margin-bottom: 6px;
                 }
 
                 .related-section {
