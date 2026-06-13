@@ -28,12 +28,6 @@ const ProductDetails = () => {
     const [highlightColor, setHighlightColor] = useState(false)
     const [highlightSize, setHighlightSize] = useState(false)
     
-    const [touchStart, setTouchStart] = useState(0);
-    const [touchEnd, setTouchEnd] = useState(0);
-    const [isDragging, setIsDragging] = useState(false);
-    const [dragOffset, setDragOffset] = useState(0);
-    const [galleryWidth, setGalleryWidth] = useState(1); // Valeur par défaut pour éviter division par zéro
-    
     const [averageRating, setAverageRating] = useState(4);
     const [totalReviews, setTotalReviews] = useState(0);
 
@@ -75,7 +69,7 @@ const ProductDetails = () => {
         }
     }, [selectedColor, product])
 
-    // Mettre à jour variantData quand la taille change (pour le stock)
+    // Mettre à jour variantData quand la taille change
     useEffect(() => {
         if (product && product.variants && selectedColor && selectedSize) {
             const exactVariant = product.variants.find(v => 
@@ -104,18 +98,6 @@ const ProductDetails = () => {
             addToRecentlyViewed(product);
         }
     }, [product]);
-
-    // Mesure la largeur du conteneur de la galerie
-    useEffect(() => {
-        const updateWidth = () => {
-            if (galleryRef.current) {
-                setGalleryWidth(galleryRef.current.offsetWidth);
-            }
-        };
-        updateWidth();
-        window.addEventListener('resize', updateWidth);
-        return () => window.removeEventListener('resize', updateWidth);
-    }, []);
 
     const getProductCategory = () => {
         if (product?.categories && product.categories.length > 0) {
@@ -171,6 +153,10 @@ const ProductDetails = () => {
 
     const getStockLabel = (stock) => {
         if (stock === null || stock === undefined) return null
+        // Si le produit a des variantes mais qu'aucune couleur/taille n'est sélectionnée
+        if ((uniqueColors.length > 0 && !selectedColor) || (uniqueSizes.length > 0 && !selectedSize)) {
+            return null
+        }
         if (stock === 0) return 'Rupture de stock'
         if (stock <= 5) return `Plus que ${stock} en stock`
         return `En stock (${stock} disponibles)`
@@ -234,47 +220,6 @@ const ProductDetails = () => {
             navigate("/cart")
         }
     }
-
-    const isOutOfStock = variantStock === 0;
-
-    // Swipe continu
-    const handleTouchStart = (e) => {
-        setTouchStart(e.targetTouches[0].clientX);
-        setTouchEnd(e.targetTouches[0].clientX);
-        setIsDragging(true);
-    };
-
-    const handleTouchMove = (e) => {
-        const currentX = e.targetTouches[0].clientX;
-        setTouchEnd(currentX);
-        let offset = currentX - touchStart;
-
-        if (currentImageIndex === 0 && offset > 0) offset = offset * 0.35;
-        if (currentImageIndex === allImages.length - 1 && offset < 0) offset = offset * 0.35;
-
-        setDragOffset(offset);
-    };
-
-    const handleTouchEnd = () => {
-        if (!touchStart || !touchEnd) {
-            setIsDragging(false);
-            setDragOffset(0);
-            return;
-        }
-        const diff = touchStart - touchEnd;
-        const threshold = galleryWidth * 0.18;
-
-        if (diff > threshold && currentImageIndex < allImages.length - 1) {
-            setCurrentImageIndex((prev) => prev + 1);
-        } else if (diff < -threshold && currentImageIndex > 0) {
-            setCurrentImageIndex((prev) => prev - 1);
-        }
-
-        setIsDragging(false);
-        setDragOffset(0);
-        setTouchStart(0);
-        setTouchEnd(0);
-    };
 
     const renderStars = (rating) => {
         const fullStars = Math.floor(rating);
@@ -372,31 +317,12 @@ const ProductDetails = () => {
 
                 <div className="product-main">
                     <div className="product-gallery">
-                        <div 
-                            className="main-image-container"
-                            ref={galleryRef}
-                            onTouchStart={handleTouchStart}
-                            onTouchMove={handleTouchMove}
-                            onTouchEnd={handleTouchEnd}
-                        >
-                            <div 
-                                className="image-track"
-                                style={{
-                                    transform: galleryWidth ? `translateX(${-currentImageIndex * galleryWidth + dragOffset}px)` : 'translateX(0px)',
-                                    transition: isDragging ? 'none' : 'transform 0.4s cubic-bezier(0.22, 0.61, 0.36, 1)'
-                                }}
-                            >
-                                {allImages.map((img, idx) => (
-                                    <div 
-                                        className="image-slide" 
-                                        key={idx} 
-                                        style={{ width: galleryWidth || '100%' }}
-                                    >
-                                        <img src={img} alt={`${product.name} - vue ${idx + 1}`} draggable="false" />
-                                    </div>
-                                ))}
-                            </div>
-
+                        <div className="main-image-container">
+                            <img 
+                                src={allImages[currentImageIndex]} 
+                                alt={product.name} 
+                                className="main-image" 
+                            />
                             {allImages.length > 1 && (
                                 <div className="image-counter">
                                     {currentImageIndex + 1} / {allImages.length}
@@ -506,9 +432,11 @@ const ProductDetails = () => {
                             <span className="rating-count">({totalReviews} avis)</span>
                         </div>
 
-                        <p className={`stock-info ${getStockColor(currentStock)}`}>
-                            {getStockLabel(currentStock)}
-                        </p>
+                        {getStockLabel(currentStock) && (
+                            <p className={`stock-info ${getStockColor(currentStock)}`}>
+                                {getStockLabel(currentStock)}
+                            </p>
+                        )}
 
                         {uniqueSizes.length > 0 && (
                             <div 
@@ -687,37 +615,15 @@ const ProductDetails = () => {
                     position: relative;
                     width: 100%;
                     aspect-ratio: 1/1;
-                    overflow: hidden;
                     border-radius: 18px;
+                    overflow: hidden;
                     background: #f5f3f0;
-                    cursor: grab;
-                    touch-action: pan-y;
                 }
 
-                .main-image-container:active {
-                    cursor: grabbing;
-                }
-
-                .image-track {
-                    display: flex;
-                    height: 100%;
-                    width: 100%;
-                    will-change: transform;
-                }
-
-                .image-slide {
-                    flex-shrink: 0;
-                    width: 100%;
-                    height: 100%;
-                }
-
-                .image-slide img {
+                .main-image {
                     width: 100%;
                     height: 100%;
                     object-fit: cover;
-                    pointer-events: none;
-                    user-select: none;
-                    display: block;
                 }
 
                 .image-counter {
@@ -731,14 +637,13 @@ const ProductDetails = () => {
                     padding: 4px 10px;
                     border-radius: 20px;
                     backdrop-filter: blur(4px);
-                    letter-spacing: 0.02em;
                     pointer-events: none;
                 }
 
                 .image-dots {
                     display: flex;
                     justify-content: center;
-                    gap: 6px;
+                    gap: 8px;
                 }
 
                 .dot {
