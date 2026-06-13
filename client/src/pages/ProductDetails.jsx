@@ -29,7 +29,7 @@ const ProductDetails = () => {
     
     const [averageRating, setAverageRating] = useState(4);
     const [totalReviews, setTotalReviews] = useState(0);
-    const [showDescriptionModal, setShowDescriptionModal] = useState(false);
+    const [showDetails, setShowDetails] = useState(false);
 
     const product = products.find((item)=> item._id === id);
 
@@ -97,6 +97,21 @@ const ProductDetails = () => {
             addToRecentlyViewed(product);
         }
     }, [product]);
+
+    // Scroll vers les tailles quand on sélectionne une couleur
+    useEffect(() => {
+        if (selectedColor && uniqueSizes.length > 0 && sizeSectionRef.current) {
+            setTimeout(() => {
+                sizeSectionRef.current.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+                // Ajouter un effet de highlight
+                setHighlightSize(true);
+                setTimeout(() => setHighlightSize(false), 1500);
+            }, 100);
+        }
+    }, [selectedColor]);
 
     const getProductCategory = () => {
         if (product?.categories && product.categories.length > 0) {
@@ -283,6 +298,7 @@ const ProductDetails = () => {
         setSizeError('')
         setHighlightColor(false)
         setHighlightSize(false)
+        setShowDetails(false)
     },[products, id])
 
     if (!product) return null;
@@ -365,6 +381,14 @@ const ProductDetails = () => {
                             </div>
                         </div>
 
+                        {/* ⭐ ÉTOILES - APRÈS LE PRIX */}
+                        <div className="product-rating">
+                            {renderStars(averageRating)}
+                            <span className="rating-value">{averageRating}/5</span>
+                            <span className="rating-count">({totalReviews} avis)</span>
+                        </div>
+
+                        {/* COULEURS - APRÈS LES ÉTOILES */}
                         {uniqueColors.length > 0 && (
                             <div 
                                 ref={colorSectionRef}
@@ -416,18 +440,14 @@ const ProductDetails = () => {
                             </div>
                         )}
 
-                        <div className="product-rating">
-                            {renderStars(averageRating)}
-                            <span className="rating-value">{averageRating}/5</span>
-                            <span className="rating-count">({totalReviews} avis)</span>
-                        </div>
-
+                        {/* STOCK - APRÈS LES COULEURS */}
                         {getStockLabel(currentStock) && (
                             <p className={`stock-info ${getStockColor(currentStock)}`}>
                                 {getStockLabel(currentStock)}
                             </p>
                         )}
 
+                        {/* TAILLES - APRÈS LE STOCK */}
                         {uniqueSizes.length > 0 && (
                             <div 
                                 ref={sizeSectionRef}
@@ -468,16 +488,25 @@ const ProductDetails = () => {
                             </p>
                         )}
 
-                        {/* Bouton "À propos du produit" */}
-                        <button 
-                            onClick={() => setShowDescriptionModal(true)}
-                            className="desc-btn"
-                        >
-                            À propos du produit
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M12 5v14M5 12h14"/>
-                            </svg>
-                        </button>
+                        {/* Bouton DÉTAILS (accordéon) */}
+                        <div className="details-section">
+                            <button 
+                                onClick={() => setShowDetails(!showDetails)}
+                                className={`details-btn ${showDetails ? 'active' : ''}`}
+                            >
+                                <span>Détails</span>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                    <path d={showDetails ? "M18 15L12 9L6 15" : "M6 9L12 15L18 9"}/>
+                                </svg>
+                            </button>
+                            <div className={`details-content ${showDetails ? 'open' : ''}`}>
+                                <ul>
+                                    {product.description.map((desc, index) => (
+                                        <li key={index}>{desc}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -503,30 +532,6 @@ const ProductDetails = () => {
 
                 <RecentlyViewed />
             </div>
-
-            {/* Modal "À propos du produit" */}
-            {showDescriptionModal && (
-                <div className="modal-overlay" onClick={() => setShowDescriptionModal(false)}>
-                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h3>À propos du produit</h3>
-                            <button className="modal-close" onClick={() => setShowDescriptionModal(false)}>
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <line x1="18" y1="6" x2="6" y2="18"/>
-                                    <line x1="6" y1="6" x2="18" y2="18"/>
-                                </svg>
-                            </button>
-                        </div>
-                        <div className="modal-body">
-                            <ul>
-                                {product.description.map((desc, index) => (
-                                    <li key={index}>{desc}</li>
-                                ))}
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             <div className="floating-action-bar">
                 <div className="floating-buttons">
@@ -763,7 +768,7 @@ const ProductDetails = () => {
                     display: flex;
                     align-items: center;
                     gap: 6px;
-                    margin: 6px 0;
+                    margin: 6px 0 12px;
                     flex-wrap: wrap;
                 }
 
@@ -812,7 +817,7 @@ const ProductDetails = () => {
                 .stock-info {
                     font-size: 12px;
                     font-weight: 500;
-                    margin-bottom: 16px;
+                    margin: 8px 0;
                 }
 
                 .text-red-500 { color: #e53935; }
@@ -986,112 +991,58 @@ const ProductDetails = () => {
                     margin-bottom: 10px;
                 }
 
-                /* Bouton "À propos du produit" */
-                .desc-btn {
+                /* Section Détails - Accordéon */
+                .details-section {
+                    margin-top: 16px;
+                    border-top: 1px solid #f0ede8;
+                    padding-top: 16px;
+                }
+
+                .details-btn {
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
                     width: 100%;
-                    padding: 14px 16px;
-                    background: #faf8f5;
-                    border: 1px solid #f0ede8;
-                    border-radius: 14px;
-                    font-size: 14px;
+                    padding: 12px 0;
+                    background: none;
+                    border: none;
+                    font-size: 15px;
                     font-weight: 600;
                     color: #111;
                     cursor: pointer;
                     transition: all 0.2s;
-                    margin-top: 16px;
                 }
 
-                .desc-btn:hover {
-                    background: #f5f2ec;
+                .details-btn svg {
+                    transition: transform 0.3s ease;
                 }
 
-                /* Modal */
-                .modal-overlay {
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
-                    background: rgba(0,0,0,0.6);
-                    z-index: 1100;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    padding: 20px;
+                .details-btn.active svg {
+                    transform: rotate(180deg);
                 }
 
-                .modal-content {
-                    background: white;
-                    border-radius: 24px;
-                    max-width: 500px;
-                    width: 100%;
-                    max-height: 80vh;
+                .details-content {
+                    max-height: 0;
                     overflow: hidden;
-                    animation: modalFadeIn 0.3s ease;
+                    transition: max-height 0.4s ease-out;
                 }
 
-                @keyframes modalFadeIn {
-                    from {
-                        opacity: 0;
-                        transform: scale(0.95);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: scale(1);
-                    }
+                .details-content.open {
+                    max-height: 500px;
+                    transition: max-height 0.5s ease-in;
                 }
 
-                .modal-header {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    padding: 18px 20px;
-                    border-bottom: 1px solid #f0ede8;
-                }
-
-                .modal-header h3 {
-                    font-size: 18px;
-                    font-weight: 600;
-                    color: #111;
-                    margin: 0;
-                }
-
-                .modal-close {
-                    background: none;
-                    border: none;
-                    cursor: pointer;
-                    padding: 8px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    border-radius: 50%;
-                    transition: background 0.2s;
-                }
-
-                .modal-close:hover {
-                    background: #f5f5f5;
-                }
-
-                .modal-body {
-                    padding: 20px;
-                    overflow-y: auto;
-                    max-height: 60vh;
-                }
-
-                .modal-body ul {
+                .details-content ul {
                     list-style: disc;
                     padding-left: 18px;
                     color: #666;
-                    font-size: 14px;
+                    font-size: 13px;
                     line-height: 1.6;
-                    margin: 0;
+                    margin: 8px 0 16px;
                 }
 
-                .modal-body li {
-                    margin-bottom: 8px;
+                .details-content li {
+                    margin-bottom: 6px;
                 }
 
                 .related-section {
