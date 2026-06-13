@@ -117,6 +117,20 @@ const ProductDetails = () => {
         }
     }, [product]);
 
+    // Scroll doux vers les tailles quand on sélectionne une couleur
+    useEffect(() => {
+        if (selectedColor && uniqueSizes.length > 0 && sizeSectionRef.current) {
+            setTimeout(() => {
+                const sizeElement = sizeSectionRef.current;
+                const elementPosition = sizeElement.getBoundingClientRect().top;
+                const offsetPosition = elementPosition + window.scrollY - 80;
+                window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+                setHighlightSize(true);
+                setTimeout(() => setHighlightSize(false), 1500);
+            }, 100);
+        }
+    }, [selectedColor]);
+
     const getProductCategory = () => {
         if (product?.categories && product.categories.length > 0) {
             return product.categories[0]
@@ -555,7 +569,7 @@ const ProductDetails = () => {
                             </p>
                         )}
 
-                        {/* Bouton DÉTAILS (accordéon) - PLUS DE MODAL */}
+                        {/* Bouton DÉTAILS (accordéon) */}
                         <div className="details-section">
                             <button 
                                 onClick={() => setShowDetails(!showDetails)}
