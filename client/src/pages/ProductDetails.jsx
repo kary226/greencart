@@ -21,11 +21,18 @@ const ProductDetails = () => {
     const thumbnailRefs = useRef([]);
     const colorSectionRef = useRef(null);
     const sizeSectionRef = useRef(null);
+    const galleryRef = useRef(null);
     
     const [colorError, setColorError] = useState('')
     const [sizeError, setSizeError] = useState('')
     const [highlightColor, setHighlightColor] = useState(false)
     const [highlightSize, setHighlightSize] = useState(false)
+    
+    const [touchStart, setTouchStart] = useState(0);
+    const [touchEnd, setTouchEnd] = useState(0);
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragOffset, setDragOffset] = useState(0);
+    const [galleryWidth, setGalleryWidth] = useState(1);
     
     const [averageRating, setAverageRating] = useState(4);
     const [totalReviews, setTotalReviews] = useState(0);
@@ -42,6 +49,18 @@ const ProductDetails = () => {
             });
         }
     }, [currentImageIndex]);
+
+    // Mesurer la largeur de la galerie
+    useEffect(() => {
+        const updateWidth = () => {
+            if (galleryRef.current) {
+                setGalleryWidth(galleryRef.current.offsetWidth);
+            }
+        };
+        updateWidth();
+        window.addEventListener('resize', updateWidth);
+        return () => window.removeEventListener('resize', updateWidth);
+    }, []);
 
     useEffect(() => {
         if (product && product.variants && product.variants.length > 0) {
@@ -98,15 +117,19 @@ const ProductDetails = () => {
         }
     }, [product]);
 
-    // Scroll vers les tailles quand on sélectionne une couleur
+    // Scroll vers les tailles - version douce (juste un petit défilement)
     useEffect(() => {
         if (selectedColor && uniqueSizes.length > 0 && sizeSectionRef.current) {
             setTimeout(() => {
-                sizeSectionRef.current.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'center'
+                const sizeElement = sizeSectionRef.current;
+                const elementPosition = sizeElement.getBoundingClientRect().top;
+                const offsetPosition = elementPosition + window.scrollY - 100; // 100px de marge
+                
+                window.scrollTo({
+                    top: offsetPosition,
+                    behavior: 'smooth'
                 });
-                // Ajouter un effet de highlight
+                
                 setHighlightSize(true);
                 setTimeout(() => setHighlightSize(false), 1500);
             }, 100);
@@ -226,6 +249,48 @@ const ProductDetails = () => {
         }
     }
 
+    // SWIPE pour les images
+    const handleTouchStart = (e) => {
+        setTouchStart(e.targetTouches[0].clientX);
+        setTouchEnd(e.targetTouches[0].clientX);
+        setIsDragging(true);
+    };
+
+    const handleTouchMove = (e) => {
+        if (!isDragging) return;
+        const currentX = e.targetTouches[0].clientX;
+        setTouchEnd(currentX);
+        let offset = currentX - touchStart;
+        
+        if (currentImageIndex === 0 && offset > 0) offset = offset * 0.35;
+        if (currentImageIndex === allImages.length - 1 && offset < 0) offset = offset * 0.35;
+        
+        setDragOffset(offset);
+    };
+
+    const handleTouchEnd = () => {
+        if (!touchStart || !touchEnd) {
+            setIsDragging(false);
+            setDragOffset(0);
+            return;
+        }
+        const diff = touchStart - touchEnd;
+        const threshold = 50;
+        
+        if (Math.abs(diff) > threshold) {
+            if (diff > 0 && currentImageIndex < allImages.length - 1) {
+                setCurrentImageIndex(currentImageIndex + 1);
+            } else if (diff < 0 && currentImageIndex > 0) {
+                setCurrentImageIndex(currentImageIndex - 1);
+            }
+        }
+        
+        setIsDragging(false);
+        setDragOffset(0);
+        setTouchStart(0);
+        setTouchEnd(0);
+    };
+
     const renderStars = (rating) => {
         const fullStars = Math.floor(rating);
         const decimal = rating % 1;
@@ -323,12 +388,27 @@ const ProductDetails = () => {
 
                 <div className="product-main">
                     <div className="product-gallery">
-                        <div className="main-image-container">
-                            <img 
-                                src={allImages[currentImageIndex]} 
-                                alt={product.name} 
-                                className="main-image" 
-                            />
+                        {/* Carrousel avec SWIPE */}
+                        <div 
+                            className="main-image-container"
+                            ref={galleryRef}
+                            onTouchStart={handleTouchStart}
+                            onTouchMove={handleTouchMove}
+                            onTouchEnd={handleTouchEnd}
+                        >
+                            <div 
+                                className="image-track"
+                                style={{
+                                    transform: `translateX(${-currentImageIndex * galleryWidth + dragOffset}px)`,
+                                    transition: isDragging ? 'none' : 'transform 0.3s ease-out'
+                                }}
+                            >
+                                {allImages.map((img, idx) => (
+                                    <div key={idx} className="image-slide" style={{ width: galleryWidth }}>
+                                        <img src={img} alt={`${product.name} - ${idx + 1}`} draggable="false" />
+                                    </div>
+                                ))}
+                            </div>
                             {allImages.length > 1 && (
                                 <div className="image-counter">
                                     {currentImageIndex + 1} / {allImages.length}
@@ -381,14 +461,14 @@ const ProductDetails = () => {
                             </div>
                         </div>
 
-                        {/* ⭐ ÉTOILES - APRÈS LE PRIX */}
+                        {/* ⭐ ÉTOILES */}
                         <div className="product-rating">
                             {renderStars(averageRating)}
                             <span className="rating-value">{averageRating}/5</span>
                             <span className="rating-count">({totalReviews} avis)</span>
                         </div>
 
-                        {/* COULEURS - APRÈS LES ÉTOILES */}
+                        {/* COULEURS */}
                         {uniqueColors.length > 0 && (
                             <div 
                                 ref={colorSectionRef}
@@ -440,14 +520,14 @@ const ProductDetails = () => {
                             </div>
                         )}
 
-                        {/* STOCK - APRÈS LES COULEURS */}
+                        {/* STOCK */}
                         {getStockLabel(currentStock) && (
                             <p className={`stock-info ${getStockColor(currentStock)}`}>
                                 {getStockLabel(currentStock)}
                             </p>
                         )}
 
-                        {/* TAILLES - APRÈS LE STOCK */}
+                        {/* TAILLES */}
                         {uniqueSizes.length > 0 && (
                             <div 
                                 ref={sizeSectionRef}
@@ -635,19 +715,39 @@ const ProductDetails = () => {
                     width: 100%;
                 }
 
+                /* Carrousel swipe */
                 .main-image-container {
                     position: relative;
                     width: 100%;
                     aspect-ratio: 1/1;
-                    border-radius: 18px;
                     overflow: hidden;
+                    border-radius: 18px;
                     background: #f5f3f0;
+                    cursor: grab;
+                    touch-action: pan-y;
+                }
+                .main-image-container:active { cursor: grabbing; }
+
+                .image-track {
+                    display: flex;
+                    height: 100%;
+                    width: 100%;
+                    will-change: transform;
                 }
 
-                .main-image {
+                .image-slide {
+                    flex-shrink: 0;
+                    width: 100%;
+                    height: 100%;
+                }
+
+                .image-slide img {
                     width: 100%;
                     height: 100%;
                     object-fit: cover;
+                    pointer-events: none;
+                    user-select: none;
+                    display: block;
                 }
 
                 .image-counter {
@@ -693,9 +793,7 @@ const ProductDetails = () => {
                     scrollbar-width: none;
                 }
 
-                .thumbnail-scroll::-webkit-scrollbar {
-                    display: none;
-                }
+                .thumbnail-scroll::-webkit-scrollbar { display: none; }
 
                 .thumbnail-item {
                     width: 58px;
@@ -714,10 +812,7 @@ const ProductDetails = () => {
                     opacity: 1;
                 }
 
-                .thumbnail-item:hover {
-                    opacity: 1;
-                }
-
+                .thumbnail-item:hover { opacity: 1; }
                 .thumbnail-item img {
                     width: 100%;
                     height: 100%;
@@ -735,20 +830,9 @@ const ProductDetails = () => {
                     height: 15px;
                 }
 
-                .star-full {
-                    color: #ffc107;
-                    fill: #ffc107;
-                }
-
-                .star-half {
-                    color: #ffc107;
-                    fill: #ffc107;
-                }
-
-                .star-empty {
-                    color: #e0e0e0;
-                    stroke: #e0e0e0;
-                }
+                .star-full { color: #ffc107; fill: #ffc107; }
+                .star-half { color: #ffc107; fill: #ffc107; }
+                .star-empty { color: #e0e0e0; stroke: #e0e0e0; }
 
                 .product-title {
                     font-size: 19px;
@@ -759,9 +843,7 @@ const ProductDetails = () => {
                 }
 
                 @media (min-width: 768px) {
-                    .product-title {
-                        font-size: 26px;
-                    }
+                    .product-title { font-size: 26px; }
                 }
 
                 .product-rating {
@@ -877,14 +959,8 @@ const ProductDetails = () => {
                     transition: transform 0.15s;
                 }
 
-                .color-chip:hover:not(.disabled) {
-                    transform: translateY(-1px);
-                }
-
-                .color-chip.disabled {
-                    opacity: 0.4;
-                    cursor: not-allowed;
-                }
+                .color-chip:hover:not(.disabled) { transform: translateY(-1px); }
+                .color-chip.disabled { opacity: 0.4; cursor: not-allowed; }
 
                 .color-swatch {
                     width: 34px;
@@ -980,9 +1056,7 @@ const ProductDetails = () => {
                     border: 1px solid #fecaca;
                 }
 
-                .error-message svg {
-                    flex-shrink: 0;
-                }
+                .error-message svg { flex-shrink: 0; }
 
                 .cart-indicator {
                     font-size: 12px;
@@ -991,7 +1065,7 @@ const ProductDetails = () => {
                     margin-bottom: 10px;
                 }
 
-                /* Section Détails - Accordéon */
+                /* Détails accordéon */
                 .details-section {
                     margin-top: 16px;
                     border-top: 1px solid #f0ede8;
@@ -1010,16 +1084,10 @@ const ProductDetails = () => {
                     font-weight: 600;
                     color: #111;
                     cursor: pointer;
-                    transition: all 0.2s;
                 }
 
-                .details-btn svg {
-                    transition: transform 0.3s ease;
-                }
-
-                .details-btn.active svg {
-                    transform: rotate(180deg);
-                }
+                .details-btn svg { transition: transform 0.3s ease; }
+                .details-btn.active svg { transform: rotate(180deg); }
 
                 .details-content {
                     max-height: 0;
@@ -1041,26 +1109,19 @@ const ProductDetails = () => {
                     margin: 8px 0 16px;
                 }
 
-                .details-content li {
-                    margin-bottom: 6px;
-                }
+                .details-content li { margin-bottom: 6px; }
 
-                .related-section {
-                    margin-top: 30px;
-                }
-
+                .related-section { margin-top: 30px; }
                 .section-header {
                     text-align: center;
                     margin-bottom: 20px;
                 }
-
                 .section-title {
                     font-size: 20px;
                     font-weight: 600;
                     color: #111;
                     margin-bottom: 6px;
                 }
-
                 .title-underline {
                     width: 50px;
                     height: 2px;
@@ -1074,14 +1135,12 @@ const ProductDetails = () => {
                     grid-template-columns: repeat(2, 1fr);
                     gap: 12px;
                 }
-
                 @media (min-width: 640px) {
                     .related-grid {
                         grid-template-columns: repeat(3, 1fr);
                         gap: 16px;
                     }
                 }
-
                 @media (min-width: 1024px) {
                     .related-grid {
                         grid-template-columns: repeat(4, 1fr);
@@ -1102,7 +1161,6 @@ const ProductDetails = () => {
                     cursor: pointer;
                     transition: all 0.2s;
                 }
-
                 .view-more-btn:hover {
                     background: #111;
                     color: white;
@@ -1122,10 +1180,7 @@ const ProductDetails = () => {
                     box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
                 }
 
-                .floating-buttons {
-                    display: flex;
-                    gap: 10px;
-                }
+                .floating-buttons { display: flex; gap: 10px; }
 
                 .floating-btn {
                     flex: 1;
@@ -1146,7 +1201,6 @@ const ProductDetails = () => {
                     background: #f5f5f5;
                     color: #111;
                 }
-
                 .floating-btn-cart:hover:not(:disabled) {
                     background: #e8e8e8;
                     transform: scale(1.02);
@@ -1156,12 +1210,10 @@ const ProductDetails = () => {
                     background: #111;
                     color: white;
                 }
-
                 .floating-btn-buy:hover:not(:disabled) {
                     background: #333;
                     transform: scale(1.02);
                 }
-
                 .floating-btn:disabled {
                     opacity: 0.5;
                     cursor: not-allowed;
