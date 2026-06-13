@@ -75,6 +75,23 @@ const ProductDetails = () => {
         }
     }, [selectedColor, product])
 
+    // Mettre à jour variantData quand la taille change
+    useEffect(() => {
+        if (product && product.variants && selectedColor && selectedSize) {
+            const exactVariant = product.variants.find(v => 
+                v.color === selectedColor && v.size === selectedSize
+            )
+            if (exactVariant) {
+                setVariantData(exactVariant)
+            }
+        } else if (product && product.variants && selectedColor) {
+            const colorVariant = product.variants.find(v => v.color === selectedColor)
+            if (colorVariant) {
+                setVariantData(colorVariant)
+            }
+        }
+    }, [selectedColor, selectedSize, product])
+
     useEffect(() => {
         if (selectedSize) {
             setSizeError('')
@@ -88,7 +105,6 @@ const ProductDetails = () => {
         }
     }, [product]);
 
-    // Mesure la largeur du conteneur de la galerie pour calculer le drag en pixels
     useEffect(() => {
         const updateWidth = () => {
             if (galleryRef.current) {
@@ -220,7 +236,6 @@ const ProductDetails = () => {
 
     const isOutOfStock = variantStock === 0;
 
-    // --- Swipe continu : le doigt déplace réellement le ruban d'images, snap au relâchement ---
     const handleTouchStart = (e) => {
         setTouchStart(e.targetTouches[0].clientX);
         setTouchEnd(e.targetTouches[0].clientX);
@@ -232,7 +247,6 @@ const ProductDetails = () => {
         setTouchEnd(currentX);
         let offset = currentX - touchStart;
 
-        // Résistance élastique aux extrémités
         if (currentImageIndex === 0 && offset > 0) offset = offset * 0.35;
         if (currentImageIndex === allImages.length - 1 && offset < 0) offset = offset * 0.35;
 
@@ -246,7 +260,7 @@ const ProductDetails = () => {
             return;
         }
         const diff = touchStart - touchEnd;
-        const threshold = galleryWidth * 0.18; // ~18% de la largeur pour valider le changement
+        const threshold = galleryWidth * 0.18;
 
         if (diff > threshold && currentImageIndex < allImages.length - 1) {
             setCurrentImageIndex((prev) => prev + 1);
@@ -356,7 +370,6 @@ const ProductDetails = () => {
 
                 <div className="product-main">
                     <div className="product-gallery">
-                        {/* Carrousel carré, swipe continu (drag en pixels réels) */}
                         <div 
                             className="main-image-container"
                             ref={galleryRef}
@@ -385,7 +398,6 @@ const ProductDetails = () => {
                             )}
                         </div>
 
-                        {/* Points de pagination */}
                         {allImages.length > 1 && (
                             <div className="image-dots">
                                 {allImages.map((_, idx) => (
@@ -398,7 +410,6 @@ const ProductDetails = () => {
                             </div>
                         )}
                         
-                        {/* Miniatures, sans flèches */}
                         {allImages.length > 1 && (
                             <div className="thumbnail-scroll" ref={scrollContainerRef}>
                                 {allImages.map((img, idx) => (
@@ -432,7 +443,6 @@ const ProductDetails = () => {
                             </div>
                         </div>
 
-                        {/* Couleurs juste après le prix, en haut, avant la note et le stock */}
                         {uniqueColors.length > 0 && (
                             <div 
                                 ref={colorSectionRef}
@@ -617,19 +627,46 @@ const ProductDetails = () => {
                 .product-main {
                     display: flex;
                     flex-direction: column;
-                    gap: 16px;
+                    gap: 20px;
                 }
 
                 @media (min-width: 768px) {
                     .product-main {
                         flex-direction: row;
-                        gap: 32px;
+                        gap: 40px;
+                        align-items: flex-start;
                     }
                     .product-gallery {
-                        flex: 1;
+                        flex: 0 0 45%;
+                        max-width: 45%;
+                        position: sticky;
+                        top: 80px;
                     }
                     .product-info {
-                        flex: 1;
+                        flex: 0 0 50%;
+                        max-width: 50%;
+                    }
+                }
+
+                @media (min-width: 1024px) {
+                    .product-gallery {
+                        flex: 0 0 42%;
+                        max-width: 42%;
+                    }
+                    .product-info {
+                        flex: 0 0 53%;
+                        max-width: 53%;
+                    }
+                }
+
+                @media (min-width: 1280px) {
+                    .product-gallery {
+                        flex: 0 0 40%;
+                        max-width: 40%;
+                    }
+                    .product-info {
+                        flex: 0 0 55%;
+                        max-width: 55%;
                     }
                 }
 
@@ -637,9 +674,9 @@ const ProductDetails = () => {
                     display: flex;
                     flex-direction: column;
                     gap: 12px;
+                    width: 100%;
                 }
 
-                /* --- Carrousel carré, swipe continu --- */
                 .main-image-container {
                     position: relative;
                     width: 100%;
@@ -658,11 +695,13 @@ const ProductDetails = () => {
                 .image-track {
                     display: flex;
                     height: 100%;
+                    width: 100%;
                     will-change: transform;
                 }
 
                 .image-slide {
                     flex-shrink: 0;
+                    width: 100%;
                     height: 100%;
                 }
 
@@ -690,7 +729,6 @@ const ProductDetails = () => {
                     pointer-events: none;
                 }
 
-                /* Points de pagination */
                 .image-dots {
                     display: flex;
                     justify-content: center;
@@ -712,7 +750,6 @@ const ProductDetails = () => {
                     border-radius: 4px;
                 }
 
-                /* Miniatures, sans flèches */
                 .thumbnail-scroll {
                     display: flex;
                     gap: 8px;
@@ -887,7 +924,6 @@ const ProductDetails = () => {
                     letter-spacing: normal;
                 }
 
-                /* --- Couleurs : rond + nom, sans cadre autour --- */
                 .color-row {
                     display: flex;
                     flex-wrap: wrap;
