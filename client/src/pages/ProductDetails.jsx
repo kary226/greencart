@@ -32,7 +32,7 @@ const ProductDetails = () => {
     const [touchEnd, setTouchEnd] = useState(0);
     const [isDragging, setIsDragging] = useState(false);
     const [dragOffset, setDragOffset] = useState(0);
-    const [galleryWidth, setGalleryWidth] = useState(0);
+    const [galleryWidth, setGalleryWidth] = useState(1); // Valeur par défaut pour éviter division par zéro
     
     const [averageRating, setAverageRating] = useState(4);
     const [totalReviews, setTotalReviews] = useState(0);
@@ -75,7 +75,7 @@ const ProductDetails = () => {
         }
     }, [selectedColor, product])
 
-    // Mettre à jour variantData quand la taille change
+    // Mettre à jour variantData quand la taille change (pour le stock)
     useEffect(() => {
         if (product && product.variants && selectedColor && selectedSize) {
             const exactVariant = product.variants.find(v => 
@@ -105,6 +105,7 @@ const ProductDetails = () => {
         }
     }, [product]);
 
+    // Mesure la largeur du conteneur de la galerie
     useEffect(() => {
         const updateWidth = () => {
             if (galleryRef.current) {
@@ -236,6 +237,7 @@ const ProductDetails = () => {
 
     const isOutOfStock = variantStock === 0;
 
+    // Swipe continu
     const handleTouchStart = (e) => {
         setTouchStart(e.targetTouches[0].clientX);
         setTouchEnd(e.targetTouches[0].clientX);
@@ -380,12 +382,16 @@ const ProductDetails = () => {
                             <div 
                                 className="image-track"
                                 style={{
-                                    transform: `translateX(${-currentImageIndex * galleryWidth + dragOffset}px)`,
+                                    transform: galleryWidth ? `translateX(${-currentImageIndex * galleryWidth + dragOffset}px)` : 'translateX(0px)',
                                     transition: isDragging ? 'none' : 'transform 0.4s cubic-bezier(0.22, 0.61, 0.36, 1)'
                                 }}
                             >
                                 {allImages.map((img, idx) => (
-                                    <div className="image-slide" key={idx} style={{ width: galleryWidth }}>
+                                    <div 
+                                        className="image-slide" 
+                                        key={idx} 
+                                        style={{ width: galleryWidth || '100%' }}
+                                    >
                                         <img src={img} alt={`${product.name} - vue ${idx + 1}`} draggable="false" />
                                     </div>
                                 ))}
