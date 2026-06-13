@@ -29,6 +29,8 @@ const ProductDetails = () => {
     
     const [touchStart, setTouchStart] = useState(0);
     const [touchEnd, setTouchEnd] = useState(0);
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragOffset, setDragOffset] = useState(0);
     
     const [averageRating, setAverageRating] = useState(4);
     const [totalReviews, setTotalReviews] = useState(0);
@@ -83,27 +85,6 @@ const ProductDetails = () => {
             addToRecentlyViewed(product);
         }
     }, [product]);
-
-    const handleTouchStart = (e) => {
-        setTouchStart(e.targetTouches[0].clientX);
-    };
-
-    const handleTouchMove = (e) => {
-        setTouchEnd(e.targetTouches[0].clientX);
-    };
-
-    const handleTouchEnd = () => {
-        if (!touchStart || !touchEnd) return;
-        const diff = touchStart - touchEnd;
-        if (diff > 50) {
-            setCurrentImageIndex((prev) => (prev + 1) % allImages.length);
-        }
-        if (diff < -50) {
-            setCurrentImageIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
-        }
-        setTouchStart(0);
-        setTouchEnd(0);
-    };
 
     const getProductCategory = () => {
         if (product?.categories && product.categories.length > 0) {
@@ -225,30 +206,44 @@ const ProductDetails = () => {
 
     const isOutOfStock = variantStock === 0;
 
-    // Fonction corrigée : navigation entre les miniatures avec défilement intelligent
-    const scrollImages = (direction) => {
-        let newIndex = currentImageIndex;
-        
-        if (direction === 'left') {
-            newIndex = Math.max(0, currentImageIndex - 1);
-        } else {
-            newIndex = Math.min(allImages.length - 1, currentImageIndex + 1);
+    // --- Gestion du swipe avec aperçu des images voisines ---
+    const handleTouchStart = (e) => {
+        setTouchStart(e.targetTouches[0].clientX);
+        setTouchEnd(e.targetTouches[0].clientX);
+        setIsDragging(true);
+    };
+
+    const handleTouchMove = (e) => {
+        const currentX = e.targetTouches[0].clientX;
+        setTouchEnd(currentX);
+        let offset = currentX - touchStart;
+
+        // Empêche de glisser au-delà de la première/dernière image
+        if (currentImageIndex === 0 && offset > 0) offset = offset * 0.3;
+        if (currentImageIndex === allImages.length - 1 && offset < 0) offset = offset * 0.3;
+
+        setDragOffset(offset);
+    };
+
+    const handleTouchEnd = () => {
+        if (!touchStart || !touchEnd) {
+            setIsDragging(false);
+            setDragOffset(0);
+            return;
         }
-        
-        if (newIndex !== currentImageIndex) {
-            setCurrentImageIndex(newIndex);
-            
-            // Faire défiler la miniature nouvellement sélectionnée pour qu'elle soit visible
-            setTimeout(() => {
-                if (scrollContainerRef.current && thumbnailRefs.current[newIndex]) {
-                    thumbnailRefs.current[newIndex].scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'nearest',
-                        inline: 'center'
-                    });
-                }
-            }, 50);
+        const diff = touchStart - touchEnd;
+        const threshold = 50;
+
+        if (diff > threshold && currentImageIndex < allImages.length - 1) {
+            setCurrentImageIndex((prev) => prev + 1);
+        } else if (diff < -threshold && currentImageIndex > 0) {
+            setCurrentImageIndex((prev) => prev - 1);
         }
+
+        setIsDragging(false);
+        setDragOffset(0);
+        setTouchStart(0);
+        setTouchEnd(0);
     };
 
     const renderStars = (rating) => {
@@ -347,41 +342,60 @@ const ProductDetails = () => {
 
                 <div className="product-main">
                     <div className="product-gallery">
+                        {/* Carrousel "peek" : on aperçoit un bout des images voisines */}
                         <div 
                             className="main-image-container"
                             onTouchStart={handleTouchStart}
                             onTouchMove={handleTouchMove}
                             onTouchEnd={handleTouchEnd}
                         >
-                            <img src={allImages[currentImageIndex]} alt={product.name} className="main-image" />
-                        </div>
-                        
-                        {allImages.length > 1 && (
-                            <div className="thumbnail-carousel">
-                                <button onClick={() => scrollImages('left')} className="carousel-nav carousel-prev">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M15 18l-6-6 6-6"/>
-                                    </svg>
-                                </button>
-                                
-                                <div className="thumbnail-scroll" ref={scrollContainerRef}>
-                                    {allImages.map((img, idx) => (
-                                        <div 
-                                            key={idx} 
-                                            ref={el => thumbnailRefs.current[idx] = el}
-                                            onClick={() => setCurrentImageIndex(idx)}
-                                            className={`thumbnail-item ${currentImageIndex === idx ? 'active' : ''}`}
-                                        >
-                                            <img src={img} alt={`${product.name} - vue ${idx + 1}`} />
-                                        </div>
-                                    ))}
+                            <div 
+                                className="image-track"
+                                style={{
+                                    transform: `translateX(calc(${-currentImageIndex * 100}% + ${currentImageIndex * 24}px + ${dragOffset}px))`,
+                                    transition: isDragging ? 'none' : 'transform 0.35s cubic-bezier(0.25, 0.8, 0.25, 1)'
+                                }}
+                            >
+                                {allImages.map((img, idx) => (
+                                    <div className="image-slide" key={idx}>
+                                        <img src={img} alt={`${product.name} - vue ${idx + 1}`} draggable="false" />
+                                    </div>
+                                ))}
+                            </div>
+
+                            {allImages.length > 1 && (
+                                <div className="image-counter">
+                                    {currentImageIndex + 1} / {allImages.length}
                                 </div>
-                                
-                                <button onClick={() => scrollImages('right')} className="carousel-nav carousel-next">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M9 18l6-6-6-6"/>
-                                    </svg>
-                                </button>
+                            )}
+                        </div>
+
+                        {/* Indicateurs de pagination (points) */}
+                        {allImages.length > 1 && (
+                            <div className="image-dots">
+                                {allImages.map((_, idx) => (
+                                    <span 
+                                        key={idx} 
+                                        className={`dot ${currentImageIndex === idx ? 'active' : ''}`}
+                                        onClick={() => setCurrentImageIndex(idx)}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                        
+                        {/* Miniatures sans flèches de navigation */}
+                        {allImages.length > 1 && (
+                            <div className="thumbnail-scroll" ref={scrollContainerRef}>
+                                {allImages.map((img, idx) => (
+                                    <div 
+                                        key={idx} 
+                                        ref={el => thumbnailRefs.current[idx] = el}
+                                        onClick={() => setCurrentImageIndex(idx)}
+                                        className={`thumbnail-item ${currentImageIndex === idx ? 'active' : ''}`}
+                                    >
+                                        <img src={img} alt={`${product.name} - miniature ${idx + 1}`} />
+                                    </div>
+                                ))}
                             </div>
                         )}
                     </div>
@@ -395,7 +409,6 @@ const ProductDetails = () => {
                             <span className="rating-count">({totalReviews} avis)</span>
                         </div>
 
-                        {/* BLOC ESSENTIEL : prix, stock, couleur, taille - regroupés et compacts pour rester visibles sans scroll */}
                         <div className="essential-info">
                             <div className="product-pricing-vertical">
                                 {currentOfferPrice && currentOfferPrice < currentPrice && (
@@ -415,15 +428,17 @@ const ProductDetails = () => {
                                 {getStockLabel(currentStock)}
                             </p>
 
+                            {/* Section couleurs redessinée : grille de cartes avec pastille + libellé clairement séparés */}
                             {uniqueColors.length > 0 && (
                                 <div 
                                     ref={colorSectionRef}
                                     className={`option-group ${highlightColor ? 'highlight-error' : ''}`}
                                 >
                                     <p className="option-label">
-                                        Couleur : <span style={{color: variantData?.colorCode}}>{selectedColor || 'Non sélectionnée'}</span>
+                                        Couleur
+                                        {selectedColor && <span className="option-value"> — {selectedColor}</span>}
                                     </p>
-                                    <div className="colors-buttons">
+                                    <div className="color-grid">
                                         {uniqueColors.map((color, i) => {
                                             const variant = product.variants.find(v => v.color === color)
                                             const isAvailable = variant?.stock > 0
@@ -433,26 +448,17 @@ const ProductDetails = () => {
                                                     key={i} 
                                                     onClick={() => handleColorSelect(color)}
                                                     disabled={!isAvailable}
-                                                    className={`color-btn ${!isAvailable ? 'disabled' : isSelected ? 'active' : ''}`}
-                                                    style={{backgroundColor: variant?.colorCode || '#000000'}}
+                                                    className={`color-chip ${!isAvailable ? 'disabled' : isSelected ? 'active' : ''}`}
                                                     title={color}
                                                 >
-                                                    {!isAvailable && <span className="out-of-strip"></span>}
+                                                    <span 
+                                                        className="color-swatch" 
+                                                        style={{backgroundColor: variant?.colorCode || '#000000'}}
+                                                    >
+                                                        {!isAvailable && <span className="out-of-strip"></span>}
+                                                    </span>
+                                                    <span className="color-chip-label">{color}</span>
                                                 </button>
-                                            )
-                                        })}
-                                    </div>
-                                    <div className="color-names">
-                                        {uniqueColors.map((color, i) => {
-                                            const isSelected = selectedColor === color
-                                            return (
-                                                <span 
-                                                    key={i} 
-                                                    className={`color-name ${isSelected ? 'active' : ''}`}
-                                                    onClick={() => handleColorSelect(color)}
-                                                >
-                                                    {color}
-                                                </span>
                                             )
                                         })}
                                     </div>
@@ -475,7 +481,8 @@ const ProductDetails = () => {
                                     className={`option-group option-group-last ${highlightSize ? 'highlight-error' : ''}`}
                                 >
                                     <p className="option-label">
-                                        Taille : <span>{selectedSize || 'Non sélectionnée'}</span>
+                                        Taille
+                                        {selectedSize && <span className="option-value"> — {selectedSize}</span>}
                                     </p>
                                     <div className="sizes-buttons">
                                         {uniqueSizes.map((size, i) => (
@@ -592,7 +599,7 @@ const ProductDetails = () => {
                 .product-main {
                     display: flex;
                     flex-direction: column;
-                    gap: 12px;
+                    gap: 16px;
                 }
 
                 @media (min-width: 768px) {
@@ -611,102 +618,123 @@ const ProductDetails = () => {
                 .product-gallery {
                     display: flex;
                     flex-direction: column;
-                    gap: 8px;
+                    gap: 12px;
                 }
 
+                /* --- Carrousel principal avec aperçu ("peek") --- */
                 .main-image-container {
+                    position: relative;
                     width: 100%;
                     aspect-ratio: 1/1;
-                    max-height: 300px;
-                    background: #f5f3f0;
-                    border-radius: 16px;
+                    max-height: 420px;
                     overflow: hidden;
+                    border-radius: 18px;
+                    background: #f5f3f0;
                     cursor: grab;
-                }
-
-                @media (min-width: 768px) {
-                    .main-image-container {
-                        max-height: 380px;
-                    }
+                    /* On déborde un peu sur les côtés pour laisser apparaître l'image voisine */
+                    padding: 0 24px;
+                    box-sizing: border-box;
                 }
 
                 .main-image-container:active {
                     cursor: grabbing;
                 }
 
-                .main-image {
+                .image-track {
+                    display: flex;
+                    height: 100%;
+                    width: 100%;
+                    will-change: transform;
+                }
+
+                .image-slide {
+                    flex: 0 0 100%;
+                    width: 100%;
+                    height: 100%;
+                    padding: 0 4px;
+                    box-sizing: border-box;
+                    border-radius: 16px;
+                    overflow: hidden;
+                }
+
+                .image-slide img {
                     width: 100%;
                     height: 100%;
                     object-fit: cover;
+                    border-radius: 16px;
+                    pointer-events: none;
+                    user-select: none;
+                }
+
+                .image-counter {
+                    position: absolute;
+                    bottom: 12px;
+                    right: 12px;
+                    background: rgba(0,0,0,0.55);
+                    color: white;
+                    font-size: 11px;
+                    font-weight: 500;
+                    padding: 4px 10px;
+                    border-radius: 20px;
+                    backdrop-filter: blur(4px);
+                    letter-spacing: 0.02em;
                     pointer-events: none;
                 }
 
-                .thumbnail-carousel {
+                /* Points de pagination */
+                .image-dots {
                     display: flex;
-                    align-items: center;
+                    justify-content: center;
                     gap: 6px;
                 }
 
-                .carousel-nav {
-                    width: 28px;
-                    height: 28px;
+                .dot {
+                    width: 6px;
+                    height: 6px;
                     border-radius: 50%;
-                    background: white;
-                    border: 1px solid #e8e3dc;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
+                    background: #e0dcd5;
                     cursor: pointer;
-                    transition: all 0.2s;
-                    flex-shrink: 0;
+                    transition: all 0.25s ease;
                 }
 
-                .carousel-nav:hover {
+                .dot.active {
                     background: #111;
-                    color: white;
-                    border-color: #111;
+                    width: 18px;
+                    border-radius: 4px;
                 }
 
+                /* Miniatures, sans flèches */
                 .thumbnail-scroll {
                     display: flex;
                     gap: 8px;
                     overflow-x: auto;
                     scroll-behavior: smooth;
-                    scrollbar-width: thin;
-                    flex: 1;
+                    scrollbar-width: none;
                 }
 
                 .thumbnail-scroll::-webkit-scrollbar {
-                    height: 2px;
-                }
-
-                .thumbnail-scroll::-webkit-scrollbar-track {
-                    background: #f0ede8;
-                    border-radius: 10px;
-                }
-
-                .thumbnail-scroll::-webkit-scrollbar-thumb {
-                    background: #ccc;
-                    border-radius: 10px;
+                    display: none;
                 }
 
                 .thumbnail-item {
-                    width: 50px;
-                    height: 50px;
+                    width: 58px;
+                    height: 58px;
                     flex-shrink: 0;
-                    border-radius: 10px;
+                    border-radius: 12px;
                     overflow: hidden;
                     cursor: pointer;
                     border: 2px solid transparent;
                     transition: all 0.2s;
+                    opacity: 0.6;
                 }
 
                 .thumbnail-item.active {
                     border-color: #111;
+                    opacity: 1;
                 }
 
                 .thumbnail-item:hover {
-                    transform: scale(1.02);
+                    opacity: 1;
                 }
 
                 .thumbnail-item img {
@@ -722,8 +750,8 @@ const ProductDetails = () => {
                 }
 
                 .star {
-                    width: 14px;
-                    height: 14px;
+                    width: 15px;
+                    height: 15px;
                 }
 
                 .star-full {
@@ -742,16 +770,16 @@ const ProductDetails = () => {
                 }
 
                 .product-title {
-                    font-size: 17px;
+                    font-size: 19px;
                     font-weight: 600;
                     color: #111;
-                    margin-bottom: 4px;
+                    margin-bottom: 6px;
                     line-height: 1.3;
                 }
 
                 @media (min-width: 768px) {
                     .product-title {
-                        font-size: 24px;
+                        font-size: 26px;
                     }
                 }
 
@@ -759,7 +787,7 @@ const ProductDetails = () => {
                     display: flex;
                     align-items: center;
                     gap: 6px;
-                    margin-bottom: 8px;
+                    margin-bottom: 12px;
                     flex-wrap: wrap;
                 }
 
@@ -774,23 +802,22 @@ const ProductDetails = () => {
                     color: #888;
                 }
 
-                /* Bloc compact regroupant prix / stock / couleur / taille */
                 .essential-info {
                     background: #fafafa;
                     border: 1px solid #f0ede8;
-                    border-radius: 14px;
-                    padding: 10px 12px;
-                    margin-bottom: 12px;
+                    border-radius: 16px;
+                    padding: 14px 16px;
+                    margin-bottom: 14px;
                 }
 
                 .product-pricing-vertical {
                     display: flex;
                     flex-direction: column;
                     gap: 2px;
-                    margin-bottom: 6px;
+                    margin-bottom: 10px;
                 }
                 .old-price-vertical {
-                    font-size: 12px;
+                    font-size: 13px;
                     color: #bbb;
                     text-decoration: line-through;
                 }
@@ -801,7 +828,7 @@ const ProductDetails = () => {
                     flex-wrap: wrap;
                 }
                 .current-price-vertical {
-                    font-size: 20px;
+                    font-size: 23px;
                     font-weight: 700;
                     color: #111;
                 }
@@ -817,7 +844,7 @@ const ProductDetails = () => {
                 .stock-info {
                     font-size: 12px;
                     font-weight: 500;
-                    margin-bottom: 8px;
+                    margin-bottom: 14px;
                 }
 
                 .text-red-500 { color: #e53935; }
@@ -825,7 +852,7 @@ const ProductDetails = () => {
                 .text-green-600 { color: #4caf50; }
 
                 .option-group {
-                    margin-bottom: 10px;
+                    margin-bottom: 14px;
                     transition: all 0.3s ease;
                 }
 
@@ -836,8 +863,8 @@ const ProductDetails = () => {
                 .option-group.highlight-error {
                     background: #fef2f2;
                     border-radius: 12px;
-                    padding: 8px;
-                    margin: -8px -8px 10px -8px;
+                    padding: 10px;
+                    margin: -10px -10px 14px -10px;
                     animation: shake 0.5s ease-in-out;
                 }
 
@@ -849,48 +876,66 @@ const ProductDetails = () => {
 
                 .option-label {
                     font-size: 12px;
-                    font-weight: 500;
-                    margin-bottom: 6px;
+                    font-weight: 600;
+                    margin-bottom: 10px;
                     color: #333;
+                    text-transform: uppercase;
+                    letter-spacing: 0.06em;
                 }
 
-                .option-label span {
+                .option-value {
                     color: #111;
                     font-weight: 600;
+                    text-transform: none;
+                    letter-spacing: normal;
                 }
 
-                .colors-buttons {
-                    display: flex;
-                    flex-wrap: wrap;
+                /* --- Grille de couleurs : pastille + libellé bien séparés --- */
+                .color-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
                     gap: 8px;
-                    margin-bottom: 6px;
                 }
 
-                .color-btn {
+                .color-chip {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 6px;
+                    padding: 10px 6px;
+                    border-radius: 12px;
+                    border: 1.5px solid #e8e3dc;
+                    background: white;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+
+                .color-chip:hover:not(.disabled) {
+                    border-color: #ccc;
+                    transform: translateY(-1px);
+                }
+
+                .color-chip.active {
+                    border-color: #111;
+                    background: #111;
+                }
+
+                .color-chip.active .color-chip-label {
+                    color: white;
+                }
+
+                .color-chip.disabled {
+                    opacity: 0.4;
+                    cursor: not-allowed;
+                }
+
+                .color-swatch {
                     width: 28px;
                     height: 28px;
                     border-radius: 50%;
-                    border: 2px solid #e8e3dc;
-                    cursor: pointer;
-                    transition: all 0.2s;
+                    border: 1px solid rgba(0,0,0,0.08);
                     position: relative;
-                }
-
-                .color-btn.active {
-                    border-color: #111;
-                    transform: scale(1.1);
-                    box-shadow: 0 0 0 2px white, 0 0 0 4px #111;
-                }
-
-                .color-btn:hover:not(.disabled) {
-                    transform: scale(1.05);
-                    border-color: #111;
-                }
-
-                .color-btn.disabled {
-                    opacity: 0.4;
-                    cursor: not-allowed;
-                    position: relative;
+                    flex-shrink: 0;
                 }
 
                 .out-of-strip {
@@ -898,46 +943,36 @@ const ProductDetails = () => {
                     top: 50%;
                     left: 50%;
                     width: 2px;
-                    height: 22px;
+                    height: 24px;
                     background: #e53935;
                     transform: translate(-50%, -50%) rotate(45deg);
                 }
 
-                .color-names {
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 10px;
-                }
-
-                .color-name {
+                .color-chip-label {
                     font-size: 11px;
-                    color: #888;
-                    cursor: pointer;
-                    transition: color 0.2s;
-                }
-
-                .color-name:hover {
-                    color: #111;
-                }
-
-                .color-name.active {
-                    color: #111;
-                    font-weight: 600;
+                    font-weight: 500;
+                    color: #555;
+                    text-align: center;
+                    line-height: 1.2;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    max-width: 100%;
                 }
 
                 .sizes-buttons {
                     display: flex;
                     flex-wrap: wrap;
-                    gap: 6px;
+                    gap: 8px;
                 }
 
                 .size-btn {
-                    width: 38px;
-                    height: 38px;
+                    width: 42px;
+                    height: 42px;
                     border-radius: 10px;
                     border: 1.5px solid #e8e3dc;
                     background: white;
-                    font-size: 12px;
+                    font-size: 13px;
                     font-weight: 500;
                     cursor: pointer;
                     transition: all 0.2s;
@@ -966,7 +1001,7 @@ const ProductDetails = () => {
                     font-weight: 500;
                     padding: 8px 12px;
                     border-radius: 10px;
-                    margin-top: 8px;
+                    margin-top: 10px;
                     border: 1px solid #fecaca;
                 }
 
@@ -975,10 +1010,10 @@ const ProductDetails = () => {
                 }
 
                 .cart-indicator {
-                    font-size: 11px;
+                    font-size: 12px;
                     color: #111;
                     font-weight: 500;
-                    margin-top: 8px;
+                    margin-top: 10px;
                 }
 
                 .product-description {
