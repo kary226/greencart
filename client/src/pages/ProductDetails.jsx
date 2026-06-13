@@ -418,6 +418,12 @@ const ProductDetails = () => {
                     <div className="product-info">
                         <h1 className="product-title">{product.name}</h1>
 
+                        <div className="product-rating">
+                            {renderStars(averageRating)}
+                            <span className="rating-value">{averageRating}/5</span>
+                            <span className="rating-count">({totalReviews} avis)</span>
+                        </div>
+
                         <div className="product-pricing-vertical">
                             {currentOfferPrice && currentOfferPrice < currentPrice && (
                                 <div className="old-price-vertical">{currentPrice} {currency}</div>
@@ -432,7 +438,11 @@ const ProductDetails = () => {
                             </div>
                         </div>
 
-                        {/* Couleurs juste après le prix, en haut, avant la note et le stock */}
+                        <p className={`stock-info ${getStockColor(currentStock)}`}>
+                            {getStockLabel(currentStock)}
+                        </p>
+
+                        {/* Couleurs remontées juste sous le prix/stock, sans cadres : juste un rond + le nom */}
                         {uniqueColors.length > 0 && (
                             <div 
                                 ref={colorSectionRef}
@@ -483,16 +493,6 @@ const ProductDetails = () => {
                                 )}
                             </div>
                         )}
-
-                        <div className="product-rating">
-                            {renderStars(averageRating)}
-                            <span className="rating-value">{averageRating}/5</span>
-                            <span className="rating-count">({totalReviews} avis)</span>
-                        </div>
-
-                        <p className={`stock-info ${getStockColor(currentStock)}`}>
-                            {getStockLabel(currentStock)}
-                        </p>
 
                         {uniqueSizes.length > 0 && (
                             <div 
@@ -796,7 +796,7 @@ const ProductDetails = () => {
                     display: flex;
                     align-items: center;
                     gap: 6px;
-                    margin: 6px 0;
+                    margin-bottom: 12px;
                     flex-wrap: wrap;
                 }
 
@@ -815,7 +815,7 @@ const ProductDetails = () => {
                     display: flex;
                     flex-direction: column;
                     gap: 2px;
-                    margin-bottom: 4px;
+                    margin-bottom: 8px;
                 }
                 .old-price-vertical {
                     font-size: 13px;
