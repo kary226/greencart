@@ -51,7 +51,7 @@ export const AppContextProvider = ({ children }) => {
     const navigate = useNavigate();
 
     const [user, setUser] = useState(null);
-    const [token, setToken] = useState(getToken());  // ← AJOUTÉ
+    const [token, setToken] = useState(getToken());
     const [isSeller, setIsSeller] = useState(getIsSeller);
     const [showUserLogin, setShowUserLogin] = useState(false);
     const [products, setProducts] = useState([]);
@@ -145,7 +145,6 @@ export const AppContextProvider = ({ children }) => {
         const token = getToken();
         if (!token) return;
         
-        // Ne pas vérifier l'utilisateur sur les pages seller
         if (window.location.pathname.includes('/seller')) {
             return;
         }
@@ -165,7 +164,6 @@ export const AppContextProvider = ({ children }) => {
                 setUser(null);
             }
         } catch (error) {
-            // Ne pas afficher le modal sur les pages seller
             if (!window.location.pathname.includes('/seller')) {
                 if (error.response?.data?.redirectToLogin) {
                     setShowUserLogin(true);
@@ -187,7 +185,6 @@ export const AppContextProvider = ({ children }) => {
 
     const fetchWishlist = async () => {
         if (!user) return;
-        // Ne pas exécuter sur les pages seller
         if (window.location.pathname.includes('/seller')) return;
         
         try {
@@ -317,18 +314,25 @@ export const AppContextProvider = ({ children }) => {
         return totalAmount;
     };
 
+    // ✅ LOGIN USER CORRIGÉ - Fusion du panier local
     const loginUser = async (email, password) => {
         try {
             const { data } = await axios.post('/api/user/login', { email, password });
             if (data.success) {
                 localStorage.setItem('token', data.token);
-                setToken(data.token);  // ← AJOUTÉ
+                setToken(data.token);
                 setAuthToken(data.token);
-                setUser(data.user);
+                
+                // Récupérer le panier local avant de le perdre
                 const localCart = loadCartFromLocalStorage();
+                
+                setUser(data.user);
+                
+                // Fusionner le panier local avec le panier du serveur
                 const serverCart = data.user.cartItems || {};
                 const mergedCart = { ...serverCart, ...localCart };
                 setCartItems(mergedCart);
+                
                 await fetchOrders();
                 toast.success("Connexion réussie");
                 navigate('/');
@@ -340,6 +344,7 @@ export const AppContextProvider = ({ children }) => {
         }
     };
 
+    // ✅ REGISTER USER CORRIGÉ - Garde le panier local
     const registerUser = async (firstName, lastName, email, password) => {
         try {
             const { data } = await axios.post('/api/user/register', {
@@ -350,10 +355,17 @@ export const AppContextProvider = ({ children }) => {
             });
             if (data.success) {
                 localStorage.setItem('token', data.token);
-                setToken(data.token);  // ← AJOUTÉ
+                setToken(data.token);
                 setAuthToken(data.token);
+                
+                // Récupérer le panier local
+                const localCart = loadCartFromLocalStorage();
+                
                 setUser(data.user);
-                setCartItems({});
+                
+                // Le panier du serveur est vide pour un nouveau compte
+                setCartItems(localCart);
+                
                 toast.success("Inscription réussie");
                 navigate('/');
             } else {
@@ -364,18 +376,27 @@ export const AppContextProvider = ({ children }) => {
         }
     };
 
+    // ✅ LOGOUT USER CORRIGÉ - Sauvegarde le panier
     const logoutUser = async () => {
         try {
+            // Sauvegarder le panier dans localStorage avant déconnexion
+            if (cartItems && Object.keys(cartItems).length > 0) {
+                localStorage.setItem(CART_KEY, JSON.stringify(cartItems));
+            }
+            
             await axios.post('/api/user/logout');
             localStorage.removeItem('token');
             localStorage.removeItem('isSeller');
             localStorage.removeItem('sellerData');
-            setToken(null);  // ← AJOUTÉ
+            setToken(null);
             setAuthToken(null);
             setUser(null);
             setIsSeller(false);
-            setCartItems({});
+            
+            // Recharger le panier depuis localStorage (pas de perte)
+            setCartItems(loadCartFromLocalStorage());
             setOrders([]);
+            
             toast.success("Déconnexion réussie");
             navigate('/');
         } catch (error) {
@@ -388,7 +409,7 @@ export const AppContextProvider = ({ children }) => {
             const { data } = await axios.post('/api/seller/login', { email, password });
             if (data.success) {
                 localStorage.setItem('token', data.token);
-                setToken(data.token);  // ← AJOUTÉ
+                setToken(data.token);
                 localStorage.setItem('isSeller', 'true');
                 if (data.seller) {
                     localStorage.setItem('sellerData', JSON.stringify(data.seller));
@@ -410,7 +431,7 @@ export const AppContextProvider = ({ children }) => {
         localStorage.removeItem('token');
         localStorage.removeItem('isSeller');
         localStorage.removeItem('sellerData');
-        setToken(null);  // ← AJOUTÉ
+        setToken(null);
         setAuthToken(null);
         setIsSeller(false);
         setUser(null);
@@ -463,7 +484,7 @@ export const AppContextProvider = ({ children }) => {
     }, [cartItems]);
 
     const value = {
-        navigate, user, setUser, token, setToken,  // ← token et setToken AJOUTÉS
+        navigate, user, setUser, token, setToken,
         setIsSeller, isSeller,
         showUserLogin, setShowUserLogin, products, currency,
         addToCart, addToCartWithQuantity, updateCartItem, removeFromCart, cartItems,

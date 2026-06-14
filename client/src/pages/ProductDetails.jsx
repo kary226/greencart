@@ -21,11 +21,14 @@ const ProductDetails = () => {
     const thumbnailRefs = useRef([]);
     const colorSectionRef = useRef(null);
     const sizeSectionRef = useRef(null);
+    const relatedCarouselRef = useRef(null);
     
     const [colorError, setColorError] = useState('')
     const [sizeError, setSizeError] = useState('')
     const [highlightColor, setHighlightColor] = useState(false)
     const [highlightSize, setHighlightSize] = useState(false)
+    const [showRelatedPrev, setShowRelatedPrev] = useState(false);
+    const [showRelatedNext, setShowRelatedNext] = useState(true);
     
     // Swipe states - version simplifiée
     const [touchStart, setTouchStart] = useState(0);
@@ -35,7 +38,7 @@ const ProductDetails = () => {
     const [averageRating, setAverageRating] = useState(4);
     const [totalReviews, setTotalReviews] = useState(0);
     const [showDetails, setShowDetails] = useState(false);
-    const [reviewsKey, setReviewsKey] = useState(0); // Pour forcer le refresh des avis
+    const [reviewsKey, setReviewsKey] = useState(0);
 
     const product = products.find((item)=> item._id === id);
 
@@ -111,10 +114,27 @@ const ProductDetails = () => {
     useEffect(() => {
         if (product) {
             addToRecentlyViewed(product);
-            // Rafraîchir le composant RecentlyViewed quand le produit change
             setReviewsKey(prev => prev + 1);
         }
     }, [product]);
+
+    // Vérifier la position du scroll du carrousel
+    const checkRelatedScroll = () => {
+        if (relatedCarouselRef.current) {
+            const { scrollLeft, scrollWidth, clientWidth } = relatedCarouselRef.current;
+            setShowRelatedPrev(scrollLeft > 20);
+            setShowRelatedNext(scrollLeft + clientWidth < scrollWidth - 20);
+        }
+    };
+
+    // Scroll du carrousel
+    const scrollRelated = (direction) => {
+        if (relatedCarouselRef.current) {
+            const scrollAmount = direction === 'left' ? -280 : 280;
+            relatedCarouselRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+            setTimeout(checkRelatedScroll, 300);
+        }
+    };
 
     // Swipe handlers
     const handleTouchStart = (e) => {
@@ -330,7 +350,8 @@ const ProductDetails = () => {
                 }
                 return false
             })
-            setRelatedProducts(productsCopy.slice(0,5))
+            setRelatedProducts(productsCopy.slice(0,12))
+            setTimeout(checkRelatedScroll, 100);
         }
         setSelectedColor(null)
         setSelectedSize(null)
@@ -578,32 +599,58 @@ const ProductDetails = () => {
                     </div>
                 </div>
 
-                {/* Section Articles similaires */}
-                <div className="related-section">
-                    <div className="section-header">
-                        <div className="section-icon">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="1.8">
-                                <path d="M20 7h-4.18A3 3 0 0 0 13 5h-2a3 3 0 0 0-2.82 2H4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
-                                <path d="M12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
-                            </svg>
+                {/* Section Articles similaires - Carrousel horizontal */}
+                {relatedProducts.length > 0 && (
+                    <div className="related-section">
+                        <div className="section-header">
+                            <div className="section-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="1.8">
+                                    <path d="M20 7h-4.18A3 3 0 0 0 13 5h-2a3 3 0 0 0-2.82 2H4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
+                                    <path d="M12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <p className="section-title">Articles similaires</p>
+                                <p className="section-subtitle">Vous pourriez aussi aimer</p>
+                            </div>
+                            <div className="title-underline"></div>
                         </div>
-                        <div>
-                            <p className="section-title">Articles similaires</p>
-                            <p className="section-subtitle">Vous pourriez aussi aimer</p>
+                        
+                        <div className="related-carousel-container">
+                            {showRelatedPrev && (
+                                <button className="carousel-nav related-prev" onClick={() => scrollRelated('left')}>
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                        <path d="M15 18l-6-6 6-6"/>
+                                    </svg>
+                                </button>
+                            )}
+                            
+                            <div className="related-carousel" ref={relatedCarouselRef} onScroll={checkRelatedScroll}>
+                                <div className="related-track">
+                                    {relatedProducts.filter((product)=>product.inStock).map((product, index)=>(
+                                        <div key={index} className="related-item">
+                                            <ProductCard product={product}/>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            
+                            {showRelatedNext && (
+                                <button className="carousel-nav related-next" onClick={() => scrollRelated('right')}>
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                        <path d="M9 18l6-6-6-6"/>
+                                    </svg>
+                                </button>
+                            )}
                         </div>
-                        <div className="title-underline"></div>
+                        
+                        {relatedProducts.length > 8 && (
+                            <button onClick={()=> {navigate('/products'); scrollTo(0,0)}} className="view-more-btn">
+                                Voir plus
+                            </button>
+                        )}
                     </div>
-                    <div className="related-grid">
-                        {relatedProducts.filter((product)=>product.inStock).slice(0, 8).map((product, index)=>(
-                            <ProductCard key={index} product={product}/>
-                        ))}
-                    </div>
-                    {relatedProducts.length > 8 && (
-                        <button onClick={()=> {navigate('/products'); scrollTo(0,0)}} className="view-more-btn">
-                            Voir plus
-                        </button>
-                    )}
-                </div>
+                )}
 
                 {/* Section Avis clients modernisée */}
                 <div className="reviews-modern-section">
@@ -630,23 +677,8 @@ const ProductDetails = () => {
                     />
                 </div>
 
-                {/* Section Récemment consultés modernisée */}
-                <div className="recently-viewed-section">
-                    <div className="section-header">
-                        <div className="section-icon">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="1.8">
-                                <circle cx="12" cy="12" r="10"/>
-                                <polyline points="12 6 12 12 16 14"/>
-                            </svg>
-                        </div>
-                        <div>
-                            <p className="section-title">Récemment consultés</p>
-                            <p className="section-subtitle">Les produits que vous avez vus récemment</p>
-                        </div>
-                        <div className="title-underline"></div>
-                    </div>
-                    <RecentlyViewed key={reviewsKey} />
-                </div>
+                {/* Section Récemment consultés - une seule fois */}
+                <RecentlyViewed key={reviewsKey} />
             </div>
 
             <div className="floating-action-bar">
@@ -1203,15 +1235,92 @@ const ProductDetails = () => {
                     margin-bottom: 6px;
                 }
 
-                /* Section articles similaires modernisée */
+                /* Section articles similaires - Carrousel horizontal */
                 .related-section {
                     margin-top: 48px;
                     padding: 24px 0;
                 }
 
-                /* Sections modernisées (Avis et Récemment consultés) */
-                .reviews-modern-section,
-                .recently-viewed-section {
+                .related-carousel-container {
+                    position: relative;
+                    margin: 20px 0;
+                }
+
+                .related-carousel {
+                    overflow-x: auto;
+                    scroll-behavior: smooth;
+                    scrollbar-width: none;
+                    -ms-overflow-style: none;
+                    padding: 4px 0;
+                }
+
+                .related-carousel::-webkit-scrollbar {
+                    display: none;
+                }
+
+                .related-track {
+                    display: flex;
+                    gap: 16px;
+                    min-width: max-content;
+                }
+
+                .related-item {
+                    width: 160px;
+                    flex-shrink: 0;
+                }
+
+                @media (min-width: 640px) {
+                    .related-item {
+                        width: 180px;
+                    }
+                }
+
+                @media (min-width: 768px) {
+                    .related-item {
+                        width: 200px;
+                    }
+                }
+
+                .carousel-nav {
+                    position: absolute;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    width: 36px;
+                    height: 36px;
+                    background: white;
+                    border: 1px solid #e8e3dc;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    z-index: 10;
+                    transition: all 0.2s;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+                }
+
+                .carousel-nav:hover {
+                    background: #111;
+                    border-color: #111;
+                    color: white;
+                }
+
+                .related-prev {
+                    left: -12px;
+                }
+
+                .related-next {
+                    right: -12px;
+                }
+
+                @media (max-width: 640px) {
+                    .carousel-nav {
+                        display: none;
+                    }
+                }
+
+                /* Sections modernisées (Avis) */
+                .reviews-modern-section {
                     margin-top: 40px;
                     padding: 24px 0;
                     border-top: 1px solid #f0ede8;
@@ -1256,26 +1365,6 @@ const ProductDetails = () => {
                     height: 2px;
                     background: #e53935;
                     border-radius: 2px;
-                }
-
-                .related-grid {
-                    display: grid;
-                    grid-template-columns: repeat(2, 1fr);
-                    gap: 12px;
-                }
-
-                @media (min-width: 640px) {
-                    .related-grid {
-                        grid-template-columns: repeat(3, 1fr);
-                        gap: 16px;
-                    }
-                }
-
-                @media (min-width: 1024px) {
-                    .related-grid {
-                        grid-template-columns: repeat(4, 1fr);
-                        gap: 20px;
-                    }
                 }
 
                 .view-more-btn {
