@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react'
 import { useAppContext } from '../context/AppContext'
-import { ChevronLeft, ChevronRight, Package, Grid } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Package, Grid, TrendingUp, Sparkles } from 'lucide-react'
 
 const Categories = () => {
 
@@ -10,6 +10,9 @@ const Categories = () => {
     const [loading, setLoading] = useState(true)
     const [showLeftArrow, setShowLeftArrow] = useState(false)
     const [showRightArrow, setShowRightArrow] = useState(true)
+    const [hoveredIndex, setHoveredIndex] = useState(null)
+    const [touchStart, setTouchStart] = useState(null)
+    const [touchEnd, setTouchEnd] = useState(null)
 
     const checkScrollPosition = () => {
         if (scrollRef.current) {
@@ -29,11 +32,36 @@ const Categories = () => {
         setTimeout(checkScrollPosition, 300)
     }
 
+    // Swipe pour mobile
+    const handleTouchStart = (e) => {
+        setTouchStart(e.targetTouches[0].clientX)
+    }
+
+    const handleTouchMove = (e) => {
+        setTouchEnd(e.targetTouches[0].clientX)
+    }
+
+    const handleTouchEnd = () => {
+        if (!touchStart || !touchEnd) return
+        const diff = touchStart - touchEnd
+        if (Math.abs(diff) > 50) {
+            if (diff > 0) {
+                scrollRight()
+            } else {
+                scrollLeft()
+            }
+        }
+        setTouchStart(null)
+        setTouchEnd(null)
+    }
+
     const fetchCategories = async () => {
         try {
             const { data } = await axios.get('/api/category/list')
             if (data.success) {
-                setCategories(data.categories)
+                // Filtrer uniquement les catégories actives
+                const activeCategories = data.categories.filter(c => c.active !== false)
+                setCategories(activeCategories)
             }
         } catch (error) {
             console.error(error)
@@ -58,7 +86,6 @@ const Categories = () => {
         return (
             <div className="bg-white pt-20 pb-10 px-4">
                 <div className="max-w-7xl mx-auto">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Catégories</h2>
                     <div className="flex justify-center py-10">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
                     </div>
@@ -72,33 +99,41 @@ const Categories = () => {
     }
 
     return (
-        <div className="bg-white pt-8 pb-6 px-4">
+        <div className="bg-gradient-to-b from-white to-gray-50 pt-8 pb-6 px-4">
             <div className="max-w-7xl mx-auto">
-                {/* En-tête */}
-                <div className="flex items-center justify-between mb-6">
+                {/* En-tête avec design moderne */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
                     <div>
-                        <h2 className="text-2xl font-bold text-gray-900">Catégories</h2>
-                        <div className="w-12 h-0.5 bg-red-500 rounded-full mt-2"></div>
+                        <div className="flex items-center gap-2">
+                            <Sparkles size={20} className="text-red-500" />
+                            <h2 className="text-2xl font-bold text-gray-900">Catégories</h2>
+                        </div>
+                        <div className="w-12 h-0.5 bg-gradient-to-r from-red-500 to-red-300 rounded-full mt-2"></div>
+                        <p className="text-xs text-gray-400 mt-2">Découvrez nos collections</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <button 
-                            onClick={() => navigate('/categories')}
-                            className="text-sm text-gray-500 hover:text-red-500 transition flex items-center gap-1"
-                        >
-                            <Grid size={14} />
-                            Voir tout
-                        </button>
-                    </div>
+                    <button 
+                        onClick={() => navigate('/categories')}
+                        className="group text-sm text-gray-500 hover:text-red-500 transition flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-red-50"
+                    >
+                        <Grid size={14} />
+                        Voir tout
+                        <TrendingUp size={14} className="opacity-0 group-hover:opacity-100 transition" />
+                    </button>
                 </div>
 
-                {/* Carrousel */}
-                <div className='relative'>
+                {/* Carrousel avec swipe */}
+                <div 
+                    className='relative'
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                >
                     
-                    {/* Flèche gauche */}
+                    {/* Flèche gauche - visible sur desktop */}
                     {showLeftArrow && (
                         <button 
                             onClick={scrollLeft}
-                            className='absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow-lg rounded-full w-10 h-10 flex items-center justify-center text-gray-700 hover:bg-gray-100 hover:text-red-500 transition border border-gray-200 -ml-3'
+                            className='hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow-lg rounded-full w-10 h-10 items-center justify-center text-gray-700 hover:bg-red-500 hover:text-white transition-all duration-300 border border-gray-200 -ml-3 hover:shadow-xl hover:scale-110'
                         >
                             <ChevronLeft size={20} />
                         </button>
@@ -108,59 +143,104 @@ const Categories = () => {
                     <div 
                         ref={scrollRef} 
                         onScroll={checkScrollPosition}
-                        className='flex overflow-x-auto gap-4 pb-3 px-2 scroll-smooth'
+                        className='flex overflow-x-auto gap-5 pb-4 px-2 scroll-smooth'
                         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                     >
                         <style>{`
                             div::-webkit-scrollbar {
                                 display: none;
                             }
+                            .category-card {
+                                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                            }
+                            .category-card:hover {
+                                transform: translateY(-4px);
+                            }
                         `}</style>
                         
                         {categories.map((category, index) => (
-                            <div key={index}
-                                className='group cursor-pointer flex-shrink-0 w-24 text-center transition-transform hover:-translate-y-1 duration-200'
+                            <div 
+                                key={category._id || index}
+                                className='category-card group cursor-pointer flex-shrink-0 w-24 text-center transition-all duration-300'
                                 onClick={() => {
                                     navigate(`/products?categories=${category.slug}`);
-                                    scrollTo(0, 0);
+                                    window.scrollTo(0, 0);
                                 }}
+                                onMouseEnter={() => setHoveredIndex(index)}
+                                onMouseLeave={() => setHoveredIndex(null)}
                             >
-                                {/* Cercle image */}
+                                {/* Cercle image avec effet glow */}
                                 <div className='relative mx-auto mb-3'>
-                                    <div className='w-20 h-20 rounded-full overflow-hidden shadow-md transition-all duration-300 group-hover:shadow-lg group-hover:scale-105'
-                                        style={{ backgroundColor: category.bgColor || '#f3f4f6' }}>
+                                    <div 
+                                        className={`w-20 h-20 rounded-full overflow-hidden shadow-md transition-all duration-300 ${
+                                            hoveredIndex === index 
+                                                ? 'shadow-lg ring-2 ring-red-500 ring-offset-2 scale-105' 
+                                                : 'shadow-md'
+                                        }`}
+                                        style={{ backgroundColor: category.bgColor || '#f3f4f6' }}
+                                    >
                                         {category.image ? (
                                             <img 
                                                 src={category.image} 
                                                 alt={category.name} 
-                                                className='w-full h-full object-cover'
+                                                className='w-full h-full object-cover transition-transform duration-300 group-hover:scale-110'
+                                                loading="lazy"
                                             />
                                         ) : (
-                                            <div className='w-full h-full flex items-center justify-center'>
-                                                <Package size={28} className="text-gray-400" />
+                                            <div className='w-full h-full flex items-center justify-center transition-colors duration-300 group-hover:bg-red-50'>
+                                                <Package size={28} className="text-gray-400 group-hover:text-red-500 transition-colors duration-300" />
                                             </div>
                                         )}
                                     </div>
+                                    
+                                    {/* Badge "Nouveau" (optionnel - à activer si besoin) */}
+                                    {/* {category.isNew && (
+                                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                                            NEW
+                                        </span>
+                                    )} */}
                                 </div>
                                 
-                                {/* Nom */}
-                                <p className='text-sm font-medium text-gray-700 group-hover:text-red-500 transition line-clamp-1'>
+                                {/* Nom avec animation */}
+                                <p className={`text-sm font-medium transition-all duration-300 line-clamp-1 ${
+                                    hoveredIndex === index 
+                                        ? 'text-red-500 scale-105' 
+                                        : 'text-gray-700 group-hover:text-red-500'
+                                }`}>
                                     {category.name}
                                 </p>
+                                
+                                {/* Indicateur de produits (optionnel) */}
+                                {/* {category.productCount && (
+                                    <p className="text-[10px] text-gray-400 mt-0.5">{category.productCount} produits</p>
+                                )} */}
                             </div>
                         ))}
                     </div>
 
-                    {/* Flèche droite */}
+                    {/* Flèche droite - visible sur desktop */}
                     {showRightArrow && (
                         <button 
                             onClick={scrollRight}
-                            className='absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow-lg rounded-full w-10 h-10 flex items-center justify-center text-gray-700 hover:bg-gray-100 hover:text-red-500 transition border border-gray-200 -mr-3'
+                            className='hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow-lg rounded-full w-10 h-10 items-center justify-center text-gray-700 hover:bg-red-500 hover:text-white transition-all duration-300 border border-gray-200 -mr-3 hover:shadow-xl hover:scale-110'
                         >
                             <ChevronRight size={20} />
                         </button>
                     )}
 
+                </div>
+
+                {/* Indicateurs de scroll pour mobile */}
+                <div className="flex justify-center gap-1.5 mt-4 md:hidden">
+                    <div className={`h-1 rounded-full transition-all duration-300 ${
+                        showLeftArrow ? 'w-4 bg-red-500' : 'w-2 bg-gray-300'
+                    }`} />
+                    <div className={`h-1 rounded-full transition-all duration-300 ${
+                        !showLeftArrow && showRightArrow ? 'w-4 bg-red-500' : 'w-2 bg-gray-300'
+                    }`} />
+                    <div className={`h-1 rounded-full transition-all duration-300 ${
+                        !showRightArrow ? 'w-4 bg-red-500' : 'w-2 bg-gray-300'
+                    }`} />
                 </div>
             </div>
         </div>
