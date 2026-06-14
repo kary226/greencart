@@ -23,7 +23,7 @@ const Home = () => {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   
-  // État pour les produits triés par section
+  // État pour les produits triés par section (TOUS les produits, pas de limite)
   const [trendProducts, setTrendProducts] = useState([]);
   const [newProducts, setNewProducts] = useState([]);
   const [dealProducts, setDealProducts] = useState([]);
@@ -80,7 +80,7 @@ const Home = () => {
     fetchProducts(1, true);
   }, []);
 
-  // Observer pour l'infinite scroll
+  // Observer pour l'infinite scroll (charge plus de produits quand on descend)
   const lastProductRef = useCallback((node) => {
     if (loadingMore) return;
     if (observerRef.current) observerRef.current.disconnect();
@@ -94,7 +94,7 @@ const Home = () => {
     if (node) observerRef.current.observe(node);
   }, [loadingMore, hasMore, page]);
 
-  // Calculer les produits triés quand allProducts change
+  // Calculer les produits triés quand allProducts change (TOUS les produits, pas de slice)
   useEffect(() => {
     if (allProducts.length > 0) {
       setTrendProducts(getTrendingProducts());
@@ -103,6 +103,7 @@ const Home = () => {
     }
   }, [allProducts, orders]);
 
+  // ⭐ MODIFIÉ : Supprimé .slice(0, 10) pour afficher TOUS les produits tendances
   const getTrendingProducts = () => {
     if (!allProducts.length) return [];
     const productSales = {};
@@ -124,9 +125,10 @@ const Home = () => {
       salesCount: productSales[product._id] || 0
     }));
     productsWithSales.sort((a, b) => b.salesCount - a.salesCount);
-    return productsWithSales.slice(0, 10);
+    return productsWithSales; // ← SUPPRIMÉ .slice(0, 10)
   };
 
+  // ⭐ MODIFIÉ : Supprimé .slice(0, 10) pour afficher TOUS les nouveaux produits
   const getNewProducts = () => {
     if (!allProducts.length) return [];
     const sorted = [...allProducts].sort((a, b) => {
@@ -134,9 +136,10 @@ const Home = () => {
       const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
       return dateB - dateA;
     });
-    return sorted.slice(0, 10);
+    return sorted; // ← SUPPRIMÉ .slice(0, 10)
   };
 
+  // ⭐ MODIFIÉ : Supprimé .slice(0, 10) pour afficher TOUTES les promotions
   const getDealProducts = () => {
     if (!allProducts.length) return [];
     const productsWithOffer = allProducts.filter(p => p.offerPrice && p.offerPrice < p.price);
@@ -152,7 +155,7 @@ const Home = () => {
       };
     });
     productsWithScore.sort((a, b) => b.promotionScore - a.promotionScore);
-    return productsWithScore.slice(0, 10);
+    return productsWithScore; // ← SUPPRIMÉ .slice(0, 10)
   };
 
   const getSectionProducts = () => {
