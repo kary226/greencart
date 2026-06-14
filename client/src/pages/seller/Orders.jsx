@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useAppContext } from '../../context/AppContext'
 import { assets } from '../../assets/assets'
@@ -11,23 +11,27 @@ import { Package, Calendar, Truck, CheckCircle, XCircle, Clock, Download, Filter
 const Orders = () => {
     const { currency, axios } = useAppContext()
     const [orders, setOrders] = useState([])
-    const [filteredOrders, setFilteredOrders] = useState([])
     const [updatingStatus, setUpdatingStatus] = useState(null)
     const [selectedImage, setSelectedImage] = useState(null)
     const location = useLocation()
     
+    // 🔍 ÉTATS POUR LA RECHERCHE ET LES FILTRES
     const [statusFilter, setStatusFilter] = useState('all')
     const [dateFilter, setDateFilter] = useState('all')
     const [searchTerm, setSearchTerm] = useState('')
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
+    const [paymentFilter, setPaymentFilter] = useState('all')
+    const [currentPage, setCurrentPage] = useState(1)
+    const [itemsPerPage, setItemsPerPage] = useState(10)
+    const [sortBy, setSortBy] = useState('date')
+    const [sortOrder, setSortOrder] = useState('desc')
 
     const fetchOrders = async () => {
         try {
             const { data } = await axios.get('/api/order/seller');
             if (data.success) {
                 setOrders(data.orders)
-                setFilteredOrders(data.orders)
             } else {
                 toast.error(data.message)
             }
@@ -84,7 +88,125 @@ const Orders = () => {
         return 'bg-blue-100 text-blue-700';
     };
 
-    // ✅ FONCTION EXPORT EXCEL MODERNISÉE
+    // 📊 COMMANDES FILTRÉES ET TRIÉES
+    const filteredOrders = useMemo(() => {
+        let filtered = [...orders]
+
+        // Filtre par statut
+        if (statusFilter !== 'all') {
+            filtered = filtered.filter(order => order.status === statusFilter)
+        }
+
+        // Filtre par paiement
+        if (paymentFilter !== 'all') {
+            filtered = filtered.filter(order => 
+                paymentFilter === 'cod' ? order.paymentType === 'COD' : order.paymentType !== 'COD'
+            )
+        }
+
+        // Filtre par date
+        const now = new Date()
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        const weekAgo = new Date(today)
+        weekAgo.setDate(weekAgo.getDate() - 7)
+        const monthAgo = new Date(today)
+        monthAgo.setMonth(monthAgo.getMonth() - 1)
+
+        if (dateFilter === 'today') {
+            filtered = filtered.filter(order => new Date(order.createdAt) >= today)
+        } else if (dateFilter === 'week') {
+            filtered = filtered.filter(order => new Date(order.createdAt) >= weekAgo)
+        } else if (dateFilter === 'month') {
+            filtered = filtered.filter(order => new Date(order.createdAt) >= monthAgo)
+        } else if (dateFilter === 'custom' && startDate && endDate) {
+            const start = new Date(startDate)
+            const end = new Date(endDate)
+            end.setHours(23, 59, 59)
+            filtered = filtered.filter(order => {
+                const orderDate = new Date(order.createdAt)
+                return orderDate >= start && orderDate <= end
+            })
+        }
+
+        // Recherche par n° commande ou nom client
+        if (searchTerm) {
+            filtered = filtered.filter(order => 
+                order._id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                `${order.address.firstName} ${order.address.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                order.address.phone.includes(searchTerm)
+            )
+        }
+
+        // Tri
+        filtered.sort((a, b) => {
+            let aVal, bVal;
+            switch (sortBy) {
+                case 'amount':
+                    aVal = a.amount;
+                    bVal = b.amount;
+                    break;
+                case 'status':
+                    aVal = a.status;
+                    bVal = b.status;
+                    break;
+                case 'customer':
+                    aVal = `${a.address.firstName} ${a.address.lastName}`;
+                    bVal = `${b.address.firstName} ${b.address.lastName}`;
+                    break;
+                default:
+                    aVal = new Date(a.createdAt);
+                    bVal = new Date(b.createdAt);
+            }
+            if (sortOrder === 'asc') {
+                return aVal > bVal ? 1 : -1;
+            } else {
+                return aVal < bVal ? 1 : -1;
+            }
+        })
+
+        return filtered
+    }, [orders, statusFilter, dateFilter, searchTerm, startDate, endDate, paymentFilter, sortBy, sortOrder])
+
+    // 📄 PAGINATION
+    const totalOrders = filteredOrders.length
+    const totalPages = Math.ceil(totalOrders / itemsPerPage)
+    const paginatedOrders = filteredOrders.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+    )
+
+    // Reset page quand les filtres changent
+    useEffect(() => {
+        setCurrentPage(1)
+    }, [statusFilter, dateFilter, searchTerm, startDate, endDate, paymentFilter, sortBy, sortOrder])
+
+    // 📊 STATISTIQUES
+    const stats = {
+        total: orders.length,
+        totalAmount: orders.reduce((sum, o) => sum + o.amount, 0),
+        byStatus: {
+            placed: orders.filter(o => o.status === 'Order Placed').length,
+            confirmed: orders.filter(o => o.status === 'Confirmed').length,
+            shipped: orders.filter(o => o.status === 'Shipped').length,
+            outForDelivery: orders.filter(o => o.status === 'Out for Delivery').length,
+            delivered: orders.filter(o => o.status === 'Delivered').length,
+            cancelled: orders.filter(o => o.status === 'Cancelled').length
+        },
+        byPayment: {
+            cod: orders.filter(o => o.paymentType === 'COD').length,
+            online: orders.filter(o => o.paymentType !== 'COD').length
+        }
+    }
+
+    const getStatusCount = (status) => {
+        return orders.filter(o => o.status === status).length
+    }
+
+    const getTotalSales = () => {
+        return filteredOrders.reduce((sum, order) => sum + order.amount, 0)
+    }
+
+    // Export Excel amélioré
     const exportToExcel = () => {
         if (filteredOrders.length === 0) {
             toast.error('Aucune commande à exporter');
@@ -93,7 +215,6 @@ const Orders = () => {
 
         const exportDateTime = new Date();
 
-        // 1. Créer les données avec tri alphabétique par client
         const exportData = filteredOrders
             .map(order => {
                 const orderDate = new Date(order.createdAt);
@@ -118,83 +239,16 @@ const Orders = () => {
             })
             .sort((a, b) => a['Client'].localeCompare(b['Client']));
 
-        // 2. Créer la feuille de calcul
         const worksheet = XLSX.utils.json_to_sheet(exportData);
-
-        // 3. Définir les largeurs de colonnes
         worksheet['!cols'] = [
-            { wch: 28 },  // N° Commande
-            { wch: 12 },  // Date
-            { wch: 10 },  // Heure
-            { wch: 28 },  // Client
-            { wch: 15 },  // Téléphone
-            { wch: 25 },  // Quartier
-            { wch: 20 },  // Commune
-            { wch: 20 },  // Ville
-            { wch: 60 },  // Produits
-            { wch: 15 },  // Montant
-            { wch: 15 },  // Statut
-            { wch: 25 },  // Paiement
-            { wch: 8 }    // Payé
+            { wch: 28 }, { wch: 12 }, { wch: 10 }, { wch: 28 }, { wch: 15 },
+            { wch: 25 }, { wch: 20 }, { wch: 20 }, { wch: 60 }, { wch: 15 },
+            { wch: 15 }, { wch: 25 }, { wch: 8 }
         ];
 
-        // 4. Style des en-têtes (noir, blanc, gras)
-        const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1:M1');
-        for (let C = range.s.c; C <= range.e.c; ++C) {
-            const address = XLSX.utils.encode_cell({ r: 0, c: C });
-            if (!worksheet[address]) continue;
-            worksheet[address].s = {
-                font: { bold: true, sz: 11, color: { rgb: "FFFFFF" } },
-                fill: { fgColor: { rgb: "111111" }, patternType: "solid" },
-                alignment: { horizontal: "center", vertical: "center" }
-            };
-        }
-
-        // 5. Appliquer des couleurs conditionnelles pour les statuts
-        exportData.forEach((row, idx) => {
-            const rowNum = idx + 2; // +2 car la ligne 1 est l'en-tête
-            
-            // Colonne Statut (index K = 10)
-            const statusCell = XLSX.utils.encode_cell({ r: rowNum, c: 10 });
-            if (worksheet[statusCell]) {
-                let color = "000000";
-                if (row['Statut'] === 'Livrée') color = "10B981";
-                else if (row['Statut'] === 'Annulée') color = "EF4444";
-                else if (row['Statut'] === 'Expédiée' || row['Statut'] === 'En livraison') color = "8B5CF6";
-                else if (row['Statut'] === 'Confirmée') color = "3B82F6";
-                else color = "F59E0B";
-                
-                worksheet[statusCell].s = {
-                    font: { bold: true, color: { rgb: color } },
-                    alignment: { horizontal: "center" }
-                };
-            }
-            
-            // Colonne Montant (index J = 9)
-            const amountCell = XLSX.utils.encode_cell({ r: rowNum, c: 9 });
-            if (worksheet[amountCell]) {
-                worksheet[amountCell].s = {
-                    font: { bold: true },
-                    alignment: { horizontal: "right" },
-                    numFmt: '#,##0.00'
-                };
-            }
-            
-            // Colonne Payé (index M = 12)
-            const paidCell = XLSX.utils.encode_cell({ r: rowNum, c: 12 });
-            if (worksheet[paidCell]) {
-                worksheet[paidCell].s = {
-                    font: { bold: true, color: { rgb: row['Payé'] === 'Oui' ? "10B981" : "EF4444" } },
-                    alignment: { horizontal: "center" }
-                };
-            }
-        });
-
-        // 6. Créer le classeur
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Commandes');
 
-        // 7. Ajouter une feuille de récapitulatif
         const summaryData = [
             ['RAPPORT DES COMMANDES', ''],
             ['Date d\'export', exportDateTime.toLocaleDateString('fr-FR')],
@@ -204,93 +258,29 @@ const Orders = () => {
             [''],
             ['RÉPARTITION PAR STATUT', ''],
             ...Object.entries({
-                'Commandée': orders.filter(o => o.status === 'Order Placed').length,
-                'Confirmée': orders.filter(o => o.status === 'Confirmed').length,
-                'Expédiée': orders.filter(o => o.status === 'Shipped').length,
-                'En livraison': orders.filter(o => o.status === 'Out for Delivery').length,
-                'Livrée': orders.filter(o => o.status === 'Delivered').length,
-                'Annulée': orders.filter(o => o.status === 'Cancelled').length
+                'Commandée': stats.byStatus.placed,
+                'Confirmée': stats.byStatus.confirmed,
+                'Expédiée': stats.byStatus.shipped,
+                'En livraison': stats.byStatus.outForDelivery,
+                'Livrée': stats.byStatus.delivered,
+                'Annulée': stats.byStatus.cancelled
             }).map(([label, count]) => [label, count]),
             [''],
             ['RÉPARTITION PAR PAIEMENT', ''],
             ...Object.entries({
-                'Paiement à la livraison': orders.filter(o => o.paymentType === 'COD').length,
-                'Paiement en ligne': orders.filter(o => o.paymentType !== 'COD').length
+                'Paiement à la livraison': stats.byPayment.cod,
+                'Paiement en ligne': stats.byPayment.online
             }).map(([label, count]) => [label, count])
         ];
 
         const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
-        summarySheet['!cols'] = [{ wch: 30 }, { wch: 20 }];
-        
-        // Style pour l'en-tête du résumé
-        const summaryRange = XLSX.utils.decode_range(summarySheet['!ref'] || 'A1:B1');
-        for (let C = summaryRange.s.c; C <= summaryRange.e.c; ++C) {
-            const address = XLSX.utils.encode_cell({ r: 0, c: C });
-            if (summarySheet[address]) {
-                summarySheet[address].s = {
-                    font: { bold: true, sz: 14, color: { rgb: "FFFFFF" } },
-                    fill: { fgColor: { rgb: "111111" }, patternType: "solid" },
-                    alignment: { horizontal: "center" }
-                };
-            }
-        }
-
         XLSX.utils.book_append_sheet(workbook, summarySheet, 'Résumé');
 
-        // 8. Sauvegarder le fichier
         const fileName = `commandes_${exportDateTime.toISOString().slice(0, 19).replace(/:/g, '-')}.xlsx`;
         XLSX.writeFile(workbook, fileName);
         
         toast.success(`${filteredOrders.length} commande(s) exportée(s)`);
     };
-
-    useEffect(() => {
-        let filtered = [...orders]
-
-        if (statusFilter !== 'all') {
-            filtered = filtered.filter(order => order.status === statusFilter)
-        }
-
-        const now = new Date()
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-        const weekAgo = new Date(today)
-        weekAgo.setDate(weekAgo.getDate() - 7)
-        const monthAgo = new Date(today)
-        monthAgo.setMonth(monthAgo.getMonth() - 1)
-
-        if (dateFilter === 'today') {
-            filtered = filtered.filter(order => new Date(order.createdAt) >= today)
-        } else if (dateFilter === 'week') {
-            filtered = filtered.filter(order => new Date(order.createdAt) >= weekAgo)
-        } else if (dateFilter === 'month') {
-            filtered = filtered.filter(order => new Date(order.createdAt) >= monthAgo)
-        } else if (dateFilter === 'custom' && startDate && endDate) {
-            const start = new Date(startDate)
-            const end = new Date(endDate)
-            end.setHours(23, 59, 59)
-            filtered = filtered.filter(order => {
-                const orderDate = new Date(order.createdAt)
-                return orderDate >= start && orderDate <= end
-            })
-        }
-
-        if (searchTerm) {
-            filtered = filtered.filter(order => 
-                order._id.toLowerCase().includes(searchTerm.toLowerCase())
-            )
-        }
-
-        filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-        setFilteredOrders(filtered)
-    }, [statusFilter, dateFilter, searchTerm, startDate, endDate, orders])
-
-    const getStatusCount = (status) => {
-        return orders.filter(o => o.status === status).length
-    }
-
-    const getTotalSales = () => {
-        return filteredOrders.reduce((sum, order) => sum + order.amount, 0)
-    }
 
     useEffect(() => {
         fetchOrders();
@@ -299,73 +289,119 @@ const Orders = () => {
     return (
         <div className="bg-gray-50 min-h-screen">
             <div className="p-6 space-y-6">
-                {/* Header */}
-                <div className="flex justify-between items-center flex-wrap gap-3">
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Commandes</h1>
-                        <p className="text-sm text-gray-500 mt-1">Gérez toutes les commandes des clients</p>
-                        {filteredOrders.length > 0 && (
-                            <p className="text-sm text-gray-500 mt-1">
-                                Total des ventes : <span className="font-semibold text-red-500">{getTotalSales().toLocaleString()} {currency}</span>
-                            </p>
-                        )}
+                {/* Header avec statistiques */}
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">Commandes</h1>
+                    <p className="text-sm text-gray-500 mt-1">Gérez toutes les commandes des clients</p>
+                    
+                    {/* Cartes statistiques */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+                        <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
+                            <p className="text-xs text-gray-500">Total commandes</p>
+                            <p className="text-xl font-bold text-gray-900">{stats.total}</p>
+                        </div>
+                        <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
+                            <p className="text-xs text-gray-500">Chiffre d'affaires</p>
+                            <p className="text-xl font-bold text-red-500">{stats.totalAmount.toLocaleString()} {currency}</p>
+                        </div>
+                        <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
+                            <p className="text-xs text-gray-500">Livrées</p>
+                            <p className="text-xl font-bold text-green-600">{stats.byStatus.delivered}</p>
+                        </div>
+                        <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
+                            <p className="text-xs text-gray-500">En attente</p>
+                            <p className="text-xl font-bold text-orange-500">{stats.byStatus.placed + stats.byStatus.confirmed}</p>
+                        </div>
                     </div>
-                    <button
-                        onClick={exportToExcel}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 transition shadow-sm"
-                    >
-                        <Download size={16} />
-                        Exporter ({filteredOrders.length})
-                    </button>
                 </div>
 
-                {/* Filtres */}
-                <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-                    <div className="flex flex-wrap gap-3 items-center">
-                        <div className="flex items-center gap-2">
-                            <Filter size={16} className="text-gray-400" />
-                            <select 
-                                value={statusFilter}
-                                onChange={(e) => setStatusFilter(e.target.value)}
-                                className="text-sm border border-gray-200 rounded-xl px-4 py-2 outline-none focus:border-red-500"
-                            >
-                                <option value="all">Tous les statuts ({orders.length})</option>
-                                <option value="Order Placed">Commandée ({getStatusCount('Order Placed')})</option>
-                                <option value="Confirmed">Confirmée ({getStatusCount('Confirmed')})</option>
-                                <option value="Shipped">Expédiée ({getStatusCount('Shipped')})</option>
-                                <option value="Out for Delivery">En livraison ({getStatusCount('Out for Delivery')})</option>
-                                <option value="Delivered">Livrée ({getStatusCount('Delivered')})</option>
-                                <option value="Cancelled">Annulée ({getStatusCount('Cancelled')})</option>
-                            </select>
+                {/* Barre de recherche et filtres */}
+                <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+                    <div className="flex flex-col md:flex-row gap-4">
+                        {/* Recherche */}
+                        <div className="flex-1">
+                            <div className="relative">
+                                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Rechercher par n° commande, nom client, téléphone..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none text-sm"
+                                />
+                            </div>
                         </div>
 
-                        <div className="flex items-center gap-2">
-                            <Calendar size={16} className="text-gray-400" />
-                            <select 
-                                value={dateFilter}
-                                onChange={(e) => setDateFilter(e.target.value)}
-                                className="text-sm border border-gray-200 rounded-xl px-4 py-2 outline-none focus:border-red-500"
-                            >
-                                <option value="all">Toutes les dates</option>
-                                <option value="today">Aujourd'hui</option>
-                                <option value="week">Cette semaine</option>
-                                <option value="month">Ce mois</option>
-                                <option value="custom">Période personnalisée</option>
-                            </select>
-                        </div>
+                        {/* Filtre statut */}
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-red-500 outline-none bg-white"
+                        >
+                            <option value="all">Tous les statuts ({stats.total})</option>
+                            <option value="Order Placed">Commandée ({stats.byStatus.placed})</option>
+                            <option value="Confirmed">Confirmée ({stats.byStatus.confirmed})</option>
+                            <option value="Shipped">Expédiée ({stats.byStatus.shipped})</option>
+                            <option value="Out for Delivery">En livraison ({stats.byStatus.outForDelivery})</option>
+                            <option value="Delivered">Livrée ({stats.byStatus.delivered})</option>
+                            <option value="Cancelled">Annulée ({stats.byStatus.cancelled})</option>
+                        </select>
 
-                        <div className="flex-1 flex items-center gap-2 min-w-[200px]">
-                            <Search size={16} className="text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Rechercher par n° commande"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="flex-1 text-sm border border-gray-200 rounded-xl px-4 py-2 outline-none focus:border-red-500"
-                            />
-                        </div>
+                        {/* Filtre paiement */}
+                        <select
+                            value={paymentFilter}
+                            onChange={(e) => setPaymentFilter(e.target.value)}
+                            className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-red-500 outline-none bg-white"
+                        >
+                            <option value="all">Tous les paiements</option>
+                            <option value="cod">Paiement à la livraison</option>
+                            <option value="online">Paiement en ligne</option>
+                        </select>
+
+                        {/* Filtre date */}
+                        <select
+                            value={dateFilter}
+                            onChange={(e) => setDateFilter(e.target.value)}
+                            className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-red-500 outline-none bg-white"
+                        >
+                            <option value="all">Toutes les dates</option>
+                            <option value="today">Aujourd'hui</option>
+                            <option value="week">Cette semaine</option>
+                            <option value="month">Ce mois</option>
+                            <option value="custom">Période personnalisée</option>
+                        </select>
+
+                        {/* Tri */}
+                        <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value)}
+                            className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-red-500 outline-none bg-white"
+                        >
+                            <option value="date">Trier par date</option>
+                            <option value="amount">Trier par montant</option>
+                            <option value="status">Trier par statut</option>
+                            <option value="customer">Trier par client</option>
+                        </select>
+
+                        {/* Ordre de tri */}
+                        <button
+                            onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                            className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm hover:bg-gray-50 transition flex items-center gap-2"
+                        >
+                            {sortOrder === 'asc' ? '↑ Croissant' : '↓ Décroissant'}
+                        </button>
+
+                        {/* Export */}
+                        <button
+                            onClick={exportToExcel}
+                            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 transition shadow-sm"
+                        >
+                            <Download size={16} />
+                            Exporter ({filteredOrders.length})
+                        </button>
                     </div>
 
+                    {/* Période personnalisée */}
                     {dateFilter === 'custom' && (
                         <div className="flex flex-wrap gap-3 mt-4 pt-3 border-t border-gray-100">
                             <input
@@ -384,156 +420,221 @@ const Orders = () => {
                         </div>
                     )}
 
-                    {(statusFilter !== 'all' || dateFilter !== 'all' || searchTerm) && (
-                        <button
-                            onClick={() => {
-                                setStatusFilter('all')
-                                setDateFilter('all')
-                                setSearchTerm('')
-                                setStartDate('')
-                                setEndDate('')
-                            }}
-                            className="flex items-center gap-1 text-xs text-red-500 hover:text-red-600 mt-2"
-                        >
-                            <RefreshCw size={12} />
-                            Réinitialiser les filtres
-                        </button>
-                    )}
+                    {/* Résultats */}
+                    <div className="flex justify-between items-center mt-3">
+                        <p className="text-xs text-gray-500">
+                            {filteredOrders.length} commande(s) trouvée(s) sur {stats.total}
+                        </p>
+                        {(statusFilter !== 'all' || dateFilter !== 'all' || searchTerm || paymentFilter !== 'all') && (
+                            <button
+                                onClick={() => {
+                                    setStatusFilter('all')
+                                    setDateFilter('all')
+                                    setSearchTerm('')
+                                    setStartDate('')
+                                    setEndDate('')
+                                    setPaymentFilter('all')
+                                    setSortBy('date')
+                                    setSortOrder('desc')
+                                }}
+                                className="flex items-center gap-1 text-xs text-red-500 hover:text-red-600"
+                            >
+                                <RefreshCw size={12} />
+                                Réinitialiser les filtres
+                            </button>
+                        )}
+                    </div>
                 </div>
 
-                <p className="text-sm text-gray-500">
-                    {filteredOrders.length} commande(s) affichée(s) sur {orders.length} totale(s)
-                </p>
-
+                {/* Liste des commandes */}
                 {filteredOrders.length === 0 ? (
                     <div className="text-center py-16 bg-white rounded-xl border border-gray-100">
                         <Package size={48} className="mx-auto text-gray-300 mb-4" />
                         <p className="text-gray-500">Aucune commande ne correspond aux filtres</p>
                     </div>
                 ) : (
-                    <div className="space-y-5">
-                        {filteredOrders.map((order, index) => (
-                            <div key={index} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition">
-                                {/* En-tête commande */}
-                                <div className="bg-gray-50 px-5 py-3 border-b border-gray-100 flex flex-wrap justify-between items-center gap-2">
-                                    <div className="flex items-center gap-3">
-                                        <Package size={16} className="text-gray-400" />
-                                        <span className="text-xs font-mono text-gray-500">#{order._id.slice(-8)}</span>
+                    <>
+                        <div className="space-y-5">
+                            {paginatedOrders.map((order, index) => (
+                                <div key={index} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition">
+                                    {/* En-tête commande */}
+                                    <div className="bg-gray-50 px-5 py-3 border-b border-gray-100 flex flex-wrap justify-between items-center gap-2">
+                                        <div className="flex items-center gap-3">
+                                            <Package size={16} className="text-gray-400" />
+                                            <span className="text-xs font-mono text-gray-500">#{order._id.slice(-8)}</span>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <Calendar size={14} className="text-gray-400" />
+                                            <span className="text-xs text-gray-500">{new Date(order.createdAt).toLocaleDateString()}</span>
+                                            <span className="text-xs text-gray-400">{new Date(order.createdAt).toLocaleTimeString()}</span>
+                                        </div>
+                                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${getStatusColor(order.status)}`}>
+                                            {getStatusLabel(order.status)}
+                                        </span>
                                     </div>
-                                    <div className="flex items-center gap-3">
-                                        <Calendar size={14} className="text-gray-400" />
-                                        <span className="text-xs text-gray-500">{new Date(order.createdAt).toLocaleDateString()}</span>
+
+                                    <div className="p-5 space-y-4">
+                                        {/* Items */}
+                                        <div className="space-y-3">
+                                            {order.items.map((item, idx) => (
+                                                <div key={idx} className="flex gap-3 pb-3 border-b border-gray-100 last:border-0">
+                                                    {item.product?.image?.[0] && (
+                                                        <div 
+                                                            className="w-14 h-14 rounded-lg overflow-hidden cursor-pointer bg-gray-100 flex-shrink-0"
+                                                            onClick={() => setSelectedImage(item.product.image[0])}
+                                                        >
+                                                            <img 
+                                                                src={item.product.image[0]} 
+                                                                alt={item.product?.name || 'Produit'}
+                                                                className="w-full h-full object-cover hover:opacity-80 transition"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                    <div className="flex-1">
+                                                        <p className="font-medium text-gray-900">
+                                                            {item.product?.name || 'Produit indisponible'} 
+                                                            <span className="text-red-500 ml-1">x{item.quantity}</span>
+                                                        </p>
+                                                        <div className="flex gap-2 mt-1">
+                                                            {item.color && item.color !== 'null' && (
+                                                                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                                                                    {item.color}
+                                                                </span>
+                                                            )}
+                                                            {item.size && item.size !== 'null' && (
+                                                                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                                                                    {item.size}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <p className="font-medium text-red-500 whitespace-nowrap">
+                                                        {((item.priceAtOrder || item.product?.offerPrice || 0) * item.quantity).toLocaleString()} {currency}
+                                                    </p>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {/* Adresse livraison */}
+                                        <div className="bg-gray-50 rounded-xl p-3">
+                                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Livraison</p>
+                                            <p className="text-sm text-gray-700">{order.address.firstName} {order.address.lastName}</p>
+                                            <p className="text-sm text-gray-600">{order.address.street}</p>
+                                            <p className="text-sm text-gray-600">{order.address.communeName}, {order.address.cityName || order.address.city}</p>
+                                            <p className="text-sm text-gray-600">{order.address.phone}</p>
+                                        </div>
+
+                                        {/* Totaux et actions */}
+                                        <div className="flex flex-wrap justify-between items-center">
+                                            <div>
+                                                <p className="text-xs text-gray-500">{order.paymentType === "COD" ? "Paiement à la livraison" : "Paiement en ligne"}</p>
+                                                <p className="text-xs text-gray-500 mt-0.5">{order.isPaid ? "✅ Payé" : "⏳ En attente"}</p>
+                                            </div>
+                                            <p className="text-xl font-bold text-red-500">
+                                                {order.amount.toLocaleString()} {currency}
+                                            </p>
+                                        </div>
+
+                                        {/* Actions */}
+                                        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-gray-100">
+                                            <div className="flex items-center gap-2">
+                                                {getStatusIcon(order.status)}
+                                                <span className={`text-xs px-2 py-1 rounded-full font-medium ${getStatusColor(order.status)}`}>
+                                                    {getStatusLabel(order.status)}
+                                                </span>
+                                            </div>
+                                            
+                                            <div className="flex items-center gap-2">
+                                                <select 
+                                                    defaultValue={order.status}
+                                                    onChange={(e) => updateOrderStatus(order._id, e.target.value)}
+                                                    disabled={updatingStatus === order._id}
+                                                    className="text-sm border border-gray-200 rounded-xl px-3 py-1.5 outline-none focus:border-red-500"
+                                                >
+                                                    <option value="Order Placed">Commandée</option>
+                                                    <option value="Confirmed">Confirmée</option>
+                                                    <option value="Shipped">Expédiée</option>
+                                                    <option value="Out for Delivery">En livraison</option>
+                                                    <option value="Delivered">Livrée</option>
+                                                    <option value="Cancelled">Annulée</option>
+                                                </select>
+                                                {updatingStatus === order._id && (
+                                                    <span className="text-xs text-gray-400 animate-pulse">Mise à jour...</span>
+                                                )}
+                                                <PDFDownloadLink
+                                                    document={<OrderReceiptPDF order={order} currency={currency} />}
+                                                    fileName={`facture_${order._id.slice(-8)}.pdf`}
+                                                    className="flex items-center gap-1.5 text-xs bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl hover:bg-blue-100 transition"
+                                                >
+                                                    {({ loading }) => loading ? (
+                                                        <span className="text-xs">Chargement...</span>
+                                                    ) : (
+                                                        <>
+                                                            <FileText size={12} />
+                                                            PDF
+                                                        </>
+                                                    )}
+                                                </PDFDownloadLink>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
+                            ))}
+                        </div>
 
-                                <div className="p-5 space-y-4">
-                                    {/* Items */}
-                                    <div className="space-y-3">
-                                        {order.items.map((item, idx) => (
-                                            <div key={idx} className="flex gap-3 pb-3 border-b border-gray-100 last:border-0">
-                                                {item.product?.image?.[0] && (
-                                                    <div 
-                                                        className="w-14 h-14 rounded-lg overflow-hidden cursor-pointer bg-gray-100 flex-shrink-0"
-                                                        onClick={() => setSelectedImage(item.product.image[0])}
-                                                    >
-                                                        <img 
-                                                            src={item.product.image[0]} 
-                                                            alt={item.product?.name || 'Produit'}
-                                                            className="w-full h-full object-cover hover:opacity-80 transition"
-                                                        />
-                                                    </div>
-                                                )}
-                                                <div className="flex-1">
-                                                    <p className="font-medium text-gray-900">
-                                                        {item.product?.name || 'Produit indisponible'} 
-                                                        <span className="text-red-500 ml-1">x{item.quantity}</span>
-                                                    </p>
-                                                    <div className="flex gap-2 mt-1">
-                                                        {item.color && item.color !== 'null' && (
-                                                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                                                                {item.color}
-                                                            </span>
-                                                        )}
-                                                        {item.size && item.size !== 'null' && (
-                                                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                                                                {item.size}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                <p className="font-medium text-red-500 whitespace-nowrap">
-                                                    {((item.priceAtOrder || item.product?.offerPrice || 0) * item.quantity).toLocaleString()} {currency}
-                                                </p>
-                                            </div>
-                                        ))}
-                                    </div>
-
-                                    {/* Adresse livraison */}
-                                    <div className="bg-gray-50 rounded-xl p-3">
-                                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Livraison</p>
-                                        <p className="text-sm text-gray-700">{order.address.firstName} {order.address.lastName}</p>
-                                        <p className="text-sm text-gray-600">{order.address.street}</p>
-                                        <p className="text-sm text-gray-600">{order.address.communeName}, {order.address.cityName || order.address.city}</p>
-                                        <p className="text-sm text-gray-600">{order.address.phone}</p>
-                                    </div>
-
-                                    {/* Totaux */}
-                                    <div className="flex flex-wrap justify-between items-center">
-                                        <div>
-                                            <p className="text-xs text-gray-500">{order.paymentType === "COD" ? "Paiement à la livraison" : "Paiement en ligne"}</p>
-                                            <p className="text-xs text-gray-500 mt-0.5">{order.isPaid ? "Payé" : "En attente"}</p>
-                                        </div>
-                                        <p className="text-xl font-bold text-red-500">
-                                            {order.amount.toLocaleString()} {currency}
-                                        </p>
-                                    </div>
-
-                                    {/* Actions */}
-                                    <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-gray-100">
-                                        <div className="flex items-center gap-2">
-                                            {getStatusIcon(order.status)}
-                                            <span className={`text-xs px-2 py-1 rounded-full font-medium ${getStatusColor(order.status)}`}>
-                                                {getStatusLabel(order.status)}
-                                            </span>
-                                        </div>
-                                        
-                                        <div className="flex items-center gap-2">
-                                            <select 
-                                                defaultValue={order.status}
-                                                onChange={(e) => updateOrderStatus(order._id, e.target.value)}
-                                                disabled={updatingStatus === order._id}
-                                                className="text-sm border border-gray-200 rounded-xl px-3 py-1.5 outline-none focus:border-red-500"
-                                            >
-                                                <option value="Order Placed">Commandée</option>
-                                                <option value="Confirmed">Confirmée</option>
-                                                <option value="Shipped">Expédiée</option>
-                                                <option value="Out for Delivery">En livraison</option>
-                                                <option value="Delivered">Livrée</option>
-                                                <option value="Cancelled">Annulée</option>
-                                            </select>
-                                            {updatingStatus === order._id && (
-                                                <span className="text-xs text-gray-400">Mise à jour...</span>
-                                            )}
-                                            <PDFDownloadLink
-                                                document={<OrderReceiptPDF order={order} currency={currency} />}
-                                                fileName={`facture_${order._id.slice(-8)}.pdf`}
-                                                className="flex items-center gap-1.5 text-xs bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl hover:bg-blue-100 transition"
-                                            >
-                                                {({ loading }) => loading ? (
-                                                    <span>Chargement...</span>
-                                                ) : (
-                                                    <>
-                                                        <FileText size={12} />
-                                                        PDF
-                                                    </>
-                                                )}
-                                            </PDFDownloadLink>
-                                        </div>
-                                    </div>
+                        {/* Pagination */}
+                        {totalPages > 1 && (
+                            <div className="flex justify-between items-center mt-6">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm text-gray-500">Lignes par page :</span>
+                                    <select
+                                        value={itemsPerPage}
+                                        onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                                        className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:border-red-500 outline-none"
+                                    >
+                                        <option value={10}>10</option>
+                                        <option value={25}>25</option>
+                                        <option value={50}>50</option>
+                                        <option value={100}>100</option>
+                                    </select>
+                                </div>
+                                
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setCurrentPage(1)}
+                                        disabled={currentPage === 1}
+                                        className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
+                                    >
+                                        «
+                                    </button>
+                                    <button
+                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                        disabled={currentPage === 1}
+                                        className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
+                                    >
+                                        ‹
+                                    </button>
+                                    <span className="px-4 py-1.5 text-sm text-gray-600">
+                                        Page {currentPage} / {totalPages}
+                                    </span>
+                                    <button
+                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                        disabled={currentPage === totalPages}
+                                        className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
+                                    >
+                                        ›
+                                    </button>
+                                    <button
+                                        onClick={() => setCurrentPage(totalPages)}
+                                        disabled={currentPage === totalPages}
+                                        className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
+                                    >
+                                        »
+                                    </button>
                                 </div>
                             </div>
-                        ))}
-                    </div>
+                        )}
+                    </>
                 )}
             </div>
 

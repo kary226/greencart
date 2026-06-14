@@ -1,6 +1,5 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useAppContext } from '../../context/AppContext'
-import { categories } from '../../assets/assets'
 import toast from 'react-hot-toast'
 
 const ProductList = () => {
@@ -17,6 +16,15 @@ const ProductList = () => {
     const [selectedCategories, setSelectedCategories] = useState([])
     const [editingVariantIndex, setEditingVariantIndex] = useState(null)
 
+    // 🔍 ÉTATS POUR LA RECHERCHE ET LES FILTRES
+    const [searchTerm, setSearchTerm] = useState('')
+    const [stockFilter, setStockFilter] = useState('all') // all, inStock, outOfStock, lowStock, onSale
+    const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all')
+    const [currentPage, setCurrentPage] = useState(1)
+    const [itemsPerPage, setItemsPerPage] = useState(10)
+    const [sortBy, setSortBy] = useState('name') // name, price, stock, date
+    const [sortOrder, setSortOrder] = useState('asc')
+
     const fetchCategories = async () => {
         try {
             const { data } = await axios.get('/api/category/list');
@@ -28,9 +36,123 @@ const ProductList = () => {
         }
     };
 
-    React.useEffect(() => {
+    useEffect(() => {
         fetchCategories();
     }, []);
+
+    // 📊 PRODUITS FILTRÉS ET TRIÉS
+    const filteredProducts = useMemo(() => {
+        let filtered = [...products]
+
+        // Recherche par nom
+        if (searchTerm) {
+            filtered = filtered.filter(p => 
+                p.name.toLowerCase().includes(searchTerm.toLowerCase())
+            )
+        }
+
+        // Filtre par catégorie
+        if (selectedCategoryFilter !== 'all') {
+            filtered = filtered.filter(p => 
+                p.categories?.includes(selectedCategoryFilter)
+            )
+        }
+
+        // Filtre par stock
+        if (stockFilter === 'inStock') {
+            filtered = filtered.filter(p => {
+                if (p.variants?.length > 0) {
+                    return p.variants.some(v => v.stock > 0)
+                }
+                return p.stock > 0
+            })
+        } else if (stockFilter === 'outOfStock') {
+            filtered = filtered.filter(p => {
+                if (p.variants?.length > 0) {
+                    return p.variants.every(v => v.stock === 0)
+                }
+                return p.stock === 0
+            })
+        } else if (stockFilter === 'lowStock') {
+            filtered = filtered.filter(p => {
+                if (p.variants?.length > 0) {
+                    return p.variants.some(v => v.stock > 0 && v.stock <= 5)
+                }
+                return p.stock > 0 && p.stock <= 5
+            })
+        } else if (stockFilter === 'onSale') {
+            filtered = filtered.filter(p => p.offerPrice && p.offerPrice < p.price)
+        }
+
+        // Tri
+        filtered.sort((a, b) => {
+            let aVal, bVal
+            switch (sortBy) {
+                case 'name':
+                    aVal = a.name
+                    bVal = b.name
+                    break
+                case 'price':
+                    aVal = a.offerPrice || a.price
+                    bVal = b.offerPrice || b.price
+                    break
+                case 'stock':
+                    if (a.variants?.length > 0) {
+                        aVal = a.variants.reduce((sum, v) => sum + v.stock, 0)
+                        bVal = b.variants.reduce((sum, v) => sum + v.stock, 0)
+                    } else {
+                        aVal = a.stock || 0
+                        bVal = b.stock || 0
+                    }
+                    break
+                case 'date':
+                    aVal = new Date(a.createdAt)
+                    bVal = new Date(b.createdAt)
+                    break
+                default:
+                    aVal = a.name
+                    bVal = b.name
+            }
+            if (sortOrder === 'asc') {
+                return aVal > bVal ? 1 : -1
+            } else {
+                return aVal < bVal ? 1 : -1
+            }
+        })
+
+        return filtered
+    }, [products, searchTerm, stockFilter, selectedCategoryFilter, sortBy, sortOrder])
+
+    // 📄 PAGINATION
+    const totalProducts = filteredProducts.length
+    const totalPages = Math.ceil(totalProducts / itemsPerPage)
+    const paginatedProducts = filteredProducts.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+    )
+
+    // Reset page quand les filtres changent
+    useEffect(() => {
+        setCurrentPage(1)
+    }, [searchTerm, stockFilter, selectedCategoryFilter, sortBy, sortOrder])
+
+    // 📊 STATISTIQUES
+    const stats = {
+        total: products.length,
+        inStock: products.filter(p => {
+            if (p.variants?.length > 0) return p.variants.some(v => v.stock > 0)
+            return p.stock > 0
+        }).length,
+        outOfStock: products.filter(p => {
+            if (p.variants?.length > 0) return p.variants.every(v => v.stock === 0)
+            return p.stock === 0
+        }).length,
+        lowStock: products.filter(p => {
+            if (p.variants?.length > 0) return p.variants.some(v => v.stock > 0 && v.stock <= 5)
+            return p.stock > 0 && p.stock <= 5
+        }).length,
+        onSale: products.filter(p => p.offerPrice && p.offerPrice < p.price).length
+    }
 
     const toggleStock = async (id, inStock) => {
         try {
@@ -83,7 +205,7 @@ const ProductList = () => {
                 offerPrice: editProduct.offerPrice,
                 variants: editProduct.variants,
                 stock: editProduct.stock,
-                size: editProduct.size,  // ⚡ AJOUT : taille pour produit simple
+                size: editProduct.size,
             })
             if (data.success) {
                 toast.success(data.message)
@@ -112,6 +234,7 @@ const ProductList = () => {
         }
     }
 
+    // Gestion des variantes (fonctions existantes)
     const addVariant = () => {
         if (!colorInput.trim()) {
             toast.error('Entrez une couleur')
@@ -202,9 +325,105 @@ const ProductList = () => {
     return (
         <div className="bg-gray-50 min-h-screen">
             <div className="p-6">
+                {/* Header avec statistiques */}
                 <div className="mb-6">
                     <h1 className="text-2xl font-bold text-gray-900">Liste des produits</h1>
                     <p className="text-sm text-gray-500 mt-1">Gérez tous vos produits</p>
+                    
+                    {/* Cartes statistiques */}
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4">
+                        <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
+                            <p className="text-xs text-gray-500">Total</p>
+                            <p className="text-xl font-bold text-gray-900">{stats.total}</p>
+                        </div>
+                        <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
+                            <p className="text-xs text-gray-500">En stock</p>
+                            <p className="text-xl font-bold text-green-600">{stats.inStock}</p>
+                        </div>
+                        <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
+                            <p className="text-xs text-gray-500">Rupture</p>
+                            <p className="text-xl font-bold text-red-500">{stats.outOfStock}</p>
+                        </div>
+                        <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
+                            <p className="text-xs text-gray-500">Stock faible</p>
+                            <p className="text-xl font-bold text-orange-500">{stats.lowStock}</p>
+                        </div>
+                        <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
+                            <p className="text-xs text-gray-500">En promo</p>
+                            <p className="text-xl font-bold text-red-500">{stats.onSale}</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Barre de recherche et filtres */}
+                <div className="bg-white rounded-xl border border-gray-100 p-4 mb-6 shadow-sm">
+                    <div className="flex flex-col md:flex-row gap-4">
+                        {/* Recherche */}
+                        <div className="flex-1">
+                            <div className="relative">
+                                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                                <input
+                                    type="text"
+                                    placeholder="Rechercher un produit..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none text-sm"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Filtre par catégorie */}
+                        <select
+                            value={selectedCategoryFilter}
+                            onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+                            className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-red-500 outline-none bg-white"
+                        >
+                            <option value="all">Toutes les catégories</option>
+                            {categoriesList.map(cat => (
+                                <option key={cat._id} value={cat.slug}>{cat.name}</option>
+                            ))}
+                        </select>
+
+                        {/* Filtre par stock */}
+                        <select
+                            value={stockFilter}
+                            onChange={(e) => setStockFilter(e.target.value)}
+                            className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-red-500 outline-none bg-white"
+                        >
+                            <option value="all">Tous les stocks</option>
+                            <option value="inStock">En stock</option>
+                            <option value="outOfStock">Rupture</option>
+                            <option value="lowStock">Stock faible (≤5)</option>
+                            <option value="onSale">En promotion</option>
+                        </select>
+
+                        {/* Tri */}
+                        <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value)}
+                            className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-red-500 outline-none bg-white"
+                        >
+                            <option value="name">Trier par nom</option>
+                            <option value="price">Trier par prix</option>
+                            <option value="stock">Trier par stock</option>
+                            <option value="date">Trier par date</option>
+                        </select>
+
+                        {/* Ordre de tri */}
+                        <button
+                            onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                            className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm hover:bg-gray-50 transition flex items-center gap-2"
+                        >
+                            {sortOrder === 'asc' ? '↑ Croissant' : '↓ Décroissant'}
+                        </button>
+                    </div>
+
+                    {/* Résultats */}
+                    <div className="mt-3 text-xs text-gray-500">
+                        {totalProducts} produit(s) trouvé(s)
+                    </div>
                 </div>
 
                 {products.length === 0 ? (
@@ -216,140 +435,200 @@ const ProductList = () => {
                         <p className="text-gray-500">Aucun produit trouvé</p>
                     </div>
                 ) : (
-                    <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="bg-gray-50 border-b border-gray-100">
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Produit</th>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Catégorie(s)</th>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Prix</th>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Taille</th>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Stock</th>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Variantes</th>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">En vente</th>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                    {products.map((product) => (
-                                        <tr key={product._id} className="hover:bg-gray-50 transition">
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                                                        <img src={product.image?.[0]} alt={product.name} className="w-full h-full object-cover" />
+                    <>
+                        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="bg-gray-50 border-b border-gray-100">
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Produit</th>
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Catégorie(s)</th>
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Prix</th>
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Taille</th>
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Stock</th>
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Variantes</th>
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">En vente</th>
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {paginatedProducts.map((product) => (
+                                            <tr key={product._id} className="hover:bg-gray-50 transition">
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                                                            <img src={product.image?.[0]} alt={product.name} className="w-full h-full object-cover" />
+                                                        </div>
+                                                        <span className="font-medium text-gray-900">{product.name}</span>
                                                     </div>
-                                                    <span className="font-medium text-gray-900">{product.name}</span>
-                                                </div>
-                                             </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex flex-wrap gap-1">
-                                                    {product.categories?.length > 0 ? (
-                                                        product.categories.map((cat, idx) => (
-                                                            <span key={idx} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                                                                {cat}
-                                                            </span>
-                                                        ))
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {product.categories?.length > 0 ? (
+                                                            product.categories.map((cat, idx) => (
+                                                                <span key={idx} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                                                                    {cat}
+                                                                </span>
+                                                            ))
+                                                        ) : (
+                                                            <span className="text-gray-400">—</span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 font-medium text-gray-900">
+                                                    {product.offerPrice || product.price} {currency}
+                                                    {product.offerPrice && product.offerPrice < product.price && (
+                                                        <span className="ml-1 text-xs text-red-500 line-through">
+                                                            {product.price}
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    {product.variants?.length === 0 ? (
+                                                        <span className="text-gray-700">{product.size || '—'}</span>
+                                                    ) : (
+                                                        <span className="text-gray-400 text-sm">via variantes</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    {product.variants?.length === 0 ? (
+                                                        <span className={`font-medium ${
+                                                            product.stock === 0 ? 'text-red-500' :
+                                                            product.stock <= 5 ? 'text-orange-500' :
+                                                            'text-green-600'
+                                                        }`}>
+                                                            {product.stock === 0 ? 'Épuisé' : `${product.stock} en stock`}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-gray-400 text-sm">via variantes</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    {product.variants?.length > 0 ? (
+                                                        <div className="space-y-1 max-h-24 overflow-y-auto">
+                                                            {product.variants.slice(0, 3).map((v, i) => (
+                                                                <div key={i} className="flex items-center gap-2 text-xs">
+                                                                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: v.colorCode || '#000' }}></div>
+                                                                    <span className="font-medium">{v.color}</span>
+                                                                    {v.size && <span className="text-gray-400">/{v.size}</span>}
+                                                                    <span className={`font-medium ${
+                                                                        v.stock === 0 ? 'text-red-500' :
+                                                                        v.stock <= 5 ? 'text-orange-500' :
+                                                                        'text-green-600'
+                                                                    }`}>
+                                                                        : {v.stock}
+                                                                    </span>
+                                                                </div>
+                                                            ))}
+                                                            {product.variants.length > 3 && (
+                                                                <span className="text-xs text-gray-400">+{product.variants.length - 3}</span>
+                                                            )}
+                                                        </div>
                                                     ) : (
                                                         <span className="text-gray-400">—</span>
                                                     )}
-                                                </div>
-                                              </td>
-                                            <td className="px-6 py-4 font-medium text-gray-900">
-                                                {product.offerPrice || product.price} {currency}
-                                              </td>
-                                            {/* ⚡ NOUVELLE COLONNE : Taille pour produit simple */}
-                                            <td className="px-6 py-4">
-                                                {product.variants?.length === 0 ? (
-                                                    <span className="text-gray-700">
-                                                        {product.size || '—'}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-gray-400 text-sm">via variantes</span>
-                                                )}
-                                              </td>
-                                            <td className="px-6 py-4">
-                                                {product.variants?.length === 0 ? (
-                                                    <span className={`font-medium ${
-                                                        product.stock === 0 ? 'text-red-500' :
-                                                        product.stock <= 5 ? 'text-orange-500' :
-                                                        'text-green-600'
-                                                    }`}>
-                                                        {product.stock === 0 ? 'Épuisé' : `${product.stock} en stock`}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-gray-400 text-sm">via variantes</span>
-                                                )}
-                                              </td>
-                                            <td className="px-6 py-4">
-                                                {product.variants?.length > 0 ? (
-                                                    <div className="space-y-1">
-                                                        {product.variants.map((v, i) => (
-                                                            <div key={i} className="flex items-center gap-2 text-xs">
-                                                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: v.colorCode || '#000' }}></div>
-                                                                <span className="font-medium">{v.color}</span>
-                                                                {v.size && <span className="text-gray-400">/{v.size}</span>}
-                                                                <span className={`font-medium ${
-                                                                    v.stock === 0 ? 'text-red-500' :
-                                                                    v.stock <= 5 ? 'text-orange-500' :
-                                                                    'text-green-600'
-                                                                }`}>
-                                                                    : {v.stock === 0 ? 'Épuisé' : `${v.stock}`}
-                                                                </span>
-                                                            </div>
-                                                        ))}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <label className="relative inline-flex items-center cursor-pointer">
+                                                        <input 
+                                                            onClick={() => toggleStock(product._id, !product.inStock)} 
+                                                            checked={product.inStock} 
+                                                            type="checkbox" 
+                                                            className="sr-only peer" 
+                                                            readOnly 
+                                                        />
+                                                        <div className="w-10 h-5 bg-gray-300 rounded-full peer peer-checked:bg-red-500 transition-colors duration-200"></div>
+                                                        <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform duration-200 peer-checked:translate-x-5"></div>
+                                                    </label>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex gap-2">
+                                                        <button 
+                                                            onClick={() => handleEdit(product)}
+                                                            className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition"
+                                                        >
+                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                                <path d="M17 3l4 4-7 7H10v-4l7-7z"/>
+                                                                <path d="M4 20h16"/>
+                                                            </svg>
+                                                            Modifier
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => handleDelete(product._id)}
+                                                            className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition"
+                                                        >
+                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                                <line x1="18" y1="6" x2="6" y2="18"/>
+                                                                <line x1="6" y1="6" x2="18" y2="18"/>
+                                                            </svg>
+                                                            Supprimer
+                                                        </button>
                                                     </div>
-                                                ) : (
-                                                    <span className="text-gray-400">—</span>
-                                                )}
-                                              </td>
-                                            <td className="px-6 py-4">
-                                                <label className="relative inline-flex items-center cursor-pointer">
-                                                    <input 
-                                                        onClick={() => toggleStock(product._id, !product.inStock)} 
-                                                        checked={product.inStock} 
-                                                        type="checkbox" 
-                                                        className="sr-only peer" 
-                                                        readOnly 
-                                                    />
-                                                    <div className="w-10 h-5 bg-gray-300 rounded-full peer peer-checked:bg-red-500 transition-colors duration-200"></div>
-                                                    <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform duration-200 peer-checked:translate-x-5"></div>
-                                                </label>
-                                              </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex gap-2">
-                                                    <button 
-                                                        onClick={() => handleEdit(product)}
-                                                        className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition"
-                                                    >
-                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                            <path d="M17 3l4 4-7 7H10v-4l7-7z"/>
-                                                            <path d="M4 20h16"/>
-                                                        </svg>
-                                                        Modifier
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => handleDelete(product._id)}
-                                                        className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition"
-                                                    >
-                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                            <line x1="18" y1="6" x2="6" y2="18"/>
-                                                            <line x1="6" y1="6" x2="18" y2="18"/>
-                                                        </svg>
-                                                        Supprimer
-                                                    </button>
-                                                </div>
-                                              </td>
-                                          </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                    </div>
+
+                        {/* Pagination */}
+                        {totalPages > 1 && (
+                            <div className="flex justify-between items-center mt-6">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm text-gray-500">Lignes par page :</span>
+                                    <select
+                                        value={itemsPerPage}
+                                        onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                                        className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:border-red-500 outline-none"
+                                    >
+                                        <option value={10}>10</option>
+                                        <option value={25}>25</option>
+                                        <option value={50}>50</option>
+                                        <option value={100}>100</option>
+                                    </select>
+                                </div>
+                                
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setCurrentPage(1)}
+                                        disabled={currentPage === 1}
+                                        className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
+                                    >
+                                        «
+                                    </button>
+                                    <button
+                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                        disabled={currentPage === 1}
+                                        className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
+                                    >
+                                        ‹
+                                    </button>
+                                    <span className="px-4 py-1.5 text-sm text-gray-600">
+                                        Page {currentPage} / {totalPages}
+                                    </span>
+                                    <button
+                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                        disabled={currentPage === totalPages}
+                                        className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
+                                    >
+                                        ›
+                                    </button>
+                                    <button
+                                        onClick={() => setCurrentPage(totalPages)}
+                                        disabled={currentPage === totalPages}
+                                        className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
+                                    >
+                                        »
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
 
-            {/* Modal de modification */}
+            {/* Modal de modification - reste identique */}
             {editProduct && (
                 <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setEditProduct(null)}>
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
@@ -430,7 +709,6 @@ const ProductList = () => {
                                 </div>
                             </div>
 
-                            {/* ⚡ AJOUT : Champ Taille et Stock pour produits simples */}
                             {editProduct.variants?.length === 0 && (
                                 <>
                                     <div>
@@ -548,7 +826,7 @@ const ProductList = () => {
                                                                 <div className="w-4 h-4 rounded-full" style={{ backgroundColor: v.colorCode || '#000' }}></div>
                                                                 <span className="text-sm text-gray-600">{v.color}</span>
                                                             </div>
-                                                          </td>
+                                                        </td>
                                                         <td className="px-3 py-2 text-sm text-gray-600">{v.size || '—'}</td>
                                                         <td className="px-3 py-2">
                                                             <div className="flex gap-1">
@@ -567,7 +845,7 @@ const ProductList = () => {
                                                                     className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:border-red-500 outline-none"
                                                                 />
                                                             </div>
-                                                          </td>
+                                                        </td>
                                                         <td className="px-3 py-2">
                                                             <input 
                                                                 type="number" 
@@ -575,7 +853,7 @@ const ProductList = () => {
                                                                 onChange={e => updateVariantStock(i, e.target.value)}
                                                                 className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:border-red-500 outline-none"
                                                             />
-                                                          </td>
+                                                        </td>
                                                         <td className="px-3 py-2">
                                                             <input 
                                                                 type="number" 
@@ -583,7 +861,7 @@ const ProductList = () => {
                                                                 onChange={e => updateVariantStartIndex(i, e.target.value)}
                                                                 className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:border-red-500 outline-none"
                                                             />
-                                                          </td>
+                                                        </td>
                                                         <td className="px-3 py-2">
                                                             <div className="flex gap-1">
                                                                 <button 
@@ -606,8 +884,8 @@ const ProductList = () => {
                                                                     </svg>
                                                                 </button>
                                                             </div>
-                                                          </td>
-                                                      </tr>
+                                                         </td>
+                                                     </tr>
                                                 ))}
                                             </tbody>
                                         </table>

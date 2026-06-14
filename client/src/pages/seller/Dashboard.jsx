@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import { useAppContext } from '../../context/AppContext'
 import toast from 'react-hot-toast'
 import { Line, Bar, Doughnut } from 'react-chartjs-2'
@@ -51,6 +51,7 @@ const Dashboard = () => {
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
     const [availableYears, setAvailableYears] = useState([])
     const [loading, setLoading] = useState(true)
+    const [lastUpdate, setLastUpdate] = useState(new Date())
     const [chartData, setChartData] = useState({})
     const [categoryChartData, setCategoryChartData] = useState({})
     const [statusChartData, setStatusChartData] = useState({})
@@ -66,6 +67,7 @@ const Dashboard = () => {
                 const orders = data.orders
                 setAllOrders(orders)
                 setAllProducts(productsData.products)
+                setLastUpdate(new Date())
                 
                 const years = [...new Set(orders.map(order => new Date(order.createdAt).getFullYear()))].sort((a, b) => b - a)
                 setAvailableYears(years)
@@ -210,8 +212,8 @@ const Dashboard = () => {
             order.items.forEach(item => {
                 const product = allProducts.find(p => p._id === item.product)
                 if (product) {
-                    const category = product.category
-                    const amount = (item.priceAtOrder || product.offerPrice) * item.quantity
+                    const category = product.category || product.categories?.[0] || 'Non catégorisé'
+                    const amount = (item.priceAtOrder || product.offerPrice || product.price) * item.quantity
                     categorySales[category] = (categorySales[category] || 0) + amount
                 }
             })
@@ -260,9 +262,17 @@ const Dashboard = () => {
         fetchDashboardData()
     }, [])
 
+    // 📊 Statistiques calculées
     const selectedMonthRevenue = monthlySalesData[selectedMonth] || 0
     const selectedMonthOrders = allOrders.filter(o => new Date(o.createdAt).getMonth() === selectedMonth).length
     const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
+    
+    // Tendances
+    const weeklyTrend = dailySales.length > 0 ? 
+        ((dailySales[dailySales.length - 1] - dailySales[0]) / (dailySales[0] || 1)) * 100 : 0
+    
+    const avgOrderTrend = stats.avgOrderValue > 0 ? 
+        ((stats.totalRevenue / stats.totalOrders) - stats.avgOrderValue) / stats.avgOrderValue * 100 : 0
 
     if (loading) {
         return (
@@ -279,11 +289,14 @@ const Dashboard = () => {
         <div className="bg-gray-50 min-h-screen">
             <div className="p-6 space-y-6">
                 
-                {/* Header */}
-                <div className="flex justify-between items-center">
+                {/* Header avec dernière mise à jour */}
+                <div className="flex justify-between items-center flex-wrap gap-3">
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900">Tableau de bord</h1>
                         <p className="text-sm text-gray-500 mt-1">Vue d'ensemble de votre activité</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                            Dernière mise à jour : {lastUpdate.toLocaleTimeString()}
+                        </p>
                     </div>
                     <button 
                         onClick={fetchDashboardData} 
@@ -297,13 +310,14 @@ const Dashboard = () => {
                     </button>
                 </div>
 
-                {/* Stats Grid */}
+                {/* Stats Grid avec tendances */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                    <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+                    <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition">
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm text-gray-500">Commandes totales</p>
                                 <p className="text-3xl font-bold text-gray-900 mt-1">{stats.totalOrders}</p>
+                                <p className="text-xs text-green-600 mt-1">+{stats.deliveredOrders} livrées</p>
                             </div>
                             <div className="w-11 h-11 bg-gray-100 rounded-xl flex items-center justify-center">
                                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111111" strokeWidth="1.8">
@@ -316,11 +330,14 @@ const Dashboard = () => {
                         </div>
                     </div>
                     
-                    <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+                    <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition">
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm text-gray-500">Chiffre d'affaires</p>
                                 <p className="text-2xl font-bold text-gray-900 mt-1">{stats.totalRevenue.toLocaleString()} {currency}</p>
+                                <p className={`text-xs ${weeklyTrend >= 0 ? 'text-green-600' : 'text-red-500'} mt-1`}>
+                                    {weeklyTrend >= 0 ? '↑' : '↓'} {Math.abs(Math.round(weeklyTrend))}% cette semaine
+                                </p>
                             </div>
                             <div className="w-11 h-11 bg-green-50 rounded-xl flex items-center justify-center">
                                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="1.8">
@@ -331,11 +348,14 @@ const Dashboard = () => {
                         </div>
                     </div>
                     
-                    <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+                    <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition">
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm text-gray-500">Panier moyen</p>
                                 <p className="text-2xl font-bold text-gray-900 mt-1">{Math.round(stats.avgOrderValue).toLocaleString()} {currency}</p>
+                                <p className={`text-xs ${avgOrderTrend >= 0 ? 'text-green-600' : 'text-red-500'} mt-1`}>
+                                    vs moyenne générale
+                                </p>
                             </div>
                             <div className="w-11 h-11 bg-blue-50 rounded-xl flex items-center justify-center">
                                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="1.8">
@@ -346,11 +366,12 @@ const Dashboard = () => {
                         </div>
                     </div>
                     
-                    <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+                    <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition">
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm text-gray-500">Taux de livraison</p>
                                 <p className="text-2xl font-bold text-gray-900 mt-1">{Math.round(stats.conversionRate)}%</p>
+                                <p className="text-xs text-gray-500 mt-1">{stats.deliveredOrders} / {stats.totalOrders} commandes</p>
                             </div>
                             <div className="w-11 h-11 bg-orange-50 rounded-xl flex items-center justify-center">
                                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="1.8">
@@ -362,19 +383,32 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                {/* Monthly Analysis */}
+                {/* Monthly Analysis amélioré */}
                 <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-                    <h3 className="font-semibold text-gray-900 mb-4">Analyse mensuelle</h3>
-                    <div className="mb-4">
-                        <select 
-                            value={selectedMonth}
-                            onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                            className="text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-red-500"
-                        >
-                            {monthNames.map((month, idx) => (
-                                <option key={idx} value={idx}>{month}</option>
-                            ))}
-                        </select>
+                    <div className="flex justify-between items-center mb-4 flex-wrap gap-3">
+                        <h3 className="font-semibold text-gray-900">Analyse mensuelle</h3>
+                        <div className="flex gap-2">
+                            <select 
+                                value={selectedMonth}
+                                onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                                className="text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-red-500"
+                            >
+                                {monthNames.map((month, idx) => (
+                                    <option key={idx} value={idx}>{month}</option>
+                                ))}
+                            </select>
+                            {availableYears.length > 0 && (
+                                <select 
+                                    value={selectedYear}
+                                    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                                    className="text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-red-500"
+                                >
+                                    {availableYears.map(year => (
+                                        <option key={year} value={year}>{year}</option>
+                                    ))}
+                                </select>
+                            )}
+                        </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="bg-gray-50 rounded-lg p-4 text-center">
@@ -392,20 +426,7 @@ const Dashboard = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     
                     <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="font-semibold text-gray-900">Évolution du chiffre d'affaires</h3>
-                            {availableYears.length > 0 && (
-                                <select 
-                                    value={selectedYear}
-                                    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                                    className="text-xs border border-gray-200 rounded-lg px-2 py-1 outline-none"
-                                >
-                                    {availableYears.map(year => (
-                                        <option key={year} value={year}>{year}</option>
-                                    ))}
-                                </select>
-                            )}
-                        </div>
+                        <h3 className="font-semibold text-gray-900 mb-4">Évolution du chiffre d'affaires</h3>
                         {chartData.datasets && <Line data={chartData} options={{ responsive: true, maintainAspectRatio: true }} />}
                     </div>
 
@@ -465,9 +486,15 @@ const Dashboard = () => {
                         ) : (
                             <div className="space-y-3">
                                 {topProducts.map((product, idx) => (
-                                    <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                                        <div className="w-7 h-7 bg-red-500 rounded-full flex items-center justify-center font-semibold text-white text-xs">{idx + 1}</div>
-                                        {product.image && <img src={product.image} alt={product.name} className="w-10 h-10 object-cover rounded-md" />}
+                                    <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                                        <div className={`w-7 h-7 rounded-full flex items-center justify-center font-semibold text-white text-xs ${
+                                            idx === 0 ? 'bg-red-500' : idx === 1 ? 'bg-gray-700' : 'bg-gray-500'
+                                        }`}>
+                                            {idx + 1}
+                                        </div>
+                                        {product.image && (
+                                            <img src={product.image} alt={product.name} className="w-10 h-10 object-cover rounded-md" />
+                                        )}
                                         <div className="flex-1">
                                             <p className="font-medium text-gray-800 text-sm">{product.name}</p>
                                             <p className="text-xs text-gray-400">{product.quantity} vendus</p>
@@ -479,14 +506,15 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                {/* Low Stock */}
+                {/* Low Stock avec statistiques */}
                 <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
-                    <div className="p-4 border-b border-gray-100 bg-gray-50">
-                        <h3 className="font-semibold text-gray-900">Produits en stock faible</h3>
+                    <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                        <h3 className="font-semibold text-gray-900">⚠️ Produits en stock faible</h3>
+                        <span className="text-xs text-gray-500">{stats.lowStockProducts.length} produit(s)</span>
                     </div>
                     <div className="divide-y divide-gray-100">
                         {stats.lowStockProducts.length === 0 ? (
-                            <p className="p-5 text-gray-400 text-center text-sm">Aucun produit en stock faible</p>
+                            <p className="p-5 text-gray-400 text-center text-sm">✅ Aucun produit en stock faible</p>
                         ) : (
                             stats.lowStockProducts.map((product, idx) => {
                                 let minStock = null
@@ -498,12 +526,13 @@ const Dashboard = () => {
                                             <img src={product.image?.[0]} alt={product.name} className="w-10 h-10 object-cover rounded-md border border-gray-200" />
                                             <div className="flex-1">
                                                 <p className="font-medium text-gray-800 text-sm">{product.name}</p>
-                                                <p className="text-xs text-gray-400">{product.category}</p>
+                                                <p className="text-xs text-gray-400">{product.category || product.categories?.[0] || '-'}</p>
                                             </div>
                                             <div className="text-right">
                                                 <p className={`font-semibold text-sm ${minStock === 0 ? 'text-red-500' : 'text-orange-500'}`}>
                                                     {minStock === 0 ? 'Épuisé' : `${minStock} restant(s)`}
                                                 </p>
+                                                <p className="text-xs text-gray-400">⚠️ Réapprovisionner</p>
                                             </div>
                                         </div>
                                     </div>
@@ -515,8 +544,9 @@ const Dashboard = () => {
 
                 {/* Recent Orders */}
                 <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
-                    <div className="p-4 border-b border-gray-100 bg-gray-50">
-                        <h3 className="font-semibold text-gray-900">Dernières commandes</h3>
+                    <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                        <h3 className="font-semibold text-gray-900">📦 Dernières commandes</h3>
+                        <span className="text-xs text-gray-500">{allOrders.length} commandes</span>
                     </div>
                     <div className="divide-y divide-gray-100">
                         {allOrders.slice(0, 5).map((order, idx) => (
@@ -524,15 +554,34 @@ const Dashboard = () => {
                                 <div className="flex justify-between items-center">
                                     <div>
                                         <p className="font-mono text-sm font-medium text-gray-800">#{order._id.slice(-8)}</p>
-                                        <p className="text-xs text-gray-400 mt-0.5">{new Date(order.createdAt).toLocaleDateString()}</p>
+                                        <p className="text-xs text-gray-400 mt-0.5">
+                                            {new Date(order.createdAt).toLocaleDateString()} à {new Date(order.createdAt).toLocaleTimeString()}
+                                        </p>
+                                        <p className="text-xs text-gray-500 mt-1">{order.address.firstName} {order.address.lastName}</p>
                                     </div>
                                     <div className="text-right">
                                         <p className="font-bold text-red-500">{order.amount.toLocaleString()} {currency}</p>
-                                        <p className="text-xs text-gray-400 mt-0.5">{order.paymentType === "COD" ? "Paiement à la livraison" : "Paiement en ligne"}</p>
+                                        <p className="text-xs text-gray-400 mt-0.5">{order.paymentType === "COD" ? "💰 Paiement à la livraison" : "💳 Paiement en ligne"}</p>
+                                        <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                            order.status === 'Delivered' ? 'bg-green-100 text-green-700' :
+                                            order.status === 'Cancelled' ? 'bg-red-100 text-red-700' :
+                                            'bg-blue-100 text-blue-700'
+                                        }`}>
+                                            {order.status === 'Delivered' ? 'Livrée' :
+                                             order.status === 'Cancelled' ? 'Annulée' :
+                                             order.status === 'Shipped' ? 'Expédiée' :
+                                             order.status === 'Out for Delivery' ? 'En livraison' :
+                                             order.status === 'Confirmed' ? 'Confirmée' : 'Commandée'}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
                         ))}
+                        {allOrders.length > 5 && (
+                            <div className="p-3 text-center bg-gray-50">
+                                <p className="text-xs text-gray-400">+ {allOrders.length - 5} autres commandes</p>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
