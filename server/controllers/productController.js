@@ -14,7 +14,7 @@ export const addProduct = async (req, res) => {
             })
         )
 
-        // Les variantes n'ont plus d'images, juste startImageIndex
+        // Traitement des variantes
         const processedVariants = (productData.variants || []).map(variant => ({
             color: variant.color,
             colorCode: variant.colorCode,
@@ -25,11 +25,27 @@ export const addProduct = async (req, res) => {
             startImageIndex: variant.startImageIndex || 0
         }))
 
+        // Pour un produit simple (sans variantes), on utilise le stock du produit
+        const hasVariants = productData.variants && productData.variants.length > 0
+        
+        // Calcul du stock total pour affichage
+        let totalStock = 0
+        if (hasVariants) {
+            totalStock = processedVariants.reduce((sum, v) => sum + v.stock, 0)
+        } else {
+            totalStock = productData.stock || 0
+        }
+
         await Product.create({
-            ...productData,
-            image: imagesUrl, // TOUTES les images du produit dans l'ordre
+            name: productData.name,
+            description: productData.description,
+            categories: productData.categories,
+            price: productData.price,
+            offerPrice: productData.offerPrice,
+            image: imagesUrl,
             variants: processedVariants,
-            inStock: productData.variants?.some(v => v.stock > 0) ?? true,
+            stock: hasVariants ? totalStock : (productData.stock || 0), // Stock total pour affichage
+            inStock: hasVariants ? processedVariants.some(v => v.stock > 0) : (productData.stock > 0),
         })
 
         res.json({ success: true, message: "Product Added" })
@@ -78,19 +94,31 @@ export const changeStock = async (req, res) => {
 // Update Product : /api/product/update
 export const updateProduct = async (req, res) => {
     try {
-        const { id, name, description, categories, price, offerPrice, variants } = req.body
+        const { id, name, description, categories, price, offerPrice, variants, stock } = req.body
 
-        const inStock = variants?.some(v => v.stock > 0) ?? true
+        const hasVariants = variants && variants.length > 0
+        
+        let processedVariants = []
+        let totalStock = 0
+        
+        if (hasVariants) {
+            processedVariants = (variants || []).map(v => ({
+                color: v.color,
+                colorCode: v.colorCode,
+                size: v.size || null,
+                price: v.price || 0,
+                offerPrice: v.offerPrice || 0,
+                stock: v.stock || 0,
+                startImageIndex: v.startImageIndex || 0
+            }))
+            totalStock = processedVariants.reduce((sum, v) => sum + v.stock, 0)
+        } else {
+            totalStock = stock || 0
+        }
 
-        const processedVariants = (variants || []).map(v => ({
-            color: v.color,
-            colorCode: v.colorCode,
-            size: v.size || null,
-            price: v.price || 0,
-            offerPrice: v.offerPrice || 0,
-            stock: v.stock || 0,
-            startImageIndex: v.startImageIndex || 0
-        }))
+        const inStock = hasVariants 
+            ? processedVariants.some(v => v.stock > 0) 
+            : totalStock > 0
 
         await Product.findByIdAndUpdate(id, {
             name,
@@ -98,7 +126,8 @@ export const updateProduct = async (req, res) => {
             categories: categories,
             price,
             offerPrice,
-            variants: processedVariants,
+            variants: hasVariants ? processedVariants : [],
+            stock: totalStock,
             inStock,
         })
 
@@ -126,8 +155,15 @@ export const reduceVariantStock = async (productId, color, size, quantity) => {
     const product = await Product.findById(productId)
     if (!product) return
 
-    if (product.variants.length === 0) return
+    if (product.variants.length === 0) {
+        // Produit simple : réduire le stock global
+        product.stock = Math.max(0, (product.stock || 0) - quantity)
+        product.inStock = product.stock > 0
+        await product.save()
+        return
+    }
 
+    // Produit avec variantes
     const variant = product.variants.find(v =>
         (color ? v.color === color : true) &&
         (size ? v.size === size : true)
