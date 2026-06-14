@@ -1,25 +1,51 @@
-import mongoose from "mongoose";
+// Add Product : /api/product/add
+export const addProduct = async (req, res) => {
+    try {
+        let productData = JSON.parse(req.body.productData)
+        const images = req.files
 
-const variantSchema = new mongoose.Schema({
-    color: { type: String, default: null },        // Nom de la couleur : "Rouge", "Bleu", "Noir"
-    colorCode: { type: String, default: "#000000" }, // Code hexadécimal pour l'affichage
-    size: { type: String, default: null },
-    price: { type: Number, default: 0 },            // Prix spécifique à cette variante
-    offerPrice: { type: Number, default: 0 },       // Prix promo spécifique
-    stock: { type: Number, default: 0 },
-    startImageIndex: { type: Number, default: 0 }   // ← NOUVEAU : index de la première photo associée (ex: 0, 3, 6...)
-});
+        let imagesUrl = await Promise.all(
+            images.map(async (item) => {
+                let result = await cloudinary.uploader.upload(item.path, { resource_type: 'image' });
+                return result.secure_url
+            })
+        )
 
-const productSchema = new mongoose.Schema({
-    name: { type: String, required: true },
-    description: { type: Array, required: true },
-    price: { type: Number, required: true },        // Prix par défaut
-    offerPrice: { type: Number, required: true },   // Prix promo par défaut
-    image: { type: Array, required: true },         // TOUTES les images du produit (dans l'ordre)
-    categories: [{ type: String, required: true }],
-    inStock: { type: Boolean, default: true },
-    variants: [variantSchema]
-}, { timestamps: true });
+        // Traitement des variantes
+        const processedVariants = (productData.variants || []).map(variant => ({
+            color: variant.color,
+            colorCode: variant.colorCode,
+            size: variant.size || null,
+            price: variant.price || 0,
+            offerPrice: variant.offerPrice || 0,
+            stock: variant.stock || 0,
+            startImageIndex: variant.startImageIndex || 0
+        }))
 
-const Product = mongoose.models.product || mongoose.model('product', productSchema);
-export default Product;
+        // Déterminer si c'est un produit avec variantes ou simple
+        const hasVariants = productData.variants && productData.variants.length > 0
+
+        // Création du produit
+        await Product.create({
+            name: productData.name,
+            description: productData.description,
+            categories: productData.categories,
+            price: productData.price,
+            offerPrice: productData.offerPrice,
+            image: imagesUrl,
+            variants: processedVariants,
+            // ⭐ Pour produit simple : on utilise productData.stock
+            // ⭐ Pour produit avec variantes : le stock global est 0 (on utilise les stocks des variantes)
+            stock: hasVariants ? 0 : (productData.stock || 0),
+            inStock: hasVariants 
+                ? processedVariants.some(v => v.stock > 0) 
+                : (productData.stock > 0),
+        })
+
+        res.json({ success: true, message: "Product Added" })
+
+    } catch (error) {
+        console.log(error.message);
+        res.json({ success: false, message: error.message })
+    }
+}
