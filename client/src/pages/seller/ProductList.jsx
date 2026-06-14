@@ -82,7 +82,8 @@ const ProductList = () => {
                 price: editProduct.price,
                 offerPrice: editProduct.offerPrice,
                 variants: editProduct.variants,
-                stock: editProduct.stock,  // ⭐ AJOUT : stock pour produits simples
+                stock: editProduct.stock,
+                size: editProduct.size,  // ⚡ AJOUT : taille pour produit simple
             })
             if (data.success) {
                 toast.success(data.message)
@@ -223,6 +224,7 @@ const ProductList = () => {
                                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Produit</th>
                                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Catégorie(s)</th>
                                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Prix</th>
+                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Taille</th>
                                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Stock</th>
                                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Variantes</th>
                                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">En vente</th>
@@ -252,11 +254,20 @@ const ProductList = () => {
                                                         <span className="text-gray-400">—</span>
                                                     )}
                                                 </div>
-                                             </td>
+                                              </td>
                                             <td className="px-6 py-4 font-medium text-gray-900">
                                                 {product.offerPrice || product.price} {currency}
-                                             </td>
-                                            {/* ⭐ NOUVELLE COLONNE STOCK pour produits simples */}
+                                              </td>
+                                            {/* ⚡ NOUVELLE COLONNE : Taille pour produit simple */}
+                                            <td className="px-6 py-4">
+                                                {product.variants?.length === 0 ? (
+                                                    <span className="text-gray-700">
+                                                        {product.size || '—'}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-gray-400 text-sm">via variantes</span>
+                                                )}
+                                              </td>
                                             <td className="px-6 py-4">
                                                 {product.variants?.length === 0 ? (
                                                     <span className={`font-medium ${
@@ -269,7 +280,7 @@ const ProductList = () => {
                                                 ) : (
                                                     <span className="text-gray-400 text-sm">via variantes</span>
                                                 )}
-                                             </td>
+                                              </td>
                                             <td className="px-6 py-4">
                                                 {product.variants?.length > 0 ? (
                                                     <div className="space-y-1">
@@ -291,7 +302,7 @@ const ProductList = () => {
                                                 ) : (
                                                     <span className="text-gray-400">—</span>
                                                 )}
-                                             </td>
+                                              </td>
                                             <td className="px-6 py-4">
                                                 <label className="relative inline-flex items-center cursor-pointer">
                                                     <input 
@@ -304,7 +315,7 @@ const ProductList = () => {
                                                     <div className="w-10 h-5 bg-gray-300 rounded-full peer peer-checked:bg-red-500 transition-colors duration-200"></div>
                                                     <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform duration-200 peer-checked:translate-x-5"></div>
                                                 </label>
-                                             </td>
+                                              </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex gap-2">
                                                     <button 
@@ -328,17 +339,17 @@ const ProductList = () => {
                                                         Supprimer
                                                     </button>
                                                 </div>
-                                             </td>
-                                         </tr>
+                                              </td>
+                                          </tr>
                                     ))}
                                 </tbody>
-                             </table>
+                            </table>
                         </div>
                     </div>
                 )}
             </div>
 
-            {/* Modal de modification - AJOUTER LE CHAMP STOCK pour produits simples */}
+            {/* Modal de modification */}
             {editProduct && (
                 <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setEditProduct(null)}>
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
@@ -419,18 +430,30 @@ const ProductList = () => {
                                 </div>
                             </div>
 
-                            {/* ⭐ AJOUT : Champ Stock pour produits simples */}
+                            {/* ⚡ AJOUT : Champ Taille et Stock pour produits simples */}
                             {editProduct.variants?.length === 0 && (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Stock</label>
-                                    <input 
-                                        type="number" 
-                                        value={editProduct.stock || 0} 
-                                        onChange={e => setEditProduct({ ...editProduct, stock: parseInt(e.target.value) || 0 })}
-                                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
-                                        min="0"
-                                    />
-                                </div>
+                                <>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Taille (optionnel)</label>
+                                        <input 
+                                            type="text" 
+                                            value={editProduct.size || ''} 
+                                            onChange={e => setEditProduct({ ...editProduct, size: e.target.value || null })}
+                                            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                            placeholder="Ex: S, M, L, XL"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Stock</label>
+                                        <input 
+                                            type="number" 
+                                            value={editProduct.stock || 0} 
+                                            onChange={e => setEditProduct({ ...editProduct, stock: parseInt(e.target.value) || 0 })}
+                                            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                            min="0"
+                                        />
+                                    </div>
+                                </>
                             )}
 
                             {/* Section Variantes */}
@@ -525,7 +548,7 @@ const ProductList = () => {
                                                                 <div className="w-4 h-4 rounded-full" style={{ backgroundColor: v.colorCode || '#000' }}></div>
                                                                 <span className="text-sm text-gray-600">{v.color}</span>
                                                             </div>
-                                                         </td>
+                                                          </td>
                                                         <td className="px-3 py-2 text-sm text-gray-600">{v.size || '—'}</td>
                                                         <td className="px-3 py-2">
                                                             <div className="flex gap-1">
@@ -544,7 +567,7 @@ const ProductList = () => {
                                                                     className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:border-red-500 outline-none"
                                                                 />
                                                             </div>
-                                                         </td>
+                                                          </td>
                                                         <td className="px-3 py-2">
                                                             <input 
                                                                 type="number" 
@@ -552,7 +575,7 @@ const ProductList = () => {
                                                                 onChange={e => updateVariantStock(i, e.target.value)}
                                                                 className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:border-red-500 outline-none"
                                                             />
-                                                         </td>
+                                                          </td>
                                                         <td className="px-3 py-2">
                                                             <input 
                                                                 type="number" 
@@ -560,7 +583,7 @@ const ProductList = () => {
                                                                 onChange={e => updateVariantStartIndex(i, e.target.value)}
                                                                 className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:border-red-500 outline-none"
                                                             />
-                                                         </td>
+                                                          </td>
                                                         <td className="px-3 py-2">
                                                             <div className="flex gap-1">
                                                                 <button 
@@ -583,8 +606,8 @@ const ProductList = () => {
                                                                     </svg>
                                                                 </button>
                                                             </div>
-                                                         </td>
-                                                     </tr>
+                                                          </td>
+                                                      </tr>
                                                 ))}
                                             </tbody>
                                         </table>

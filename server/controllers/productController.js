@@ -44,7 +44,8 @@ export const addProduct = async (req, res) => {
             offerPrice: productData.offerPrice,
             image: imagesUrl,
             variants: processedVariants,
-            stock: hasVariants ? totalStock : (productData.stock || 0), // Stock total pour affichage
+            stock: hasVariants ? totalStock : (productData.stock || 0),
+            size: hasVariants ? null : (productData.size || null), // ⚡ AJOUT : taille optionnelle
             inStock: hasVariants ? processedVariants.some(v => v.stock > 0) : (productData.stock > 0),
         })
 
@@ -94,7 +95,7 @@ export const changeStock = async (req, res) => {
 // Update Product : /api/product/update
 export const updateProduct = async (req, res) => {
     try {
-        const { id, name, description, categories, price, offerPrice, variants, stock } = req.body
+        const { id, name, description, categories, price, offerPrice, variants, stock, size } = req.body
 
         const hasVariants = variants && variants.length > 0
         
@@ -128,6 +129,7 @@ export const updateProduct = async (req, res) => {
             offerPrice,
             variants: hasVariants ? processedVariants : [],
             stock: totalStock,
+            size: hasVariants ? null : (size || null), // ⚡ AJOUT : taille optionnelle
             inStock,
         })
 

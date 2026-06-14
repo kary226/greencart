@@ -16,8 +16,9 @@ const AddProduct = () => {
 
     // Mode produit : 'simple' ou 'variants'
     const [productMode, setProductMode] = useState('simple');
-    // Stock pour un produit simple (sans variantes)
+    // Stock et taille pour un produit simple (sans variantes)
     const [simpleStock, setSimpleStock] = useState('');
+    const [simpleSize, setSimpleSize] = useState('');  // ⚡ AJOUT : taille optionnelle
 
     // Crop state
     const [showCropper, setShowCropper] = useState(false);
@@ -35,9 +36,7 @@ const AddProduct = () => {
     const [variantOfferPriceInput, setVariantOfferPriceInput] = useState('')
     const [startImageIndexInput, setStartImageIndexInput] = useState(0)
     const [editingVariantIndex, setEditingVariantIndex] = useState(null)
-    // Index de la variante actuellement dépliée (accordéon)
     const [openVariantIndex, setOpenVariantIndex] = useState(null)
-    // Affiche/cache le formulaire d'ajout de variante
     const [showVariantForm, setShowVariantForm] = useState(false)
 
     const { axios } = useAppContext()
@@ -78,8 +77,6 @@ const AddProduct = () => {
             return
         }
 
-        // Si le prix n'est pas renseigné, on garde "null" : le produit utilisera
-        // le prix par défaut au moment de l'affichage / de la vente.
         const newVariant = {
             color: colorInput.trim(),
             colorCode: colorCodeInput,
@@ -173,10 +170,11 @@ const AddProduct = () => {
             categories: selectedCategories,
             price,
             offerPrice,
-            // En mode simple : pas de variantes, le stock est géré directement sur le produit.
-            // En mode variantes : le stock global n'est pas utilisé, chaque variante a le sien.
             variants: productMode === 'variants' ? variants : [],
-            ...(productMode === 'simple' ? { stock: Number(simpleStock) } : {})
+            ...(productMode === 'simple' && { 
+                stock: Number(simpleStock),
+                size: simpleSize || null  // ⚡ AJOUT : taille optionnelle
+            })
         }
 
         const formData = new FormData();
@@ -199,6 +197,7 @@ const AddProduct = () => {
                 setFiles([]);
                 setVariants([]);
                 setSimpleStock('');
+                setSimpleSize('');  // ⚡ AJOUT : reset taille
                 setProductMode('simple');
                 resetVariantForm();
                 setShowVariantForm(false);
@@ -373,26 +372,40 @@ const AddProduct = () => {
                     </p>
                 </div>
 
-                {/* ── MODE SIMPLE : juste le stock ── */}
+                {/* ── MODE SIMPLE : stock + taille optionnelle ── */}
                 {productMode === 'simple' && (
-                    <div className="flex flex-col gap-1 max-w-md">
-                        <label className="text-base font-medium">Stock</label>
-                        <input
-                            onChange={(e) => setSimpleStock(e.target.value)}
-                            value={simpleStock}
-                            type="number"
-                            min="0"
-                            placeholder="Quantité disponible"
-                            className="outline-none md:py-2.5 py-2 px-3 rounded border border-gray-500/40"
-                            required
-                        />
+                    <div className="flex flex-col gap-3 max-w-md">
+                        <div className="flex flex-col gap-1">
+                            <label className="text-base font-medium">Stock</label>
+                            <input
+                                onChange={(e) => setSimpleStock(e.target.value)}
+                                value={simpleStock}
+                                type="number"
+                                min="0"
+                                placeholder="Quantité disponible"
+                                className="outline-none md:py-2.5 py-2 px-3 rounded border border-gray-500/40"
+                                required
+                            />
+                        </div>
+                        
+                        {/* ⚡ NOUVEAU : Taille optionnelle pour produit simple */}
+                        <div className="flex flex-col gap-1">
+                            <label className="text-base font-medium">Taille (optionnel)</label>
+                            <input
+                                onChange={(e) => setSimpleSize(e.target.value)}
+                                value={simpleSize}
+                                type="text"
+                                placeholder="Ex: S, M, L, XL, ou laissez vide"
+                                className="outline-none md:py-2.5 py-2 px-3 rounded border border-gray-500/40"
+                            />
+                            <p className="text-xs text-gray-400">💡 Laissez vide si ce produit n'a pas de taille spécifique</p>
+                        </div>
                     </div>
                 )}
 
                 {/* ── MODE VARIANTES ── */}
                 {productMode === 'variants' && (
                     <div className="flex flex-col gap-3 max-w-md">
-
                         {/* Liste des variantes en accordéon */}
                         {variants.length > 0 && (
                             <div className="flex flex-col gap-2">
@@ -400,7 +413,6 @@ const AddProduct = () => {
                                     const isOpen = openVariantIndex === i
                                     return (
                                         <div key={i} className="border border-gray-200 rounded-lg overflow-hidden">
-                                            {/* En-tête cliquable : résumé de la variante */}
                                             <button
                                                 type="button"
                                                 onClick={() => setOpenVariantIndex(isOpen ? null : i)}
@@ -426,7 +438,6 @@ const AddProduct = () => {
                                                 </svg>
                                             </button>
 
-                                            {/* Détail dépliable */}
                                             {isOpen && (
                                                 <div className="px-3 py-3 border-t border-gray-200 bg-white text-sm space-y-2">
                                                     <div className="grid grid-cols-2 gap-2">
@@ -483,7 +494,6 @@ const AddProduct = () => {
                             </div>
                         )}
 
-                        {/* Bouton pour afficher le formulaire d'ajout */}
                         {!showVariantForm && (
                             <button
                                 type="button"
@@ -494,7 +504,6 @@ const AddProduct = () => {
                             </button>
                         )}
 
-                        {/* Formulaire d'ajout / édition de variante */}
                         {showVariantForm && (
                             <div className="bg-gray-50 p-3 rounded-lg space-y-3 border border-gray-200">
                                 <div className="flex items-center justify-between">

@@ -1,27 +1,28 @@
 import mongoose from "mongoose";
 
 const variantSchema = new mongoose.Schema({
-    color: { type: String, default: null },        // Nom de la couleur : "Rouge", "Bleu", "Noir"
-    colorCode: { type: String, default: "#000000" }, // Code hexadécimal pour l'affichage
+    color: { type: String, default: null },
+    colorCode: { type: String, default: "#000000" },
     size: { type: String, default: null },
-    price: { type: Number, default: 0 },            // Prix spécifique à cette variante
-    offerPrice: { type: Number, default: 0 },       // Prix promo spécifique
+    price: { type: Number, default: 0 },
+    offerPrice: { type: Number, default: 0 },
     stock: { type: Number, default: 0 },
-    startImageIndex: { type: Number, default: 0 }   // Index de la première photo associée
+    startImageIndex: { type: Number, default: 0 }
 });
 
 const productSchema = new mongoose.Schema({
     name: { type: String, required: true },
     description: { type: Array, required: true },
-    price: { type: Number, required: true },        // Prix par défaut
-    offerPrice: { type: Number, required: true },   // Prix promo par défaut
-    image: { type: Array, required: true },         // TOUTES les images du produit (dans l'ordre)
+    price: { type: Number, required: true },
+    offerPrice: { type: Number, required: true },
+    image: { type: Array, required: true },
     categories: [{ type: String, required: true }],
     inStock: { type: Boolean, default: true },
     variants: [variantSchema],
     
-    // ⚠️ AJOUT OBLIGATOIRE : Stock pour les produits SIMPLES (sans variantes) ⚠️
-    stock: { type: Number, default: 0 }
+    // Stock pour les produits SIMPLES (sans variantes)
+    stock: { type: Number, default: 0 },
+    size: { type: String, default: null }  // Taille optionnelle pour produit simple
     
 }, { timestamps: true });
 
