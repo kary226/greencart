@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
 import ProductCard from "../components/ProductCard";
@@ -12,14 +12,26 @@ const SECTIONS = [
 ];
 
 const Home = () => {
-  const { products, axios, orders } = useAppContext();
+  const { axios, orders } = useAppContext();
   const [categories, setCategories] = useState([]);
   const [activeSection, setActiveSection] = useState("trends");
+  
+  // État pour les produits avec pagination
+  const [allProducts, setAllProducts] = useState([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  
+  // État pour les produits triés par section
   const [trendProducts, setTrendProducts] = useState([]);
   const [newProducts, setNewProducts] = useState([]);
   const [dealProducts, setDealProducts] = useState([]);
+  
+  const observerRef = useRef(null);
   const navigate = useNavigate();
 
+  // Charger les catégories
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -30,8 +42,69 @@ const Home = () => {
     fetchCategories();
   }, []);
 
+  // Charger les produits avec pagination
+  const fetchProducts = async (pageNum = 1, isInitial = false) => {
+    if (isInitial) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
+    
+    try {
+      const { data } = await axios.get(`/api/product/list?page=${pageNum}&limit=12`);
+      if (data.success) {
+        const newProductsList = data.products;
+        
+        if (isInitial) {
+          setAllProducts(newProductsList);
+        } else {
+          setAllProducts(prev => [...prev, ...newProductsList]);
+        }
+        
+        setHasMore(data.pagination.hasMore);
+        setPage(pageNum);
+      }
+    } catch (error) {
+      console.error("Erreur chargement produits:", error);
+    } finally {
+      if (isInitial) {
+        setLoading(false);
+      } else {
+        setLoadingMore(false);
+      }
+    }
+  };
+
+  // Chargement initial
+  useEffect(() => {
+    fetchProducts(1, true);
+  }, []);
+
+  // Observer pour l'infinite scroll
+  const lastProductRef = useCallback((node) => {
+    if (loadingMore) return;
+    if (observerRef.current) observerRef.current.disconnect();
+    
+    observerRef.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore && !loadingMore) {
+        fetchProducts(page + 1, false);
+      }
+    });
+    
+    if (node) observerRef.current.observe(node);
+  }, [loadingMore, hasMore, page]);
+
+  // Calculer les produits triés quand allProducts change
+  useEffect(() => {
+    if (allProducts.length > 0) {
+      setTrendProducts(getTrendingProducts());
+      setNewProducts(getNewProducts());
+      setDealProducts(getDealProducts());
+    }
+  }, [allProducts, orders]);
+
   const getTrendingProducts = () => {
-    if (!products.length) return [];
+    if (!allProducts.length) return [];
     const productSales = {};
     if (orders && orders.length > 0) {
       orders.forEach(order => {
@@ -46,7 +119,7 @@ const Home = () => {
         }
       });
     }
-    const productsWithSales = products.map(product => ({
+    const productsWithSales = allProducts.map(product => ({
       ...product,
       salesCount: productSales[product._id] || 0
     }));
@@ -55,8 +128,8 @@ const Home = () => {
   };
 
   const getNewProducts = () => {
-    if (!products.length) return [];
-    const sorted = [...products].sort((a, b) => {
+    if (!allProducts.length) return [];
+    const sorted = [...allProducts].sort((a, b) => {
       const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
       const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
       return dateB - dateA;
@@ -65,8 +138,8 @@ const Home = () => {
   };
 
   const getDealProducts = () => {
-    if (!products.length) return [];
-    const productsWithOffer = products.filter(p => p.offerPrice && p.offerPrice < p.price);
+    if (!allProducts.length) return [];
+    const productsWithOffer = allProducts.filter(p => p.offerPrice && p.offerPrice < p.price);
     const productsWithScore = productsWithOffer.map(product => {
       const discountPercent = ((product.price - product.offerPrice) / product.price) * 100;
       const amountSaved = product.price - product.offerPrice;
@@ -82,14 +155,6 @@ const Home = () => {
     return productsWithScore.slice(0, 10);
   };
 
-  useEffect(() => {
-    if (products.length > 0) {
-      setTrendProducts(getTrendingProducts());
-      setNewProducts(getNewProducts());
-      setDealProducts(getDealProducts());
-    }
-  }, [products, orders]);
-
   const getSectionProducts = () => {
     switch (activeSection) {
       case "new":   return newProducts;
@@ -100,6 +165,17 @@ const Home = () => {
 
   const sectionProducts = getSectionProducts();
   const activeCategories = categories.filter(c => c.active !== false);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto"></div>
+          <p className="mt-4 text-gray-500">Chargement...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -170,18 +246,28 @@ const Home = () => {
           {sectionProducts.length > 0 ? (
             <>
               <div className="ramci-grid">
-                {sectionProducts.map(p => (
-                  <ProductCard key={p._id} product={p} />
-                ))}
+                {sectionProducts.map((p, index) => {
+                  // Ajouter une ref au dernier élément pour l'intersection observer
+                  const isLastItem = index === sectionProducts.length - 1 && activeSection === "trends";
+                  return (
+                    <div key={p._id} ref={isLastItem ? lastProductRef : null}>
+                      <ProductCard product={p} />
+                    </div>
+                  );
+                })}
               </div>
-              <div className="ramci-view-more-wrapper">
-                <button 
-                  onClick={() => navigate('/products')} 
-                  className="ramci-view-more-btn"
-                >
-                  Voir plus
-                </button>
-              </div>
+              
+              {loadingMore && (
+                <div className="flex justify-center py-4">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
+                </div>
+              )}
+              
+              {!hasMore && sectionProducts.length > 0 && (
+                <p className="text-center text-gray-400 text-sm mt-6 py-4">
+                  Vous avez vu tous les produits
+                </p>
+              )}
             </>
           ) : (
             <div className="ramci-empty">Aucun produit disponible</div>
@@ -353,30 +439,6 @@ const Home = () => {
           color: #bbb;
           font-family: 'DM Sans', sans-serif;
           font-size: 14px;
-        }
-
-        .ramci-view-more-wrapper {
-          display: flex;
-          justify-content: center;
-          margin-top: 24px;
-        }
-
-        .ramci-view-more-btn {
-          background: #111;
-          color: #fff;
-          border: none;
-          padding: 12px 32px;
-          border-radius: 40px;
-          font-family: 'DM Sans', sans-serif;
-          font-size: 14px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .ramci-view-more-btn:hover {
-          background: #333;
-          transform: scale(1.02);
         }
       `}</style>
     </>

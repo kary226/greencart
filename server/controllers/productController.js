@@ -45,7 +45,7 @@ export const addProduct = async (req, res) => {
             image: imagesUrl,
             variants: processedVariants,
             stock: hasVariants ? totalStock : (productData.stock || 0),
-            size: hasVariants ? null : (productData.size || null), // ⚡ AJOUT : taille optionnelle
+            size: hasVariants ? null : (productData.size || null),
             inStock: hasVariants ? processedVariants.some(v => v.stock > 0) : (productData.stock > 0),
         })
 
@@ -57,11 +57,31 @@ export const addProduct = async (req, res) => {
     }
 }
 
-// Get Product : /api/product/list
+// Get Product : /api/product/list - AVEC PAGINATION
 export const productList = async (req, res) => {
     try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 12;
+        const skip = (page - 1) * limit;
+
         const products = await Product.find({})
-        res.json({ success: true, products })
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
+
+        const totalProducts = await Product.countDocuments({});
+        const totalPages = Math.ceil(totalProducts / limit);
+
+        res.json({ 
+            success: true, 
+            products,
+            pagination: {
+                currentPage: page,
+                totalPages,
+                totalProducts,
+                hasMore: page < totalPages
+            }
+        })
     } catch (error) {
         console.log(error.message);
         res.json({ success: false, message: error.message })
@@ -129,7 +149,7 @@ export const updateProduct = async (req, res) => {
             offerPrice,
             variants: hasVariants ? processedVariants : [],
             stock: totalStock,
-            size: hasVariants ? null : (size || null), // ⚡ AJOUT : taille optionnelle
+            size: hasVariants ? null : (size || null),
             inStock,
         })
 
@@ -158,14 +178,12 @@ export const reduceVariantStock = async (productId, color, size, quantity) => {
     if (!product) return
 
     if (product.variants.length === 0) {
-        // Produit simple : réduire le stock global
         product.stock = Math.max(0, (product.stock || 0) - quantity)
         product.inStock = product.stock > 0
         await product.save()
         return
     }
 
-    // Produit avec variantes
     const variant = product.variants.find(v =>
         (color ? v.color === color : true) &&
         (size ? v.size === size : true)
