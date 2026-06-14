@@ -35,6 +35,7 @@ const ProductDetails = () => {
     const [averageRating, setAverageRating] = useState(4);
     const [totalReviews, setTotalReviews] = useState(0);
     const [showDetails, setShowDetails] = useState(false);
+    const [reviewsKey, setReviewsKey] = useState(0); // Pour forcer le refresh des avis
 
     const product = products.find((item)=> item._id === id);
 
@@ -110,6 +111,8 @@ const ProductDetails = () => {
     useEffect(() => {
         if (product) {
             addToRecentlyViewed(product);
+            // Rafraîchir le composant RecentlyViewed quand le produit change
+            setReviewsKey(prev => prev + 1);
         }
     }, [product]);
 
@@ -364,7 +367,6 @@ const ProductDetails = () => {
 
                 <div className="product-main">
                     <div className="product-gallery">
-                        {/* Image principale avec SWIPE (toujours actif) et flèches uniquement sur desktop */}
                         <div 
                             className="main-image-container"
                             onTouchStart={handleTouchStart}
@@ -377,7 +379,6 @@ const ProductDetails = () => {
                                 className="main-image" 
                             />
                             
-                            {/* Flèches visibles uniquement sur desktop (non mobile) */}
                             {allImages.length > 1 && !isMobile && (
                                 <>
                                     <button 
@@ -577,27 +578,75 @@ const ProductDetails = () => {
                     </div>
                 </div>
 
+                {/* Section Articles similaires */}
                 <div className="related-section">
                     <div className="section-header">
-                        <p className="section-title">Articles similaires</p>
+                        <div className="section-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="1.8">
+                                <path d="M20 7h-4.18A3 3 0 0 0 13 5h-2a3 3 0 0 0-2.82 2H4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
+                                <path d="M12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p className="section-title">Articles similaires</p>
+                            <p className="section-subtitle">Vous pourriez aussi aimer</p>
+                        </div>
                         <div className="title-underline"></div>
                     </div>
                     <div className="related-grid">
-                        {relatedProducts.filter((product)=>product.inStock).map((product, index)=>(
+                        {relatedProducts.filter((product)=>product.inStock).slice(0, 8).map((product, index)=>(
                             <ProductCard key={index} product={product}/>
                         ))}
                     </div>
-                    <button onClick={()=> {navigate('/products'); scrollTo(0,0)}} className="view-more-btn">
-                        Voir plus
-                    </button>
+                    {relatedProducts.length > 8 && (
+                        <button onClick={()=> {navigate('/products'); scrollTo(0,0)}} className="view-more-btn">
+                            Voir plus
+                        </button>
+                    )}
                 </div>
 
-                <ProductReviews 
-                    productId={product._id} 
-                    onDataChange={handleReviewsData}
-                />
+                {/* Section Avis clients modernisée */}
+                <div className="reviews-modern-section">
+                    <div className="section-header">
+                        <div className="section-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="1.8">
+                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p className="section-title">Avis clients</p>
+                            <p className="section-subtitle">
+                                {totalReviews > 0 
+                                    ? `${totalReviews} avis • Note moyenne ${averageRating}/5` 
+                                    : "Soyez le premier à donner votre avis"}
+                            </p>
+                        </div>
+                        <div className="title-underline"></div>
+                    </div>
+                    <ProductReviews 
+                        productId={product._id} 
+                        onDataChange={handleReviewsData}
+                        key={reviewsKey}
+                    />
+                </div>
 
-                <RecentlyViewed />
+                {/* Section Récemment consultés modernisée */}
+                <div className="recently-viewed-section">
+                    <div className="section-header">
+                        <div className="section-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="1.8">
+                                <circle cx="12" cy="12" r="10"/>
+                                <polyline points="12 6 12 12 16 14"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p className="section-title">Récemment consultés</p>
+                            <p className="section-subtitle">Les produits que vous avez vus récemment</p>
+                        </div>
+                        <div className="title-underline"></div>
+                    </div>
+                    <RecentlyViewed key={reviewsKey} />
+                </div>
             </div>
 
             <div className="floating-action-bar">
@@ -1154,28 +1203,59 @@ const ProductDetails = () => {
                     margin-bottom: 6px;
                 }
 
+                /* Section articles similaires modernisée */
                 .related-section {
-                    margin-top: 30px;
+                    margin-top: 48px;
+                    padding: 24px 0;
+                }
+
+                /* Sections modernisées (Avis et Récemment consultés) */
+                .reviews-modern-section,
+                .recently-viewed-section {
+                    margin-top: 40px;
+                    padding: 24px 0;
+                    border-top: 1px solid #f0ede8;
                 }
 
                 .section-header {
-                    text-align: center;
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
                     margin-bottom: 20px;
+                    position: relative;
+                }
+
+                .section-icon {
+                    width: 40px;
+                    height: 40px;
+                    background: #faf8f5;
+                    border-radius: 12px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
                 }
 
                 .section-title {
-                    font-size: 20px;
+                    font-size: 18px;
                     font-weight: 600;
                     color: #111;
-                    margin-bottom: 6px;
+                    margin: 0;
+                }
+
+                .section-subtitle {
+                    font-size: 12px;
+                    color: #888;
+                    margin: 2px 0 0;
                 }
 
                 .title-underline {
-                    width: 50px;
+                    position: absolute;
+                    bottom: -8px;
+                    left: 52px;
+                    width: 40px;
                     height: 2px;
-                    background: #111;
+                    background: #e53935;
                     border-radius: 2px;
-                    margin: 0 auto;
                 }
 
                 .related-grid {
