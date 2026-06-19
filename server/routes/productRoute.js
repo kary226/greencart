@@ -5,7 +5,8 @@ import { addProduct, changeStock, productList, productById, updateProduct, delet
 
 const productRouter = express.Router();
 
-productRouter.post('/add', upload.array(["images"]), authSeller, addProduct);
+// ✅ Correction H1 : authSeller AVANT upload.array pour éviter l'écriture de fichiers non authentifiés
+productRouter.post('/add', authSeller, upload.array("images", 6), addProduct);
 productRouter.get('/list', productList);
 productRouter.get('/id', productById);
 productRouter.post('/stock', authSeller, changeStock);

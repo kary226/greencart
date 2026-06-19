@@ -6,6 +6,6 @@ const reviewRouter = express.Router();
 
 reviewRouter.post('/add', authUser, addReview);
 reviewRouter.get('/product/:productId', getProductReviews);
-reviewRouter.post('/helpful/:id', markHelpful);
+reviewRouter.post('/helpful/:id', authUser, markHelpful); // Protégé + anti-doublon
 
 export default reviewRouter;
