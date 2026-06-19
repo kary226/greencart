@@ -1,19 +1,19 @@
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
-import Coupon from "../models/Coupon.js";
-import stripe from "stripe";
-import User from "../models/User.js";
+import stripe from "stripe"
+import User from "../models/User.js"
 import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
 
-// Réduction du stock des variantes
+// Fonction pour réduire le stock des VARIANTS après commande
 const reduceVariantStock = async (items) => {
     for (const item of items) {
-        const product = await Product.findById(item.product);
+        const product = await Product.findById(item.product)
         if (product && product.variants?.length > 0) {
-            const variant = product.variants.find(v =>
+            const variant = product.variants.find(v => 
                 (item.color ? v.color === item.color : !v.color) &&
                 (item.size ? v.size === item.size : !v.size)
             );
+            
             if (variant) {
                 variant.stock = Math.max(0, variant.stock - item.quantity);
                 product.inStock = product.variants.some(v => v.stock > 0);
@@ -30,19 +30,19 @@ const reduceVariantStock = async (items) => {
     }
 };
 
-// Place Order COD (sécurisé)
-export const placeOrderCOD = async (req, res) => {
+// Place Order COD : /api/order/cod
+export const placeOrderCOD = async (req, res)=>{
     try {
-        const { userId, items, address, deliveryPrice = 0, couponCode } = req.body;
-        if (!address || items.length === 0) {
-            return res.json({ success: false, message: "Invalid data" });
+        const { userId, items, address } = req.body;
+        if(!address || items.length === 0){
+            return res.json({success: false, message: "Invalid data"});
         }
 
-        let subtotal = 0;
+        let amount = 0;
         const itemsWithPrice = await Promise.all(items.map(async (item) => {
             const product = await Product.findById(item.product);
             const priceAtOrder = product.offerPrice;
-            subtotal += priceAtOrder * item.quantity;
+            amount += priceAtOrder * item.quantity;
             return {
                 product: item.product,
                 quantity: item.quantity,
@@ -52,25 +52,8 @@ export const placeOrderCOD = async (req, res) => {
             };
         }));
 
-        const tax = Math.floor(subtotal * 0.02);
-        let amount = subtotal + tax;
-
-        const delivery = Math.max(0, Number(deliveryPrice) || 0);
-        if (delivery > 10000) {
-            return res.json({ success: false, message: "Frais de livraison invalides" });
-        }
-        amount += delivery;
-
-        let discountAmount = 0;
-        if (couponCode) {
-            const coupon = await Coupon.findOne({ code: couponCode.toUpperCase() });
-            if (!coupon || !coupon.isValid()) {
-                return res.json({ success: false, message: "Coupon invalide ou expiré" });
-            }
-            discountAmount = coupon.calculateDiscount(subtotal);
-            amount -= discountAmount;
-        }
-        amount = Math.max(0, amount);
+        const tax = Math.floor(amount * 0.02);
+        amount += tax;
 
         const order = await Order.create({
             userId,
@@ -78,44 +61,42 @@ export const placeOrderCOD = async (req, res) => {
             amount,
             address,
             paymentType: "COD",
-            status: "Order Placed",
-            couponApplied: couponCode || null,
-            discountAmount,
-            deliveryPrice: delivery
+            status: "Order Placed"
         });
 
         await reduceVariantStock(itemsWithPrice);
-        await User.findByIdAndUpdate(userId, { cartItems: {} });
+        await User.findByIdAndUpdate(userId, {cartItems: {}});
 
+        // === ENVOI DES EMAILS ===
         const user = await User.findById(userId);
         if (user && user.email) {
             await sendOrderConfirmationEmail(user.email, order._id.toString(), amount);
             await sendAdminNotificationEmail(order._id.toString(), amount, `${user.name}`, user.email);
         }
 
-        return res.json({ success: true, message: "Order Placed Successfully" });
+        return res.json({success: true, message: "Order Placed Successfully" });
     } catch (error) {
         return res.json({ success: false, message: error.message });
     }
 };
 
-// Place Order Stripe (sécurisé)
-export const placeOrderStripe = async (req, res) => {
+// Place Order Stripe : /api/order/stripe
+export const placeOrderStripe = async (req, res)=>{
     try {
-        const { userId, items, address, deliveryPrice = 0, couponCode } = req.body;
-        const { origin } = req.headers;
+        const { userId, items, address } = req.body;
+        const {origin} = req.headers;
 
-        if (!address || items.length === 0) {
-            return res.json({ success: false, message: "Invalid data" });
+        if(!address || items.length === 0){
+            return res.json({success: false, message: "Invalid data"});
         }
 
         let productData = [];
-        let subtotal = 0;
+        let amount = 0;
         const itemsWithPrice = await Promise.all(items.map(async (item) => {
             const product = await Product.findById(item.product);
             const priceAtOrder = product.offerPrice;
-            subtotal += priceAtOrder * item.quantity;
-
+            amount += priceAtOrder * item.quantity;
+            
             productData.push({
                 name: product.name,
                 price: priceAtOrder,
@@ -123,7 +104,7 @@ export const placeOrderStripe = async (req, res) => {
                 color: item.selectedColor || null,
                 size: item.selectedSize || null
             });
-
+            
             return {
                 product: item.product,
                 quantity: item.quantity,
@@ -133,25 +114,7 @@ export const placeOrderStripe = async (req, res) => {
             };
         }));
 
-        const tax = Math.floor(subtotal * 0.02);
-        let amount = subtotal + tax;
-
-        const delivery = Math.max(0, Number(deliveryPrice) || 0);
-        if (delivery > 10000) {
-            return res.json({ success: false, message: "Frais de livraison invalides" });
-        }
-        amount += delivery;
-
-        let discountAmount = 0;
-        if (couponCode) {
-            const coupon = await Coupon.findOne({ code: couponCode.toUpperCase() });
-            if (!coupon || !coupon.isValid()) {
-                return res.json({ success: false, message: "Coupon invalide ou expiré" });
-            }
-            discountAmount = coupon.calculateDiscount(subtotal);
-            amount -= discountAmount;
-        }
-        amount = Math.max(0, amount);
+        amount += Math.floor(amount * 0.02);
 
         const order = await Order.create({
             userId,
@@ -159,23 +122,19 @@ export const placeOrderStripe = async (req, res) => {
             amount,
             address,
             paymentType: "Online",
-            status: "Order Placed",
-            couponApplied: couponCode || null,
-            discountAmount,
-            deliveryPrice: delivery
+            status: "Order Placed"
         });
 
         const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY);
 
-        const line_items = productData.map((item) => {
-            const unitAmount = Math.floor(item.price + item.price * 0.02) * 100;
+        const line_items = productData.map((item)=>{
             return {
                 price_data: {
                     currency: "usd",
-                    product_data: {
-                        name: `${item.name}${item.color ? ` (${item.color})` : ''}${item.size ? ` - ${item.size}` : ''}`
+                    product_data: { 
+                        name: `${item.name}${item.color ? ` (${item.color})` : ''}${item.size ? ` - ${item.size}` : ''}` 
                     },
-                    unit_amount: unitAmount
+                    unit_amount: Math.floor(item.price + item.price * 0.02) * 100
                 },
                 quantity: item.quantity,
             };
@@ -184,30 +143,29 @@ export const placeOrderStripe = async (req, res) => {
         const session = await stripeInstance.checkout.sessions.create({
             line_items,
             mode: "payment",
-            success_url: `${process.env.FRONTEND_URL || origin}/loader?next=my-orders`,
-            cancel_url: `${process.env.FRONTEND_URL || origin}/cart`,
+            success_url: `${origin}/loader?next=my-orders`,
+            cancel_url: `${origin}/cart`,
             metadata: {
                 orderId: order._id.toString(),
                 userId,
             }
         });
 
-        await Order.findByIdAndUpdate(order._id, { amount });
-
+        // === ENVOI DES EMAILS ===
         const user = await User.findById(userId);
         if (user && user.email) {
             await sendOrderConfirmationEmail(user.email, order._id.toString(), amount);
             await sendAdminNotificationEmail(order._id.toString(), amount, `${user.name}`, user.email);
         }
 
-        return res.json({ success: true, url: session.url });
+        return res.json({success: true, url: session.url });
     } catch (error) {
         return res.json({ success: false, message: error.message });
     }
 };
 
-// Webhook Stripe (avec return corrigé)
-export const stripeWebhooks = async (request, response) => {
+// Stripe Webhooks : /stripe
+export const stripeWebhooks = async (request, response)=>{
     const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY);
     const sig = request.headers["stripe-signature"];
     let event;
@@ -218,11 +176,10 @@ export const stripeWebhooks = async (request, response) => {
         );
     } catch (error) {
         response.status(400).send(`Webhook Error: ${error.message}`);
-        return; // Correction : arrêter après l'erreur
     }
 
     switch (event.type) {
-        case "payment_intent.succeeded": {
+        case "payment_intent.succeeded":{
             const paymentIntent = event.data.object;
             const paymentIntentId = paymentIntent.id;
             const session = await stripeInstance.checkout.sessions.list({
@@ -230,10 +187,10 @@ export const stripeWebhooks = async (request, response) => {
             });
             const { orderId, userId } = session.data[0].metadata;
 
-            await Order.findByIdAndUpdate(orderId, { isPaid: true });
+            await Order.findByIdAndUpdate(orderId, {isPaid: true});
             const order = await Order.findById(orderId);
             await reduceVariantStock(order.items);
-            await User.findByIdAndUpdate(userId, { cartItems: {} });
+            await User.findByIdAndUpdate(userId, {cartItems: {}});
             break;
         }
         case "payment_intent.payment_failed": {
@@ -250,17 +207,19 @@ export const stripeWebhooks = async (request, response) => {
             console.error(`Unhandled event type ${event.type}`);
             break;
     }
-    response.json({ received: true });
+    response.json({received: true});
 };
 
-// Update Order Status
-export const updateOrderStatus = async (req, res) => {
+// Update Order Status : /api/order/status
+export const updateOrderStatus = async (req, res)=>{
     try {
         const { orderId, status } = req.body;
         const validStatuses = ['Order Placed', 'Confirmed', 'Shipped', 'Out for Delivery', 'Delivered', 'Cancelled'];
+        
         if (!validStatuses.includes(status)) {
             return res.json({ success: false, message: "Statut invalide" });
         }
+        
         await Order.findByIdAndUpdate(orderId, { status });
         res.json({ success: true, message: "Statut mis à jour" });
     } catch (error) {
@@ -268,43 +227,47 @@ export const updateOrderStatus = async (req, res) => {
     }
 };
 
-// Get Orders by User ID
-export const getUserOrders = async (req, res) => {
+// Get Orders by User ID : /api/order/user
+export const getUserOrders = async (req, res)=>{
     try {
         const { userId } = req.body;
         const orders = await Order.find({
             userId,
-            $or: [{ paymentType: "COD" }, { isPaid: true }]
-        }).populate("items.product address").sort({ createdAt: -1 });
+            $or: [{paymentType: "COD"}, {isPaid: true}]
+        }).populate("items.product address").sort({createdAt: -1});
         res.json({ success: true, orders });
     } catch (error) {
         res.json({ success: false, message: error.message });
     }
 };
 
-// Get All Orders (admin)
-export const getAllOrders = async (req, res) => {
+// Get All Orders ( for seller / admin) : /api/order/seller
+export const getAllOrders = async (req, res)=>{
     try {
         const orders = await Order.find({
-            $or: [{ paymentType: "COD" }, { isPaid: true }]
-        }).populate("items.product address").sort({ createdAt: -1 });
+            $or: [{paymentType: "COD"}, {isPaid: true}]
+        }).populate("items.product address").sort({createdAt: -1});
         res.json({ success: true, orders });
     } catch (error) {
         res.json({ success: false, message: error.message });
     }
 };
 
-// Get Orders by Admin for a specific user
+// ==================== ADMIN : Récupérer les commandes d'un client spécifique ====================
+
 export const getUserOrdersByAdmin = async (req, res) => {
     try {
         const { userId } = req.params;
+        
         const orders = await Order.find({
             userId,
-            $or: [{ paymentType: "COD" }, { isPaid: true }]
-        }).populate("items.product address").sort({ createdAt: -1 });
+            $or: [{paymentType: "COD"}, {isPaid: true}]
+        }).populate("items.product address").sort({createdAt: -1});
+        
         const user = await User.findById(userId).select("-password");
-        res.json({
-            success: true,
+        
+        res.json({ 
+            success: true, 
             orders,
             user: {
                 _id: user._id,

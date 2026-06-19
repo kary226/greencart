@@ -5,10 +5,9 @@ import User from "../models/User.js";
 // Ajouter un avis
 export const addReview = async (req, res) => {
     try {
-        // userId est injecté par le middleware authUser (req.body.userId)
         const { productId, rating, comment, userId } = req.body;
         
-        console.log("userId reçu:", userId);
+        console.log("userId reçu:", userId); // Debug
         
         if (!userId) {
             return res.json({ success: false, message: "Vous devez être connecté" });
@@ -70,34 +69,11 @@ export const getProductReviews = async (req, res) => {
     }
 };
 
-// Marquer un avis comme utile (protégé + anti-doublon)
+// Marquer un avis comme utile
 export const markHelpful = async (req, res) => {
     try {
         const { id } = req.params;
-        const userId = req.body.userId; // injecté par authUser (middleware requis)
-
-        if (!userId) {
-            return res.json({ success: false, message: "Authentification requise" });
-        }
-
-        // ⚠️ Nécessite d'avoir un champ `helpfulVoters` (tableau d'ObjectId) dans le modèle Review
-        // Pour l'instant, on vérifie et on empêche les doublons
-        const review = await Review.findById(id);
-        if (!review) {
-            return res.json({ success: false, message: "Avis introuvable" });
-        }
-
-        // Si le champ helpfulVoters n'existe pas, initialisez-le côté modèle
-        if (review.helpfulVoters && review.helpfulVoters.includes(userId)) {
-            return res.json({ success: false, message: "Vous avez déjà voté pour cet avis" });
-        }
-
-        // Incrémente et ajoute l'utilisateur
-        await Review.findByIdAndUpdate(id, {
-            $inc: { helpful: 1 },
-            $push: { helpfulVoters: userId }
-        });
-
+        await Review.findByIdAndUpdate(id, { $inc: { helpful: 1 } });
         res.json({ success: true, message: "Merci !" });
     } catch (error) {
         res.json({ success: false, message: error.message });

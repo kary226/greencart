@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import axios from 'axios';
 import mongoose from 'mongoose';
 import Order from '../models/Order.js';
@@ -6,66 +5,12 @@ import User from '../models/User.js';
 import Product from '../models/Product.js';
 import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
 
-// === Vérification de la signature HMAC pour le webhook GeniusPay ===
-const verifyGeniusPaySignature = (req) => {
-    const secret = process.env.GENIUSPAY_WEBHOOK_SECRET;
-    if (!secret) {
-        console.error("❌ GENIUSPAY_WEBHOOK_SECRET non défini !");
-        return false;
-    }
-
-    const signature = req.headers['x-geniuspay-signature']; // À adapter selon la doc GeniusPay
-    if (!signature) {
-        console.warn("⚠️ Webhook GeniusPay reçu sans signature");
-        return false;
-    }
-
-    const payload = JSON.stringify(req.body);
-    const expected = crypto.createHmac('sha256', secret).update(payload).digest('hex');
-
-    try {
-        return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
-    } catch (err) {
-        return false;
-    }
-};
-
-// Initier un paiement GeniusPay (mode checkout) – corrigé C2
+// Initier un paiement GeniusPay (mode checkout)
 export const initiateGeniusPay = async (req, res) => {
     try {
-        // On ignore délibérément 'amount' et 'items[].offerPrice' envoyés par le client
-        const { userId, items, address } = req.body;
+        let { userId, items, address, amount } = req.body;
 
-        // --- Recalcul sécurisé des prix et du montant total ---
-        let recalculatedAmount = 0;
-        const formattedItems = [];
-
-        for (const item of items) {
-            const product = await Product.findById(item.product);
-            if (!product) {
-                return res.json({ success: false, message: `Produit ${item.product} introuvable` });
-            }
-
-            // Prix unitaire = prix en base (offerPrice)
-            const priceAtOrder = product.offerPrice ?? product.price; // fallback sur 'price' si offerPrice absent
-            recalculatedAmount += priceAtOrder * item.quantity;
-
-            formattedItems.push({
-                product: item.product,
-                quantity: item.quantity,
-                color: item.selectedColor || null,
-                size: item.selectedSize || null,
-                priceAtOrder: priceAtOrder  // prix validé côté serveur
-            });
-        }
-
-        // TODO: intégrer ici les frais de livraison et les remises (coupon) calculés côté serveur (M2)
-        const finalAmount = Math.round(recalculatedAmount);
-        if (finalAmount < 200) {
-            return res.json({ success: false, message: "Le montant minimum est de 200 FCFA" });
-        }
-
-        // --- Adresse (logique inchangée) ---
+        // Si address est un ID, récupérer l'adresse complète
         let addressDoc = address;
         if (typeof address === 'string') {
             const Address = mongoose.model('address');
@@ -75,6 +20,7 @@ export const initiateGeniusPay = async (req, res) => {
             }
         }
 
+        // Compléter les champs manquants de l'adresse
         const completeAddress = {
             _id: addressDoc._id,
             firstName: addressDoc.firstName,
@@ -94,7 +40,21 @@ export const initiateGeniusPay = async (req, res) => {
             return res.json({ success: false, message: "Téléphone manquant dans l'adresse" });
         }
 
-        // --- Création de la commande ---
+        const finalAmount = Math.round(amount);
+        if (finalAmount < 200) {
+            return res.json({ success: false, message: "Le montant minimum est de 200 FCFA" });
+        }
+
+        // Formater les items avec priceAtOrder
+        const formattedItems = items.map(item => ({
+            product: item.product,
+            quantity: item.quantity,
+            color: item.selectedColor || null,
+            size: item.selectedSize || null,
+            priceAtOrder: item.offerPrice
+        }));
+
+        // Créer la commande en base
         const order = await Order.create({
             userId,
             items: formattedItems,
@@ -104,12 +64,20 @@ export const initiateGeniusPay = async (req, res) => {
             status: "pending_payment",
         });
 
-        // Formatage du téléphone (inchangé)
-        let phone = completeAddress.phone.replace(/\D/g, '');
-        if (phone.startsWith('0')) phone = phone.substring(1);
-        if (!phone.startsWith('225')) phone = `225${phone}`;
+        // ✅ SUPPRESSION DES EMAILS ICI (déplacés dans le webhook)
+
+        // Formater le téléphone au format international (GENIUSPAY EXIGE +225XXXXXXXXX)
+        let phone = completeAddress.phone;
+        phone = phone.replace(/\D/g, '');
+        if (phone.startsWith('0')) {
+            phone = phone.substring(1);
+        }
+        if (!phone.startsWith('225')) {
+            phone = `225${phone}`;
+        }
         phone = `+${phone}`;
 
+        // Préparer la requête vers GeniusPay
         const geniusPayload = {
             amount: finalAmount,
             description: `Commande #${order._id.toString().slice(-8)}`,
@@ -125,7 +93,7 @@ export const initiateGeniusPay = async (req, res) => {
             }
         };
 
-        // Appel API GeniusPay (inchangé)
+        // Appel à l'API GeniusPay
         const response = await axios.post(
             `${process.env.GENIUSPAY_BASE_URL}/payments`,
             geniusPayload,
@@ -140,6 +108,7 @@ export const initiateGeniusPay = async (req, res) => {
 
         if (response.data.success) {
             const checkoutUrl = response.data.data.checkout_url;
+            
             await Order.findByIdAndUpdate(order._id, {
                 geniuspay_reference: response.data.data.reference,
             });
@@ -151,27 +120,23 @@ export const initiateGeniusPay = async (req, res) => {
         }
     } catch (error) {
         console.error("Erreur GeniusPay:", error.message);
+        
         if (error.response) {
             console.error("Status:", error.response.status);
             console.error("Data:", error.response.data);
         }
+        
         res.json({ success: false, message: error.message || "Erreur lors de l'initialisation du paiement" });
     }
 };
 
-// Webhook GeniusPay – corrigé C1 (vérification signature)
+// Webhook pour confirmer les paiements et mettre à jour le stock
 export const geniuspayWebhook = async (req, res) => {
-    // Vérification de la signature avant tout traitement
-    if (!verifyGeniusPaySignature(req)) {
-        console.warn("⛔ Webhook GeniusPay rejeté : signature invalide ou absente");
-        return res.status(401).json({ error: "Invalid signature" });
-    }
-
     try {
         const payload = req.body;
         const event = payload.event;
 
-        console.log("=== WEBHOOK GENIUSPAY VÉRIFIÉ ===");
+        console.log("=== WEBHOOK GENIUSPAY RECU ===");
         console.log("Événement:", event);
         console.log("Payload:", JSON.stringify(payload, null, 2));
 
@@ -191,18 +156,20 @@ export const geniuspayWebhook = async (req, res) => {
                 return res.status(400).json({ error: "orderId missing" });
             }
 
+            // 1. Récupérer la commande
             const order = await Order.findById(orderId);
             if (!order) {
                 console.error(`❌ Commande ${orderId} non trouvée`);
                 return res.status(404).json({ error: "Order not found" });
             }
 
+            // 2. Vérifier si déjà traitée
             if (order.isPaid && order.status === "Confirmed") {
-                console.log(`ℹ️ Commande ${orderId} déjà confirmée`);
+                console.log(`ℹ️ Commande ${orderId} déjà confirmée, ignorer`);
                 return res.status(200).json({ received: true, alreadyProcessed: true });
             }
 
-            // Marquer comme payée
+            // 3. Marquer la commande comme payée
             order.isPaid = true;
             order.status = "Confirmed";
             if (reference) {
@@ -211,49 +178,67 @@ export const geniuspayWebhook = async (req, res) => {
             await order.save();
             console.log(`✅ Commande ${orderId} marquée comme payée`);
 
-            // Mise à jour du stock (inchangée)
+            // 4. Mettre à jour le stock pour chaque produit
             const ProductModel = mongoose.model('product');
             for (const item of order.items) {
                 const product = await ProductModel.findById(item.product);
                 if (!product) {
-                    console.warn(`⚠️ Produit ${item.product} non trouvé`);
+                    console.warn(`⚠️ Produit ${item.product} non trouvé, stock non mis à jour`);
                     continue;
                 }
 
+                // Gestion des variantes (couleur, taille)
                 if (product.variants && product.variants.length > 0) {
-                    const variant = product.variants.find(v =>
+                    const variant = product.variants.find(v => 
                         v.color === item.color && v.size === item.size
                     );
                     if (variant) {
+                        const ancienStock = variant.stock;
                         variant.stock = Math.max(0, (variant.stock || 0) - item.quantity);
                         await product.save();
+                        console.log(`📦 Stock mis à jour pour variant ${item.color}/${item.size}: ${ancienStock} → ${variant.stock}`);
                     } else {
-                        console.warn(`⚠️ Variant non trouvé pour ${product.name}`);
+                        console.warn(`⚠️ Variant (${item.color}/${item.size}) non trouvé pour produit ${product.name}`);
                     }
                 } else {
-                    product.stock = Math.max(0, (product.stock || 0) - item.quantity);
+                    // Stock simple (sans variantes)
+                    const ancienStock = product.stock || 0;
+                    product.stock = Math.max(0, ancienStock - item.quantity);
                     await product.save();
+                    console.log(`📦 Stock mis à jour pour produit ${product.name}: ${ancienStock} → ${product.stock}`);
                 }
             }
 
-            // Vider le panier
+            // 5. Vider le panier de l'utilisateur
             await User.findByIdAndUpdate(userId, { cartItems: {} });
-            console.log(`🗑️ Panier vidé pour ${userId}`);
+            console.log(`🗑️ Panier vidé pour l'utilisateur ${userId}`);
 
-            // Envoi des emails (inchangé)
+            // 6. ✅ ENVOI DES EMAILS APRÈS CONFIRMATION
             const user = await User.findById(userId);
             const Address = mongoose.model('address');
             const address = await Address.findById(order.address);
-            if (user?.email && address) {
+            
+            if (user && user.email && address) {
                 try {
-                    await sendOrderConfirmationEmail(user.email, order._id.toString(), order.amount);
-                    console.log(`📧 Email confirmation envoyé à ${user.email}`);
-                    await sendAdminNotificationEmail(order._id.toString(), order.amount,
-                        `${address.firstName} ${address.lastName}`, user.email);
-                    console.log(`📧 Email admin envoyé`);
+                    await sendOrderConfirmationEmail(
+                        user.email, 
+                        order._id.toString(), 
+                        order.amount
+                    );
+                    console.log(`📧 Email de confirmation envoyé à ${user.email}`);
+                    
+                    await sendAdminNotificationEmail(
+                        order._id.toString(), 
+                        order.amount, 
+                        `${address.firstName} ${address.lastName}`, 
+                        user.email
+                    );
+                    console.log(`📧 Email admin envoyé pour commande ${order._id.toString().slice(-8)}`);
                 } catch (emailError) {
                     console.error("❌ Erreur envoi emails:", emailError);
                 }
+            } else {
+                console.warn("⚠️ Impossible d'envoyer les emails: utilisateur ou adresse manquant");
             }
 
             console.log(`✅✅✅ Commande ${orderId} finalisée avec succès ✅✅✅`);

@@ -12,20 +12,12 @@ const getFullName = (firstName, lastName) => {
     return '';
 };
 
-// Échapper les caractères spéciaux pour éviter les ReDoS (M4)
-const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
 export const register = async (req, res) => {
     try {
         const { firstName, lastName, email, password } = req.body;
 
         if ((!firstName && !lastName) || !email || !password) {
             return res.json({ success: false, message: 'Tous les champs sont requis' });
-        }
-
-        // M5 : Vérification de robustesse du mot de passe (minimum 8 caractères)
-        if (password.length < 8) {
-            return res.json({ success: false, message: 'Le mot de passe doit contenir au moins 8 caractères' });
         }
 
         const existingUser = await User.findOne({ email });
@@ -273,28 +265,23 @@ export const getAllClients = async (req, res) => {
     try {
         const { search = '', page = 1, limit = 20 } = req.query;
 
-        // M4 : Échapper les caractères spéciaux pour éviter les ReDoS
-        const safeSearch = escapeRegex(search).slice(0, 100); // limite aussi la longueur
-
         const query = {
             $or: [
-                { firstName: { $regex: safeSearch, $options: 'i' } },
-                { lastName: { $regex: safeSearch, $options: 'i' } },
-                { name: { $regex: safeSearch, $options: 'i' } },
-                { email: { $regex: safeSearch, $options: 'i' } },
-                { phone: { $regex: safeSearch, $options: 'i' } }
+                { firstName: { $regex: search, $options: 'i' } },
+                { lastName: { $regex: search, $options: 'i' } },
+                { name: { $regex: search, $options: 'i' } },
+                { email: { $regex: search, $options: 'i' } },
+                { phone: { $regex: search, $options: 'i' } }
             ]
         };
 
-        const pageNum = Math.max(1, parseInt(page) || 1);
-        const limitNum = Math.min(parseInt(limit) || 20, 100); // L4 : plafonner la limite à 100
-        const skip = (pageNum - 1) * limitNum;
+        const skip = (parseInt(page) - 1) * parseInt(limit);
 
         const clients = await User.find(query)
             .select('-password -resetPasswordToken -resetPasswordExpires')
             .sort({ lastName: 1 })
             .skip(skip)
-            .limit(limitNum);
+            .limit(parseInt(limit));
 
         const enrichedClients = clients.map(client => ({
             _id: client._id,
@@ -318,8 +305,8 @@ export const getAllClients = async (req, res) => {
             success: true,
             clients: enrichedClients,
             total,
-            page: pageNum,
-            pages: Math.ceil(total / limitNum)
+            page: parseInt(page),
+            pages: Math.ceil(total / parseInt(limit))
         });
     } catch (error) {
         console.log(error.message);
@@ -332,24 +319,27 @@ export const getAllClients = async (req, res) => {
 export const forgotPassword = async (req, res) => {
     try {
         const { email } = req.body;
-
         const user = await User.findOne({ email });
 
-        // Traiter uniquement si l'utilisateur a un mot de passe (pas un compte Google)
-        if (user && user.password) {
-            const resetToken = crypto.randomBytes(32).toString('hex');
-            const resetExpires = Date.now() + 3600000;
-
-            user.resetPasswordToken = resetToken;
-            user.resetPasswordExpires = resetExpires;
-            await user.save();
-
-            const { sendPasswordResetEmail } = await import('../configs/email.js');
-            await sendPasswordResetEmail(email, resetToken);
+        if (!user) {
+            return res.json({ success: false, message: "Aucun compte associé à cet email" });
         }
 
-        // Réponse identique que l'utilisateur existe ou non (H4)
-        res.json({ success: true, message: "Si un compte existe, un lien de réinitialisation a été envoyé." });
+        if (!user.password) {
+            return res.json({ success: false, message: "Ce compte utilise la connexion Google, pas de mot de passe à réinitialiser." });
+        }
+
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const resetExpires = Date.now() + 3600000;
+
+        user.resetPasswordToken = resetToken;
+        user.resetPasswordExpires = resetExpires;
+        await user.save();
+
+        const { sendPasswordResetEmail } = await import('../configs/email.js');
+        await sendPasswordResetEmail(email, resetToken);
+
+        res.json({ success: true, message: "Un email de réinitialisation vous a été envoyé" });
     } catch (error) {
         console.error(error);
         res.json({ success: false, message: error.message });
@@ -359,11 +349,6 @@ export const forgotPassword = async (req, res) => {
 export const resetPassword = async (req, res) => {
     try {
         const { token, newPassword } = req.body;
-
-        // M5 : Vérifier la robustesse du nouveau mot de passe
-        if (!newPassword || newPassword.length < 8) {
-            return res.json({ success: false, message: "Le mot de passe doit contenir au moins 8 caractères" });
-        }
 
         const user = await User.findOne({
             resetPasswordToken: token,
