@@ -6,20 +6,25 @@ import User from '../models/User.js';
 import Product from '../models/Product.js';
 import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
 
-// --- Vérification signature HMAC du webhook GeniusPay ---
+// --- Vérification signature HMAC du webhook GeniusPay (corrigée) ---
 const verifyGeniusPaySignature = (req) => {
     const secret = process.env.GENIUSPAY_WEBHOOK_SECRET;
     if (!secret) {
         console.error("❌ GENIUSPAY_WEBHOOK_SECRET non défini");
         return false;
     }
-    const signature = req.headers['x-geniuspay-signature']; // Adapter selon la doc GeniusPay
-    if (!signature) {
-        console.warn("⚠️ Webhook GeniusPay reçu sans signature");
+
+    const signature = req.headers['x-webhook-signature'];
+    const timestamp = req.headers['x-webhook-timestamp'];
+    if (!signature || !timestamp) {
+        console.warn("⚠️ Webhook GeniusPay reçu sans signature ou timestamp");
         return false;
     }
+
     const payload = JSON.stringify(req.body);
-    const expected = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+    const dataToSign = timestamp + '.' + payload;
+    const expected = crypto.createHmac('sha256', secret).update(dataToSign).digest('hex');
+
     try {
         return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
     } catch {
@@ -27,12 +32,11 @@ const verifyGeniusPaySignature = (req) => {
     }
 };
 
-// --- Initier un paiement (corrigé C2) ---
+// --- Initier un paiement (inchangé) ---
 export const initiateGeniusPay = async (req, res) => {
     try {
-        const { userId, items, address } = req.body; // on ignore 'amount' et 'offerPrice' envoyés
+        const { userId, items, address } = req.body;
 
-        // Recalculer les prix depuis la base
         let recalculatedAmount = 0;
         const formattedItems = [];
         for (const item of items) {
@@ -52,13 +56,11 @@ export const initiateGeniusPay = async (req, res) => {
             });
         }
 
-        // Frais de livraison et remises non encore inclus ici (seront gérés dans une correction ultérieure)
         const finalAmount = Math.round(recalculatedAmount);
         if (finalAmount < 200) {
             return res.json({ success: false, message: "Le montant minimum est de 200 FCFA" });
         }
 
-        // Traitement de l'adresse (inchangé)
         let addressDoc = address;
         if (typeof address === 'string') {
             const Address = mongoose.model('address');
@@ -85,7 +87,6 @@ export const initiateGeniusPay = async (req, res) => {
             return res.json({ success: false, message: "Téléphone manquant" });
         }
 
-        // Création de la commande
         const order = await Order.create({
             userId,
             items: formattedItems,
@@ -95,13 +96,11 @@ export const initiateGeniusPay = async (req, res) => {
             status: "pending_payment",
         });
 
-        // Formatage du numéro de téléphone (inchangé)
         let phone = completeAddress.phone.replace(/\D/g, '');
         if (phone.startsWith('0')) phone = phone.substring(1);
         if (!phone.startsWith('225')) phone = `225${phone}`;
         phone = `+${phone}`;
 
-        // Appel à GeniusPay
         const geniusPayload = {
             amount: finalAmount,
             description: `Commande #${order._id.toString().slice(-8)}`,
@@ -147,9 +146,8 @@ export const initiateGeniusPay = async (req, res) => {
     }
 };
 
-// --- Webhook GeniusPay (corrigé C1) ---
+// --- Webhook GeniusPay (vérification corrigée) ---
 export const geniuspayWebhook = async (req, res) => {
-    // Vérification de signature avant tout
     if (!verifyGeniusPaySignature(req)) {
         console.warn("⛔ Webhook GeniusPay rejeté (signature invalide)");
         return res.status(401).json({ error: "Invalid signature" });
@@ -159,7 +157,6 @@ export const geniuspayWebhook = async (req, res) => {
         const payload = req.body;
         const event = payload.event;
         console.log("=== WEBHOOK GENIUSPAY VÉRIFIÉ ===");
-        console.log("Événement:", event);
 
         if (event === 'payment.success') {
             const transactionData = payload.data;
@@ -185,7 +182,6 @@ export const geniuspayWebhook = async (req, res) => {
             if (reference) order.geniuspay_reference = reference;
             await order.save();
 
-            // Mise à jour du stock (identique à l'original)
             const ProductModel = mongoose.model('product');
             for (const item of order.items) {
                 const product = await ProductModel.findById(item.product);
@@ -204,7 +200,6 @@ export const geniuspayWebhook = async (req, res) => {
 
             await User.findByIdAndUpdate(userId, { cartItems: {} });
 
-            // Envoi des emails (inchangé)
             const user = await User.findById(userId);
             const Address = mongoose.model('address');
             const address = await Address.findById(order.address);
