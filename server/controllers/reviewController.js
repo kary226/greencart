@@ -7,6 +7,7 @@ export const addReview = async (req, res) => {
     try {
         const { productId, rating, comment, userId } = req.body;
         
+        console.log("userId reçu:", userId); // Debug
         
         if (!userId) {
             return res.json({ success: false, message: "Vous devez être connecté" });
