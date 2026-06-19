@@ -1,7 +1,6 @@
 import cookieParser from 'cookie-parser';
 import express from 'express';
 import cors from 'cors';
-import helmet from 'helmet';
 import connectDB from './configs/db.js';
 import 'dotenv/config';
 import userRouter from './routes/userRoute.js';
@@ -19,7 +18,7 @@ import wishlistRouter from './routes/wishlistRoute.js';
 import couponRouter from './routes/couponRoute.js';
 import locationRouter from './routes/locationRoute.js';
 import deliveryRouter from './routes/deliveryRoute.js';
-import { geniuspayWebhook } from './controllers/geniuspayController.js';
+import { geniuspayWebhook, initiateGeniusPay as geniuspayInitiate } from './controllers/geniuspayController.js';
 import dns from 'dns';
 
 const app = express();
@@ -30,7 +29,7 @@ dns.setServers(['1.1.1.1', '8.8.8.8']);
 await connectDB()
 await connectCloudinary()
 
-// --- Middleware CORS strict ---
+// Configuration CORS complète
 const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:5174',
@@ -40,14 +39,15 @@ const allowedOrigins = [
     'https://greencart-y.vercel.app'
 ];
 
+// Middleware CORS - Version permissive
 app.use(cors({
     origin: function(origin, callback) {
-        // Autoriser les requêtes sans origine (ex: Postman, serveur->serveur)
         if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin)) {
+        if (allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true);
         } else {
-            callback(new Error('Origine non autorisée par CORS'));
+            console.log(`⚠️ Origine non listée mais autorisée: ${origin}`);
+            callback(null, true);
         }
     },
     credentials: true,
@@ -56,15 +56,20 @@ app.use(cors({
     exposedHeaders: ['Set-Cookie']
 }));
 
-// Webhook Stripe (doit être AVANT le parsing JSON standard)
+// Gestion des requêtes OPTIONS (preflight)
+app.options('*', cors({
+    origin: true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With', 'Accept']
+}));
+
+// Route webhook Stripe (doit être avant express.json())
 app.post('/stripe', express.raw({type: 'application/json'}), stripeWebhooks)
 
-// Parsing standard
+// Middleware standard
 app.use(express.json());
 app.use(cookieParser());
-
-// En-têtes de sécurité avec Helmet
-app.use(helmet());
 
 // Route de test
 app.get('/', (req, res) => res.send("API is Working"));
@@ -84,15 +89,16 @@ app.use('/api/coupon', couponRouter);
 app.use('/api/location', locationRouter);
 app.use('/api/delivery', deliveryRouter);
 
-// Webhook GeniusPay (protégé par signature dans le contrôleur)
+// Webhook GeniusPay
 app.post('/api/geniuspay/webhook', express.json(), geniuspayWebhook);
 
-// L'initiation GeniusPay est déjà protégée dans orderRouter,
-// suppression de la route redondante et non authentifiée.
+// Route pour initier un paiement GeniusPay
+app.post('/api/order/geniuspay/initiate', geniuspayInitiate);
 
-// Démarrage
+// Démarrage du serveur
 app.listen(port, ()=>{
     console.log(`Server is running on http://localhost:${port}`);
 });
 
+// EXPORT POUR VERCEL (SERVERLESS FUNCTIONS)
 export default app;
