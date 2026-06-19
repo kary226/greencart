@@ -28,7 +28,8 @@
     "nodemailer": "^8.0.7",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
-    "stripe": "^17.7.0"
+    "stripe": "^17.7.0",
+    "express-rate-limit": "^7.4.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"

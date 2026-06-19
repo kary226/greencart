@@ -6,25 +6,16 @@ import Commune from "../models/Commune.js";
 export const addAddress = async (req, res) => {
     try {
         const { address, userId } = req.body;
-        
-        // Vérifier les champs obligatoires
+
         if (!address.firstName || !address.lastName || !address.phone || !address.street) {
             return res.json({ success: false, message: "Champs obligatoires manquants" });
         }
 
-        // Récupérer les noms de la ville et de la commune si les IDs sont fournis
-        let cityName = '';
-        let communeName = '';
-
-        if (address.cityId) {
-            const city = await City.findById(address.cityId);
-            if (city) cityName = city.name;
-        }
-
-        if (address.communeId) {
-            const commune = await Commune.findById(address.communeId);
-            if (commune) communeName = commune.name;
-        }
+        // ✅ Récupérer city et commune en parallèle (au lieu de 2 requêtes séquentielles)
+        const [city, commune] = await Promise.all([
+            address.cityId ? City.findById(address.cityId) : null,
+            address.communeId ? Commune.findById(address.communeId) : null
+        ]);
 
         const newAddress = await Address.create({
             userId,
@@ -32,15 +23,15 @@ export const addAddress = async (req, res) => {
             lastName: address.lastName,
             email: address.email || '',
             street: address.street,
-            city: address.city || cityName,
+            city: address.city || city?.name || '',
             state: address.state || '',
             zipcode: address.zipcode || '',
-            country: address.country || 'Côte d\'Ivoire',
+            country: address.country || "Côte d'Ivoire",
             phone: address.phone,
             cityId: address.cityId || null,
             communeId: address.communeId || null,
-            cityName: cityName,
-            communeName: communeName
+            cityName: city?.name || '',
+            communeName: commune?.name || ''
         });
 
         res.json({ success: true, message: "Adresse ajoutée", address: newAddress });
@@ -54,25 +45,9 @@ export const addAddress = async (req, res) => {
 export const getAddress = async (req, res) => {
     try {
         const { userId } = req.body;
+        // ✅ Les cityName/communeName sont déjà stockés dans l'adresse, pas besoin de requêtes supplémentaires
         const addresses = await Address.find({ userId });
-        
-        // Enrichir les adresses avec les noms des villes et communes
-        const enrichedAddresses = await Promise.all(addresses.map(async (addr) => {
-            const addrObj = addr.toObject();
-            
-            if (addr.cityId) {
-                const city = await City.findById(addr.cityId);
-                if (city) addrObj.cityName = city.name;
-            }
-            if (addr.communeId) {
-                const commune = await Commune.findById(addr.communeId);
-                if (commune) addrObj.communeName = commune.name;
-            }
-            
-            return addrObj;
-        }));
-        
-        res.json({ success: true, addresses: enrichedAddresses });
+        res.json({ success: true, addresses });
     } catch (error) {
         console.log(error.message);
         res.json({ success: false, message: error.message });
@@ -82,15 +57,14 @@ export const getAddress = async (req, res) => {
 // Delete Address : /api/address/delete
 export const deleteAddress = async (req, res) => {
     try {
-        const { addressId } = req.body;
-        const { userId } = req.body;
-        
-        // Vérifier que l'adresse appartient bien à l'utilisateur
+        const { addressId, userId } = req.body;
+
+        // ✅ Vérifie que l'adresse appartient bien à l'utilisateur avant de supprimer
         const address = await Address.findOne({ _id: addressId, userId });
         if (!address) {
             return res.json({ success: false, message: "Adresse non trouvée" });
         }
-        
+
         await Address.findByIdAndDelete(addressId);
         res.json({ success: true, message: "Adresse supprimée" });
     } catch (error) {

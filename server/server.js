@@ -1,6 +1,7 @@
 import cookieParser from 'cookie-parser';
 import express from 'express';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import connectDB from './configs/db.js';
 import 'dotenv/config';
 import userRouter from './routes/userRoute.js';
@@ -26,10 +27,10 @@ const port = process.env.PORT || 4000;
 
 dns.setServers(['1.1.1.1', '8.8.8.8']);
 
-await connectDB()
-await connectCloudinary()
+await connectDB();
+await connectCloudinary();
 
-// Configuration CORS complète
+// ✅ CORS sécurisé : seulement les origines autorisées
 const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:5174',
@@ -39,15 +40,15 @@ const allowedOrigins = [
     'https://greencart-y.vercel.app'
 ];
 
-// Middleware CORS - Version permissive
 app.use(cors({
-    origin: function(origin, callback) {
+    origin: function (origin, callback) {
+        // Autoriser les requêtes sans origine (mobile apps, Postman)
         if (!origin) return callback(null, true);
-        if (allowedOrigins.indexOf(origin) !== -1) {
+        if (allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
-            console.log(`⚠️ Origine non listée mais autorisée: ${origin}`);
-            callback(null, true);
+            console.warn(`⚠️ Origine bloquée par CORS: ${origin}`);
+            callback(new Error('Origine non autorisée par CORS'));
         }
     },
     credentials: true,
@@ -56,23 +57,41 @@ app.use(cors({
     exposedHeaders: ['Set-Cookie']
 }));
 
-// Gestion des requêtes OPTIONS (preflight)
-app.options('*', cors({
-    origin: true,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With', 'Accept']
-}));
+app.options('*', cors());
+
+// ✅ Rate limiting global : max 100 requêtes / 15 min par IP
+const globalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    message: { success: false, message: 'Trop de requêtes, réessayez dans 15 minutes.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+// ✅ Rate limiting strict pour login/register : max 10 tentatives / 15 min
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    message: { success: false, message: 'Trop de tentatives de connexion. Réessayez dans 15 minutes.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+app.use(globalLimiter);
 
 // Route webhook Stripe (doit être avant express.json())
-app.post('/stripe', express.raw({type: 'application/json'}), stripeWebhooks)
+app.post('/stripe', express.raw({ type: 'application/json' }), stripeWebhooks);
 
-// Middleware standard
 app.use(express.json());
 app.use(cookieParser());
 
 // Route de test
 app.get('/', (req, res) => res.send("API is Working"));
+
+// ✅ Rate limiting sur les routes d'authentification
+app.use('/api/user/login', authLimiter);
+app.use('/api/user/register', authLimiter);
+app.use('/api/user/forgot-password', authLimiter);
 
 // Routes API
 app.use('/api/user', userRouter);
@@ -91,14 +110,10 @@ app.use('/api/delivery', deliveryRouter);
 
 // Webhook GeniusPay
 app.post('/api/geniuspay/webhook', express.json(), geniuspayWebhook);
-
-// Route pour initier un paiement GeniusPay
 app.post('/api/order/geniuspay/initiate', geniuspayInitiate);
 
-// Démarrage du serveur
-app.listen(port, ()=>{
+app.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);
 });
 
-// EXPORT POUR VERCEL (SERVERLESS FUNCTIONS)
 export default app;
