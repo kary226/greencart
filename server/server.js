@@ -45,6 +45,15 @@ const allowedOrigins = [
 // origin: '*' combiné à credentials: true — la pire combinaison possible.
 // Désormais une origine absente de allowedOrigins est explicitement
 // rejetée.
+//
+// [FIX bug post-déploiement] Le package 'cors' gère nativement les
+// requêtes preflight OPTIONS dès lors qu'il est monté via app.use() —
+// un second app.options('*', cors({...})) séparé est non seulement
+// redondant mais peut interférer avec la réponse au preflight et la
+// faire échouer pour TOUTES les origines, y compris légitimes (symptôme
+// observé : 'No Access-Control-Allow-Origin header' sur le preflight
+// lui-même, alors que l'origine était bien dans la liste blanche). Le
+// bloc séparé a donc été supprimé ; app.use(cors(...)) seul suffit.
 app.use(cors({
     origin: function(origin, callback) {
         if (!origin || allowedOrigins.includes(origin)) {
@@ -57,22 +66,6 @@ app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With', 'Accept'],
     exposedHeaders: ['Set-Cookie']
-}));
-
-// [FIX H2] Gestion des requêtes OPTIONS (preflight) alignée sur la même
-// liste blanche stricte que ci-dessus (auparavant origin: true = tout
-// autorisé, ce qui contournait la protection même si le bloc principal
-// était corrigé).
-app.options('*', cors({
-    origin: function(origin, callback) {
-        if (!origin || allowedOrigins.includes(origin)) {
-            return callback(null, true);
-        }
-        return callback(new Error('Origine non autorisée par CORS'));
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With', 'Accept']
 }));
 
 // [FIX] Stripe retiré : GreenCart n'utilise que GeniusPay et COD comme
@@ -132,6 +125,18 @@ app.use('/api/delivery', deliveryRouter);
 // Démarrage du serveur
 app.listen(port, ()=>{
     console.log(`Server is running on http://localhost:${port}`);
+});
+
+// [FIX] Gestionnaire d'erreur dédié pour les rejets CORS : sans lui,
+// l'erreur levée par callback(new Error(...)) dans la config CORS
+// remonterait telle quelle et Express renverrait une page d'erreur par
+// défaut (parfois HTML) au lieu d'une réponse JSON cohérente avec le
+// reste de l'API.
+app.use((err, req, res, next) => {
+    if (err && err.message === 'Origine non autorisée par CORS') {
+        return res.status(403).json({ success: false, message: 'Origine non autorisée' });
+    }
+    next(err);
 });
 
 // EXPORT POUR VERCEL (SERVERLESS FUNCTIONS)
