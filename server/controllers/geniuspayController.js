@@ -6,26 +6,21 @@ import User from '../models/User.js';
 import Product from '../models/Product.js';
 import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
 
-// Vérification stricte de la signature HMAC du webhook GeniusPay
 const verifyGeniusPaySignature = (req) => {
     const secret = process.env.GENIUSPAY_WEBHOOK_SECRET;
-
     if (!secret) {
         console.error("❌ GENIUSPAY_WEBHOOK_SECRET manquant – webhook rejeté");
         return false;
     }
-
     const signature = req.headers['x-webhook-signature'];
     const timestamp = req.headers['x-webhook-timestamp'];
     if (!signature || !timestamp) {
         console.warn("⚠️ Webhook GeniusPay reçu sans signature ou timestamp");
         return false;
     }
-
     const payload = JSON.stringify(req.body);
     const dataToSign = timestamp + '.' + payload;
     const expected = crypto.createHmac('sha256', secret).update(dataToSign).digest('hex');
-
     try {
         return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
     } catch {
@@ -33,22 +28,16 @@ const verifyGeniusPaySignature = (req) => {
     }
 };
 
-// Initier un paiement GeniusPay (prix recalculé côté serveur)
 export const initiateGeniusPay = async (req, res) => {
     try {
         const { userId, items, address } = req.body;
-
-        // Recalcul du montant et des prix unitaires depuis la base de données
         let recalculatedAmount = 0;
         const formattedItems = [];
         for (const item of items) {
             const product = await Product.findById(item.product);
-            if (!product) {
-                return res.json({ success: false, message: `Produit introuvable` });
-            }
+            if (!product) return res.json({ success: false, message: `Produit introuvable` });
             const priceAtOrder = product.offerPrice ?? product.price;
             recalculatedAmount += priceAtOrder * item.quantity;
-
             formattedItems.push({
                 product: item.product,
                 quantity: item.quantity,
@@ -57,87 +46,55 @@ export const initiateGeniusPay = async (req, res) => {
                 priceAtOrder: priceAtOrder
             });
         }
-
         const finalAmount = Math.round(recalculatedAmount);
-        if (finalAmount < 200) {
-            return res.json({ success: false, message: "Le montant minimum est de 200 FCFA" });
-        }
+        if (finalAmount < 200) return res.json({ success: false, message: "Le montant minimum est de 200 FCFA" });
 
-        // Récupération de l'adresse complète
         let addressDoc = address;
         if (typeof address === 'string') {
             const Address = mongoose.model('address');
             addressDoc = await Address.findById(address);
-            if (!addressDoc) {
-                return res.json({ success: false, message: "Adresse non trouvée" });
-            }
+            if (!addressDoc) return res.json({ success: false, message: "Adresse non trouvée" });
         }
         const completeAddress = {
-            _id: addressDoc._id,
-            firstName: addressDoc.firstName,
-            lastName: addressDoc.lastName,
-            phone: addressDoc.phone,
-            street: addressDoc.street || addressDoc.address || '',
+            _id: addressDoc._id, firstName: addressDoc.firstName, lastName: addressDoc.lastName,
+            phone: addressDoc.phone, street: addressDoc.street || addressDoc.address || '',
             city: addressDoc.city || addressDoc.communeId?.name || 'Abidjan',
             state: addressDoc.state || addressDoc.communeId?.name || 'Cocody',
-            zipcode: addressDoc.zipcode || '00000',
-            country: addressDoc.country || "Côte d'Ivoire",
+            zipcode: addressDoc.zipcode || '00000', country: addressDoc.country || "Côte d'Ivoire",
             email: addressDoc.email || `${addressDoc.phone}@client.com`,
-            communeId: addressDoc.communeId,
-            cityId: addressDoc.cityId
+            communeId: addressDoc.communeId, cityId: addressDoc.cityId
         };
-        if (!completeAddress.phone) {
-            return res.json({ success: false, message: "Téléphone manquant" });
-        }
+        if (!completeAddress.phone) return res.json({ success: false, message: "Téléphone manquant" });
 
-        // Création de la commande dans la base
         const order = await Order.create({
-            userId,
-            items: formattedItems,
-            amount: finalAmount,
-            address: completeAddress._id,
-            paymentType: "GeniusPay",
-            status: "pending_payment",
+            userId, items: formattedItems, amount: finalAmount,
+            address: completeAddress._id, paymentType: "GeniusPay", status: "pending_payment",
         });
 
-        // Formatage du téléphone pour GeniusPay
         let phone = completeAddress.phone.replace(/\D/g, '');
         if (phone.startsWith('0')) phone = phone.substring(1);
         if (!phone.startsWith('225')) phone = `225${phone}`;
         phone = `+${phone}`;
 
-        // Appel à l'API GeniusPay
         const geniusPayload = {
             amount: finalAmount,
             description: `Commande #${order._id.toString().slice(-8)}`,
-            customer: {
-                name: `${completeAddress.firstName} ${completeAddress.lastName}`.substring(0, 100),
-                phone: phone,
-            },
+            customer: { name: `${completeAddress.firstName} ${completeAddress.lastName}`.substring(0, 100), phone: phone },
             success_url: `${process.env.FRONTEND_URL}/payment/success?orderId=${order._id}`,
             error_url: `${process.env.FRONTEND_URL}/payment/error?orderId=${order._id}`,
-            metadata: {
-                order_id: order._id.toString(),
-                user_id: userId.toString()
-            }
+            metadata: { order_id: order._id.toString(), user_id: userId.toString() }
         };
 
-        const response = await axios.post(
-            `${process.env.GENIUSPAY_BASE_URL}/payments`,
-            geniusPayload,
-            {
-                headers: {
-                    'X-API-Key': process.env.GENIUSPAY_API_KEY,
-                    'X-API-Secret': process.env.GENIUSPAY_API_SECRET,
-                    'Content-Type': 'application/json',
-                },
-            }
-        );
+        const response = await axios.post(`${process.env.GENIUSPAY_BASE_URL}/payments`, geniusPayload, {
+            headers: {
+                'X-API-Key': process.env.GENIUSPAY_API_KEY,
+                'X-API-Secret': process.env.GENIUSPAY_API_SECRET,
+                'Content-Type': 'application/json',
+            },
+        });
 
         if (response.data.success) {
-            await Order.findByIdAndUpdate(order._id, {
-                geniuspay_reference: response.data.data.reference,
-            });
+            await Order.findByIdAndUpdate(order._id, { geniuspay_reference: response.data.data.reference });
             return res.json({ success: true, checkout_url: response.data.data.checkout_url, orderId: order._id });
         } else {
             await Order.findByIdAndDelete(order._id);
@@ -145,20 +102,16 @@ export const initiateGeniusPay = async (req, res) => {
         }
     } catch (error) {
         console.error("Erreur GeniusPay:", error.message);
-        if (error.response) {
-            console.error("Status:", error.response.status, "Data:", error.response.data);
-        }
+        if (error.response) console.error("Status:", error.response.status, "Data:", error.response.data);
         res.json({ success: false, message: error.message || "Erreur lors de l'initialisation du paiement" });
     }
 };
 
-// Webhook GeniusPay (protégé par signature)
 export const geniuspayWebhook = async (req, res) => {
     if (!verifyGeniusPaySignature(req)) {
         console.warn("⛔ Webhook GeniusPay rejeté (signature invalide)");
         return res.status(401).json({ error: "Invalid signature" });
     }
-
     try {
         const payload = req.body;
         const event = payload.event;
@@ -171,25 +124,17 @@ export const geniuspayWebhook = async (req, res) => {
             const userId = metadata?.user_id;
             const reference = transactionData.reference;
 
-            if (!orderId) {
-                return res.status(400).json({ error: "orderId missing" });
-            }
+            if (!orderId) return res.status(400).json({ error: "orderId missing" });
 
             const order = await Order.findById(orderId);
-            if (!order) {
-                return res.status(404).json({ error: "Order not found" });
-            }
-            if (order.isPaid && order.status === "Confirmed") {
-                return res.status(200).json({ received: true, alreadyProcessed: true });
-            }
+            if (!order) return res.status(404).json({ error: "Order not found" });
+            if (order.isPaid && order.status === "Confirmed") return res.status(200).json({ received: true, alreadyProcessed: true });
 
-            // Marquer la commande comme payée
             order.isPaid = true;
             order.status = "Confirmed";
             if (reference) order.geniuspay_reference = reference;
             await order.save();
 
-            // Mise à jour du stock
             const ProductModel = mongoose.model('product');
             for (const item of order.items) {
                 const product = await ProductModel.findById(item.product);
@@ -206,10 +151,8 @@ export const geniuspayWebhook = async (req, res) => {
                 }
             }
 
-            // Vider le panier
             await User.findByIdAndUpdate(userId, { cartItems: {} });
 
-            // Envoi des emails
             const user = await User.findById(userId);
             const Address = mongoose.model('address');
             const address = await Address.findById(order.address);
@@ -224,7 +167,6 @@ export const geniuspayWebhook = async (req, res) => {
         } else if (event === 'payment.failed') {
             console.log("Paiement échoué:", payload.data);
         }
-
         res.status(200).json({ received: true });
     } catch (error) {
         console.error("Webhook error:", error);
