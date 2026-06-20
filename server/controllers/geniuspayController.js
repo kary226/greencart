@@ -115,15 +115,31 @@ export const initiateGeniusPay = async (req, res) => {
 
             let priceAtOrder = product.offerPrice;
 
-            // Gestion des variantes (couleur/taille) : utiliser le prix
-            // de la variante si elle existe, jamais celui envoyé par le client.
+            // [FIX bug "montant minimum 200 FCFA"] Gestion des variantes
+            // (couleur/taille) : utiliser le prix de la variante UNIQUEMENT
+            // s'il est strictement positif. Certaines variantes n'ont pas
+            // de prix propre renseigné en base (offerPrice: 0 par défaut
+            // dans le schéma) ; dans ce cas le prix du produit parent fait
+            // foi. Sans ce garde-fou, une variante à offerPrice: 0 ramenait
+            // priceAtOrder à 0 pour tout le panier, donc amount = 0, d'où
+            // le rejet systématique "montant minimum 200 FCFA" même avec
+            // des articles chers dans le panier.
+            // selectedColor/selectedSize peuvent valoir null (produit simple)
+            // ou undefined (champ absent) selon le frontend : on normalise
+            // avec '== null' pour traiter les deux pareil.
             if (product.variants && product.variants.length > 0) {
                 const variant = product.variants.find(v =>
-                    v.color === item.selectedColor && v.size === item.selectedSize
+                    (item.selectedColor == null ? v.color == null : v.color === item.selectedColor) &&
+                    (item.selectedSize == null ? v.size == null : v.size === item.selectedSize)
                 );
-                if (variant) {
+                if (variant && variant.offerPrice > 0) {
                     priceAtOrder = variant.offerPrice;
                 }
+            }
+
+            if (!priceAtOrder || priceAtOrder <= 0) {
+                console.error(`❌ Prix invalide (${priceAtOrder}) pour le produit ${product._id} (${product.name})`);
+                return res.json({ success: false, message: `Prix indisponible pour "${product.name}", veuillez réessayer ou contacter le support` });
             }
 
             const quantity = Number(item.quantity);
