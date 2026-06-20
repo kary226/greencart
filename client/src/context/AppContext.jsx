@@ -101,7 +101,7 @@ export const AppContextProvider = ({ children }) => {
     const fetchOrders = async () => {
         if (!user) return;
         try {
-            const { data } = await axios.get('/api/order/user-orders');
+            const { data } = await axios.get('/api/order/user'); // Correction de l'URL
             if (data.success) {
                 setOrders(data.orders);
             }
