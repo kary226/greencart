@@ -5,7 +5,8 @@ import { addProduct, changeStock, productList, productById, updateProduct, delet
 
 const productRouter = express.Router();
 
-productRouter.post('/add', upload.array(["images"]), authSeller, addProduct);
+// ✅ H1 corrigé : authSeller AVANT upload
+productRouter.post('/add', authSeller, upload.array("images"), addProduct);
 productRouter.get('/list', productList);
 productRouter.get('/id', productById);
 productRouter.post('/stock', authSeller, changeStock);
