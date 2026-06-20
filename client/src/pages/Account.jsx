@@ -144,7 +144,6 @@ const Account = () => {
         e.preventDefault();
         setLoading(true);
         try {
-            // ✅ MODIFICATION : POST au lieu de PUT, et route correcte
             const { data } = await axios.post('/api/user/update', formData);
             if (data.success) {
                 toast.success('Informations mises à jour');
