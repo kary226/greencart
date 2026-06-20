@@ -4,6 +4,10 @@ import mongoose from 'mongoose';
 import Order from '../models/Order.js';
 import User from '../models/User.js';
 import Product from '../models/Product.js';
+import Coupon from '../models/Coupon.js';
+import DeliveryPrice from '../models/DeliveryPrice.js';
+import DeliveryType from '../models/DeliveryType.js';
+import Commune from '../models/Commune.js';
 import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
 
 // ============================================================
@@ -80,7 +84,11 @@ export const initiateGeniusPay = async (req, res) => {
         // [FIX C2] 'amount' n'est plus extrait du corps de la requête :
         // il est désormais entièrement recalculé côté serveur ci-dessous,
         // jamais fait confiance à une valeur envoyée par le client.
-        let { userId, items, address } = req.body;
+        // [FIX M2] 'deliveryPrice' et 'discountAmount' envoyés par le client
+        // ne sont plus utilisés non plus : seuls 'deliveryType' (le nom du
+        // type choisi) et 'couponApplied' (le code) servent d'entrée, tout
+        // le reste est recalculé côté serveur ci-dessous.
+        let { userId, items, address, deliveryType, couponApplied } = req.body;
 
         // Si address est un ID, récupérer l'adresse complète
         let addressDoc = address;
@@ -119,7 +127,7 @@ export const initiateGeniusPay = async (req, res) => {
         // ============================================================
         // [FIX C2] Recalcul intégral du montant et des prix unitaires
         // côté serveur, à partir de la base de données — exactement
-        // comme le font déjà placeOrderCOD / placeOrderStripe.
+        // comme le fait déjà placeOrderCOD.
         // On ne fait JAMAIS confiance à un prix ou un montant envoyé
         // par le client.
         // ============================================================
@@ -177,11 +185,82 @@ export const initiateGeniusPay = async (req, res) => {
             });
         }
 
-        // NOTE: si des frais de livraison et/ou une remise coupon doivent
-        // s'appliquer (cf. M2 de l'audit), ils doivent être recalculés et
-        // revalidés ici côté serveur (jamais lus depuis req.body) avant
-        // d'être ajoutés/déduits de 'amount'. Non traité dans ce correctif
-        // car hors périmètre des failles critiques C1/C2/C3.
+        // Sous-total des articles, avant livraison et remise.
+        const itemsSubtotal = amount;
+
+        // ============================================================
+        // [FIX M2] Recalcul des frais de livraison côté serveur.
+        // On ignore 'deliveryPrice' envoyé par le client : seul le nom
+        // du type de livraison choisi ('deliveryType') sert d'entrée,
+        // le tarif réel est retrouvé en base à partir de la commune de
+        // l'adresse — même logique de fallback ville/commune que
+        // deliveryController.getDeliveryPrice.
+        // ============================================================
+        let deliveryPrice = 0;
+        if (deliveryType) {
+            const deliveryTypeDoc = await DeliveryType.findOne({ name: deliveryType, isActive: true });
+            if (deliveryTypeDoc && completeAddress.communeId) {
+                let priceDoc = await DeliveryPrice.findOne({
+                    communeId: completeAddress.communeId,
+                    deliveryTypeId: deliveryTypeDoc._id,
+                    isActive: true
+                });
+
+                if (!priceDoc) {
+                    const commune = await Commune.findById(completeAddress.communeId);
+                    if (commune) {
+                        priceDoc = await DeliveryPrice.findOne({
+                            cityId: commune.cityId,
+                            communeId: null,
+                            deliveryTypeId: deliveryTypeDoc._id,
+                            isActive: true
+                        });
+                    }
+                }
+
+                if (priceDoc) {
+                    deliveryPrice = priceDoc.price;
+                }
+                // Si aucun tarif n'est trouvé, deliveryPrice reste à 0 plutôt
+                // que de bloquer la commande — comportement aligné sur
+                // getDeliveryPrice qui renvoie price: null dans ce cas.
+            }
+        }
+
+        // ============================================================
+        // [FIX M2] Revalidation et recalcul de la remise coupon côté
+        // serveur. On ignore 'discountAmount' envoyé par le client : seul
+        // le code ('couponApplied') sert d'entrée, la remise réelle est
+        // recalculée ici avec la même logique de validité/montant minimum
+        // que couponController.validateCoupon, puis coupon.calculateDiscount().
+        // Voir la note ci-dessous sur canUserUse().
+        // ============================================================
+        let discountAmount = 0;
+        if (couponApplied) {
+            const coupon = await Coupon.findOne({ code: String(couponApplied).toUpperCase() });
+            if (!coupon) {
+                return res.json({ success: false, message: "Code promo invalide" });
+            }
+            if (!coupon.isValid()) {
+                return res.json({ success: false, message: "Code promo expiré ou désactivé" });
+            }
+            if (itemsSubtotal < coupon.minPurchase) {
+                return res.json({ success: false, message: `Montant minimum d'achat: ${coupon.minPurchase} FCFA` });
+            }
+            // Note : on n'appelle pas coupon.canUserUse(userId) ici, car
+            // POST /api/coupon/apply (appelé par le frontend juste avant
+            // cette requête) a déjà incrémenté usedCount/usedBy pour cette
+            // commande légitime — rappeler canUserUse() à ce stade
+            // bloquerait à tort un utilisateur dont usagePerUser vaut 1.
+            // La vérification d'éligibilité d'usage a donc déjà eu lieu à
+            // l'étape /apply ; ici on se contente de revalider que le
+            // coupon est toujours actif et la condition de montant minimum,
+            // et de recalculer la remise depuis la base (jamais depuis la
+            // valeur envoyée par le client).
+            discountAmount = coupon.calculateDiscount(itemsSubtotal);
+        }
+
+        amount = itemsSubtotal + deliveryPrice - discountAmount;
 
         const finalAmount = Math.round(amount);
         if (finalAmount < 200) {

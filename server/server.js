@@ -10,7 +10,6 @@ import productRouter from './routes/productRoute.js';
 import cartRouter from './routes/cartRoute.js';
 import addressRouter from './routes/addressRoute.js';
 import orderRouter from './routes/orderRoute.js';
-import { stripeWebhooks } from './controllers/orderController.js';
 import bannerRouter from './routes/bannerRoute.js';
 import categoryRouter from './routes/categoryRoute.js';
 import reviewRouter from './routes/reviewRoute.js';
@@ -64,8 +63,9 @@ app.options('*', cors({
     allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With', 'Accept']
 }));
 
-// Route webhook Stripe (doit être avant express.json())
-app.post('/stripe', express.raw({type: 'application/json'}), stripeWebhooks)
+// [FIX] Stripe retiré : GreenCart n'utilise que GeniusPay et COD comme
+// moyens de paiement. L'ancienne route 'app.post('/stripe', ...)' et
+// son contrôleur stripeWebhooks ont été supprimés.
 
 // [FIX] Webhook GeniusPay — DOIT être monté avant express.json() global,
 // avec express.raw(), pour que geniuspayWebhook reçoive le corps brut

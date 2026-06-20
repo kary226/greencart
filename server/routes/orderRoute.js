@@ -1,6 +1,6 @@
 import express from 'express';
 import authUser from '../middlewares/authUser.js';
-import { getAllOrders, getUserOrders, placeOrderCOD, placeOrderStripe, updateOrderStatus, getUserOrdersByAdmin } from '../controllers/orderController.js';
+import { getAllOrders, getUserOrders, placeOrderCOD, updateOrderStatus, getUserOrdersByAdmin } from '../controllers/orderController.js';
 import authSeller from '../middlewares/authSeller.js';
 import { initiateGeniusPay } from '../controllers/geniuspayController.js';
 import Order from '../models/Order.js';
@@ -10,10 +10,13 @@ const orderRouter = express.Router();
 orderRouter.post('/cod', authUser, placeOrderCOD);
 orderRouter.get('/user', authUser, getUserOrders);
 orderRouter.get('/seller', authSeller, getAllOrders);
-orderRouter.post('/stripe', authUser, placeOrderStripe);
 orderRouter.post('/status', authSeller, updateOrderStatus);
 orderRouter.post('/geniuspay/initiate', authUser, initiateGeniusPay);
 orderRouter.get('/admin/user/:userId', authSeller, getUserOrdersByAdmin);
+
+// [FIX] Stripe retiré : GreenCart n'utilise que GeniusPay et COD comme
+// moyens de paiement. L'ancienne route 'POST /stripe' (placeOrderStripe)
+// a été supprimée.
 
 // ============================================================
 // RÉCUPÉRER UNE COMMANDE PAR SON ID

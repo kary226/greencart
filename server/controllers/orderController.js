@@ -1,6 +1,5 @@
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
-import stripe from "stripe"
 import User from "../models/User.js"
 import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
 
@@ -31,6 +30,14 @@ const reduceVariantStock = async (items) => {
 };
 
 // Place Order COD : /api/order/cod
+//
+// NOTE : cette fonction présente le même défaut M2 identifié dans l'audit
+// (frais de livraison et remise coupon envoyés par le client mais jamais
+// recalculés/déduits du montant final, contrairement à ce qui a été corrigé
+// pour GeniusPay dans geniuspayController.js). Non corrigé ici : périmètre
+// limité au retrait de Stripe pour cette passe. Dis-le si tu veux que ce
+// même correctif (recalcul livraison + coupon côté serveur) soit appliqué
+// ici aussi.
 export const placeOrderCOD = async (req, res)=>{
     try {
         const { userId, items, address } = req.body;
@@ -80,135 +87,10 @@ export const placeOrderCOD = async (req, res)=>{
     }
 };
 
-// Place Order Stripe : /api/order/stripe
-export const placeOrderStripe = async (req, res)=>{
-    try {
-        const { userId, items, address } = req.body;
-        const {origin} = req.headers;
-
-        if(!address || items.length === 0){
-            return res.json({success: false, message: "Invalid data"});
-        }
-
-        let productData = [];
-        let amount = 0;
-        const itemsWithPrice = await Promise.all(items.map(async (item) => {
-            const product = await Product.findById(item.product);
-            const priceAtOrder = product.offerPrice;
-            amount += priceAtOrder * item.quantity;
-            
-            productData.push({
-                name: product.name,
-                price: priceAtOrder,
-                quantity: item.quantity,
-                color: item.selectedColor || null,
-                size: item.selectedSize || null
-            });
-            
-            return {
-                product: item.product,
-                quantity: item.quantity,
-                color: item.selectedColor || null,
-                size: item.selectedSize || null,
-                priceAtOrder: priceAtOrder
-            };
-        }));
-
-        amount += Math.floor(amount * 0.02);
-
-        const order = await Order.create({
-            userId,
-            items: itemsWithPrice,
-            amount,
-            address,
-            paymentType: "Online",
-            status: "Order Placed"
-        });
-
-        const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY);
-
-        const line_items = productData.map((item)=>{
-            return {
-                price_data: {
-                    currency: "usd",
-                    product_data: { 
-                        name: `${item.name}${item.color ? ` (${item.color})` : ''}${item.size ? ` - ${item.size}` : ''}` 
-                    },
-                    unit_amount: Math.floor(item.price + item.price * 0.02) * 100
-                },
-                quantity: item.quantity,
-            };
-        });
-
-        const session = await stripeInstance.checkout.sessions.create({
-            line_items,
-            mode: "payment",
-            success_url: `${origin}/loader?next=my-orders`,
-            cancel_url: `${origin}/cart`,
-            metadata: {
-                orderId: order._id.toString(),
-                userId,
-            }
-        });
-
-        // === ENVOI DES EMAILS ===
-        const user = await User.findById(userId);
-        if (user && user.email) {
-            await sendOrderConfirmationEmail(user.email, order._id.toString(), amount);
-            await sendAdminNotificationEmail(order._id.toString(), amount, `${user.name}`, user.email);
-        }
-
-        return res.json({success: true, url: session.url });
-    } catch (error) {
-        return res.json({ success: false, message: error.message });
-    }
-};
-
-// Stripe Webhooks : /stripe
-export const stripeWebhooks = async (request, response)=>{
-    const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY);
-    const sig = request.headers["stripe-signature"];
-    let event;
-
-    try {
-        event = stripeInstance.webhooks.constructEvent(
-            request.body, sig, process.env.STRIPE_WEBHOOK_SECRET
-        );
-    } catch (error) {
-        response.status(400).send(`Webhook Error: ${error.message}`);
-    }
-
-    switch (event.type) {
-        case "payment_intent.succeeded":{
-            const paymentIntent = event.data.object;
-            const paymentIntentId = paymentIntent.id;
-            const session = await stripeInstance.checkout.sessions.list({
-                payment_intent: paymentIntentId,
-            });
-            const { orderId, userId } = session.data[0].metadata;
-
-            await Order.findByIdAndUpdate(orderId, {isPaid: true});
-            const order = await Order.findById(orderId);
-            await reduceVariantStock(order.items);
-            await User.findByIdAndUpdate(userId, {cartItems: {}});
-            break;
-        }
-        case "payment_intent.payment_failed": {
-            const paymentIntent = event.data.object;
-            const paymentIntentId = paymentIntent.id;
-            const session = await stripeInstance.checkout.sessions.list({
-                payment_intent: paymentIntentId,
-            });
-            const { orderId } = session.data[0].metadata;
-            await Order.findByIdAndDelete(orderId);
-            break;
-        }
-        default:
-            console.error(`Unhandled event type ${event.type}`);
-            break;
-    }
-    response.json({received: true});
-};
+// [FIX] Stripe retiré : GreenCart n'utilise que GeniusPay et COD comme
+// moyens de paiement. Les fonctions placeOrderStripe et stripeWebhooks
+// (anciennement définies ici, route POST /stripe) ont été supprimées,
+// ainsi que l'import du SDK 'stripe'.
 
 // Update Order Status : /api/order/status
 export const updateOrderStatus = async (req, res)=>{
