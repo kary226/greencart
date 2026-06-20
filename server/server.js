@@ -35,19 +35,23 @@ const allowedOrigins = [
     'https://greencart-pied-six.vercel.app',
     'https://greencart-ci.vercel.app',
     'https://greencart-five-ochre.vercel.app',
-    'https://greencart-y.vercel.app'
+    'https://greencart-y.vercel.app',
+    'https://ramci.vercel.app'
 ];
 
-// Middleware CORS - Version permissive
+// [FIX H2] Vraie liste blanche CORS. L'ancienne version loguait un
+// avertissement pour une origine non listée puis l'autorisait quand même
+// (callback(null, true) dans le bloc 'else'), ce qui revenait à
+// origin: '*' combiné à credentials: true — la pire combinaison possible.
+// Désormais une origine absente de allowedOrigins est explicitement
+// rejetée.
 app.use(cors({
     origin: function(origin, callback) {
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.indexOf(origin) !== -1) {
-            callback(null, true);
-        } else {
-            console.log(`⚠️ Origine non listée mais autorisée: ${origin}`);
-            callback(null, true);
+        if (!origin || allowedOrigins.includes(origin)) {
+            return callback(null, true);
         }
+        console.log(`⚠️ Origine rejetée par CORS: ${origin}`);
+        return callback(new Error('Origine non autorisée par CORS'));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
@@ -55,9 +59,17 @@ app.use(cors({
     exposedHeaders: ['Set-Cookie']
 }));
 
-// Gestion des requêtes OPTIONS (preflight)
+// [FIX H2] Gestion des requêtes OPTIONS (preflight) alignée sur la même
+// liste blanche stricte que ci-dessus (auparavant origin: true = tout
+// autorisé, ce qui contournait la protection même si le bloc principal
+// était corrigé).
 app.options('*', cors({
-    origin: true,
+    origin: function(origin, callback) {
+        if (!origin || allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        return callback(new Error('Origine non autorisée par CORS'));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With', 'Accept']
