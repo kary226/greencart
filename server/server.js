@@ -18,7 +18,7 @@ import wishlistRouter from './routes/wishlistRoute.js';
 import couponRouter from './routes/couponRoute.js';
 import locationRouter from './routes/locationRoute.js';
 import deliveryRouter from './routes/deliveryRoute.js';
-import { geniuspayWebhook, initiateGeniusPay as geniuspayInitiate } from './controllers/geniuspayController.js';
+import { geniuspayWebhook } from './controllers/geniuspayController.js';
 import dns from 'dns';
 
 const app = express();
@@ -89,11 +89,25 @@ app.use('/api/coupon', couponRouter);
 app.use('/api/location', locationRouter);
 app.use('/api/delivery', deliveryRouter);
 
-// Webhook GeniusPay
+// Webhook GeniusPay — point d'entrée UNIQUE, signature HMAC vérifiée
+// dans geniuspayWebhook (voir controllers/geniuspayController.js).
 app.post('/api/geniuspay/webhook', express.json(), geniuspayWebhook);
 
-// Route pour initier un paiement GeniusPay
-app.post('/api/order/geniuspay/initiate', geniuspayInitiate);
+// ============================================================
+// [FIX C1/C2] La route ci-dessous a été SUPPRIMÉE :
+//   app.post('/api/order/geniuspay/initiate', geniuspayInitiate);
+//
+// Elle dupliquait la route déjà déclarée dans orderRoute.js
+// (orderRouter.post('/geniuspay/initiate', authUser, initiateGeniusPay))
+// mais SANS le middleware authUser — un attaquant non connecté
+// pouvait donc initier des paiements/commandes directement sur
+// ce endpoint, contournant entièrement l'authentification et
+// rendant inutile le 'userId' attendu par le contrôleur.
+//
+// Le seul point d'entrée pour initier un paiement GeniusPay est
+// désormais : POST /api/order/geniuspay/initiate (monté via
+// orderRouter, protégé par authUser).
+// ============================================================
 
 // Démarrage du serveur
 app.listen(port, ()=>{
