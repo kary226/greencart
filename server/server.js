@@ -1,6 +1,7 @@
 import cookieParser from 'cookie-parser';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import connectDB from './configs/db.js';
 import 'dotenv/config';
 import userRouter from './routes/userRoute.js';
@@ -82,6 +83,20 @@ app.use(cors({
 // échoue systématiquement même avec le bon secret — c'est exactement le
 // symptôme "Invalid signature" observé en test malgré un paiement réel.
 app.post('/api/geniuspay/webhook', express.raw({ type: 'application/json' }), geniuspayWebhook);
+
+// [FIX H5 - partiel] En-têtes de sécurité de base via helmet (X-Frame-Options,
+// X-Content-Type-Options, etc.). Le Content-Security-Policy par défaut de
+// helmet est volontairement désactivé ici : il est strict par défaut et
+// bloquerait probablement le chargement d'images Cloudinary ou d'autres
+// ressources externes légitimes sans une configuration fine dédiée — au vu
+// des incidents CORS de ce jour, mieux vaut l'activer dans une passe séparée,
+// testée spécifiquement pour ça, plutôt que de risquer une nouvelle panne
+// généralisée. La migration du JWT hors localStorage (cookie httpOnly) reste
+// également à faire séparément — non traitée ici.
+app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: false,
+}));
 
 // Middleware standard
 app.use(express.json());
