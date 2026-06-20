@@ -9,8 +9,17 @@ export const addProduct = async (req, res) => {
 
         let imagesUrl = await Promise.all(
             images.map(async (item) => {
-                let result = await cloudinary.uploader.upload(item.path, { resource_type: 'image' });
-                return result.secure_url
+                let result = await new Promise((resolve, reject) => {
+                    const uploadStream = cloudinary.uploader.upload_stream(
+                        { resource_type: 'image' },
+                        (error, result) => {
+                            if (error) reject(error);
+                            else resolve(result);
+                        }
+                    );
+                    uploadStream.end(item.buffer);
+                });
+                return result.secure_url;
             })
         )
 
@@ -25,10 +34,8 @@ export const addProduct = async (req, res) => {
             startImageIndex: variant.startImageIndex || 0
         }))
 
-        // Pour un produit simple (sans variantes), on utilise le stock du produit
         const hasVariants = productData.variants && productData.variants.length > 0
         
-        // Calcul du stock total pour affichage
         let totalStock = 0
         if (hasVariants) {
             totalStock = processedVariants.reduce((sum, v) => sum + v.stock, 0)
