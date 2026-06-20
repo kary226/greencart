@@ -6,11 +6,12 @@ import User from '../models/User.js';
 import Product from '../models/Product.js';
 import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
 
-// --- Vérification signature HMAC du webhook GeniusPay (corrigée) ---
+// Vérification stricte de la signature HMAC du webhook GeniusPay
 const verifyGeniusPaySignature = (req) => {
     const secret = process.env.GENIUSPAY_WEBHOOK_SECRET;
+
     if (!secret) {
-        console.error("❌ GENIUSPAY_WEBHOOK_SECRET non défini");
+        console.error("❌ GENIUSPAY_WEBHOOK_SECRET manquant – webhook rejeté");
         return false;
     }
 
@@ -32,11 +33,12 @@ const verifyGeniusPaySignature = (req) => {
     }
 };
 
-// --- Initier un paiement (inchangé) ---
+// Initier un paiement GeniusPay (prix recalculé côté serveur)
 export const initiateGeniusPay = async (req, res) => {
     try {
         const { userId, items, address } = req.body;
 
+        // Recalcul du montant et des prix unitaires depuis la base de données
         let recalculatedAmount = 0;
         const formattedItems = [];
         for (const item of items) {
@@ -61,6 +63,7 @@ export const initiateGeniusPay = async (req, res) => {
             return res.json({ success: false, message: "Le montant minimum est de 200 FCFA" });
         }
 
+        // Récupération de l'adresse complète
         let addressDoc = address;
         if (typeof address === 'string') {
             const Address = mongoose.model('address');
@@ -87,6 +90,7 @@ export const initiateGeniusPay = async (req, res) => {
             return res.json({ success: false, message: "Téléphone manquant" });
         }
 
+        // Création de la commande dans la base
         const order = await Order.create({
             userId,
             items: formattedItems,
@@ -96,11 +100,13 @@ export const initiateGeniusPay = async (req, res) => {
             status: "pending_payment",
         });
 
+        // Formatage du téléphone pour GeniusPay
         let phone = completeAddress.phone.replace(/\D/g, '');
         if (phone.startsWith('0')) phone = phone.substring(1);
         if (!phone.startsWith('225')) phone = `225${phone}`;
         phone = `+${phone}`;
 
+        // Appel à l'API GeniusPay
         const geniusPayload = {
             amount: finalAmount,
             description: `Commande #${order._id.toString().slice(-8)}`,
@@ -146,7 +152,7 @@ export const initiateGeniusPay = async (req, res) => {
     }
 };
 
-// --- Webhook GeniusPay (vérification corrigée) ---
+// Webhook GeniusPay (protégé par signature)
 export const geniuspayWebhook = async (req, res) => {
     if (!verifyGeniusPaySignature(req)) {
         console.warn("⛔ Webhook GeniusPay rejeté (signature invalide)");
@@ -156,7 +162,7 @@ export const geniuspayWebhook = async (req, res) => {
     try {
         const payload = req.body;
         const event = payload.event;
-        console.log("=== WEBHOOK GENIUSPAY VÉRIFIÉ ===");
+        console.log("=== WEBHOOK GENIUSPAY REÇU ===");
 
         if (event === 'payment.success') {
             const transactionData = payload.data;
@@ -177,11 +183,13 @@ export const geniuspayWebhook = async (req, res) => {
                 return res.status(200).json({ received: true, alreadyProcessed: true });
             }
 
+            // Marquer la commande comme payée
             order.isPaid = true;
             order.status = "Confirmed";
             if (reference) order.geniuspay_reference = reference;
             await order.save();
 
+            // Mise à jour du stock
             const ProductModel = mongoose.model('product');
             for (const item of order.items) {
                 const product = await ProductModel.findById(item.product);
@@ -198,8 +206,10 @@ export const geniuspayWebhook = async (req, res) => {
                 }
             }
 
+            // Vider le panier
             await User.findByIdAndUpdate(userId, { cartItems: {} });
 
+            // Envoi des emails
             const user = await User.findById(userId);
             const Address = mongoose.model('address');
             const address = await Address.findById(order.address);
