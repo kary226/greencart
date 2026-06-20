@@ -388,13 +388,23 @@ export const geniuspayWebhook = async (req, res) => {
             }
 
             // ============================================================
-            // [FIX C1 - défense en profondeur] Avant de marquer la commande
-            // comme payée, on revérifie le montant auprès de l'API GeniusPay
-            // plutôt que de faire confiance aveuglément au payload reçu.
-            // Si GENIUSPAY_BASE_URL/clé API ne sont pas configurés pour ce
-            // type de vérification, ce bloc peut être adapté selon
-            // l'endpoint exact exposé par GeniusPay pour relire un paiement
-            // (ex: GET /payments/:reference).
+            // [FIX] Revérification best-effort auprès de l'API GeniusPay.
+            //
+            // ⚠️ L'endpoint exact pour relire une transaction GeniusPay
+            // (GET /payments/:reference) n'est pas confirmé par la
+            // documentation webhook fournie — c'était une hypothèse de
+            // défense en profondeur. En pratique cet appel renvoie 404
+            // (endpoint introuvable), ce qui bloquait à tort des paiements
+            // réellement confirmés par signature.
+            //
+            // Tant que le bon endpoint n'est pas confirmé auprès du support
+            // GeniusPay (support@genius.ci) ou de leur doc API, cette
+            // vérification est best-effort : un échec d'appel (404, réseau,
+            // timeout) est loggé mais NE bloque PAS la confirmation, car la
+            // protection principale contre la fraude est déjà la signature
+            // HMAC vérifiée plus haut (verifyGeniusPaySignature), qui prouve
+            // que ce payload provient bien de GeniusPay. Seul un montant
+            // explicitement confirmé et incohérent bloque la commande.
             // ============================================================
             if (reference) {
                 try {
@@ -410,7 +420,7 @@ export const geniuspayWebhook = async (req, res) => {
                     const remoteStatus = verifyResponse.data?.data?.status;
                     const remoteAmount = verifyResponse.data?.data?.amount;
 
-                    if (remoteStatus !== 'success' && remoteStatus !== 'completed') {
+                    if (remoteStatus && remoteStatus !== 'success' && remoteStatus !== 'completed') {
                         console.error(`❌ Statut GeniusPay distant non confirmé pour ${reference}: ${remoteStatus}`);
                         return res.status(400).json({ error: "Payment not confirmed by provider" });
                     }
@@ -419,8 +429,13 @@ export const geniuspayWebhook = async (req, res) => {
                         return res.status(400).json({ error: "Amount mismatch" });
                     }
                 } catch (verifyError) {
-                    console.error("❌ Échec de la revérification auprès de GeniusPay:", verifyError.message);
-                    return res.status(502).json({ error: "Unable to verify payment with provider" });
+                    // Best-effort : on logue mais on NE bloque PAS la confirmation.
+                    // La protection principale anti-fraude reste la signature HMAC
+                    // déjà vérifiée plus haut. Un 404 ici signifie très probablement
+                    // que l'endpoint /payments/:reference n'est pas le bon chemin
+                    // GeniusPay — à confirmer avec leur support avant de durcir
+                    // à nouveau cette vérification.
+                    console.warn(`⚠️ Revérification GeniusPay impossible pour ${reference} (${verifyError.response?.status || verifyError.message}) — confirmation poursuivie sur la base de la signature HMAC déjà validée.`);
                 }
             }
 
