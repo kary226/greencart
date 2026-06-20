@@ -9,50 +9,69 @@ import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../confi
 // ============================================================
 // [FIX C1] Vérification de la signature du webhook GeniusPay.
 //
-// ⚠️ À AJUSTER : le nom de l'en-tête ('x-geniuspay-signature') et
-// l'algorithme (HMAC SHA-256 sur le corps brut) sont une structure
-// standard, mais GeniusPay peut utiliser un nom d'en-tête ou un
-// format différent. Vérifie leur documentation / dashboard
-// développeur et ajuste si besoin.
+// Implémentation conforme au guide d'intégration officiel GeniusPay :
+//   - Header signature : X-Webhook-Signature
+//   - Header timestamp  : X-Webhook-Timestamp
+//   - Donnée signée     : `${timestamp}.${json_payload}`
+//   - Algorithme        : HMAC SHA-256, secret commençant par 'whsec_'
+//
+// 'rawBody' doit être le corps EXACT (octets bruts) reçu de GeniusPay,
+// avant tout reparsing JSON — voir server.js qui monte ce webhook avec
+// express.raw() pour préserver ce corps brut. Si on signait
+// JSON.stringify(req.body) après un express.json(), un simple
+// réordonnancement de clés ou changement d'espacement suffirait à
+// faire échouer la vérification même avec le bon secret — ce qui
+// correspond exactement au symptôme observé ("Invalid signature"
+// alors que le paiement a bien été effectué).
+//
+// On vérifie aussi le timestamp (anti-replay) : un webhook de plus de
+// 5 minutes est rejeté, comme recommandé par GeniusPay.
 //
 // Il faut définir GENIUSPAY_WEBHOOK_SECRET dans les variables
-// d'environnement (valeur fournie par GeniusPay, distincte de
-// GENIUSPAY_API_KEY / GENIUSPAY_API_SECRET).
-//
-// Important : pour que la signature soit vérifiable sur le corps EXACT
-// envoyé par GeniusPay, idéalement le webhook devrait utiliser
-// express.raw() plutôt que express.json() (comme c'est déjà le cas
-// pour le webhook Stripe dans server.js), puis parser le JSON
-// manuellement après vérification. Tant que GENIUSPAY_WEBHOOK_SECRET
-// n'est pas configuré, la vérification ci-dessous rejette tout appel
-// (fail-closed) plutôt que de l'accepter par défaut.
+// d'environnement (valeur 'whsec_...' du dashboard GeniusPay, distincte
+// de GENIUSPAY_API_KEY / GENIUSPAY_API_SECRET). Si GeniusPay expose des
+// secrets distincts sandbox/live, adapter pour lire
+// GENIUSPAY_WEBHOOK_SECRET_SANDBOX / _LIVE selon GENIUSPAY_MODE.
 // ============================================================
-function verifyGeniusPaySignature(req) {
+const WEBHOOK_MAX_AGE_SECONDS = 5 * 60; // 5 minutes, comme recommandé par GeniusPay
+
+function verifyGeniusPaySignature(req, rawBody) {
     const secret = process.env.GENIUSPAY_WEBHOOK_SECRET;
     if (!secret) {
         console.error("❌ GENIUSPAY_WEBHOOK_SECRET non configuré — webhook rejeté par défaut (fail-closed)");
-        return false;
+        return { valid: false, reason: 'missing_secret' };
     }
 
-    const signature = req.headers['x-geniuspay-signature'];
-    if (!signature) {
-        console.error("❌ En-tête de signature GeniusPay manquant");
-        return false;
+    const signature = req.headers['x-webhook-signature'];
+    const timestamp = req.headers['x-webhook-timestamp'];
+
+    if (!signature || !timestamp) {
+        console.error("❌ Headers X-Webhook-Signature / X-Webhook-Timestamp manquants");
+        return { valid: false, reason: 'missing_headers' };
     }
 
+    // Anti-replay : rejeter les webhooks trop anciens
+    const now = Math.floor(Date.now() / 1000);
+    const ts = parseInt(timestamp, 10);
+    if (!Number.isFinite(ts) || Math.abs(now - ts) > WEBHOOK_MAX_AGE_SECONDS) {
+        console.error(`❌ Timestamp webhook hors fenêtre acceptable (timestamp=${timestamp})`);
+        return { valid: false, reason: 'timestamp_too_old' };
+    }
+
+    const data = `${timestamp}.${rawBody}`;
     const expected = crypto
         .createHmac('sha256', secret)
-        .update(JSON.stringify(req.body))
+        .update(data)
         .digest('hex');
 
     const sigBuf = Buffer.from(signature);
     const expectedBuf = Buffer.from(expected);
 
-    if (sigBuf.length !== expectedBuf.length) {
-        return false;
+    if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) {
+        return { valid: false, reason: 'signature_mismatch' };
     }
 
-    return crypto.timingSafeEqual(sigBuf, expectedBuf);
+    return { valid: true };
 }
 
 // Initier un paiement GeniusPay (mode checkout)
@@ -243,21 +262,101 @@ export const initiateGeniusPay = async (req, res) => {
     }
 };
 
+// ============================================================
+// [FIX déploiement Vercel] Lecture du corps brut de la requête.
+//
+// Sur Vercel (runtime @vercel/node), il arrive que le body soit déjà
+// pré-parsé en objet JS avant même qu'Express/express.raw() ne le
+// reçoive, ce qui rend req.body inutilisable comme source pour une
+// vérification de signature bit-exacte (JSON.stringify(req.body) peut
+// différer de l'original signé par GeniusPay : ordre des clés,
+// espacement). On essaie donc, dans l'ordre :
+//   1. req.body s'il est déjà un Buffer (cas standard avec express.raw())
+//   2. req.rawBody si le runtime l'expose (certains wrappers Vercel le
+//      font, ex. via micro ou un middleware custom)
+//   3. Lecture manuelle du stream req lui-même
+//   4. En dernier recours, JSON.stringify(req.body) si tout le reste a
+//      échoué (req.body déjà un objet parsé et le stream déjà consommé)
+//      — ce cas peut faire échouer la vérification de signature si
+//      l'ordre des clés diffère, mais évite un crash et permet de le
+//      diagnostiquer via les logs.
+// ============================================================
+function getRawBody(req) {
+    if (Buffer.isBuffer(req.body)) {
+        return Promise.resolve(req.body.toString('utf8'));
+    }
+    if (typeof req.rawBody === 'string') {
+        return Promise.resolve(req.rawBody);
+    }
+    if (Buffer.isBuffer(req.rawBody)) {
+        return Promise.resolve(req.rawBody.toString('utf8'));
+    }
+
+    return new Promise((resolve) => {
+        let data = '';
+        let resolved = false;
+
+        req.on('data', (chunk) => { data += chunk; });
+        req.on('end', () => {
+            if (!resolved) {
+                resolved = true;
+                if (data.length > 0) {
+                    resolve(data);
+                } else {
+                    // Stream vide : le body a probablement déjà été
+                    // consommé en amont (pré-parsing Vercel). On retombe
+                    // sur req.body en dernier recours.
+                    console.warn("⚠️ Stream de requête vide — body probablement déjà pré-parsé par le runtime. Fallback sur JSON.stringify(req.body), la vérification de signature peut échouer si l'ordre des clés diffère de l'original.");
+                    resolve(typeof req.body === 'object' ? JSON.stringify(req.body) : '');
+                }
+            }
+        });
+        req.on('error', () => {
+            if (!resolved) {
+                resolved = true;
+                resolve(typeof req.body === 'object' ? JSON.stringify(req.body) : '');
+            }
+        });
+
+        // Si le stream a déjà été entièrement consommé avant notre
+        // attache des listeners, 'end' peut ne jamais se déclencher car
+        // il a déjà eu lieu. Filet de sécurité court (le webhook doit de
+        // toute façon répondre vite, donc ce délai reste négligeable).
+        setTimeout(() => {
+            if (!resolved) {
+                resolved = true;
+                resolve(typeof req.body === 'object' ? JSON.stringify(req.body) : data);
+            }
+        }, 2000);
+    });
+}
+
 // Webhook pour confirmer les paiements et mettre à jour le stock
+//
+// IMPORTANT : cette route doit être montée dans server.js avec
+// express.raw({ type: 'application/json' }) — comme le webhook Stripe —
+// et NON express.json(), pour que req.body soit le Buffer brut exact
+// envoyé par GeniusPay. C'est nécessaire pour que la vérification de
+// signature (sur `${timestamp}.${rawBody}`) corresponde bit à bit à ce
+// que GeniusPay a signé de son côté. Sur Vercel, voir getRawBody()
+// ci-dessus pour la gestion du cas où le runtime pré-parse le body.
 export const geniuspayWebhook = async (req, res) => {
+    const rawBody = await getRawBody(req);
+
     // ============================================================
     // [FIX C1] Vérification de signature AVANT toute action.
     // Sans signature valide, le payload n'est jamais traité :
     // c'est ce qui empêche un attaquant de fabriquer un faux
     // "payment.success" pour obtenir une commande gratuite.
     // ============================================================
-    if (!verifyGeniusPaySignature(req)) {
-        console.error("❌ Signature GeniusPay invalide ou absente — webhook rejeté");
+    const verification = verifyGeniusPaySignature(req, rawBody);
+    if (!verification.valid) {
+        console.error(`❌ Webhook GeniusPay rejeté (${verification.reason})`);
         return res.status(401).json({ error: "Invalid signature" });
     }
 
     try {
-        const payload = req.body;
+        const payload = JSON.parse(rawBody);
         const event = payload.event;
 
         console.log("=== WEBHOOK GENIUSPAY RECU (signature vérifiée) ===");

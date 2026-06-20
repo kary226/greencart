@@ -67,6 +67,17 @@ app.options('*', cors({
 // Route webhook Stripe (doit être avant express.json())
 app.post('/stripe', express.raw({type: 'application/json'}), stripeWebhooks)
 
+// [FIX] Webhook GeniusPay — DOIT être monté avant express.json() global,
+// avec express.raw(), pour que geniuspayWebhook reçoive le corps brut
+// exact envoyé par GeniusPay. La signature HMAC de GeniusPay est calculée
+// sur ce corps brut (`${timestamp}.${raw_json}`) ; si le corps est déjà
+// reparsé en objet JS par express.json() avant d'arriver au contrôleur,
+// JSON.stringify(req.body) peut différer octet pour octet de ce que
+// GeniusPay a signé (ordre des clés, espacement) et la vérification
+// échoue systématiquement même avec le bon secret — c'est exactement le
+// symptôme "Invalid signature" observé en test malgré un paiement réel.
+app.post('/api/geniuspay/webhook', express.raw({ type: 'application/json' }), geniuspayWebhook);
+
 // Middleware standard
 app.use(express.json());
 app.use(cookieParser());
@@ -89,9 +100,6 @@ app.use('/api/coupon', couponRouter);
 app.use('/api/location', locationRouter);
 app.use('/api/delivery', deliveryRouter);
 
-// Webhook GeniusPay — point d'entrée UNIQUE, signature HMAC vérifiée
-// dans geniuspayWebhook (voir controllers/geniuspayController.js).
-app.post('/api/geniuspay/webhook', express.json(), geniuspayWebhook);
 
 // ============================================================
 // [FIX C1/C2] La route ci-dessous a été SUPPRIMÉE :
