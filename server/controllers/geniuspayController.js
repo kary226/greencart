@@ -272,6 +272,13 @@ export const initiateGeniusPay = async (req, res) => {
             userId,
             items: formattedItems,
             amount: finalAmount,
+            // [FIX] Détail du calcul sauvegardé sur la commande, pour que
+            // MyOrders.jsx et le reçu PDF puissent afficher la livraison et
+            // le coupon réellement appliqués (valeurs déjà recalculées et
+            // revalidées côté serveur ci-dessus, jamais celles du client).
+            deliveryPrice,
+            discountAmount,
+            couponApplied: couponApplied ? String(couponApplied).toUpperCase() : null,
             address: completeAddress._id,
             paymentType: "GeniusPay",
             status: "pending_payment",

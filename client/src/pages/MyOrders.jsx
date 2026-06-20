@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
 import { PDFDownloadLink } from '@react-pdf/renderer'
 import OrderReceiptPDF from '../components/OrderReceiptPDF'
-import { Package, Calendar, CreditCard, MapPin, Phone, FileText, CheckCircle, Truck, PackageCheck, Home, XCircle } from 'lucide-react'
+import { Package, Calendar, CreditCard, MapPin, Phone, FileText, CheckCircle, Truck, PackageCheck, Home, XCircle, Tag, Banknote } from 'lucide-react'
 
 const MyOrders = () => {
 
@@ -46,6 +46,26 @@ const MyOrders = () => {
         return messages[status] || '';
     };
 
+    // [FIX] Libellé clair du moyen de paiement. L'ancien code n'affichait
+    // que deux cas ("Paiement à la livraison" / "Paiement en ligne"), ce
+    // qui ne distinguait pas GeniusPay (mobile money) — pourtant le seul
+    // moyen de paiement en ligne utilisé sur la plateforme.
+    const getPaymentLabel = (order) => {
+        if (order.paymentType === 'COD') return 'Paiement à la livraison';
+        if (order.paymentType === 'GeniusPay') {
+            return order.isPaid ? 'Mobile Money — Payé' : 'Mobile Money — En attente';
+        }
+        return order.paymentType || 'Paiement en ligne';
+    };
+
+    // [FIX] Sous-total des articles, pour pouvoir afficher le détail
+    // (sous-total / livraison / remise / total) au lieu du seul montant
+    // final qui mélangeait tout sans explication.
+    const getItemsSubtotal = (order) => {
+        return order.items.reduce((sum, item) =>
+            sum + ((item.priceAtOrder || item.product?.offerPrice || 0) * item.quantity), 0);
+    };
+
     useEffect(() => {
         if (user) {
             fetchMyOrders()
@@ -56,10 +76,10 @@ const MyOrders = () => {
         return (
             <div className="min-h-screen bg-white pt-20 pb-16 px-4">
                 <div className="max-w-md mx-auto text-center">
-                    <div className="w-24 h-24 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <Package size={48} className="text-red-500" />
+                    <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Package size={40} className="text-red-500" />
                     </div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Aucune commande</h2>
+                    <h2 className="text-xl font-bold text-gray-900 mb-2">Aucune commande</h2>
                     <p className="text-gray-500 mb-6">Vous n'avez pas encore passé de commande</p>
                     <button 
                         onClick={() => window.location.href = '/products'} 
@@ -88,6 +108,10 @@ const MyOrders = () => {
                         const statusBadge = getStatusBadge(order.status);
                         const StatusIcon = statusBadge.icon;
                         const statusMessage = getStatusMessage(order.status);
+                        const itemsSubtotal = getItemsSubtotal(order);
+                        const deliveryPrice = order.deliveryPrice || 0;
+                        const discountAmount = order.discountAmount || 0;
+                        const couponApplied = order.couponApplied || null;
                         
                         return (
                             <div key={index} className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
@@ -105,9 +129,11 @@ const MyOrders = () => {
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-4">
+                                            {/* [FIX] Moyen de paiement visible directement dans l'en-tête,
+                                                plus seulement dans une ligne de texte discrète */}
                                             <div className="flex items-center gap-2 text-gray-500">
-                                                <CreditCard size={16} />
-                                                <span className="text-sm">{order.paymentType === "COD" ? "Paiement à la livraison" : "Paiement en ligne"}</span>
+                                                <Banknote size={16} />
+                                                <span className="text-sm">{getPaymentLabel(order)}</span>
                                             </div>
                                             <div className="text-lg font-bold text-gray-900">
                                                 {order.amount} {currency}
@@ -127,6 +153,13 @@ const MyOrders = () => {
                                             <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusBadge.color}`}>
                                                 {statusBadge.text}
                                             </span>
+                                            {/* [FIX] Badge coupon visible directement à côté du statut */}
+                                            {couponApplied && (
+                                                <span className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                    <Tag size={12} />
+                                                    {couponApplied}
+                                                </span>
+                                            )}
                                         </div>
                                         
                                         {order.status !== 'Cancelled' && (
@@ -186,6 +219,31 @@ const MyOrders = () => {
                                         ))}
                                     </div>
 
+                                    {/* [FIX] Récapitulatif du montant : sous-total / remise / livraison / total,
+                                        au lieu du seul montant final affiché sans détail dans l'en-tête */}
+                                    <div className="bg-gray-50 rounded-xl p-4 mb-4 space-y-1.5">
+                                        <div className="flex justify-between text-sm text-gray-600">
+                                            <span>Sous-total articles</span>
+                                            <span>{itemsSubtotal} {currency}</span>
+                                        </div>
+                                        {discountAmount > 0 && (
+                                            <div className="flex justify-between text-sm text-emerald-600">
+                                                <span>Réduction{couponApplied ? ` (${couponApplied})` : ''}</span>
+                                                <span>− {discountAmount} {currency}</span>
+                                            </div>
+                                        )}
+                                        <div className="flex justify-between text-sm text-gray-600">
+                                            <span>Livraison</span>
+                                            <span className={deliveryPrice === 0 ? 'text-green-600' : ''}>
+                                                {deliveryPrice === 0 ? 'Gratuit' : `${deliveryPrice} ${currency}`}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t border-gray-200 mt-1">
+                                            <span>Total payé</span>
+                                            <span>{order.amount} {currency}</span>
+                                        </div>
+                                    </div>
+
                                     {/* Adresse de livraison */}
                                     {order.address && (
                                         <div className="bg-gray-50 rounded-xl p-4 mb-4">
@@ -206,7 +264,7 @@ const MyOrders = () => {
                                         </div>
                                     )}
 
-                                    {/* Bouton PDF - CORRIGÉ */}
+                                    {/* Bouton PDF */}
                                     <div className="flex justify-end">
                                         <PDFDownloadLink
                                             document={<OrderReceiptPDF order={order} currency={currency} />}

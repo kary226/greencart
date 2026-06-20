@@ -1,6 +1,11 @@
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
 import User from "../models/User.js"
+import Address from "../models/Address.js";
+import Coupon from "../models/Coupon.js";
+import DeliveryPrice from "../models/DeliveryPrice.js";
+import DeliveryType from "../models/DeliveryType.js";
+import Commune from "../models/Commune.js";
 import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
 
 // Fonction pour réduire le stock des VARIANTS après commande
@@ -31,16 +36,14 @@ const reduceVariantStock = async (items) => {
 
 // Place Order COD : /api/order/cod
 //
-// NOTE : cette fonction présente le même défaut M2 identifié dans l'audit
-// (frais de livraison et remise coupon envoyés par le client mais jamais
-// recalculés/déduits du montant final, contrairement à ce qui a été corrigé
-// pour GeniusPay dans geniuspayController.js). Non corrigé ici : périmètre
-// limité au retrait de Stripe pour cette passe. Dis-le si tu veux que ce
-// même correctif (recalcul livraison + coupon côté serveur) soit appliqué
-// ici aussi.
+// [FIX M2] Les frais de livraison et la remise coupon sont désormais
+// recalculés et revalidés côté serveur (même logique que
+// geniuspayController.initiateGeniusPay), au lieu d'être ignorés. Les
+// valeurs envoyées par le client ('deliveryPrice', 'discountAmount') ne
+// sont jamais utilisées directement pour le calcul du montant final.
 export const placeOrderCOD = async (req, res)=>{
     try {
-        const { userId, items, address } = req.body;
+        const { userId, items, address, deliveryType, couponApplied } = req.body;
         if(!address || items.length === 0){
             return res.json({success: false, message: "Invalid data"});
         }
@@ -48,7 +51,24 @@ export const placeOrderCOD = async (req, res)=>{
         let amount = 0;
         const itemsWithPrice = await Promise.all(items.map(async (item) => {
             const product = await Product.findById(item.product);
-            const priceAtOrder = product.offerPrice;
+            if (!product) {
+                throw new Error("Produit introuvable");
+            }
+
+            let priceAtOrder = product.offerPrice;
+            // Même garde-fou que GeniusPay : prix de variante utilisé
+            // uniquement s'il est strictement positif, sinon fallback sur
+            // le prix du produit parent.
+            if (product.variants && product.variants.length > 0) {
+                const variant = product.variants.find(v =>
+                    (item.selectedColor == null ? v.color == null : v.color === item.selectedColor) &&
+                    (item.selectedSize == null ? v.size == null : v.size === item.selectedSize)
+                );
+                if (variant && variant.offerPrice > 0) {
+                    priceAtOrder = variant.offerPrice;
+                }
+            }
+
             amount += priceAtOrder * item.quantity;
             return {
                 product: item.product,
@@ -62,10 +82,70 @@ export const placeOrderCOD = async (req, res)=>{
         const tax = Math.floor(amount * 0.02);
         amount += tax;
 
+        const itemsSubtotal = amount;
+
+        // [FIX M2] Recalcul des frais de livraison côté serveur, à partir
+        // de la commune de l'adresse — même logique de fallback ville/
+        // commune que deliveryController.getDeliveryPrice.
+        let deliveryPrice = 0;
+        if (deliveryType) {
+            const addressDoc = await Address.findById(address);
+            const deliveryTypeDoc = await DeliveryType.findOne({ name: deliveryType, isActive: true });
+
+            if (deliveryTypeDoc && addressDoc?.communeId) {
+                let priceDoc = await DeliveryPrice.findOne({
+                    communeId: addressDoc.communeId,
+                    deliveryTypeId: deliveryTypeDoc._id,
+                    isActive: true
+                });
+
+                if (!priceDoc) {
+                    const commune = await Commune.findById(addressDoc.communeId);
+                    if (commune) {
+                        priceDoc = await DeliveryPrice.findOne({
+                            cityId: commune.cityId,
+                            communeId: null,
+                            deliveryTypeId: deliveryTypeDoc._id,
+                            isActive: true
+                        });
+                    }
+                }
+
+                if (priceDoc) {
+                    deliveryPrice = priceDoc.price;
+                }
+            }
+        }
+
+        // [FIX M2] Revalidation et recalcul de la remise coupon côté
+        // serveur, même logique que couponController.validateCoupon. Le
+        // coupon a normalement déjà été "consommé" via POST /api/coupon/apply
+        // appelé par le frontend avant cette étape (voir geniuspayController
+        // pour la note détaillée sur canUserUse()).
+        let discountAmount = 0;
+        if (couponApplied) {
+            const coupon = await Coupon.findOne({ code: String(couponApplied).toUpperCase() });
+            if (!coupon) {
+                return res.json({ success: false, message: "Code promo invalide" });
+            }
+            if (!coupon.isValid()) {
+                return res.json({ success: false, message: "Code promo expiré ou désactivé" });
+            }
+            if (itemsSubtotal < coupon.minPurchase) {
+                return res.json({ success: false, message: `Montant minimum d'achat: ${coupon.minPurchase} FCFA` });
+            }
+            discountAmount = coupon.calculateDiscount(itemsSubtotal);
+        }
+
+        amount = itemsSubtotal + deliveryPrice - discountAmount;
+
         const order = await Order.create({
             userId,
             items: itemsWithPrice,
             amount,
+            deliveryPrice,
+            discountAmount,
+            couponApplied: couponApplied ? String(couponApplied).toUpperCase() : null,
             address,
             paymentType: "COD",
             status: "Order Placed"
