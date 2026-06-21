@@ -2,9 +2,18 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
 
+// [MODERNISATION] Seuil de stock faible. Repris du même seuil déjà utilisé
+// ailleurs dans l'app (Cart.jsx : variantStock <= 5 => orange) pour rester
+// cohérent plutôt que d'inventer un nouveau chiffre arbitraire.
+const LOW_STOCK_THRESHOLD = 5;
+
 const ProductCard = ({ product }) => {
   const { addToWishlist, currency, isInWishlist } = useAppContext();
   const [imgIdx, setImgIdx] = useState(0);
+  // [MODERNISATION] Suivi du chargement de l'image principale pour afficher
+  // un skeleton (cohérent avec Home.jsx / BannerCarousel) plutôt qu'un
+  // simple fond uni pendant le chargement.
+  const [imgLoaded, setImgLoaded] = useState(false);
 
   if (!product) return null;
 
@@ -20,6 +29,14 @@ const ProductCard = ({ product }) => {
     : (product.inStock ? 1 : 0);
   const isOutOfStock = totalStock === 0;
 
+  // [MODERNISATION] Stock faible : uniquement quand on connaît un vrai
+  // compte de stock (produits avec variantes, où totalStock est une somme
+  // réelle) — pas pour les produits simples où totalStock vaut 1 par pure
+  // convention ("en stock" / "épuisé" binaire, donc pas un vrai chiffre à
+  // afficher comme "il en reste 1").
+  const hasRealStockCount = variants?.length > 0;
+  const isLowStock = hasRealStockCount && !isOutOfStock && totalStock <= LOW_STOCK_THRESHOLD;
+
   const categorySlug = category?.slug || product.categorySlug || "all";
 
   return (
@@ -29,8 +46,19 @@ const ProductCard = ({ product }) => {
           onMouseEnter={() => images[1] && setImgIdx(1)}
           onMouseLeave={() => setImgIdx(0)}
         >
+          {!imgLoaded && mainImg && (
+            <div className="rc-card-skeleton" />
+          )}
           {mainImg
-            ? <img src={mainImg} alt={name} className="rc-card-img" loading="lazy" />
+            ? (
+              <img
+                src={mainImg}
+                alt={name}
+                className={`rc-card-img${imgLoaded ? ' loaded' : ''}`}
+                loading="lazy"
+                onLoad={() => setImgLoaded(true)}
+              />
+            )
             : <div className="rc-card-no-img" />
           }
 
@@ -39,6 +67,15 @@ const ProductCard = ({ product }) => {
           )}
           {isOutOfStock && (
             <span className="rc-badge rc-badge-sold">Épuisé</span>
+          )}
+          {/* [MODERNISATION] Badge d'urgence stock faible, affiché seulement
+              quand on a un vrai compte de stock et que le produit n'est ni
+              épuisé ni en promo (évite de surcharger visuellement la carte
+              avec deux badges en haut à gauche en même temps). */}
+          {isLowStock && !discount && (
+            <span className="rc-badge rc-badge-low-stock">
+              Plus que {totalStock} en stock
+            </span>
           )}
 
           <button
@@ -91,11 +128,37 @@ const ProductCard = ({ product }) => {
           text-decoration: none;
         }
 
+        /* [MODERNISATION] Skeleton pendant le chargement de l'image,
+           cohérent avec l'effet de balayage utilisé sur Home/Banner. */
+        @keyframes rc-shimmer {
+          0%   { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        .rc-card-skeleton {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(
+            90deg,
+            #f5f2ec 25%,
+            #fbe9e7 45%,
+            #f5f2ec 65%
+          );
+          background-size: 200% 100%;
+          animation: rc-shimmer 1.6s ease-in-out infinite;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .rc-card-skeleton { animation: none; }
+        }
+
         .rc-card-img {
           width: 100%;
           height: 100%;
           object-fit: cover;
-          transition: transform .4s ease;
+          transition: transform .4s ease, opacity .3s ease;
+          opacity: 0;
+        }
+        .rc-card-img.loaded {
+          opacity: 1;
         }
         .rc-card-img-wrap:hover .rc-card-img {
           transform: scale(1.05);
@@ -121,10 +184,24 @@ const ProductCard = ({ product }) => {
         .rc-badge-promo {
           background: #e53935;
           color: #fff;
+          animation: rc-badge-pop .25s ease-out;
         }
         .rc-badge-sold {
           background: rgba(0,0,0,.55);
           color: #fff;
+        }
+        .rc-badge-low-stock {
+          background: #111;
+          color: #fff;
+          font-size: 10px;
+        }
+
+        @keyframes rc-badge-pop {
+          0%   { transform: scale(.7); opacity: 0; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .rc-badge-promo { animation: none; }
         }
 
         .rc-wishlist-btn {
@@ -180,6 +257,10 @@ const ProductCard = ({ product }) => {
           font-size: 14px;
           font-weight: 700;
           color: #111;
+          transition: color .15s;
+        }
+        .rc-card:hover .rc-price {
+          color: #e53935;
         }
 
         .rc-old-price {
