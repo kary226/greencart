@@ -675,7 +675,6 @@ const ProductList = () => {
                         </div>
 
                         <div className="p-5 space-y-4 overflow-y-auto max-h-[calc(90vh-140px)]">
-                            {/* Images actuelles + ajout */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Images ({editProduct.image?.length || 0})

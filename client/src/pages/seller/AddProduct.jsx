@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react'
-import { assets } from '../../assets/assets';
 import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
 import ImageCropper from '../../components/ImageCropper';
@@ -16,14 +15,11 @@ const AddProduct = () => {
     const [offerPrice, setOfferPrice] = useState('');
     const [categoriesList, setCategoriesList] = useState([]);
 
-    // Mode produit : 'simple', 'multi-sizes' ou 'variants'
     const [productMode, setProductMode] = useState('simple');
     
-    // ==================== MODE SIMPLE ====================
     const [simpleStock, setSimpleStock] = useState('');
     const [simpleSize, setSimpleSize] = useState('');
 
-    // ==================== MODE MULTI-TAILLES ====================
     const [sizesList, setSizesList] = useState([]);
     const [sizeInput, setSizeInput] = useState('');
     const [stockInput, setStockInput] = useState('');
@@ -32,7 +28,6 @@ const AddProduct = () => {
     const [editingSizeIndex, setEditingSizeIndex] = useState(null);
     const [openSizesPanel, setOpenSizesPanel] = useState(true);
 
-    // ==================== MODE VARIANTS (Couleurs + Tailles) ====================
     const [colors, setColors] = useState([]);
     const [colorInput, setColorInput] = useState('');
     const [colorCodeInput, setColorCodeInput] = useState('#000000');
@@ -48,7 +43,6 @@ const AddProduct = () => {
     const [editingSizeIndexInColor, setEditingSizeIndexInColor] = useState(null);
     const [editingColorForSize, setEditingColorForSize] = useState(null);
 
-    // Crop state
     const [showCropper, setShowCropper] = useState(false);
     const [tempImageFile, setTempImageFile] = useState(null);
     const [cropAspectRatio, setCropAspectRatio] = useState(16 / 9);
@@ -71,7 +65,6 @@ const AddProduct = () => {
         fetchCategories();
     }, []);
 
-    // ==================== FONCTIONS MODE MULTI-TAILLES ====================
     const resetSizeForm = () => {
         setSizeInput('');
         setStockInput('');
@@ -135,7 +128,6 @@ const AddProduct = () => {
         }));
     };
 
-    // ==================== FONCTIONS MODE VARIANTS ====================
     const resetColorForm = () => {
         setColorInput('');
         setColorCodeInput('#000000');
@@ -267,7 +259,6 @@ const AddProduct = () => {
         return variants;
     };
 
-    // ==================== FONCTIONS COMMUNES ====================
     const handleCategoryToggle = (categorySlug) => {
         if (selectedCategories.includes(categorySlug)) {
             setSelectedCategories(selectedCategories.filter(c => c !== categorySlug));
@@ -369,7 +360,6 @@ const AddProduct = () => {
         <div className="no-scrollbar flex-1 h-[95vh] overflow-y-scroll flex flex-col justify-between">
             <form onSubmit={onSubmitHandler} className="md:p-10 p-4 space-y-5 max-w-lg">
 
-                {/* ==================== IMAGES ==================== */}
                 <div>
                     <p className="text-base font-medium">Images du produit (dans l'ordre)</p>
                     <div className="mt-2 mb-3 flex flex-wrap gap-3 items-center">
@@ -395,13 +385,11 @@ const AddProduct = () => {
                     <p className="text-xs text-gray-400 mt-2">💡 Cliquez sur l'image pour la recadrer avant import. L'ordre est important.</p>
                 </div>
 
-                {/* ==================== NOM ==================== */}
                 <div className="flex flex-col gap-1 max-w-md">
                     <label className="text-base font-medium">Nom du produit</label>
                     <input onChange={(e) => setName(e.target.value)} value={name} type="text" placeholder="Type here" className="outline-none md:py-2.5 py-2 px-3 rounded border border-gray-500/40" required />
                 </div>
 
-                {/* ==================== DESCRIPTION ==================== */}
                 <div className="flex flex-col gap-1 max-w-md">
                     <label className="text-base font-medium">Description</label>
                     <ReactQuill
@@ -414,7 +402,6 @@ const AddProduct = () => {
                     />
                 </div>
 
-                {/* ==================== CATÉGORIES ==================== */}
                 <div className="w-full flex flex-col gap-2">
                     <label className="text-base font-medium">Catégories</label>
                     <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 border border-gray-500/40 rounded">
@@ -424,7 +411,6 @@ const AddProduct = () => {
                     </div>
                 </div>
 
-                {/* ==================== PRIX PAR DÉFAUT ==================== */}
                 <div className="flex items-center gap-5 flex-wrap">
                     <div className="flex-1 flex flex-col gap-1">
                         <label className="text-base font-medium">Prix par défaut</label>
@@ -437,7 +423,6 @@ const AddProduct = () => {
                 </div>
                 <p className="text-xs text-gray-400 -mt-3">💡 Ces prix s'appliquent par défaut. Une variante peut avoir son propre prix, sinon elle utilise ceux-ci.</p>
 
-                {/* ==================== TYPE DE PRODUIT (3 MODES) ==================== */}
                 <div className="border-t pt-4">
                     <label className="text-base font-medium block mb-2">Type de produit</label>
                     <div className="grid grid-cols-3 gap-2">
@@ -452,7 +437,6 @@ const AddProduct = () => {
                     </p>
                 </div>
 
-                {/* ==================== MODE SIMPLE ==================== */}
                 {productMode === 'simple' && (
                     <div className="flex flex-col gap-3 max-w-md">
                         <div className="flex flex-col gap-1">
@@ -467,7 +451,6 @@ const AddProduct = () => {
                     </div>
                 )}
 
-                {/* ==================== MODE MULTI-TAILLES ==================== */}
                 {productMode === 'multi-sizes' && (
                     <div className="flex flex-col gap-3 max-w-md">
                         <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -497,7 +480,6 @@ const AddProduct = () => {
                     </div>
                 )}
 
-                {/* ==================== MODE VARIANTS (Couleurs + Tailles) ==================== */}
                 {productMode === 'variants' && (
                     <div className="flex flex-col gap-3 max-w-md">
                         {colors.length > 0 && (
@@ -541,7 +523,6 @@ const AddProduct = () => {
                 <button type="submit" className="px-8 py-2.5 bg-primary text-white font-medium rounded cursor-pointer">AJOUTER LE PRODUIT</button>
             </form>
 
-            {/* Modal de crop */}
             {showCropper && (<ImageCropper imageFile={tempImageFile} onCropComplete={handleCropComplete} onCancel={() => { setShowCropper(false); setTempImageFile(null); }} aspectRatio={cropAspectRatio} cropShape={cropShape} />)}
         </div>
     )
