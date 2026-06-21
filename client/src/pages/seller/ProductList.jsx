@@ -26,6 +26,11 @@ const ProductList = () => {
     const [sortBy, setSortBy] = useState('name')
     const [sortOrder, setSortOrder] = useState('asc')
 
+    // Ajout d'images
+    const [newImages, setNewImages] = useState([])
+    const [uploadingImages, setUploadingImages] = useState(false)
+    const [showImageUpload, setShowImageUpload] = useState(false)
+
     const fetchCategories = async () => {
         try {
             const { data } = await axios.get('/api/category/list');
@@ -41,7 +46,6 @@ const ProductList = () => {
         fetchCategories();
     }, []);
 
-    // 🔗 Pré-remplir le filtre catégorie depuis l'URL (ex: /seller/products?category=fruits)
     useEffect(() => {
         const categoryParam = searchParams.get('category');
         if (categoryParam) {
@@ -185,6 +189,8 @@ const ProductList = () => {
         setVariantOfferPriceInput('')
         setStartImageIndexInput(0)
         setEditingVariantIndex(null)
+        setNewImages([])
+        setShowImageUpload(false)
     }
 
     const handleCategoryToggle = (categorySlug) => {
@@ -232,6 +238,39 @@ const ProductList = () => {
             }
         } catch (error) {
             toast.error(error.message)
+        }
+    }
+
+    const handleAddImages = async () => {
+        if (newImages.length === 0) {
+            toast.error("Sélectionnez au moins une image")
+            return
+        }
+
+        setUploadingImages(true)
+        const formData = new FormData()
+        formData.append('productId', editProduct._id)
+        for (let i = 0; i < newImages.length; i++) {
+            formData.append('images', newImages[i])
+        }
+
+        try {
+            const { data } = await axios.post('/api/product/add-images', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            })
+            if (data.success) {
+                toast.success(data.message)
+                setNewImages([])
+                setShowImageUpload(false)
+                await fetchProducts()
+                setEditProduct(data.product)
+            } else {
+                toast.error(data.message)
+            }
+        } catch (error) {
+            toast.error(error.message)
+        } finally {
+            setUploadingImages(false)
         }
     }
 
@@ -635,6 +674,69 @@ const ProductList = () => {
                         </div>
 
                         <div className="p-5 space-y-4 overflow-y-auto max-h-[calc(90vh-140px)]">
+                            {/* Images actuelles + ajout */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Images ({editProduct.image?.length || 0})
+                                </label>
+                                <div className="flex flex-wrap gap-2 mb-3">
+                                    {editProduct.image?.map((img, idx) => (
+                                        <img key={idx} src={img} alt="" className="w-16 h-16 object-cover rounded-lg border" />
+                                    ))}
+                                </div>
+                                
+                                {!showImageUpload ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowImageUpload(true)}
+                                        className="text-xs px-3 py-1.5 text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 transition"
+                                    >
+                                        + Ajouter des images
+                                    </button>
+                                ) : (
+                                    <div className="border border-purple-200 rounded-xl p-3 bg-purple-50 space-y-2">
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            multiple
+                                            onChange={(e) => setNewImages([...newImages, ...Array.from(e.target.files)])}
+                                            className="w-full text-xs"
+                                        />
+                                        {newImages.length > 0 && (
+                                            <div className="flex flex-wrap gap-2">
+                                                {newImages.map((file, idx) => (
+                                                    <div key={idx} className="relative">
+                                                        <img src={URL.createObjectURL(file)} alt="" className="w-12 h-12 object-cover rounded-lg" />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setNewImages(newImages.filter((_, i) => i !== idx))}
+                                                            className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 text-[10px] flex items-center justify-center"
+                                                        >✕</button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        <div className="flex gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={handleAddImages}
+                                                disabled={uploadingImages}
+                                                className="text-xs px-3 py-1.5 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition disabled:opacity-50"
+                                            >
+                                                {uploadingImages ? 'Upload...' : `Uploader (${newImages.length})`}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => { setShowImageUpload(false); setNewImages([]); }}
+                                                className="text-xs px-3 py-1.5 text-gray-500 hover:text-gray-700"
+                                            >
+                                                Annuler
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Nom</label>
                                 <input 

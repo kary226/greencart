@@ -23,7 +23,6 @@ export const addProduct = async (req, res) => {
             })
         )
 
-        // Traitement des variantes
         const processedVariants = (productData.variants || []).map(variant => ({
             color: variant.color,
             colorCode: variant.colorCode,
@@ -63,6 +62,51 @@ export const addProduct = async (req, res) => {
         res.json({ success: false, message: error.message })
     }
 }
+
+// Ajouter des images à un produit existant
+export const addProductImages = async (req, res) => {
+    try {
+        const { productId } = req.body;
+        const images = req.files;
+
+        if (!productId) {
+            return res.json({ success: false, message: "ID produit requis" });
+        }
+
+        if (!images || images.length === 0) {
+            return res.json({ success: false, message: "Aucune image fournie" });
+        }
+
+        const product = await Product.findById(productId);
+        if (!product) {
+            return res.json({ success: false, message: "Produit non trouvé" });
+        }
+
+        let imagesUrl = await Promise.all(
+            images.map(async (item) => {
+                let result = await new Promise((resolve, reject) => {
+                    const uploadStream = cloudinary.uploader.upload_stream(
+                        { resource_type: 'image' },
+                        (error, result) => {
+                            if (error) reject(error);
+                            else resolve(result);
+                        }
+                    );
+                    uploadStream.end(item.buffer);
+                });
+                return result.secure_url;
+            })
+        );
+
+        product.image = [...(product.image || []), ...imagesUrl];
+        await product.save();
+
+        res.json({ success: true, message: `${imagesUrl.length} image(s) ajoutée(s)`, product });
+    } catch (error) {
+        console.log(error.message);
+        res.json({ success: false, message: error.message });
+    }
+};
 
 // Get Product : /api/product/list - AVEC PAGINATION
 export const productList = async (req, res) => {
