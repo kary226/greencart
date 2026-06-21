@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
 import ImageCropper from '../../components/ImageCropper';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 
 const AddProduct = () => {
 
@@ -307,7 +309,7 @@ const AddProduct = () => {
 
         const productData = {
             name,
-            description: description.split('\n'),
+            description,
             categories: selectedCategories,
             price,
             offerPrice,
@@ -390,7 +392,14 @@ const AddProduct = () => {
 
                 <div className="flex flex-col gap-1 max-w-md">
                     <label className="text-base font-medium">Description</label>
-                    <textarea onChange={(e) => setDescription(e.target.value)} value={description} rows={4} className="outline-none md:py-2.5 py-2 px-3 rounded border border-gray-500/40 resize-none"></textarea>
+                    <ReactQuill
+                        value={description}
+                        onChange={setDescription}
+                        theme="snow"
+                        placeholder="Décrivez votre produit..."
+                        className="bg-white rounded-lg"
+                        style={{ minHeight: '150px' }}
+                    />
                 </div>
 
                 <div className="w-full flex flex-col gap-2">
