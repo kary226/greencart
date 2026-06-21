@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAppContext } from '../../context/AppContext'
 import toast from 'react-hot-toast'
 
 const ProductList = () => {
     const { products, currency, axios, fetchProducts } = useAppContext()
+    const [searchParams] = useSearchParams()
     const [editProduct, setEditProduct] = useState(null)
     const [colorInput, setColorInput] = useState('')
     const [colorCodeInput, setColorCodeInput] = useState('#000000')
@@ -16,13 +18,12 @@ const ProductList = () => {
     const [selectedCategories, setSelectedCategories] = useState([])
     const [editingVariantIndex, setEditingVariantIndex] = useState(null)
 
-    // 🔍 ÉTATS POUR LA RECHERCHE ET LES FILTRES
     const [searchTerm, setSearchTerm] = useState('')
-    const [stockFilter, setStockFilter] = useState('all') // all, inStock, outOfStock, lowStock, onSale
+    const [stockFilter, setStockFilter] = useState('all')
     const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all')
     const [currentPage, setCurrentPage] = useState(1)
     const [itemsPerPage, setItemsPerPage] = useState(10)
-    const [sortBy, setSortBy] = useState('name') // name, price, stock, date
+    const [sortBy, setSortBy] = useState('name')
     const [sortOrder, setSortOrder] = useState('asc')
 
     const fetchCategories = async () => {
@@ -40,25 +41,29 @@ const ProductList = () => {
         fetchCategories();
     }, []);
 
-    // 📊 PRODUITS FILTRÉS ET TRIÉS
+    // 🔗 Pré-remplir le filtre catégorie depuis l'URL (ex: /seller/products?category=fruits)
+    useEffect(() => {
+        const categoryParam = searchParams.get('category');
+        if (categoryParam) {
+            setSelectedCategoryFilter(categoryParam);
+        }
+    }, []);
+
     const filteredProducts = useMemo(() => {
         let filtered = [...products]
 
-        // Recherche par nom
         if (searchTerm) {
             filtered = filtered.filter(p => 
                 p.name.toLowerCase().includes(searchTerm.toLowerCase())
             )
         }
 
-        // Filtre par catégorie
         if (selectedCategoryFilter !== 'all') {
             filtered = filtered.filter(p => 
                 p.categories?.includes(selectedCategoryFilter)
             )
         }
 
-        // Filtre par stock
         if (stockFilter === 'inStock') {
             filtered = filtered.filter(p => {
                 if (p.variants?.length > 0) {
@@ -84,7 +89,6 @@ const ProductList = () => {
             filtered = filtered.filter(p => p.offerPrice && p.offerPrice < p.price)
         }
 
-        // Tri
         filtered.sort((a, b) => {
             let aVal, bVal
             switch (sortBy) {
@@ -123,7 +127,6 @@ const ProductList = () => {
         return filtered
     }, [products, searchTerm, stockFilter, selectedCategoryFilter, sortBy, sortOrder])
 
-    // 📄 PAGINATION
     const totalProducts = filteredProducts.length
     const totalPages = Math.ceil(totalProducts / itemsPerPage)
     const paginatedProducts = filteredProducts.slice(
@@ -131,12 +134,10 @@ const ProductList = () => {
         currentPage * itemsPerPage
     )
 
-    // Reset page quand les filtres changent
     useEffect(() => {
         setCurrentPage(1)
     }, [searchTerm, stockFilter, selectedCategoryFilter, sortBy, sortOrder])
 
-    // 📊 STATISTIQUES
     const stats = {
         total: products.length,
         inStock: products.filter(p => {
@@ -234,7 +235,6 @@ const ProductList = () => {
         }
     }
 
-    // Gestion des variantes (fonctions existantes)
     const addVariant = () => {
         if (!colorInput.trim()) {
             toast.error('Entrez une couleur')
@@ -325,12 +325,10 @@ const ProductList = () => {
     return (
         <div className="bg-gray-50 min-h-screen">
             <div className="p-6">
-                {/* Header avec statistiques */}
                 <div className="mb-6">
                     <h1 className="text-2xl font-bold text-gray-900">Liste des produits</h1>
                     <p className="text-sm text-gray-500 mt-1">Gérez tous vos produits</p>
                     
-                    {/* Cartes statistiques */}
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4">
                         <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
                             <p className="text-xs text-gray-500">Total</p>
@@ -355,10 +353,8 @@ const ProductList = () => {
                     </div>
                 </div>
 
-                {/* Barre de recherche et filtres */}
                 <div className="bg-white rounded-xl border border-gray-100 p-4 mb-6 shadow-sm">
                     <div className="flex flex-col md:flex-row gap-4">
-                        {/* Recherche */}
                         <div className="flex-1">
                             <div className="relative">
                                 <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -374,7 +370,6 @@ const ProductList = () => {
                             </div>
                         </div>
 
-                        {/* Filtre par catégorie */}
                         <select
                             value={selectedCategoryFilter}
                             onChange={(e) => setSelectedCategoryFilter(e.target.value)}
@@ -386,7 +381,6 @@ const ProductList = () => {
                             ))}
                         </select>
 
-                        {/* Filtre par stock */}
                         <select
                             value={stockFilter}
                             onChange={(e) => setStockFilter(e.target.value)}
@@ -399,7 +393,6 @@ const ProductList = () => {
                             <option value="onSale">En promotion</option>
                         </select>
 
-                        {/* Tri */}
                         <select
                             value={sortBy}
                             onChange={(e) => setSortBy(e.target.value)}
@@ -411,7 +404,6 @@ const ProductList = () => {
                             <option value="date">Trier par date</option>
                         </select>
 
-                        {/* Ordre de tri */}
                         <button
                             onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
                             className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm hover:bg-gray-50 transition flex items-center gap-2"
@@ -420,7 +412,6 @@ const ProductList = () => {
                         </button>
                     </div>
 
-                    {/* Résultats */}
                     <div className="mt-3 text-xs text-gray-500">
                         {totalProducts} produit(s) trouvé(s)
                     </div>
@@ -572,7 +563,6 @@ const ProductList = () => {
                             </div>
                         </div>
 
-                        {/* Pagination */}
                         {totalPages > 1 && (
                             <div className="flex justify-between items-center mt-6">
                                 <div className="flex items-center gap-2">
@@ -628,7 +618,6 @@ const ProductList = () => {
                 )}
             </div>
 
-            {/* Modal de modification - reste identique */}
             {editProduct && (
                 <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setEditProduct(null)}>
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
@@ -734,7 +723,6 @@ const ProductList = () => {
                                 </>
                             )}
 
-                            {/* Section Variantes */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Variantes par couleur</label>
                                 <div className="bg-gray-50 p-3 rounded-xl space-y-3 mb-3">

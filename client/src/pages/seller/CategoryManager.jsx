@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
 import ImageCropper from '../../components/ImageCropper';
 
 const CategoryManager = () => {
     const { axios } = useAppContext();
+    const navigate = useNavigate();
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
@@ -17,7 +19,6 @@ const CategoryManager = () => {
     const [tempImageFile, setTempImageFile] = useState(null);
     const [cropShape, setCropShape] = useState('rect');
     
-    // 🔍 ÉTATS POUR LA RECHERCHE ET LES FILTRES
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [currentPage, setCurrentPage] = useState(1);
@@ -51,7 +52,6 @@ const CategoryManager = () => {
         fetchCategories();
     }, []);
 
-    // 📊 CATÉGORIES FILTRÉES ET TRIÉES
     const filteredCategories = useMemo(() => {
         let filtered = [...categories];
 
@@ -96,7 +96,6 @@ const CategoryManager = () => {
         return filtered;
     }, [categories, searchTerm, statusFilter, sortBy, sortOrder]);
 
-    // 📄 PAGINATION
     const totalCategories = filteredCategories.length;
     const totalPages = Math.ceil(totalCategories / itemsPerPage);
     const paginatedCategories = filteredCategories.slice(
@@ -108,7 +107,6 @@ const CategoryManager = () => {
         setCurrentPage(1);
     }, [searchTerm, statusFilter, sortBy, sortOrder]);
 
-    // 📊 STATISTIQUES
     const stats = {
         total: categories.length,
         active: categories.filter(c => c.active === true).length,
@@ -610,7 +608,7 @@ const CategoryManager = () => {
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="px-5 pb-5 pt-2 flex gap-2">
+                                    <div className="px-5 pb-5 pt-2 flex gap-2 flex-wrap">
                                         <button
                                             onClick={() => handleEdit(category)}
                                             className="text-xs px-3 py-1.5 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition"
@@ -632,6 +630,18 @@ const CategoryManager = () => {
                                             className="text-xs px-3 py-1.5 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition"
                                         >
                                             Supprimer
+                                        </button>
+                                        <button
+                                            onClick={() => navigate(`/seller/products?category=${category.slug || category.name}`)}
+                                            className="text-xs px-3 py-1.5 text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition flex items-center gap-1"
+                                        >
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                <rect x="3" y="3" width="7" height="7" rx="1"/>
+                                                <rect x="14" y="3" width="7" height="7" rx="1"/>
+                                                <rect x="3" y="14" width="7" height="7" rx="1"/>
+                                                <rect x="14" y="14" width="7" height="7" rx="1"/>
+                                            </svg>
+                                            Produits
                                         </button>
                                     </div>
                                 </div>
