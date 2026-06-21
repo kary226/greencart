@@ -30,7 +30,6 @@ const ProductDetails = () => {
     const [showRelatedPrev, setShowRelatedPrev] = useState(false);
     const [showRelatedNext, setShowRelatedNext] = useState(true);
     
-    // Swipe states - version simplifiée
     const [touchStart, setTouchStart] = useState(0);
     const [touchEnd, setTouchEnd] = useState(0);
     const [isMobile, setIsMobile] = useState(false);
@@ -42,7 +41,6 @@ const ProductDetails = () => {
 
     const product = products.find((item)=> item._id === id);
 
-    // Détecter si l'écran est mobile
     useEffect(() => {
         const checkMobile = () => {
             setIsMobile(window.innerWidth < 768);
@@ -118,7 +116,6 @@ const ProductDetails = () => {
         }
     }, [product]);
 
-    // Vérifier la position du scroll du carrousel
     const checkRelatedScroll = () => {
         if (relatedCarouselRef.current) {
             const { scrollLeft, scrollWidth, clientWidth } = relatedCarouselRef.current;
@@ -127,7 +124,6 @@ const ProductDetails = () => {
         }
     };
 
-    // Scroll du carrousel
     const scrollRelated = (direction) => {
         if (relatedCarouselRef.current) {
             const scrollAmount = direction === 'left' ? -280 : 280;
@@ -136,7 +132,6 @@ const ProductDetails = () => {
         }
     };
 
-    // Swipe handlers
     const handleTouchStart = (e) => {
         setTouchStart(e.targetTouches[0].clientX);
         setTouchEnd(e.targetTouches[0].clientX);
@@ -168,7 +163,6 @@ const ProductDetails = () => {
         setTouchEnd(0);
     };
 
-    // Navigation desktop
     const goToPrevImage = () => {
         setCurrentImageIndex(prev => prev === 0 ? allImages.length - 1 : prev - 1);
     };
@@ -185,10 +179,11 @@ const ProductDetails = () => {
     }
 
     const getProductDescription = () => {
-        if (product?.description && Array.isArray(product.description)) {
+        if (!product?.description) return ''
+        if (Array.isArray(product.description)) {
             return product.description.join(' ')
         }
-        return product?.description || ''
+        return product.description.replace(/<[^>]*>/g, '')
     }
 
     const uniqueColors = product && product.variants ? [...new Set(product.variants.map(v => v.color).filter(Boolean))] : []
@@ -589,11 +584,10 @@ const ProductDetails = () => {
                                 </svg>
                             </button>
                             <div className={`details-content ${showDetails ? 'open' : ''}`}>
-                                <ul>
-                                    {product.description.map((desc, index) => (
-                                        <li key={index}>{desc}</li>
-                                    ))}
-                                </ul>
+                                <div 
+                                    className="product-description-html"
+                                    dangerouslySetInnerHTML={{ __html: product.description || '' }}
+                                />
                             </div>
                         </div>
                     </div>
@@ -1218,21 +1212,30 @@ const ProductDetails = () => {
                 }
 
                 .details-content.open {
-                    max-height: 500px;
+                    max-height: 2000px;
                     transition: max-height 0.5s ease-in;
                 }
 
-                .details-content ul {
-                    list-style: disc;
-                    padding-left: 18px;
+                .product-description-html {
                     color: #666;
                     font-size: 13px;
                     line-height: 1.6;
                     margin: 8px 0 16px;
                 }
-
-                .details-content li {
-                    margin-bottom: 6px;
+                .product-description-html p {
+                    margin-bottom: 10px;
+                }
+                .product-description-html ul {
+                    list-style: disc;
+                    padding-left: 18px;
+                    margin-bottom: 10px;
+                }
+                .product-description-html li {
+                    margin-bottom: 4px;
+                }
+                .product-description-html strong {
+                    color: #111;
+                    font-weight: 600;
                 }
 
                 /* Section articles similaires - Carrousel horizontal */

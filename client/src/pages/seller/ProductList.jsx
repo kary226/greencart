@@ -177,7 +177,9 @@ const ProductList = () => {
     const handleEdit = (product) => {
         setEditProduct({
             ...product,
-            description: product.description || '',
+            description: Array.isArray(product.description) 
+                ? product.description.join('\n') 
+                : (product.description || ''),
             variants: product.variants || [],
             categories: product.categories || [],
         })
