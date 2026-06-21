@@ -144,10 +144,13 @@ const BannerCarousel = ({ position = 'top', className = '' }) => {
         }
     };
 
+    // [MODERNISATION] Skeleton de chargement cohérent avec le reste du site
+    // (effet de balayage rouge/crème) au lieu du simple "Chargement..." sur
+    // fond gris plat.
     if (loading) {
         return (
-            <div className={`w-full h-[200px] md:h-[280px] bg-gray-200 animate-pulse flex items-center justify-center ${className}`}>
-                <p className="text-gray-400">Chargement...</p>
+            <div className={`ramci-banner-skeleton ${className}`}>
+                <style>{BANNER_STYLES}</style>
             </div>
         );
     }
@@ -164,7 +167,7 @@ const BannerCarousel = ({ position = 'top', className = '' }) => {
 
     return (
         <div 
-            className={`relative w-full ${className}`}
+            className={`relative w-full ramci-banner-carousel ${className}`}
             style={containerStyle}
             ref={carouselRef}
             onTouchStart={handleTouchStart}
@@ -190,21 +193,22 @@ const BannerCarousel = ({ position = 'top', className = '' }) => {
                             src={banner.image}
                             alt={banner.title || 'Bannière'}
                             className="w-full h-[200px] md:h-[280px] lg:h-[320px] object-cover"
+                            draggable={false}
                         />
                         {/* Overlay texte */}
                         {(banner.title || banner.subtitle) && (
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/20 to-transparent flex flex-col items-center justify-center text-white text-center p-4">
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/15 to-transparent flex flex-col items-center justify-center text-white text-center p-4">
                                 {banner.title && (
-                                    <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-2 drop-shadow-lg">
+                                    <h2 className="ramci-banner-title">
                                         {banner.title}
                                     </h2>
                                 )}
                                 {banner.subtitle && (
-                                    <p className="text-sm md:text-base opacity-90 drop-shadow">
+                                    <p className="ramci-banner-subtitle">
                                         {banner.subtitle}
                                     </p>
                                 )}
-                                <button className="mt-4 px-6 py-2 bg-white text-black rounded-full text-sm font-semibold hover:bg-gray-100 transition shadow-lg">
+                                <button className="ramci-banner-cta">
                                     Découvrir
                                 </button>
                             </div>
@@ -213,7 +217,11 @@ const BannerCarousel = ({ position = 'top', className = '' }) => {
                 ))}
             </div>
 
-            {/* Flèches de navigation (optionnelles - masquées sur mobile) */}
+            {/* [MODERNISATION] Flèches de navigation : masquées sur mobile
+                (le swipe tactile suffit et des flèches semi-transparentes
+                encombrent une petite image), visibles uniquement au survol
+                sur desktop — pattern standard des carousels modernes
+                (Airbnb, Amazon). */}
             {banners.length > 1 && (
                 <>
                     <button
@@ -221,11 +229,10 @@ const BannerCarousel = ({ position = 'top', className = '' }) => {
                             goToPrevious();
                             resetAutoPlayTimer();
                         }}
-                        className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-white/80 hover:bg-white rounded-full flex items-center justify-center shadow-md transition-all opacity-0 group-hover:opacity-100 md:opacity-100"
-                        style={{ opacity: 0.7 }}
+                        className="ramci-banner-arrow ramci-banner-arrow-left"
                         aria-label="Précédent"
                     >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="2.5">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                             <path d="M15 18l-6-6 6-6"/>
                         </svg>
                     </button>
@@ -234,36 +241,176 @@ const BannerCarousel = ({ position = 'top', className = '' }) => {
                             goToNext();
                             resetAutoPlayTimer();
                         }}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-white/80 hover:bg-white rounded-full flex items-center justify-center shadow-md transition-all opacity-0 group-hover:opacity-100 md:opacity-100"
-                        style={{ opacity: 0.7 }}
+                        className="ramci-banner-arrow ramci-banner-arrow-right"
                         aria-label="Suivant"
                     >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="2.5">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                             <path d="M9 18l6-6-6-6"/>
                         </svg>
                     </button>
                 </>
             )}
 
-            {/* Indicateurs (dots) */}
+            {/* [MODERNISATION] Indicateurs minimalistes style Apple : traits
+                fins plutôt que des points ronds, celui actif s'allonge et
+                passe au rouge de la marque (au lieu du blanc neutre). */}
             {banners.length > 1 && (
-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+                <div className="ramci-banner-dots">
                     {banners.map((_, index) => (
                         <button
                             key={index}
                             onClick={() => goToSlide(index)}
-                            className={`w-2 h-2 md:w-2.5 md:h-2.5 rounded-full transition-all ${
-                                currentIndex === index
-                                    ? 'bg-white w-6 md:w-8'
-                                    : 'bg-white/50 hover:bg-white/70'
-                            }`}
+                            className={`ramci-banner-dot${currentIndex === index ? ' active' : ''}`}
                             aria-label={`Aller à l'image ${index + 1}`}
                         />
                     ))}
                 </div>
             )}
+
+            <style>{BANNER_STYLES}</style>
         </div>
     );
 };
+
+const BANNER_STYLES = `
+        .ramci-banner-title {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 22px;
+          font-weight: 800;
+          margin-bottom: 6px;
+          text-shadow: 0 2px 10px rgba(0,0,0,.35);
+        }
+        @media (min-width: 768px) {
+          .ramci-banner-title { font-size: 30px; }
+        }
+
+        .ramci-banner-subtitle {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 13px;
+          opacity: .92;
+          text-shadow: 0 1px 6px rgba(0,0,0,.3);
+        }
+        @media (min-width: 768px) {
+          .ramci-banner-subtitle { font-size: 15px; }
+        }
+
+        .ramci-banner-cta {
+          margin-top: 14px;
+          padding: 9px 22px;
+          background: #e53935;
+          color: #fff;
+          border: none;
+          border-radius: 999px;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 13px;
+          font-weight: 700;
+          letter-spacing: .2px;
+          cursor: pointer;
+          transition: background .15s, transform .15s;
+          box-shadow: 0 4px 14px rgba(229,57,53,.35);
+        }
+        .ramci-banner-cta:hover {
+          background: #c62828;
+          transform: translateY(-1px);
+        }
+
+        /* ============================================================
+           Flèches : invisibles sur tactile (pas de hover sur mobile),
+           apparition au survol uniquement sur pointeurs fins (souris).
+           ============================================================ */
+        .ramci-banner-arrow {
+          position: absolute;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 36px;
+          height: 36px;
+          border: none;
+          border-radius: 50%;
+          background: rgba(255,255,255,.92);
+          color: #111;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          box-shadow: 0 2px 10px rgba(0,0,0,.18);
+          opacity: 0;
+          transition: opacity .2s, background .15s, transform .15s;
+          z-index: 5;
+        }
+        .ramci-banner-arrow-left { left: 12px; }
+        .ramci-banner-arrow-right { right: 12px; }
+
+        @media (hover: hover) and (pointer: fine) {
+          .ramci-banner-carousel:hover .ramci-banner-arrow {
+            opacity: 1;
+          }
+          .ramci-banner-arrow:hover {
+            background: #fff;
+            transform: translateY(-50%) scale(1.06);
+          }
+        }
+
+        /* ============================================================
+           Dots minimalistes style Apple : traits fins, actif en rouge.
+           ============================================================ */
+        .ramci-banner-dots {
+          position: absolute;
+          bottom: 14px;
+          left: 50%;
+          transform: translateX(-50%);
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          z-index: 5;
+        }
+
+        .ramci-banner-dot {
+          width: 14px;
+          height: 3px;
+          border-radius: 2px;
+          border: none;
+          background: rgba(255,255,255,.5);
+          cursor: pointer;
+          padding: 0;
+          transition: width .25s, background .25s;
+        }
+
+        .ramci-banner-dot.active {
+          width: 22px;
+          background: #e53935;
+        }
+
+        /* ============================================================
+           Skeleton de chargement
+           ============================================================ */
+        @keyframes ramci-banner-shimmer {
+          0%   { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+
+        .ramci-banner-skeleton {
+          width: 100%;
+          height: 200px;
+          border-radius: 0 0 16px 16px;
+          background: linear-gradient(
+            90deg,
+            #f5f2ec 25%,
+            #fbe9e7 45%,
+            #f5f2ec 65%
+          );
+          background-size: 200% 100%;
+          animation: ramci-banner-shimmer 1.6s ease-in-out infinite;
+        }
+        @media (min-width: 768px) {
+          .ramci-banner-skeleton { height: 280px; }
+        }
+        @media (min-width: 1024px) {
+          .ramci-banner-skeleton { height: 320px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .ramci-banner-skeleton { animation: none; }
+        }
+`;
 
 export default BannerCarousel;
