@@ -2,6 +2,11 @@ import React, { useRef, useState, useEffect } from 'react'
 import { useAppContext } from '../context/AppContext'
 import { ChevronLeft, ChevronRight, Package, Grid, TrendingUp, Sparkles } from 'lucide-react'
 
+// [MODERNISATION] Nombre de cercles affichés dans le skeleton de
+// chargement — purement esthétique, n'a aucun impact sur le nombre réel
+// de catégories une fois chargées.
+const SKELETON_COUNT = 6;
+
 const Categories = () => {
 
     const { navigate, axios } = useAppContext()
@@ -82,13 +87,34 @@ const Categories = () => {
         }
     }, [categories])
 
+    // [MODERNISATION] Skeleton de chargement cohérent avec Home.jsx /
+    // BannerCarousel / ProductCard (effet de balayage rouge/crème) au lieu
+    // du simple spinner rond isolé — reprend la même mise en page (en-tête
+    // + rangée de cercles) que l'état chargé, pour éviter un saut de mise
+    // en page une fois les données arrivées.
     if (loading) {
         return (
-            <div className="bg-white pt-20 pb-10 px-4">
+            <div className="bg-gradient-to-b from-white to-gray-50 pt-8 pb-6 px-4">
                 <div className="max-w-7xl mx-auto">
-                    <div className="flex justify-center py-10">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <Sparkles size={20} className="text-red-500" />
+                                <h2 className="text-2xl font-bold text-gray-900">Catégories</h2>
+                            </div>
+                            <div className="w-12 h-0.5 bg-gradient-to-r from-red-500 to-red-300 rounded-full mt-2"></div>
+                            <p className="text-xs text-gray-400 mt-2">Découvrez nos collections</p>
+                        </div>
                     </div>
+                    <div className="flex gap-5 pb-4 px-2 overflow-hidden">
+                        {Array.from({ length: SKELETON_COUNT }).map((_, i) => (
+                            <div key={i} className="flex-shrink-0 w-24 text-center">
+                                <div className="cat-skeleton-circle mx-auto mb-3" />
+                                <div className="cat-skeleton-line mx-auto" />
+                            </div>
+                        ))}
+                    </div>
+                    <style>{SKELETON_STYLES}</style>
                 </div>
             </div>
         )
@@ -246,5 +272,41 @@ const Categories = () => {
         </div>
     )
 }
+
+// [MODERNISATION] Styles du skeleton, extraits en constante pour ne pas
+// alourdir le JSX de la branche "loading".
+const SKELETON_STYLES = `
+    @keyframes cat-skeleton-shimmer {
+        0%   { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
+    }
+    .cat-skeleton-circle,
+    .cat-skeleton-line {
+        background: linear-gradient(
+            90deg,
+            #f5f2ec 25%,
+            #fbe9e7 45%,
+            #f5f2ec 65%
+        );
+        background-size: 200% 100%;
+        animation: cat-skeleton-shimmer 1.6s ease-in-out infinite;
+    }
+    .cat-skeleton-circle {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+    }
+    .cat-skeleton-line {
+        width: 56px;
+        height: 10px;
+        border-radius: 4px;
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .cat-skeleton-circle,
+        .cat-skeleton-line {
+            animation: none;
+        }
+    }
+`;
 
 export default Categories
