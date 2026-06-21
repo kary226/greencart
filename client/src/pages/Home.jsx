@@ -11,6 +11,23 @@ const SECTIONS = [
   { id: "deals",  label: "Promotions" },
 ];
 
+// [MODERNISATION] Nombre de produits affichés dans la rangée Best-sellers
+// en scroll horizontal, juste après les catégories.
+const BESTSELLERS_COUNT = 10;
+
+// [MODERNISATION] Squelette d'une carte produit, utilisé pendant le
+// chargement initial à la place de l'ancien spinner plein écran.
+// Reprend les proportions d'une vraie ProductCard (image carrée + 2 lignes
+// de texte + prix) pour que la mise en page ne "saute" pas une fois les
+// vraies données chargées.
+const ProductCardSkeleton = () => (
+  <div className="ramci-skeleton-card">
+    <div className="ramci-skeleton-img" />
+    <div className="ramci-skeleton-line ramci-skeleton-line-title" />
+    <div className="ramci-skeleton-line ramci-skeleton-line-price" />
+  </div>
+);
+
 const Home = () => {
   const { axios, orders } = useAppContext();
   const [categories, setCategories] = useState([]);
@@ -103,7 +120,7 @@ const Home = () => {
     }
   }, [allProducts, orders]);
 
-  // ⭐ MODIFIÉ : Supprimé .slice(0, 10) pour afficher TOUS les produits tendances
+  // Supprimé .slice(0, 10) pour afficher TOUS les produits tendances
   const getTrendingProducts = () => {
     if (!allProducts.length) return [];
     const productSales = {};
@@ -125,10 +142,10 @@ const Home = () => {
       salesCount: productSales[product._id] || 0
     }));
     productsWithSales.sort((a, b) => b.salesCount - a.salesCount);
-    return productsWithSales; // ← SUPPRIMÉ .slice(0, 10)
+    return productsWithSales;
   };
 
-  // ⭐ MODIFIÉ : Supprimé .slice(0, 10) pour afficher TOUS les nouveaux produits
+  // Supprimé .slice(0, 10) pour afficher TOUS les nouveaux produits
   const getNewProducts = () => {
     if (!allProducts.length) return [];
     const sorted = [...allProducts].sort((a, b) => {
@@ -136,10 +153,10 @@ const Home = () => {
       const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
       return dateB - dateA;
     });
-    return sorted; // ← SUPPRIMÉ .slice(0, 10)
+    return sorted;
   };
 
-  // ⭐ MODIFIÉ : Supprimé .slice(0, 10) pour afficher TOUTES les promotions
+  // Supprimé .slice(0, 10) pour afficher TOUTES les promotions
   const getDealProducts = () => {
     if (!allProducts.length) return [];
     const productsWithOffer = allProducts.filter(p => p.offerPrice && p.offerPrice < p.price);
@@ -155,7 +172,7 @@ const Home = () => {
       };
     });
     productsWithScore.sort((a, b) => b.promotionScore - a.promotionScore);
-    return productsWithScore; // ← SUPPRIMÉ .slice(0, 10)
+    return productsWithScore;
   };
 
   const getSectionProducts = () => {
@@ -169,14 +186,46 @@ const Home = () => {
   const sectionProducts = getSectionProducts();
   const activeCategories = categories.filter(c => c.active !== false);
 
+  // [MODERNISATION] Rangée Best-sellers : les produits les plus vendus
+  // (trendProducts est déjà trié par salesCount décroissant), limités à
+  // BESTSELLERS_COUNT pour rester une rangée courte et non une grille.
+  // N'affiche la rangée que si au moins un produit a réellement des
+  // ventes enregistrées, pour éviter de montrer "best-sellers" sur un
+  // catalogue tout neuf sans aucune commande.
+  const bestSellers = trendProducts
+    .filter(p => p.salesCount > 0)
+    .slice(0, BESTSELLERS_COUNT);
+
+  // [MODERNISATION] Skeleton loading : remplace l'ancien spinner plein
+  // écran par une esquisse de la mise en page réelle (bandeau hero +
+  // rangée de catégories + grille de cartes), pour donner une impression
+  // de rapidité et éviter le saut brutal de mise en page une fois les
+  // données chargées.
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto"></div>
-          <p className="mt-4 text-gray-500">Chargement...</p>
+      <>
+        <SEO title="Ramci – Mode & Tendances" description="Découvrez les meilleures offres sur Ramci." />
+        <div className="ramci-home">
+          <div className="ramci-skeleton-hero" />
+          <div className="ramci-cats-section">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="ramci-cat-item">
+                <div className="ramci-skeleton-cat-circle" />
+                <div className="ramci-skeleton-line ramci-skeleton-line-cat" />
+              </div>
+            ))}
+          </div>
+          <section className="ramci-products-section">
+            <div className="ramci-skeleton-line ramci-skeleton-line-heading" />
+            <div className="ramci-grid">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <ProductCardSkeleton key={i} />
+              ))}
+            </div>
+          </section>
         </div>
-      </div>
+        <style>{SHARED_STYLES}</style>
+      </>
     );
   }
 
@@ -221,6 +270,28 @@ const Home = () => {
           </section>
         )}
 
+        {/* [MODERNISATION] Rangée Best-sellers en scroll horizontal.
+            Placée juste après les catégories, avant la grille à onglets,
+            pour créer une rupture de rythme visuelle — pattern courant
+            sur les apps e-commerce modernes (Shein, Jumia, Amazon). */}
+        {bestSellers.length > 0 && (
+          <section className="ramci-bestsellers-section">
+            <div className="ramci-section-header">
+              <h2 className="ramci-section-title ramci-bestsellers-title">
+                <span className="ramci-bestsellers-badge">🔥</span>
+                Les plus vendus
+              </h2>
+            </div>
+            <div className="ramci-bestsellers-scroll">
+              {bestSellers.map((p) => (
+                <div key={p._id} className="ramci-bestsellers-item">
+                  <ProductCard product={p} />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         <section className="ramci-products-section">
           <div className="ramci-section-header">
             <h2 className="ramci-section-title">
@@ -261,8 +332,10 @@ const Home = () => {
               </div>
               
               {loadingMore && (
-                <div className="flex justify-center py-4">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
+                <div className="ramci-grid ramci-grid-loading-more">
+                  {Array.from({ length: 2 }).map((_, i) => (
+                    <ProductCardSkeleton key={`more-${i}`} />
+                  ))}
                 </div>
               )}
               
@@ -278,7 +351,16 @@ const Home = () => {
         </section>
       </div>
 
-      <style>{`
+      <style>{SHARED_STYLES}</style>
+    </>
+  );
+};
+
+// [MODERNISATION] Styles extraits dans une constante partagée entre l'état
+// de chargement (skeleton) et l'état chargé, pour garder une seule source
+// de vérité et éviter la duplication de <style> entre les deux branches
+// de rendu.
+const SHARED_STYLES = `
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=DM+Sans:wght@400;500;600;700;800&display=swap');
 
         .ramci-home {
@@ -436,6 +518,10 @@ const Home = () => {
           gap: 16px;
         }
 
+        .ramci-grid-loading-more {
+          margin-top: 16px;
+        }
+
         .ramci-empty {
           text-align: center;
           padding: 40px;
@@ -443,9 +529,127 @@ const Home = () => {
           font-family: 'DM Sans', sans-serif;
           font-size: 14px;
         }
-      `}</style>
-    </>
-  );
-};
+
+        /* ============================================================
+           [MODERNISATION] Rangée Best-sellers — scroll horizontal
+           ============================================================ */
+        .ramci-bestsellers-section {
+          background: #fff;
+          padding: 20px 0 24px;
+        }
+
+        .ramci-bestsellers-section .ramci-section-header {
+          padding: 0 16px;
+        }
+
+        .ramci-bestsellers-title {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .ramci-bestsellers-badge {
+          font-size: 17px;
+          line-height: 1;
+        }
+
+        .ramci-bestsellers-scroll {
+          display: flex;
+          gap: 12px;
+          overflow-x: auto;
+          scroll-snap-type: x proximity;
+          scrollbar-width: none;
+          padding: 4px 16px 8px;
+        }
+        .ramci-bestsellers-scroll::-webkit-scrollbar { display: none; }
+
+        .ramci-bestsellers-item {
+          flex: 0 0 auto;
+          width: 152px;
+          scroll-snap-align: start;
+        }
+
+        /* ============================================================
+           [MODERNISATION] Skeleton loading
+           ============================================================ */
+        @keyframes ramci-shimmer {
+          0%   { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+
+        .ramci-skeleton-hero,
+        .ramci-skeleton-cat-circle,
+        .ramci-skeleton-img,
+        .ramci-skeleton-line {
+          background: linear-gradient(
+            90deg,
+            #f5f2ec 25%,
+            #fbe9e7 45%,
+            #f5f2ec 65%
+          );
+          background-size: 200% 100%;
+          animation: ramci-shimmer 1.6s ease-in-out infinite;
+          border-radius: 8px;
+        }
+
+        .ramci-skeleton-hero {
+          width: 100%;
+          aspect-ratio: 16 / 7;
+          border-radius: 0;
+        }
+
+        .ramci-skeleton-cat-circle {
+          width: 72px;
+          height: 72px;
+          border-radius: 50%;
+        }
+
+        .ramci-skeleton-line {
+          height: 10px;
+          border-radius: 4px;
+        }
+
+        .ramci-skeleton-line-cat {
+          width: 56px;
+          margin-top: 7px;
+        }
+
+        .ramci-skeleton-line-heading {
+          width: 160px;
+          height: 18px;
+          margin: 4px 0 16px;
+        }
+
+        .ramci-skeleton-card {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .ramci-skeleton-img {
+          width: 100%;
+          aspect-ratio: 1 / 1;
+          border-radius: 12px;
+        }
+
+        .ramci-skeleton-line-title {
+          width: 85%;
+          margin-top: 2px;
+        }
+
+        .ramci-skeleton-line-price {
+          width: 45%;
+          height: 12px;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .ramci-skeleton-hero,
+          .ramci-skeleton-cat-circle,
+          .ramci-skeleton-img,
+          .ramci-skeleton-line {
+            animation: none;
+          }
+        }
+`;
 
 export default Home;
