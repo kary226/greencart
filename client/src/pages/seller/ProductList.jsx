@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAppContext } from '../../context/AppContext'
 import toast from 'react-hot-toast'
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 
 const ProductList = () => {
     const { products, currency, axios, fetchProducts } = useAppContext()
@@ -26,7 +28,6 @@ const ProductList = () => {
     const [sortBy, setSortBy] = useState('name')
     const [sortOrder, setSortOrder] = useState('asc')
 
-    // Ajout d'images
     const [newImages, setNewImages] = useState([])
     const [uploadingImages, setUploadingImages] = useState(false)
     const [showImageUpload, setShowImageUpload] = useState(false)
@@ -176,7 +177,7 @@ const ProductList = () => {
     const handleEdit = (product) => {
         setEditProduct({
             ...product,
-            description: Array.isArray(product.description) ? product.description.join('\n') : product.description,
+            description: product.description || '',
             variants: product.variants || [],
             categories: product.categories || [],
         })
@@ -748,11 +749,12 @@ const ProductList = () => {
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                                <textarea 
-                                    value={editProduct.description} 
-                                    onChange={e => setEditProduct({ ...editProduct, description: e.target.value })}
-                                    rows={3} 
-                                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none resize-none"
+                                <ReactQuill
+                                    value={editProduct.description}
+                                    onChange={(value) => setEditProduct({ ...editProduct, description: value })}
+                                    theme="snow"
+                                    className="bg-white rounded-lg"
+                                    style={{ minHeight: '150px' }}
                                 />
                             </div>
 
