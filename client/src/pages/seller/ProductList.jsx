@@ -2,8 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAppContext } from '../../context/AppContext'
 import toast from 'react-hot-toast'
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
 
 const ProductList = () => {
     const { products, currency, axios, fetchProducts } = useAppContext()
