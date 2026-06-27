@@ -1,41 +1,39 @@
-import React, { useEffect, lazy, Suspense } from 'react'
+import React, { useEffect } from 'react'
 import Navbar from './components/Navbar'
 import { Route, Routes, useLocation } from 'react-router-dom'
+import Home from './pages/Home'
 import { Toaster } from "react-hot-toast";
 import Footer from './components/Footer';
 import { useAppContext } from './context/AppContext';
 import Login from './components/Login';
+import AllProducts from './pages/AllProducts';
+import ProductCategory from './pages/ProductCategory';
+import ProductDetails from './pages/ProductDetails';
+import Cart from './pages/Cart';
+import AddAddress from './pages/AddAddress';
+import MyOrders from './pages/MyOrders';
+import Wishlist from './pages/Wishlist';
+import Account from './pages/Account';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import SellerLogin from './components/seller/SellerLogin';
+import SellerLayout from './pages/seller/SellerLayout';
+import Dashboard from './pages/seller/Dashboard';
+import AddProduct from './pages/seller/AddProduct';
+import ProductList from './pages/seller/ProductList';
+import Orders from './pages/seller/Orders';
+import ClientsManager from './pages/seller/ClientsManager';
+import BannerManager from './pages/seller/BannerManager';
+import CategoryManager from './pages/seller/CategoryManager';
+import CouponManager from './pages/seller/CouponManager';
+import LocationManager from './pages/seller/LocationManager';
+import DeliveryManager from './pages/seller/DeliveryManager';
+import AllCategories from './pages/AllCategories';
+import PaymentSuccess from './pages/PaymentSuccess';
+import PaymentError from './pages/PaymentError';
 import Loading from './components/Loading';
 import BottomNav from './components/BottomNav';
-
-// ⚡ LAZY LOADING - Ces composants ne seront chargés que quand on en a besoin
-const Home = lazy(() => import('./pages/Home'));
-const AllProducts = lazy(() => import('./pages/AllProducts'));
-const ProductCategory = lazy(() => import('./pages/ProductCategory'));
-const ProductDetails = lazy(() => import('./pages/ProductDetails'));
-const Cart = lazy(() => import('./pages/Cart'));
-const AddAddress = lazy(() => import('./pages/AddAddress'));
-const MyOrders = lazy(() => import('./pages/MyOrders'));
-const Wishlist = lazy(() => import('./pages/Wishlist'));
-const Account = lazy(() => import('./pages/Account'));
-const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
-const ResetPassword = lazy(() => import('./pages/ResetPassword'));
-const SellerLogin = lazy(() => import('./components/seller/SellerLogin'));
-const SellerLayout = lazy(() => import('./pages/seller/SellerLayout'));
-const Dashboard = lazy(() => import('./pages/seller/Dashboard'));
-const AddProduct = lazy(() => import('./pages/seller/AddProduct'));
-const ProductList = lazy(() => import('./pages/seller/ProductList'));
-const Orders = lazy(() => import('./pages/seller/Orders'));
-const ClientsManager = lazy(() => import('./pages/seller/ClientsManager'));
-const BannerManager = lazy(() => import('./pages/seller/BannerManager'));
-const CategoryManager = lazy(() => import('./pages/seller/CategoryManager'));
-const CouponManager = lazy(() => import('./pages/seller/CouponManager'));
-const LocationManager = lazy(() => import('./pages/seller/LocationManager'));
-const DeliveryManager = lazy(() => import('./pages/seller/DeliveryManager'));
-const AllCategories = lazy(() => import('./pages/AllCategories'));
-const PaymentSuccess = lazy(() => import('./pages/PaymentSuccess'));
-const PaymentError = lazy(() => import('./pages/PaymentError'));
-const InstallApp = lazy(() => import('./pages/InstallApp'));
+import InstallApp from './pages/InstallApp';
 
 // 🔝 ScrollToTop intelligent : téléporte en haut sur navigation avant, restaure la position au retour
 const useSmartScroll = () => {
@@ -70,16 +68,6 @@ const useSmartScroll = () => {
     };
   }, [navigationKey]);
 };
-
-// 🎨 Composant fallback personnalisé avec un loader stylé
-const PageLoader = () => (
-  <div className="flex items-center justify-center min-h-[60vh]">
-    <div className="flex flex-col items-center gap-4">
-      <div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
-      <p className="text-gray-500 text-sm font-medium">Chargement...</p>
-    </div>
-  </div>
-);
 
 const App = () => {
 
@@ -138,39 +126,36 @@ const App = () => {
       />
 
       <div className={`${isSellerPath ? "" : "px-4 pb-20"}`}>
-        {/* ⚡ Suspense avec fallback pour le chargement des pages */}
-        <Suspense fallback={<PageLoader />}>
-          <Routes>
-            <Route path='/' element={<Home />} />
-            <Route path='/products' element={<AllProducts />} />
-            <Route path='/products/:category' element={<ProductCategory />} />
-            <Route path='/products/:category/:id' element={<ProductDetails />} />
-            <Route path='/cart' element={<Cart />} />
-            <Route path='/add-address' element={<AddAddress />} />
-            <Route path='/my-orders' element={<MyOrders />} />
-            <Route path='/loader' element={<Loading />} />
-            <Route path='/categories' element={<AllCategories />} />
-            <Route path='/wishlist' element={<Wishlist />} />
-            <Route path='/account' element={<Account />} />
-            <Route path='/payment/success' element={<PaymentSuccess />} />
-            <Route path='/payment/error' element={<PaymentError />} />
-            <Route path='/forgot-password' element={<ForgotPassword />} />
-            <Route path='/reset-password' element={<ResetPassword />} />
-            <Route path='/install' element={<InstallApp />} />
-            <Route path='/seller' element={isSeller ? <SellerLayout /> : <SellerLogin />}>
-              <Route index element={<Dashboard />} />
-              <Route path='add-product' element={<AddProduct />} />
-              <Route path='product-list' element={<ProductList />} />
-              <Route path='orders' element={<Orders />} />
-              <Route path='clients' element={<ClientsManager />} />
-              <Route path='banners' element={<BannerManager />} />
-              <Route path='categories' element={<CategoryManager />} />
-              <Route path='coupons' element={<CouponManager />} />
-              <Route path='locations' element={<LocationManager />} />
-              <Route path='delivery' element={<DeliveryManager />} />
-            </Route>
-          </Routes>
-        </Suspense>
+        <Routes>
+          <Route path='/' element={<Home />} />
+          <Route path='/products' element={<AllProducts />} />
+          <Route path='/products/:category' element={<ProductCategory />} />
+          <Route path='/products/:category/:id' element={<ProductDetails />} />
+          <Route path='/cart' element={<Cart />} />
+          <Route path='/add-address' element={<AddAddress />} />
+          <Route path='/my-orders' element={<MyOrders />} />
+          <Route path='/loader' element={<Loading />} />
+          <Route path='/categories' element={<AllCategories />} />
+          <Route path='/wishlist' element={<Wishlist />} />
+          <Route path='/account' element={<Account />} />
+          <Route path='/payment/success' element={<PaymentSuccess />} />
+          <Route path='/payment/error' element={<PaymentError />} />
+          <Route path='/forgot-password' element={<ForgotPassword />} />
+          <Route path='/reset-password' element={<ResetPassword />} />
+          <Route path='/install' element={<InstallApp />} />
+          <Route path='/seller' element={isSeller ? <SellerLayout /> : <SellerLogin />}>
+            <Route index element={<Dashboard />} />
+            <Route path='add-product' element={<AddProduct />} />
+            <Route path='product-list' element={<ProductList />} />
+            <Route path='orders' element={<Orders />} />
+            <Route path='clients' element={<ClientsManager />} />
+            <Route path='banners' element={<BannerManager />} />
+            <Route path='categories' element={<CategoryManager />} />
+            <Route path='coupons' element={<CouponManager />} />
+            <Route path='locations' element={<LocationManager />} />
+            <Route path='delivery' element={<DeliveryManager />} />
+          </Route>
+        </Routes>
       </div>
       {!isSellerPath && <Footer />}
       {!isSellerPath && <BottomNav />}

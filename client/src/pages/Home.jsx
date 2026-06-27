@@ -1,11 +1,9 @@
-import React, { useEffect, useState, useCallback, useRef, useMemo, lazy, Suspense } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
 import ProductCard from "../components/ProductCard";
 import SEO from "../components/SEO";
-
-// ⚡ Lazy loading du BannerCarousel (pas critique pour le premier affichage)
-const BannerCarousel = lazy(() => import("../components/BannerCarousel"));
+import BannerCarousel from "../components/BannerCarousel";
 
 const SECTIONS = [
   { id: "trends", label: "Tendances du moment" },
@@ -13,20 +11,21 @@ const SECTIONS = [
   { id: "deals",  label: "Promotions" },
 ];
 
+// [MODERNISATION] Nombre de produits affichés dans la rangée Best-sellers
+// en scroll horizontal, juste après les catégories.
 const BESTSELLERS_COUNT = 10;
 
-// ⚡ Optimisation : skeleton avec React.memo pour éviter les re-rendus
-const ProductCardSkeleton = React.memo(() => (
+// [MODERNISATION] Squelette d'une carte produit, utilisé pendant le
+// chargement initial à la place de l'ancien spinner plein écran.
+// Reprend les proportions d'une vraie ProductCard (image carrée + 2 lignes
+// de texte + prix) pour que la mise en page ne "saute" pas une fois les
+// vraies données chargées.
+const ProductCardSkeleton = () => (
   <div className="ramci-skeleton-card">
     <div className="ramci-skeleton-img" />
     <div className="ramci-skeleton-line ramci-skeleton-line-title" />
     <div className="ramci-skeleton-line ramci-skeleton-line-price" />
   </div>
-));
-
-// ⚡ Optimisation : composant de chargement du carousel
-const BannerLoader = () => (
-  <div className="ramci-skeleton-hero" />
 );
 
 const Home = () => {
@@ -34,36 +33,34 @@ const Home = () => {
   const [categories, setCategories] = useState([]);
   const [activeSection, setActiveSection] = useState("trends");
   
+  // État pour les produits avec pagination
   const [allProducts, setAllProducts] = useState([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   
+  // État pour les produits triés par section (TOUS les produits, pas de limite)
+  const [trendProducts, setTrendProducts] = useState([]);
+  const [newProducts, setNewProducts] = useState([]);
+  const [dealProducts, setDealProducts] = useState([]);
+  
   const observerRef = useRef(null);
   const navigate = useNavigate();
 
-  // ⚡ Optimisation : charger les catégories avec un abort controller
+  // Charger les catégories
   useEffect(() => {
-    const abortController = new AbortController();
-    
     const fetchCategories = async () => {
       try {
-        const { data } = await axios.get('/api/category/list', {
-          signal: abortController.signal
-        });
+        const { data } = await axios.get('/api/category/list');
         if (data.success) setCategories(data.categories);
-      } catch (e) {
-        if (e.name !== 'AbortError') console.error(e);
-      }
+      } catch (e) {}
     };
     fetchCategories();
-    
-    return () => abortController.abort();
   }, []);
 
-  // ⚡ Optimisation : charger les produits avec pagination et cache
-  const fetchProducts = useCallback(async (pageNum = 1, isInitial = false) => {
+  // Charger les produits avec pagination
+  const fetchProducts = async (pageNum = 1, isInitial = false) => {
     if (isInitial) {
       setLoading(true);
     } else {
@@ -71,34 +68,9 @@ const Home = () => {
     }
     
     try {
-      // ⚡ Cache via localStorage pour les visites ultérieures
-      const cacheKey = `products_page_${pageNum}`;
-      const cachedData = sessionStorage.getItem(cacheKey);
-      
-      if (cachedData && isInitial) {
-        const parsed = JSON.parse(cachedData);
-        setAllProducts(parsed.products);
-        setHasMore(parsed.hasMore);
-        setPage(pageNum);
-        setLoading(false);
-        return;
-      }
-      
       const { data } = await axios.get(`/api/product/list?page=${pageNum}&limit=12`);
       if (data.success) {
         const newProductsList = data.products;
-        
-        // ⚡ Mise en cache pour 5 minutes
-        if (isInitial) {
-          sessionStorage.setItem(cacheKey, JSON.stringify({
-            products: newProductsList,
-            hasMore: data.pagination.hasMore
-          }));
-          // Nettoyer le cache après 5 minutes
-          setTimeout(() => {
-            sessionStorage.removeItem(cacheKey);
-          }, 300000);
-        }
         
         if (isInitial) {
           setAllProducts(newProductsList);
@@ -118,14 +90,14 @@ const Home = () => {
         setLoadingMore(false);
       }
     }
-  }, [axios]);
+  };
 
   // Chargement initial
   useEffect(() => {
     fetchProducts(1, true);
-  }, [fetchProducts]);
+  }, []);
 
-  // ⚡ Optimisation : observer avec useCallback et cleanup
+  // Observer pour l'infinite scroll (charge plus de produits quand on descend)
   const lastProductRef = useCallback((node) => {
     if (loadingMore) return;
     if (observerRef.current) observerRef.current.disconnect();
@@ -134,26 +106,23 @@ const Home = () => {
       if (entries[0].isIntersecting && hasMore && !loadingMore) {
         fetchProducts(page + 1, false);
       }
-    }, {
-      // ⚡ Optimisation : déclencher un peu avant la fin
-      rootMargin: '200px',
-      threshold: 0.1
     });
     
     if (node) observerRef.current.observe(node);
-    
-    return () => {
-      if (observerRef.current) observerRef.current.disconnect();
-    };
-  }, [loadingMore, hasMore, page, fetchProducts]);
+  }, [loadingMore, hasMore, page]);
 
-  // ⚡ Optimisation : calculs des produits avec useMemo pour éviter les recalculs
-  const { trendProducts, newProducts, dealProducts, bestSellers } = useMemo(() => {
-    if (!allProducts.length) {
-      return { trendProducts: [], newProducts: [], dealProducts: [], bestSellers: [] };
+  // Calculer les produits triés quand allProducts change (TOUS les produits, pas de slice)
+  useEffect(() => {
+    if (allProducts.length > 0) {
+      setTrendProducts(getTrendingProducts());
+      setNewProducts(getNewProducts());
+      setDealProducts(getDealProducts());
     }
+  }, [allProducts, orders]);
 
-    // Calcul des ventes
+  // Supprimé .slice(0, 10) pour afficher TOUS les produits tendances
+  const getTrendingProducts = () => {
+    if (!allProducts.length) return [];
     const productSales = {};
     if (orders && orders.length > 0) {
       orders.forEach(order => {
@@ -168,56 +137,70 @@ const Home = () => {
         }
       });
     }
-
-    // Tendance (tri par ventes)
-    const trend = allProducts.map(product => ({
+    const productsWithSales = allProducts.map(product => ({
       ...product,
       salesCount: productSales[product._id] || 0
-    })).sort((a, b) => b.salesCount - a.salesCount);
+    }));
+    productsWithSales.sort((a, b) => b.salesCount - a.salesCount);
+    return productsWithSales;
+  };
 
-    // Nouveautés (tri par date)
-    const newItems = [...allProducts].sort((a, b) => {
+  // Supprimé .slice(0, 10) pour afficher TOUS les nouveaux produits
+  const getNewProducts = () => {
+    if (!allProducts.length) return [];
+    const sorted = [...allProducts].sort((a, b) => {
       const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
       const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
       return dateB - dateA;
     });
+    return sorted;
+  };
 
-    // Promotions
-    const deals = allProducts
-      .filter(p => p.offerPrice && p.offerPrice < p.price)
-      .map(product => {
-        const discountPercent = ((product.price - product.offerPrice) / product.price) * 100;
-        const amountSaved = product.price - product.offerPrice;
-        return {
-          ...product,
-          discountPercent: Math.round(discountPercent),
-          amountSaved,
-          promotionScore: (discountPercent * 0.7) + ((amountSaved / 1000) * 0.3)
-        };
-      })
-      .sort((a, b) => b.promotionScore - a.promotionScore);
+  // Supprimé .slice(0, 10) pour afficher TOUTES les promotions
+  const getDealProducts = () => {
+    if (!allProducts.length) return [];
+    const productsWithOffer = allProducts.filter(p => p.offerPrice && p.offerPrice < p.price);
+    const productsWithScore = productsWithOffer.map(product => {
+      const discountPercent = ((product.price - product.offerPrice) / product.price) * 100;
+      const amountSaved = product.price - product.offerPrice;
+      const score = (discountPercent * 0.7) + ((amountSaved / 1000) * 0.3);
+      return {
+        ...product,
+        discountPercent: Math.round(discountPercent),
+        amountSaved: amountSaved,
+        promotionScore: score
+      };
+    });
+    productsWithScore.sort((a, b) => b.promotionScore - a.promotionScore);
+    return productsWithScore;
+  };
 
-    // Best-sellers (uniquement ceux avec des ventes)
-    const best = trend
-      .filter(p => p.salesCount > 0)
-      .slice(0, BESTSELLERS_COUNT);
-
-    return { trendProducts: trend, newProducts: newItems, dealProducts: deals, bestSellers: best };
-  }, [allProducts, orders]);
-
-  const sectionProducts = useMemo(() => {
+  const getSectionProducts = () => {
     switch (activeSection) {
       case "new":   return newProducts;
       case "deals": return dealProducts;
       default:      return trendProducts;
     }
-  }, [activeSection, trendProducts, newProducts, dealProducts]);
+  };
 
-  const activeCategories = useMemo(() => {
-    return categories.filter(c => c.active !== false);
-  }, [categories]);
+  const sectionProducts = getSectionProducts();
+  const activeCategories = categories.filter(c => c.active !== false);
 
-  // ⚡ Optimisation : skeleton loading
+  // [MODERNISATION] Rangée Best-sellers : les produits les plus vendus
+  // (trendProducts est déjà trié par salesCount décroissant), limités à
+  // BESTSELLERS_COUNT pour rester une rangée courte et non une grille.
+  // N'affiche la rangée que si au moins un produit a réellement des
+  // ventes enregistrées, pour éviter de montrer "best-sellers" sur un
+  // catalogue tout neuf sans aucune commande.
+  const bestSellers = trendProducts
+    .filter(p => p.salesCount > 0)
+    .slice(0, BESTSELLERS_COUNT);
+
+  // [MODERNISATION] Skeleton loading : remplace l'ancien spinner plein
+  // écran par une esquisse de la mise en page réelle (bandeau hero +
+  // rangée de catégories + grille de cartes), pour donner une impression
+  // de rapidité et éviter le saut brutal de mise en page une fois les
+  // données chargées.
   if (loading) {
     return (
       <>
@@ -248,23 +231,11 @@ const Home = () => {
 
   return (
     <>
-      <SEO 
-        title="Ramci – Mode & Tendances" 
-        description="Découvrez les meilleures offres sur Ramci."
-        // ⚡ Ajout des métadonnées pour le partage social
-        openGraph={{
-          title: 'Ramci – Mode & Tendances',
-          description: 'Découvrez les meilleures offres sur Ramci.',
-          image: 'https://ramci.com/og-image.jpg'
-        }}
-      />
+      <SEO title="Ramci – Mode & Tendances" description="Découvrez les meilleures offres sur Ramci." />
 
       <div className="ramci-home">
-        {/* ⚡ Lazy loading du carousel avec fallback */}
         <section className="ramci-hero">
-          <Suspense fallback={<BannerLoader />}>
-            <BannerCarousel position="top" />
-          </Suspense>
+          <BannerCarousel position="top" />
         </section>
 
         {activeCategories.length > 0 && (
@@ -289,7 +260,7 @@ const Home = () => {
               >
                 <div className="ramci-cat-circle">
                   {cat.image
-                    ? <img src={cat.image} alt={cat.name} className="ramci-cat-img" loading="lazy" />
+                    ? <img src={cat.image} alt={cat.name} className="ramci-cat-img" />
                     : <span className="ramci-cat-placeholder">{cat.name?.[0]}</span>
                   }
                 </div>
@@ -299,7 +270,10 @@ const Home = () => {
           </section>
         )}
 
-        {/* Best-sellers */}
+        {/* [MODERNISATION] Rangée Best-sellers en scroll horizontal.
+            Placée juste après les catégories, avant la grille à onglets,
+            pour créer une rupture de rythme visuelle — pattern courant
+            sur les apps e-commerce modernes (Shein, Jumia, Amazon). */}
         {bestSellers.length > 0 && (
           <section className="ramci-bestsellers-section">
             <div className="ramci-section-header">
@@ -347,6 +321,7 @@ const Home = () => {
             <>
               <div className="ramci-grid">
                 {sectionProducts.map((p, index) => {
+                  // Ajouter une ref au dernier élément pour l'intersection observer
                   const isLastItem = index === sectionProducts.length - 1 && activeSection === "trends";
                   return (
                     <div key={p._id} ref={isLastItem ? lastProductRef : null}>
@@ -381,291 +356,300 @@ const Home = () => {
   );
 };
 
-// [MODERNISATION] Styles extraits dans une constante partagée
+// [MODERNISATION] Styles extraits dans une constante partagée entre l'état
+// de chargement (skeleton) et l'état chargé, pour garder une seule source
+// de vérité et éviter la duplication de <style> entre les deux branches
+// de rendu.
 const SHARED_STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=DM+Sans:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=DM+Sans:wght@400;500;600;700;800&display=swap');
 
-  .ramci-home {
-    background: #ffffff;
-    min-height: 100vh;
-    padding-bottom: 90px;
-  }
+        .ramci-home {
+          background: #ffffff;
+          min-height: 100vh;
+          padding-bottom: 90px;
+        }
 
-  .ramci-hero {
-    margin-bottom: 0;
-    overflow: hidden;
-  }
+        .ramci-hero {
+          margin-bottom: 0;
+          overflow: hidden;
+        }
 
-  .ramci-cats-section {
-    display: flex;
-    overflow-x: auto;
-    scrollbar-width: none;
-    padding: 20px 16px;
-    gap: 14px;
-    background: #fff;
-  }
-  .ramci-cats-section::-webkit-scrollbar { display: none; }
+        .ramci-cats-section {
+          display: flex;
+          overflow-x: auto;
+          scrollbar-width: none;
+          padding: 20px 16px;
+          gap: 14px;
+          background: #fff;
+        }
+        .ramci-cats-section::-webkit-scrollbar { display: none; }
 
-  .ramci-cat-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 7px;
-    min-width: 82px;
-    text-decoration: none;
-    flex-shrink: 0;
-    padding: 2px;
-  }
+        .ramci-cat-item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 7px;
+          min-width: 82px;
+          text-decoration: none;
+          flex-shrink: 0;
+          padding: 2px;
+        }
 
-  .ramci-cat-circle {
-    width: 72px;
-    height: 72px;
-    border-radius: 50%;
-    overflow: hidden;
-    border: 1.5px solid #e8e3dc;
-    background: #f5f2ec;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: border-color .2s, transform .2s;
-  }
-  .ramci-cat-item:hover .ramci-cat-circle {
-    border-color: #111;
-    transform: scale(1.05);
-  }
+        .ramci-cat-circle {
+          width: 72px;
+          height: 72px;
+          border-radius: 50%;
+          overflow: hidden;
+          border: 1.5px solid #e8e3dc;
+          background: #f5f2ec;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: border-color .2s, transform .2s;
+        }
+        .ramci-cat-item:hover .ramci-cat-circle {
+          border-color: #111;
+          transform: scale(1.05);
+        }
 
-  .ramci-cat-circle-all {
-    background: #111;
-    color: #fff;
-    border-color: #111;
-  }
+        .ramci-cat-circle-all {
+          background: #111;
+          color: #fff;
+          border-color: #111;
+        }
 
-  .ramci-cat-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
+        .ramci-cat-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
 
-  .ramci-cat-placeholder {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 22px;
-    font-weight: 600;
-    color: #888;
-  }
+        .ramci-cat-placeholder {
+          font-family: 'Cormorant Garamond', serif;
+          font-size: 22px;
+          font-weight: 600;
+          color: #888;
+        }
 
-  .ramci-cat-label {
-    font-family: 'DM Sans', sans-serif;
-    font-size: 11px;
-    font-weight: 500;
-    color: #444;
-    text-align: center;
-    line-height: 1.3;
-    max-width: 82px;
-    word-break: break-word;
-    white-space: normal;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
+        .ramci-cat-label {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 11px;
+          font-weight: 500;
+          color: #444;
+          text-align: center;
+          line-height: 1.3;
+          max-width: 82px;
+          word-break: break-word;
+          white-space: normal;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
 
-  .ramci-products-section {
-    background: #fff;
-    margin-top: 0;
-    padding: 24px 16px;
-  }
+        .ramci-products-section {
+          background: #fff;
+          margin-top: 0;
+          padding: 24px 16px;
+        }
 
-  .ramci-section-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 12px;
-  }
+        .ramci-section-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 12px;
+        }
 
-  .ramci-section-title {
-    font-family: 'DM Sans', sans-serif;
-    font-size: 20px;
-    font-weight: 800;
-    color: #111;
-    margin: 0;
-  }
+        .ramci-section-title {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 20px;
+          font-weight: 800;
+          color: #111;
+          margin: 0;
+        }
 
-  .ramci-voir-tout {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 13px;
-    font-weight: 500;
-    color: #666;
-    text-decoration: none;
-    transition: color .15s;
-  }
-  .ramci-voir-tout:hover { color: #111; }
+        .ramci-voir-tout {
+          display: flex;
+          align-items: center;
+          gap: 3px;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 13px;
+          font-weight: 500;
+          color: #666;
+          text-decoration: none;
+          transition: color .15s;
+        }
+        .ramci-voir-tout:hover { color: #111; }
 
-  .ramci-section-tabs {
-    display: flex;
-    gap: 0;
-    border-bottom: 1px solid #f0ede8;
-    margin-bottom: 16px;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-  .ramci-section-tabs::-webkit-scrollbar { display: none; }
+        .ramci-section-tabs {
+          display: flex;
+          gap: 0;
+          border-bottom: 1px solid #f0ede8;
+          margin-bottom: 16px;
+          overflow-x: auto;
+          scrollbar-width: none;
+        }
+        .ramci-section-tabs::-webkit-scrollbar { display: none; }
 
-  .ramci-stab {
-    flex-shrink: 0;
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    padding: 8px 14px;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 12.5px;
-    font-weight: 500;
-    color: #999;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: all .15s;
-    margin-bottom: -1px;
-  }
-  .ramci-stab.active {
-    color: #e53935;
-    border-bottom-color: #e53935;
-    font-weight: 700;
-  }
+        .ramci-stab {
+          flex-shrink: 0;
+          background: none;
+          border: none;
+          border-bottom: 2px solid transparent;
+          padding: 8px 14px;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 12.5px;
+          font-weight: 500;
+          color: #999;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: all .15s;
+          margin-bottom: -1px;
+        }
+        .ramci-stab.active {
+          color: #e53935;
+          border-bottom-color: #e53935;
+          font-weight: 700;
+        }
 
-  .ramci-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
-  }
+        .ramci-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 16px;
+        }
 
-  .ramci-grid-loading-more {
-    margin-top: 16px;
-  }
+        .ramci-grid-loading-more {
+          margin-top: 16px;
+        }
 
-  .ramci-empty {
-    text-align: center;
-    padding: 40px;
-    color: #bbb;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 14px;
-  }
+        .ramci-empty {
+          text-align: center;
+          padding: 40px;
+          color: #bbb;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 14px;
+        }
 
-  .ramci-bestsellers-section {
-    background: #fff;
-    padding: 20px 0 24px;
-  }
+        /* ============================================================
+           [MODERNISATION] Rangée Best-sellers — scroll horizontal
+           ============================================================ */
+        .ramci-bestsellers-section {
+          background: #fff;
+          padding: 20px 0 24px;
+        }
 
-  .ramci-bestsellers-section .ramci-section-header {
-    padding: 0 16px;
-  }
+        .ramci-bestsellers-section .ramci-section-header {
+          padding: 0 16px;
+        }
 
-  .ramci-bestsellers-title {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
+        .ramci-bestsellers-title {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
 
-  .ramci-bestsellers-badge {
-    font-size: 17px;
-    line-height: 1;
-  }
+        .ramci-bestsellers-badge {
+          font-size: 17px;
+          line-height: 1;
+        }
 
-  .ramci-bestsellers-scroll {
-    display: flex;
-    gap: 12px;
-    overflow-x: auto;
-    scroll-snap-type: x proximity;
-    scrollbar-width: none;
-    padding: 4px 16px 8px;
-  }
-  .ramci-bestsellers-scroll::-webkit-scrollbar { display: none; }
+        .ramci-bestsellers-scroll {
+          display: flex;
+          gap: 12px;
+          overflow-x: auto;
+          scroll-snap-type: x proximity;
+          scrollbar-width: none;
+          padding: 4px 16px 8px;
+        }
+        .ramci-bestsellers-scroll::-webkit-scrollbar { display: none; }
 
-  .ramci-bestsellers-item {
-    flex: 0 0 auto;
-    width: 152px;
-    scroll-snap-align: start;
-  }
+        .ramci-bestsellers-item {
+          flex: 0 0 auto;
+          width: 152px;
+          scroll-snap-align: start;
+        }
 
-  @keyframes ramci-shimmer {
-    0%   { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
-  }
+        /* ============================================================
+           [MODERNISATION] Skeleton loading
+           ============================================================ */
+        @keyframes ramci-shimmer {
+          0%   { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
 
-  .ramci-skeleton-hero,
-  .ramci-skeleton-cat-circle,
-  .ramci-skeleton-img,
-  .ramci-skeleton-line {
-    background: linear-gradient(
-      90deg,
-      #f5f2ec 25%,
-      #fbe9e7 45%,
-      #f5f2ec 65%
-    );
-    background-size: 200% 100%;
-    animation: ramci-shimmer 1.6s ease-in-out infinite;
-    border-radius: 8px;
-  }
+        .ramci-skeleton-hero,
+        .ramci-skeleton-cat-circle,
+        .ramci-skeleton-img,
+        .ramci-skeleton-line {
+          background: linear-gradient(
+            90deg,
+            #f5f2ec 25%,
+            #fbe9e7 45%,
+            #f5f2ec 65%
+          );
+          background-size: 200% 100%;
+          animation: ramci-shimmer 1.6s ease-in-out infinite;
+          border-radius: 8px;
+        }
 
-  .ramci-skeleton-hero {
-    width: 100%;
-    aspect-ratio: 16 / 7;
-    border-radius: 0;
-  }
+        .ramci-skeleton-hero {
+          width: 100%;
+          aspect-ratio: 16 / 7;
+          border-radius: 0;
+        }
 
-  .ramci-skeleton-cat-circle {
-    width: 72px;
-    height: 72px;
-    border-radius: 50%;
-  }
+        .ramci-skeleton-cat-circle {
+          width: 72px;
+          height: 72px;
+          border-radius: 50%;
+        }
 
-  .ramci-skeleton-line {
-    height: 10px;
-    border-radius: 4px;
-  }
+        .ramci-skeleton-line {
+          height: 10px;
+          border-radius: 4px;
+        }
 
-  .ramci-skeleton-line-cat {
-    width: 56px;
-    margin-top: 7px;
-  }
+        .ramci-skeleton-line-cat {
+          width: 56px;
+          margin-top: 7px;
+        }
 
-  .ramci-skeleton-line-heading {
-    width: 160px;
-    height: 18px;
-    margin: 4px 0 16px;
-  }
+        .ramci-skeleton-line-heading {
+          width: 160px;
+          height: 18px;
+          margin: 4px 0 16px;
+        }
 
-  .ramci-skeleton-card {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
+        .ramci-skeleton-card {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
 
-  .ramci-skeleton-img {
-    width: 100%;
-    aspect-ratio: 1 / 1;
-    border-radius: 12px;
-  }
+        .ramci-skeleton-img {
+          width: 100%;
+          aspect-ratio: 1 / 1;
+          border-radius: 12px;
+        }
 
-  .ramci-skeleton-line-title {
-    width: 85%;
-    margin-top: 2px;
-  }
+        .ramci-skeleton-line-title {
+          width: 85%;
+          margin-top: 2px;
+        }
 
-  .ramci-skeleton-line-price {
-    width: 45%;
-    height: 12px;
-  }
+        .ramci-skeleton-line-price {
+          width: 45%;
+          height: 12px;
+        }
 
-  @media (prefers-reduced-motion: reduce) {
-    .ramci-skeleton-hero,
-    .ramci-skeleton-cat-circle,
-    .ramci-skeleton-img,
-    .ramci-skeleton-line {
-      animation: none;
-    }
-  }
+        @media (prefers-reduced-motion: reduce) {
+          .ramci-skeleton-hero,
+          .ramci-skeleton-cat-circle,
+          .ramci-skeleton-img,
+          .ramci-skeleton-line {
+            animation: none;
+          }
+        }
 `;
 
 export default Home;

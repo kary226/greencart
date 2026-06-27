@@ -1,31 +1,11 @@
-import { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { dummyProducts } from "../assets/assets";
 import toast from "react-hot-toast";
 import axios from "axios";
 
-// ⚡ Configuration axios avec timeout et retry
 axios.defaults.withCredentials = false;
 axios.defaults.baseURL = import.meta.env.VITE_BACKEND_URL;
-axios.defaults.timeout = 10000; // 10 secondes
-
-// ⚡ Cache des requêtes
-const queryCache = new Map();
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-
-// ⚡ Fonction de cache avec expiration
-const getCachedData = (key) => {
-    const cached = queryCache.get(key);
-    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-        return cached.data;
-    }
-    queryCache.delete(key);
-    return null;
-};
-
-const setCachedData = (key, data) => {
-    queryCache.set(key, { data, timestamp: Date.now() });
-};
 
 const getToken = () => localStorage.getItem('token');
 const getIsSeller = () => localStorage.getItem('isSeller') === 'true';
@@ -80,25 +60,21 @@ export const AppContextProvider = ({ children }) => {
     const [wishlist, setWishlist] = useState([]);
     const [recentlyViewed, setRecentlyViewed] = useState([]);
     const [orders, setOrders] = useState([]);
-    
-    // ⚡ Ref pour éviter les appels multiples
-    const isInitialized = useRef(false);
-    const fetchPromises = useRef({});
 
-    const setCartItems = useCallback((newCart) => {
+    const setCartItems = (newCart) => {
         setCartItemsState(newCart);
         localStorage.setItem(CART_KEY, JSON.stringify(newCart));
-    }, []);
+    };
 
-    const getCartKey = useCallback((productId, color = null, size = null) => {
+    const getCartKey = (productId, color = null, size = null) => {
         return `${productId}${color ? `_${color}` : ''}${size ? `_${size}` : ''}`;
-    }, []);
+    };
 
-    const getProductIdFromKey = useCallback((key) => {
+    const getProductIdFromKey = (key) => {
         return key.split('_')[0];
-    }, []);
+    };
 
-    const addToRecentlyViewed = useCallback((product) => {
+    const addToRecentlyViewed = (product) => {
         if (!product || !product._id) return;
         
         setRecentlyViewed(prev => {
@@ -108,99 +84,64 @@ export const AppContextProvider = ({ children }) => {
             localStorage.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(sliced));
             return sliced;
         });
-    }, []);
+    };
 
-    // ⚡ Optimisation : fetchOrders avec cache
-    const fetchOrders = useCallback(async (force = false) => {
-        if (!user) return;
-        
-        const cacheKey = 'orders';
-        if (!force) {
-            const cached = getCachedData(cacheKey);
-            if (cached) {
-                setOrders(cached);
-                return;
-            }
-        }
-        
-        // ⚡ Éviter les appels simultanés
-        if (fetchPromises.current[cacheKey]) {
-            return fetchPromises.current[cacheKey];
-        }
-        
-        fetchPromises.current[cacheKey] = (async () => {
+    const loadRecentlyViewed = () => {
+        const stored = localStorage.getItem(RECENTLY_VIEWED_KEY);
+        if (stored) {
             try {
-                const { data } = await axios.get('/api/order/user');
-                if (data.success) {
-                    setOrders(data.orders);
-                    setCachedData(cacheKey, data.orders);
-                    return data.orders;
-                }
+                const parsed = JSON.parse(stored);
+                setRecentlyViewed(parsed);
             } catch (error) {
-                console.error("Erreur chargement commandes:", error);
-                setOrders([]);
-            } finally {
-                delete fetchPromises.current[cacheKey];
+                console.error("Erreur chargement récemment vus:", error);
             }
-        })();
-        
-        return fetchPromises.current[cacheKey];
-    }, [user]);
+        }
+    };
 
-    // ⚡ Optimisation : fetchSeller avec cache
-    const fetchSeller = useCallback(async (force = false) => {
+    const fetchOrders = async () => {
+        if (!user) return;
+        try {
+            const { data } = await axios.get('/api/order/user');
+            if (data.success) {
+                setOrders(data.orders);
+            }
+        } catch (error) {
+            console.error("Erreur chargement commandes:", error);
+            setOrders([]);
+        }
+    };
+
+    const fetchSeller = async () => {
         const token = getToken();
         if (!token) {
             setIsSeller(false);
             return;
         }
         
-        const cacheKey = 'seller';
-        if (!force) {
-            const cached = getCachedData(cacheKey);
-            if (cached) {
-                setIsSeller(cached.isSeller);
-                return;
-            }
-        }
-        
-        if (fetchPromises.current[cacheKey]) {
-            return fetchPromises.current[cacheKey];
-        }
-        
-        fetchPromises.current[cacheKey] = (async () => {
-            try {
-                const { data } = await axios.get('/api/seller/is-auth', {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                if (data.success) {
-                    setIsSeller(true);
-                    localStorage.setItem('isSeller', 'true');
-                    if (data.seller) {
-                        localStorage.setItem('sellerData', JSON.stringify(data.seller));
-                    }
-                    setCachedData(cacheKey, { isSeller: true });
-                } else {
-                    setIsSeller(false);
-                    localStorage.removeItem('isSeller');
-                    localStorage.removeItem('sellerData');
-                    setCachedData(cacheKey, { isSeller: false });
+        try {
+            const { data } = await axios.get('/api/seller/is-auth', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (data.success) {
+                setIsSeller(true);
+                localStorage.setItem('isSeller', 'true');
+                if (data.seller) {
+                    localStorage.setItem('sellerData', JSON.stringify(data.seller));
                 }
-            } catch (error) {
-                console.error("Erreur fetchSeller:", error);
+            } else {
                 setIsSeller(false);
                 localStorage.removeItem('isSeller');
                 localStorage.removeItem('sellerData');
-            } finally {
-                delete fetchPromises.current[cacheKey];
             }
-        })();
-        
-        return fetchPromises.current[cacheKey];
-    }, []);
+        } catch (error) {
+            console.error("Erreur fetchSeller:", error);
+            setIsSeller(false);
+            localStorage.removeItem('isSeller');
+            localStorage.removeItem('sellerData');
+        }
+    };
 
-    // ⚡ Optimisation : fetchUser avec cache
-    const fetchUser = useCallback(async (force = false) => {
+    const fetchUser = async () => {
         const token = getToken();
         if (!token) return;
         
@@ -208,127 +149,57 @@ export const AppContextProvider = ({ children }) => {
             return;
         }
         
-        const cacheKey = 'user';
-        if (!force) {
-            const cached = getCachedData(cacheKey);
-            if (cached) {
-                setUser(cached.user);
-                const mergedCart = { ...cached.cartItems, ...loadCartFromLocalStorage() };
+        try {
+            const { data } = await axios.get('/api/user/is-auth', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (data.success) {
+                setUser(data.user);
+                const localCart = loadCartFromLocalStorage();
+                const serverCart = data.user.cartItems || {};
+                const mergedCart = { ...serverCart, ...localCart };
                 setCartItems(mergedCart);
-                return;
-            }
-        }
-        
-        if (fetchPromises.current[cacheKey]) {
-            return fetchPromises.current[cacheKey];
-        }
-        
-        fetchPromises.current[cacheKey] = (async () => {
-            try {
-                const { data } = await axios.get('/api/user/is-auth', {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                if (data.success) {
-                    setUser(data.user);
-                    const localCart = loadCartFromLocalStorage();
-                    const serverCart = data.user.cartItems || {};
-                    const mergedCart = { ...serverCart, ...localCart };
-                    setCartItems(mergedCart);
-                    setCachedData(cacheKey, { user: data.user, cartItems: serverCart });
-                    await fetchOrders(true);
-                } else {
-                    setUser(null);
-                }
-            } catch (error) {
-                if (!window.location.pathname.includes('/seller')) {
-                    if (error.response?.data?.redirectToLogin) {
-                        setShowUserLogin(true);
-                    }
-                }
+                await fetchOrders();
+            } else {
                 setUser(null);
-            } finally {
-                delete fetchPromises.current[cacheKey];
             }
-        })();
-        
-        return fetchPromises.current[cacheKey];
-    }, [fetchOrders, setCartItems]);
-
-    // ⚡ Optimisation : fetchProducts avec cache
-    const fetchProducts = useCallback(async (force = false) => {
-        const cacheKey = 'products';
-        if (!force) {
-            const cached = getCachedData(cacheKey);
-            if (cached) {
-                setProducts(cached);
-                return;
-            }
-        }
-        
-        if (fetchPromises.current[cacheKey]) {
-            return fetchPromises.current[cacheKey];
-        }
-        
-        fetchPromises.current[cacheKey] = (async () => {
-            try {
-                const { data } = await axios.get('/api/product/list');
-                if (data.success) {
-                    setProducts(data.products);
-                    setCachedData(cacheKey, data.products);
-                } else {
-                    setProducts(dummyProducts);
+        } catch (error) {
+            if (!window.location.pathname.includes('/seller')) {
+                if (error.response?.data?.redirectToLogin) {
+                    setShowUserLogin(true);
                 }
-            } catch (error) {
-                setProducts(dummyProducts);
-            } finally {
-                delete fetchPromises.current[cacheKey];
             }
-        })();
-        
-        return fetchPromises.current[cacheKey];
-    }, []);
+            setUser(null);
+        }
+    };
 
-    // ⚡ Optimisation : fetchWishlist avec cache
-    const fetchWishlist = useCallback(async (force = false) => {
+    const fetchProducts = async () => {
+        try {
+            const { data } = await axios.get('/api/product/list');
+            if (data.success) setProducts(data.products);
+            else setProducts(dummyProducts);
+        } catch (error) {
+            setProducts(dummyProducts);
+        }
+    };
+
+    const fetchWishlist = async () => {
         if (!user) return;
         if (window.location.pathname.includes('/seller')) return;
         
-        const cacheKey = 'wishlist';
-        if (!force) {
-            const cached = getCachedData(cacheKey);
-            if (cached) {
-                setWishlist(cached);
-                return;
+        try {
+            const { data } = await axios.get('/api/wishlist/list');
+            if (data.success) setWishlist(data.wishlist);
+        } catch (error) {
+            if (error.response?.data?.redirectToLogin) {
+                setShowUserLogin(true);
+            } else {
+                console.error(error);
             }
         }
-        
-        if (fetchPromises.current[cacheKey]) {
-            return fetchPromises.current[cacheKey];
-        }
-        
-        fetchPromises.current[cacheKey] = (async () => {
-            try {
-                const { data } = await axios.get('/api/wishlist/list');
-                if (data.success) {
-                    setWishlist(data.wishlist);
-                    setCachedData(cacheKey, data.wishlist);
-                }
-            } catch (error) {
-                if (error.response?.data?.redirectToLogin) {
-                    setShowUserLogin(true);
-                } else {
-                    console.error(error);
-                }
-            } finally {
-                delete fetchPromises.current[cacheKey];
-            }
-        })();
-        
-        return fetchPromises.current[cacheKey];
-    }, [user]);
+    };
 
-    // ⚡ Optimisation : addToWishlist avec invalidation du cache
-    const addToWishlist = useCallback(async (productId) => {
+    const addToWishlist = async (productId) => {
         if (!user) {
             setShowUserLogin(true);
             return;
@@ -337,8 +208,7 @@ export const AppContextProvider = ({ children }) => {
             const { data } = await axios.post('/api/wishlist/add', { productId });
             if (data.success) {
                 toast.success(data.message);
-                queryCache.delete('wishlist');
-                fetchWishlist(true);
+                fetchWishlist();
             } else {
                 toast.error(data.message);
             }
@@ -350,15 +220,14 @@ export const AppContextProvider = ({ children }) => {
                 toast.error(error.message);
             }
         }
-    }, [user, fetchWishlist]);
+    };
 
-    const removeFromWishlist = useCallback(async (productId) => {
+    const removeFromWishlist = async (productId) => {
         try {
             const { data } = await axios.post('/api/wishlist/remove', { productId });
             if (data.success) {
                 toast.success(data.message);
-                queryCache.delete('wishlist');
-                fetchWishlist(true);
+                fetchWishlist();
             } else {
                 toast.error(data.message);
             }
@@ -370,14 +239,13 @@ export const AppContextProvider = ({ children }) => {
                 toast.error(error.message);
             }
         }
-    }, [fetchWishlist]);
+    };
 
-    // ⚡ Optimisation : isInWishlist avec useMemo
-    const isInWishlist = useCallback((productId) => {
+    const isInWishlist = (productId) => {
         return wishlist.some(item => item._id === productId);
-    }, [wishlist]);
+    };
 
-    const addToCart = useCallback((productId, color = null, size = null) => {
+    const addToCart = (productId, color = null, size = null) => {
         const key = getCartKey(productId, color, size);
         let cartData = structuredClone(cartItems);
         if (cartData[key]) {
@@ -386,9 +254,9 @@ export const AppContextProvider = ({ children }) => {
             cartData[key] = 1;
         }
         setCartItems(cartData);
-    }, [cartItems, getCartKey, setCartItems]);
+    };
 
-    const addToCartWithQuantity = useCallback((productId, quantity, color = null, size = null) => {
+    const addToCartWithQuantity = (productId, quantity, color = null, size = null) => {
         const key = getCartKey(productId, color, size);
         let cartData = structuredClone(cartItems);
         if (cartData[key]) {
@@ -398,9 +266,9 @@ export const AppContextProvider = ({ children }) => {
         }
         setCartItems(cartData);
         toast.success(`${quantity} article(s) ajouté(s) au panier`);
-    }, [cartItems, getCartKey, setCartItems]);
+    };
 
-    const updateCartItem = useCallback((key, quantity) => {
+    const updateCartItem = (key, quantity) => {
         let cartData = structuredClone(cartItems);
         if (quantity <= 0) {
             delete cartData[key];
@@ -409,9 +277,9 @@ export const AppContextProvider = ({ children }) => {
         }
         setCartItems(cartData);
         toast.success("Panier mis à jour");
-    }, [cartItems, setCartItems]);
+    };
 
-    const removeFromCart = useCallback((key) => {
+    const removeFromCart = (key) => {
         let cartData = structuredClone(cartItems);
         if (cartData[key]) {
             cartData[key] -= 1;
@@ -421,10 +289,9 @@ export const AppContextProvider = ({ children }) => {
         }
         toast.success("Retiré du panier");
         setCartItems(cartData);
-    }, [cartItems, setCartItems]);
+    };
 
-    // ⚡ Optimisation : getCartCount avec useMemo
-    const getCartCount = useCallback(() => {
+    const getCartCount = () => {
         let totalCount = 0;
         for (const item in cartItems) {
             if (cartItems[item] > 0) {
@@ -432,10 +299,9 @@ export const AppContextProvider = ({ children }) => {
             }
         }
         return totalCount;
-    }, [cartItems]);
+    };
 
-    // ⚡ Optimisation : getCartAmount avec useMemo
-    const getCartAmount = useCallback(() => {
+    const getCartAmount = () => {
         let totalAmount = 0;
         for (const key in cartItems) {
             const productId = getProductIdFromKey(key);
@@ -446,10 +312,10 @@ export const AppContextProvider = ({ children }) => {
         }
         if (totalAmount % 1 !== 0) return Math.ceil(totalAmount);
         return totalAmount;
-    }, [cartItems, products, getProductIdFromKey]);
+    };
 
-    // ✅ LOGIN USER OPTIMISÉ
-    const loginUser = useCallback(async (email, password) => {
+    // ✅ LOGIN USER CORRIGÉ - Fusion du panier local
+    const loginUser = async (email, password) => {
         try {
             const { data } = await axios.post('/api/user/login', { email, password });
             if (data.success) {
@@ -457,17 +323,17 @@ export const AppContextProvider = ({ children }) => {
                 setToken(data.token);
                 setAuthToken(data.token);
                 
+                // Récupérer le panier local avant de le perdre
                 const localCart = loadCartFromLocalStorage();
+                
                 setUser(data.user);
                 
+                // Fusionner le panier local avec le panier du serveur
                 const serverCart = data.user.cartItems || {};
                 const mergedCart = { ...serverCart, ...localCart };
                 setCartItems(mergedCart);
                 
-                // ⚡ Invalider le cache
-                queryCache.clear();
-                
-                await fetchOrders(true);
+                await fetchOrders();
                 toast.success("Connexion réussie");
                 navigate('/');
             } else {
@@ -476,10 +342,10 @@ export const AppContextProvider = ({ children }) => {
         } catch (error) {
             toast.error(error.response?.data?.message || error.message);
         }
-    }, [fetchOrders, navigate, setCartItems]);
+    };
 
-    // ✅ REGISTER USER OPTIMISÉ
-    const registerUser = useCallback(async (firstName, lastName, email, password) => {
+    // ✅ REGISTER USER CORRIGÉ - Garde le panier local
+    const registerUser = async (firstName, lastName, email, password) => {
         try {
             const { data } = await axios.post('/api/user/register', {
                 firstName,
@@ -492,11 +358,13 @@ export const AppContextProvider = ({ children }) => {
                 setToken(data.token);
                 setAuthToken(data.token);
                 
+                // Récupérer le panier local
                 const localCart = loadCartFromLocalStorage();
-                setUser(data.user);
-                setCartItems(localCart);
                 
-                queryCache.clear();
+                setUser(data.user);
+                
+                // Le panier du serveur est vide pour un nouveau compte
+                setCartItems(localCart);
                 
                 toast.success("Inscription réussie");
                 navigate('/');
@@ -506,11 +374,12 @@ export const AppContextProvider = ({ children }) => {
         } catch (error) {
             toast.error(error.message);
         }
-    }, [navigate, setCartItems]);
+    };
 
-    // ✅ LOGOUT USER OPTIMISÉ
-    const logoutUser = useCallback(async () => {
+    // ✅ LOGOUT USER CORRIGÉ - Sauvegarde le panier
+    const logoutUser = async () => {
         try {
+            // Sauvegarder le panier dans localStorage avant déconnexion
             if (cartItems && Object.keys(cartItems).length > 0) {
                 localStorage.setItem(CART_KEY, JSON.stringify(cartItems));
             }
@@ -524,8 +393,7 @@ export const AppContextProvider = ({ children }) => {
             setUser(null);
             setIsSeller(false);
             
-            queryCache.clear();
-            
+            // Recharger le panier depuis localStorage (pas de perte)
             setCartItems(loadCartFromLocalStorage());
             setOrders([]);
             
@@ -534,9 +402,9 @@ export const AppContextProvider = ({ children }) => {
         } catch (error) {
             toast.error(error.message);
         }
-    }, [cartItems, navigate, setCartItems]);
+    };
 
-    const loginSeller = useCallback(async (email, password) => {
+    const loginSeller = async (email, password) => {
         try {
             const { data } = await axios.post('/api/seller/login', { email, password });
             if (data.success) {
@@ -549,9 +417,6 @@ export const AppContextProvider = ({ children }) => {
                 setAuthToken(data.token);
                 setIsSeller(true);
                 setUser(data.seller);
-                
-                queryCache.clear();
-                
                 toast.success("Connexion vendeur réussie");
                 navigate('/seller/dashboard');
             } else {
@@ -560,9 +425,9 @@ export const AppContextProvider = ({ children }) => {
         } catch (error) {
             toast.error(error.response?.data?.message || error.message);
         }
-    }, [navigate]);
+    };
 
-    const logoutSeller = useCallback(() => {
+    const logoutSeller = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('isSeller');
         localStorage.removeItem('sellerData');
@@ -570,64 +435,40 @@ export const AppContextProvider = ({ children }) => {
         setAuthToken(null);
         setIsSeller(false);
         setUser(null);
-        
-        queryCache.clear();
-        
         toast.success("Déconnexion vendeur réussie");
         navigate('/seller');
-    }, [navigate]);
+    };
 
-    // ⚡ Optimisation : initialisation unique avec AbortController
     useEffect(() => {
-        if (isInitialized.current) return;
-        isInitialized.current = true;
+        const token = getToken();
+        const isOnSellerPage = window.location.pathname.includes('/seller');
         
-        const abortController = new AbortController();
-        
-        const init = async () => {
-            const token = getToken();
-            const isOnSellerPage = window.location.pathname.includes('/seller');
-            
-            if (token) {
-                if (isOnSellerPage) {
-                    await fetchSeller(true);
-                } else {
-                    await Promise.all([
-                        fetchUser(true),
-                        fetchSeller(true)
-                    ]);
-                }
+        if (token) {
+            if (isOnSellerPage) {
+                fetchSeller();
             } else {
-                setCartItems(loadCartFromLocalStorage());
-                if (!isOnSellerPage) {
-                    setIsSeller(false);
-                }
+                fetchUser();
+                fetchSeller();
             }
-            
-            await fetchProducts(true);
-            loadRecentlyViewed();
-        };
-        
-        init();
-        
-        return () => {
-            abortController.abort();
-        };
-    }, [fetchUser, fetchSeller, fetchProducts, setCartItems]);
+        } else {
+            setCartItems(loadCartFromLocalStorage());
+            if (!isOnSellerPage) {
+                setIsSeller(false);
+            }
+        }
+        fetchProducts();
+        loadRecentlyViewed();
+    }, []);
 
-    // ⚡ Optimisation : fetch wishlist et orders seulement quand user change
     useEffect(() => {
         if (user) {
-            fetchWishlist(true);
-            fetchOrders(true);
+            fetchWishlist();
+            fetchOrders();
         }
-    }, [user, fetchWishlist, fetchOrders]);
+    }, [user]);
 
-    // ⚡ Optimisation : update cart avec debounce
     useEffect(() => {
-        if (!user) return;
-        
-        const timeoutId = setTimeout(async () => {
+        const updateCart = async () => {
             try {
                 const { data } = await axios.post('/api/cart/update', { cartItems });
                 if (!data.success) {
@@ -636,27 +477,13 @@ export const AppContextProvider = ({ children }) => {
             } catch (error) {
                 console.error(error);
             }
-        }, 500); // ⚡ Debounce de 500ms
-        
-        return () => clearTimeout(timeoutId);
-    }, [cartItems, user]);
+        };
+        if (user) {
+            updateCart();
+        }
+    }, [cartItems]);
 
-    // ⚡ Optimisation : nettoyage du cache périodique
-    useEffect(() => {
-        const cleanup = setInterval(() => {
-            const now = Date.now();
-            for (const [key, value] of queryCache) {
-                if (now - value.timestamp > CACHE_DURATION) {
-                    queryCache.delete(key);
-                }
-            }
-        }, 60000); // Nettoyer toutes les minutes
-        
-        return () => clearInterval(cleanup);
-    }, []);
-
-    // ⚡ Optimisation : value avec useMemo
-    const value = useMemo(() => ({
+    const value = {
         navigate, user, setUser, token, setToken,
         setIsSeller, isSeller,
         showUserLogin, setShowUserLogin, products, currency,
@@ -668,19 +495,7 @@ export const AppContextProvider = ({ children }) => {
         loginSeller, logoutSeller,
         recentlyViewed, addToRecentlyViewed,
         orders
-    }), [
-        navigate, user, setUser, token, setToken,
-        setIsSeller, isSeller,
-        showUserLogin, setShowUserLogin, products, currency,
-        addToCart, addToCartWithQuantity, updateCartItem, removeFromCart, cartItems,
-        searchQuery, setSearchQuery, getCartAmount, getCartCount,
-        fetchProducts, setCartItems, getCartKey, getProductIdFromKey,
-        wishlist, addToWishlist, removeFromWishlist, isInWishlist, fetchWishlist,
-        fetchUser, loginUser, registerUser, logoutUser,
-        loginSeller, logoutSeller,
-        recentlyViewed, addToRecentlyViewed,
-        orders
-    ]);
+    };
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
