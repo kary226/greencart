@@ -32,6 +32,11 @@ const ProductList = () => {
     const [uploadingImages, setUploadingImages] = useState(false)
     const [showImageUpload, setShowImageUpload] = useState(false)
 
+    // --- Sélection multiple ---
+    const [selectedIds, setSelectedIds] = useState([])
+    const [deletingMultiple, setDeletingMultiple] = useState(false)
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+
     const fetchCategories = async () => {
         try {
             const { data } = await axios.get('/api/category/list');
@@ -58,36 +63,30 @@ const ProductList = () => {
         let filtered = [...products]
 
         if (searchTerm) {
-            filtered = filtered.filter(p => 
+            filtered = filtered.filter(p =>
                 p.name.toLowerCase().includes(searchTerm.toLowerCase())
             )
         }
 
         if (selectedCategoryFilter !== 'all') {
-            filtered = filtered.filter(p => 
+            filtered = filtered.filter(p =>
                 p.categories?.includes(selectedCategoryFilter)
             )
         }
 
         if (stockFilter === 'inStock') {
             filtered = filtered.filter(p => {
-                if (p.variants?.length > 0) {
-                    return p.variants.some(v => v.stock > 0)
-                }
+                if (p.variants?.length > 0) return p.variants.some(v => v.stock > 0)
                 return p.stock > 0
             })
         } else if (stockFilter === 'outOfStock') {
             filtered = filtered.filter(p => {
-                if (p.variants?.length > 0) {
-                    return p.variants.every(v => v.stock === 0)
-                }
+                if (p.variants?.length > 0) return p.variants.every(v => v.stock === 0)
                 return p.stock === 0
             })
         } else if (stockFilter === 'lowStock') {
             filtered = filtered.filter(p => {
-                if (p.variants?.length > 0) {
-                    return p.variants.some(v => v.stock > 0 && v.stock <= 5)
-                }
+                if (p.variants?.length > 0) return p.variants.some(v => v.stock > 0 && v.stock <= 5)
                 return p.stock > 0 && p.stock <= 5
             })
         } else if (stockFilter === 'onSale') {
@@ -141,6 +140,7 @@ const ProductList = () => {
 
     useEffect(() => {
         setCurrentPage(1)
+        setSelectedIds([])
     }, [searchTerm, stockFilter, selectedCategoryFilter, sortBy, sortOrder])
 
     const stats = {
@@ -160,6 +160,45 @@ const ProductList = () => {
         onSale: products.filter(p => p.offerPrice && p.offerPrice < p.price).length
     }
 
+    // --- Sélection ---
+    const allPageSelected = paginatedProducts.length > 0 && paginatedProducts.every(p => selectedIds.includes(p._id))
+    const somePageSelected = paginatedProducts.some(p => selectedIds.includes(p._id))
+
+    const toggleSelectAll = () => {
+        if (allPageSelected) {
+            setSelectedIds(selectedIds.filter(id => !paginatedProducts.find(p => p._id === id)))
+        } else {
+            const newIds = paginatedProducts.map(p => p._id).filter(id => !selectedIds.includes(id))
+            setSelectedIds([...selectedIds, ...newIds])
+        }
+    }
+
+    const toggleSelectOne = (id) => {
+        setSelectedIds(prev =>
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        )
+    }
+
+    const handleDeleteSelected = async () => {
+        setDeletingMultiple(true)
+        try {
+            const results = await Promise.allSettled(
+                selectedIds.map(id => axios.post('/api/product/delete', { id }))
+            )
+            const succeeded = results.filter(r => r.status === 'fulfilled' && r.value?.data?.success).length
+            const failed = results.length - succeeded
+            await fetchProducts()
+            setSelectedIds([])
+            setShowDeleteConfirm(false)
+            if (succeeded > 0) toast.success(`${succeeded} produit(s) supprimé(s)`)
+            if (failed > 0) toast.error(`${failed} suppression(s) échouée(s)`)
+        } catch (error) {
+            toast.error(error.message)
+        } finally {
+            setDeletingMultiple(false)
+        }
+    }
+
     const toggleStock = async (id, inStock) => {
         try {
             const { data } = await axios.post('/api/product/stock', { id, inStock });
@@ -177,8 +216,8 @@ const ProductList = () => {
     const handleEdit = (product) => {
         setEditProduct({
             ...product,
-            description: Array.isArray(product.description) 
-                ? product.description.join('\n') 
+            description: Array.isArray(product.description)
+                ? product.description.join('\n')
                 : (product.description || ''),
             variants: product.variants || [],
             categories: product.categories || [],
@@ -370,7 +409,7 @@ const ProductList = () => {
                 <div className="mb-6">
                     <h1 className="text-2xl font-bold text-gray-900">Liste des produits</h1>
                     <p className="text-sm text-gray-500 mt-1">Gérez tous vos produits</p>
-                    
+
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4">
                         <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
                             <p className="text-xs text-gray-500">Total</p>
@@ -454,8 +493,23 @@ const ProductList = () => {
                         </button>
                     </div>
 
-                    <div className="mt-3 text-xs text-gray-500">
-                        {totalProducts} produit(s) trouvé(s)
+                    <div className="mt-3 flex items-center justify-between">
+                        <span className="text-xs text-gray-500">{totalProducts} produit(s) trouvé(s)</span>
+
+                        {selectedIds.length > 0 && (
+                            <button
+                                onClick={() => setShowDeleteConfirm(true)}
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-xl hover:bg-red-600 transition"
+                            >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <polyline points="3 6 5 6 21 6"/>
+                                    <path d="M19 6l-1 14H6L5 6"/>
+                                    <path d="M10 11v6M14 11v6"/>
+                                    <path d="M9 6V4h6v2"/>
+                                </svg>
+                                Supprimer {selectedIds.length} produit(s)
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -474,6 +528,15 @@ const ProductList = () => {
                                 <table className="w-full">
                                     <thead>
                                         <tr className="bg-gray-50 border-b border-gray-100">
+                                            <th className="px-4 py-4 w-10">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={allPageSelected}
+                                                    ref={el => { if (el) el.indeterminate = somePageSelected && !allPageSelected }}
+                                                    onChange={toggleSelectAll}
+                                                    className="w-4 h-4 accent-red-500 cursor-pointer"
+                                                />
+                                            </th>
                                             <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Produit</th>
                                             <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Catégorie(s)</th>
                                             <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Prix</th>
@@ -486,7 +549,18 @@ const ProductList = () => {
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
                                         {paginatedProducts.map((product) => (
-                                            <tr key={product._id} className="hover:bg-gray-50 transition">
+                                            <tr
+                                                key={product._id}
+                                                className={`hover:bg-gray-50 transition ${selectedIds.includes(product._id) ? 'bg-red-50' : ''}`}
+                                            >
+                                                <td className="px-4 py-4">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedIds.includes(product._id)}
+                                                        onChange={() => toggleSelectOne(product._id)}
+                                                        className="w-4 h-4 accent-red-500 cursor-pointer"
+                                                    />
+                                                </td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
@@ -563,12 +637,12 @@ const ProductList = () => {
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <label className="relative inline-flex items-center cursor-pointer">
-                                                        <input 
-                                                            onClick={() => toggleStock(product._id, !product.inStock)} 
-                                                            checked={product.inStock} 
-                                                            type="checkbox" 
-                                                            className="sr-only peer" 
-                                                            readOnly 
+                                                        <input
+                                                            onClick={() => toggleStock(product._id, !product.inStock)}
+                                                            checked={product.inStock}
+                                                            type="checkbox"
+                                                            className="sr-only peer"
+                                                            readOnly
                                                         />
                                                         <div className="w-10 h-5 bg-gray-300 rounded-full peer peer-checked:bg-red-500 transition-colors duration-200"></div>
                                                         <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform duration-200 peer-checked:translate-x-5"></div>
@@ -576,7 +650,7 @@ const ProductList = () => {
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex gap-2">
-                                                        <button 
+                                                        <button
                                                             onClick={() => handleEdit(product)}
                                                             className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition"
                                                         >
@@ -586,7 +660,7 @@ const ProductList = () => {
                                                             </svg>
                                                             Modifier
                                                         </button>
-                                                        <button 
+                                                        <button
                                                             onClick={() => handleDelete(product._id)}
                                                             className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition"
                                                         >
@@ -620,7 +694,7 @@ const ProductList = () => {
                                         <option value={100}>100</option>
                                     </select>
                                 </div>
-                                
+
                                 <div className="flex gap-2">
                                     <button
                                         onClick={() => setCurrentPage(1)}
@@ -660,13 +734,61 @@ const ProductList = () => {
                 )}
             </div>
 
+            {/* Modal confirmation suppression multiple */}
+            {showDeleteConfirm && (
+                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2">
+                                    <polyline points="3 6 5 6 21 6"/>
+                                    <path d="M19 6l-1 14H6L5 6"/>
+                                    <path d="M10 11v6M14 11v6"/>
+                                    <path d="M9 6V4h6v2"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 className="text-base font-semibold text-gray-900">Confirmer la suppression</h3>
+                                <p className="text-sm text-gray-500 mt-0.5">
+                                    {selectedIds.length} produit(s) seront définitivement supprimés.
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowDeleteConfirm(false)}
+                                disabled={deletingMultiple}
+                                className="flex-1 py-2.5 border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition disabled:opacity-50"
+                            >
+                                Annuler
+                            </button>
+                            <button
+                                onClick={handleDeleteSelected}
+                                disabled={deletingMultiple}
+                                className="flex-1 py-2.5 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                {deletingMultiple ? (
+                                    <>
+                                        <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                                        </svg>
+                                        Suppression...
+                                    </>
+                                ) : 'Supprimer'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal édition produit */}
             {editProduct && (
                 <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setEditProduct(null)}>
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
                         <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-white">
                             <h3 className="text-lg font-semibold text-gray-900">Modifier le produit</h3>
-                            <button 
-                                onClick={() => setEditProduct(null)} 
+                            <button
+                                onClick={() => setEditProduct(null)}
                                 className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition"
                             >
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -686,7 +808,7 @@ const ProductList = () => {
                                         <img key={idx} src={img} alt="" className="w-16 h-16 object-cover rounded-lg border" />
                                     ))}
                                 </div>
-                                
+
                                 {!showImageUpload ? (
                                     <button
                                         type="button"
@@ -741,8 +863,8 @@ const ProductList = () => {
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Nom</label>
-                                <input 
-                                    value={editProduct.name} 
+                                <input
+                                    value={editProduct.name}
                                     onChange={e => setEditProduct({ ...editProduct, name: e.target.value })}
                                     className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
                                 />
@@ -785,18 +907,18 @@ const ProductList = () => {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Prix original</label>
-                                    <input 
-                                        type="number" 
-                                        value={editProduct.price} 
+                                    <input
+                                        type="number"
+                                        value={editProduct.price}
                                         onChange={e => setEditProduct({ ...editProduct, price: e.target.value })}
                                         className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
                                     />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Prix promo</label>
-                                    <input 
-                                        type="number" 
-                                        value={editProduct.offerPrice} 
+                                    <input
+                                        type="number"
+                                        value={editProduct.offerPrice}
                                         onChange={e => setEditProduct({ ...editProduct, offerPrice: e.target.value })}
                                         className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
                                     />
@@ -807,9 +929,9 @@ const ProductList = () => {
                                 <>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Taille (optionnel)</label>
-                                        <input 
-                                            type="text" 
-                                            value={editProduct.size || ''} 
+                                        <input
+                                            type="text"
+                                            value={editProduct.size || ''}
                                             onChange={e => setEditProduct({ ...editProduct, size: e.target.value || null })}
                                             className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
                                             placeholder="Ex: S, M, L, XL"
@@ -817,9 +939,9 @@ const ProductList = () => {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Stock</label>
-                                        <input 
-                                            type="number" 
-                                            value={editProduct.stock || 0} 
+                                        <input
+                                            type="number"
+                                            value={editProduct.stock || 0}
                                             onChange={e => setEditProduct({ ...editProduct, stock: parseInt(e.target.value) || 0 })}
                                             className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
                                             min="0"
@@ -832,65 +954,65 @@ const ProductList = () => {
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Variantes par couleur</label>
                                 <div className="bg-gray-50 p-3 rounded-xl space-y-3 mb-3">
                                     <div className="flex gap-2 items-center">
-                                        <input 
-                                            value={colorInput} 
+                                        <input
+                                            value={colorInput}
                                             onChange={e => setColorInput(e.target.value)}
-                                            type="text" 
+                                            type="text"
                                             placeholder="Couleur (ex: Rouge)"
                                             className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
                                         />
-                                        <input 
-                                            value={colorCodeInput} 
+                                        <input
+                                            value={colorCodeInput}
                                             onChange={e => setColorCodeInput(e.target.value)}
-                                            type="color" 
+                                            type="color"
                                             className="w-12 h-10 rounded-xl border border-gray-200 cursor-pointer"
                                         />
                                     </div>
                                     <div className="flex gap-2">
-                                        <input 
-                                            value={sizeInput} 
+                                        <input
+                                            value={sizeInput}
                                             onChange={e => setSizeInput(e.target.value)}
-                                            type="text" 
+                                            type="text"
                                             placeholder="Taille (optionnel)"
                                             className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
                                         />
-                                        <input 
-                                            value={stockInput} 
+                                        <input
+                                            value={stockInput}
                                             onChange={e => setStockInput(e.target.value)}
-                                            type="number" 
+                                            type="number"
                                             placeholder="Stock"
                                             className="w-24 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
                                         />
                                     </div>
                                     <div className="flex gap-2">
-                                        <input 
-                                            value={variantPriceInput} 
+                                        <input
+                                            value={variantPriceInput}
                                             onChange={e => setVariantPriceInput(e.target.value)}
-                                            type="number" 
+                                            type="number"
                                             placeholder="Prix (optionnel)"
                                             className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
                                         />
-                                        <input 
-                                            value={variantOfferPriceInput} 
+                                        <input
+                                            value={variantOfferPriceInput}
                                             onChange={e => setVariantOfferPriceInput(e.target.value)}
-                                            type="number" 
+                                            type="number"
                                             placeholder="Prix promo (optionnel)"
                                             className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
                                         />
                                     </div>
                                     <div>
                                         <label className="text-xs text-gray-600 mb-1 block">Position de départ (0 = première photo)</label>
-                                        <input 
-                                            value={startImageIndexInput} 
+                                        <input
+                                            value={startImageIndexInput}
                                             onChange={e => setStartImageIndexInput(Number(e.target.value))}
-                                            type="number" 
+                                            type="number"
                                             min="0"
                                             placeholder="Ex: 0 pour Rouge, 3 pour Bleu"
                                             className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
                                         />
                                     </div>
-                                    <button 
-                                        type="button" 
+                                    <button
+                                        type="button"
                                         onClick={addVariant}
                                         className="w-full py-2 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 transition"
                                     >
@@ -909,7 +1031,7 @@ const ProductList = () => {
                                                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Stock</th>
                                                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Départ</th>
                                                     <th className="px-3 py-2 w-20"></th>
-                                                 </tr>
+                                                </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-100">
                                                 {editProduct.variants.map((v, i) => (
@@ -923,15 +1045,15 @@ const ProductList = () => {
                                                         <td className="px-3 py-2 text-sm text-gray-600">{v.size || '—'}</td>
                                                         <td className="px-3 py-2">
                                                             <div className="flex gap-1">
-                                                                <input 
-                                                                    type="number" 
+                                                                <input
+                                                                    type="number"
                                                                     value={v.price || ''}
                                                                     onChange={e => updateVariantPrice(i, e.target.value, false)}
                                                                     placeholder="Prix"
                                                                     className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:border-red-500 outline-none"
                                                                 />
-                                                                <input 
-                                                                    type="number" 
+                                                                <input
+                                                                    type="number"
                                                                     value={v.offerPrice || ''}
                                                                     onChange={e => updateVariantPrice(i, e.target.value, true)}
                                                                     placeholder="Promo"
@@ -940,16 +1062,16 @@ const ProductList = () => {
                                                             </div>
                                                         </td>
                                                         <td className="px-3 py-2">
-                                                            <input 
-                                                                type="number" 
+                                                            <input
+                                                                type="number"
                                                                 value={v.stock}
                                                                 onChange={e => updateVariantStock(i, e.target.value)}
                                                                 className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:border-red-500 outline-none"
                                                             />
                                                         </td>
                                                         <td className="px-3 py-2">
-                                                            <input 
-                                                                type="number" 
+                                                            <input
+                                                                type="number"
                                                                 value={v.startImageIndex || 0}
                                                                 onChange={e => updateVariantStartIndex(i, e.target.value)}
                                                                 className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:border-red-500 outline-none"
@@ -957,8 +1079,8 @@ const ProductList = () => {
                                                         </td>
                                                         <td className="px-3 py-2">
                                                             <div className="flex gap-1">
-                                                                <button 
-                                                                    type="button" 
+                                                                <button
+                                                                    type="button"
                                                                     onClick={() => editVariant(i)}
                                                                     className="text-blue-400 hover:text-blue-600 transition"
                                                                 >
@@ -966,8 +1088,8 @@ const ProductList = () => {
                                                                         <path d="M17 3l4 4-7 7H10v-4l7-7z"/>
                                                                     </svg>
                                                                 </button>
-                                                                <button 
-                                                                    type="button" 
+                                                                <button
+                                                                    type="button"
                                                                     onClick={() => removeVariant(i)}
                                                                     className="text-red-400 hover:text-red-600 transition"
                                                                 >
@@ -977,8 +1099,8 @@ const ProductList = () => {
                                                                     </svg>
                                                                 </button>
                                                             </div>
-                                                         </td>
-                                                     </tr>
+                                                        </td>
+                                                    </tr>
                                                 ))}
                                             </tbody>
                                         </table>
@@ -988,13 +1110,13 @@ const ProductList = () => {
                         </div>
 
                         <div className="p-5 border-t border-gray-100 flex gap-3 bg-gray-50">
-                            <button 
+                            <button
                                 onClick={() => setEditProduct(null)}
                                 className="flex-1 py-2.5 border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-100 transition"
                             >
                                 Annuler
                             </button>
-                            <button 
+                            <button
                                 onClick={handleUpdate}
                                 className="flex-1 py-2.5 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 transition"
                             >
