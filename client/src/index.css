@@ -1,10 +1,82 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap');
+
 @import "tailwindcss";
 
 /* FORCER LE MODE CLAIR - Empêche tout mode sombre */
 :root {
   color-scheme: light only;
-  
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+  background: #ffffff;
+}
+
+body {
+  margin: 0;
+  background: #ffffff;
+  color: #111111;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  padding-bottom: 70px; /* Pour la bottom nav */
+}
+
+/* Scrollbar masquée pour les conteneurs horizontaux */
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-hide::-webkit-scrollbar { 
+  display: none; 
+}
+
+.no-scrollbar, 
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+/* Reset liens */
+a { 
+  color: inherit; 
+  text-decoration: none; 
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: #e53935;
+}
+
+/* Mise en page globale app - version desktop first */
+.app-root {
+  max-width: 1440px;
+  margin: 0 auto;
+  background: #ffffff;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* Container responsive */
+.container-responsive {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+@media (max-width: 768px) {
+  .container-responsive {
+    padding: 0 16px;
+  }
+}
+
+/* Variables CSS personnalisées */
+:root {
   /* Noir & Blanc */
   --color-primary: #111111;
   --color-primary-dark: #000000;
@@ -34,75 +106,7 @@
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-*, *::before, *::after {
-  box-sizing: border-box;
-}
-
-html {
-  -webkit-text-size-adjust: 100%;
-  scroll-behavior: smooth;
-  background: #ffffff;
-}
-
-body {
-  margin: 0;
-  background: #ffffff;
-  color: #111111;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 14px;
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  padding-bottom: 70px;
-}
-
-/* Scrollbar masquée pour les conteneurs horizontaux */
-.no-scrollbar::-webkit-scrollbar,
-.scrollbar-hide::-webkit-scrollbar { 
-  display: none; 
-}
-
-.no-scrollbar, 
-.scrollbar-hide {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-/* Reset liens */
-a { 
-  color: inherit; 
-  text-decoration: none; 
-  transition: color 0.2s ease;
-}
-
-a:hover {
-  color: #e53935;
-}
-
-/* Mise en page globale app */
-.app-root {
-  max-width: 1440px;
-  margin: 0 auto;
-  background: #ffffff;
-  min-height: 100vh;
-  position: relative;
-}
-
-/* Container responsive */
-.container-responsive {
-  width: 100%;
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 0 24px;
-}
-
-@media (max-width: 768px) {
-  .container-responsive {
-    padding: 0 16px;
-  }
-}
-
-/* Classes utilitaires */
+/* Classes utilitaires supplémentaires */
 .text-primary { color: #111111; }
 .text-accent { color: #e53935; }
 .bg-primary { background-color: #111111; }
@@ -110,9 +114,9 @@ a:hover {
 .border-primary { border-color: #111111; }
 .border-accent { border-color: #e53935; }
 
-.hover-bg-primary-dark:hover { background-color: #000000; }
-.hover-bg-accent-dark:hover { background-color: #c62828; }
-.hover-text-accent:hover { color: #e53935; }
+.hover\:bg-primary-dark:hover { background-color: #000000; }
+.hover\:bg-accent-dark:hover { background-color: #c62828; }
+.hover\:text-accent:hover { color: #e53935; }
 
 /* Animations */
 @keyframes spin {
@@ -132,7 +136,7 @@ a:hover {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-/* Cards */
+/* Cards et surfaces modernes */
 .card-modern {
   background: #ffffff;
   border-radius: 20px;
@@ -145,7 +149,7 @@ a:hover {
   transform: translateY(-2px);
 }
 
-/* Boutons */
+/* Boutons modernes */
 .btn-modern {
   display: inline-flex;
   align-items: center;
@@ -181,7 +185,7 @@ a:hover {
   color: #e53935;
 }
 
-/* Badges */
+/* Badges modernes */
 .badge {
   display: inline-flex;
   align-items: center;
@@ -212,7 +216,7 @@ a:hover {
   color: #2563eb;
 }
 
-/* Inputs */
+/* Inputs modernes */
 .input-modern {
   width: 100%;
   padding: 12px 16px;
@@ -233,7 +237,7 @@ a:hover {
   border-color: #e53935;
 }
 
-/* Select */
+/* Select modernes */
 .select-modern {
   width: 100%;
   padding: 12px 16px;
@@ -250,7 +254,7 @@ a:hover {
   outline: none;
 }
 
-/* Checkbox */
+/* Checkbox et Radio modernes */
 .checkbox-modern {
   width: 18px;
   height: 18px;
@@ -277,7 +281,7 @@ a:hover {
   background: linear-gradient(180deg, transparent, #e5e7eb, transparent);
 }
 
-/* Grille produit */
+/* Grille produit moderne */
 .product-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -291,7 +295,7 @@ a:hover {
   }
 }
 
-/* Scrollbar personnalisée */
+/* Barre de défilement personnalisée */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -311,248 +315,15 @@ a:hover {
   background: #e53935;
 }
 
-/* Pages seller */
+/* Corps des pages seller - pas de padding bottom */
 .seller-layout {
   padding-bottom: 0;
 }
 
-/* Forcer le mode clair */
+/* Forcer tous les éléments en mode clair (évite les overrides sombres) */
 @media (prefers-color-scheme: dark) {
   body, html, .app-root, .card-modern, .input-modern, .select-modern {
     background: #ffffff !important;
     color: #111111 !important;
   }
 }
-
-/* ============================================
-   PRODUCT CARD - STYLE SHEIN
-   ============================================ */
-
-.sc-card {
-  background: #ffffff;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  transition: transform 0.25s ease;
-}
-
-.sc-card:hover {
-  transform: translateY(-3px);
-}
-
-.sc-card-img-wrap {
-  position: relative;
-  display: block;
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  overflow: hidden;
-  background: #f5f3f0;
-  border-radius: 0;
-  text-decoration: none;
-}
-
-@keyframes sc-shimmer {
-  0%   { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-.sc-skeleton {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, #f5f2ec 25%, #fbe9e7 45%, #f5f2ec 65%);
-  background-size: 200% 100%;
-  animation: sc-shimmer 1.6s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .sc-skeleton { animation: none; }
-}
-
-.sc-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.35s ease, opacity 0.35s ease;
-  opacity: 0;
-}
-
-.sc-img.loaded {
-  opacity: 1;
-}
-
-.sc-card-img-wrap:hover .sc-img {
-  transform: scale(1.05);
-}
-
-.sc-no-img {
-  width: 100%;
-  height: 100%;
-  background: #ede8e0;
-}
-
-.sc-badge {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  font-family: 'Inter', sans-serif;
-  font-size: 10px;
-  font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 3px;
-  z-index: 2;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-}
-
-.sc-promo {
-  background: #e53935;
-  color: #ffffff;
-}
-
-.sc-sold {
-  background: rgba(0, 0, 0, 0.65);
-  color: #ffffff;
-}
-
-.sc-low {
-  background: #111111;
-  color: #ffffff;
-  font-size: 9px;
-}
-
-.sc-wishlist {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.92);
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 2;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  transition: all 0.25s ease;
-  backdrop-filter: blur(4px);
-}
-
-.sc-wishlist:hover {
-  transform: scale(1.12);
-  background: #ffffff;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-}
-
-.sc-wishlist:active {
-  transform: scale(0.92);
-}
-
-.sc-wishlist.active {
-  background: #fff5f5;
-}
-
-.sc-wishlist svg {
-  transition: transform 0.2s ease;
-}
-
-.sc-wishlist:hover svg {
-  transform: scale(1.05);
-}
-
-.sc-info {
-  padding: 10px 4px 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  text-decoration: none;
-}
-
-.sc-name {
-  font-family: 'Inter', sans-serif;
-  font-size: 13px;
-  font-weight: 400;
-  color: #333333;
-  margin: 0;
-  line-height: 1.4;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  height: 36px;
-}
-
-.sc-prices {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.sc-price {
-  font-family: 'Inter', sans-serif;
-  font-size: 14px;
-  font-weight: 700;
-  color: #111111;
-}
-
-.sc-price:hover {
-  color: #e53935;
-}
-
-.sc-old {
-  font-family: 'Inter', sans-serif;
-  font-size: 11px;
-  color: #bbbbbb;
-  text-decoration: line-through;
-}
-
-/* Responsive */
-@media (max-width: 480px) {
-  .sc-name {
-    font-size: 12px;
-    height: 32px;
-  }
-  
-  .sc-price {
-    font-size: 13px;
-  }
-  
-  .sc-wishlist {
-    width: 28px;
-    height: 28px;
-  }
-  
-  .sc-wishlist svg {
-    width: 14px;
-    height: 14px;
-  }
-  
-  .sc-badge {
-    font-size: 9px;
-    padding: 2px 6px;
-    top: 6px;
-    left: 6px;
-  }
-}
-
-@media (min-width: 481px) and (max-width: 768px) {
-  .sc-name {
-    font-size: 12px;
-    height: 34px;
-  }
-}
-
-/* Format rectangulaire (optionnel) */
-.sc-card-img-wrap.portrait {
-  aspect-ratio: 3 / 4;
-}
-
-.sc-card-img-wrap.landscape {
-  aspect-ratio: 4 / 3;
-}
-
-/* ============================================
-   FIN PRODUCT CARD
-   ============================================ */
