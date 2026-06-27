@@ -33,6 +33,8 @@ await connectCloudinary()
 const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:5174',
+    'http://ramci.ci',
+    'http://www.ramci.ci',
     'https://greencart-pied-six.vercel.app',
     'https://greencart-ci.vercel.app',
     'https://greencart-five-ochre.vercel.app',
