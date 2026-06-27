@@ -461,6 +461,7 @@ const ProductDetails = () => {
               <p className="pd-cart-indicator">{currentQty} dans le panier</p>
             )}
 
+            {/* SECTION DÉTAILS CORRIGÉE */}
             <div className="pd-details">
               <button
                 type="button"
@@ -473,7 +474,12 @@ const ProductDetails = () => {
                 Détails <span>{showDetails ? '▲' : '▼'}</span>
               </button>
               {showDetails && (
-                <div className="pd-details-content" dangerouslySetInnerHTML={{ __html: product.description || '' }} />
+                <div className="pd-details-content">
+                  <div 
+                    className="pd-description-html"
+                    dangerouslySetInnerHTML={{ __html: product.description || '' }}
+                  />
+                </div>
               )}
             </div>
           </div>
@@ -870,14 +876,94 @@ const ProductDetails = () => {
         }
 
         .pd-details-content {
-          color: #666;
-          font-size: 13px;
-          line-height: 1.6;
           margin-top: 6px;
           padding-bottom: 4px;
         }
-        .pd-details-content p { margin: 0 0 8px; }
-        .pd-details-content ul { padding-left: 16px; margin: 0 0 8px; }
+
+        /* ============================================
+           DESCRIPTION HTML - CORRIGÉ (pas de zoom)
+           ============================================ */
+        .pd-description-html {
+          color: #444;
+          font-size: 13px;
+          line-height: 1.7;
+          max-width: 100%;
+          overflow-wrap: break-word;
+          word-wrap: break-word;
+          word-break: break-word;
+        }
+
+        .pd-description-html p {
+          margin: 0 0 10px;
+        }
+
+        .pd-description-html ul,
+        .pd-description-html ol {
+          padding-left: 20px;
+          margin: 0 0 10px;
+        }
+
+        .pd-description-html li {
+          margin-bottom: 4px;
+        }
+
+        .pd-description-html strong,
+        .pd-description-html b {
+          color: #111;
+          font-weight: 600;
+        }
+
+        .pd-description-html img {
+          max-width: 100%;
+          height: auto;
+          display: block;
+          margin: 10px 0;
+        }
+
+        .pd-description-html table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 10px 0;
+          font-size: 12px;
+        }
+
+        .pd-description-html table td,
+        .pd-description-html table th {
+          border: 1px solid #e5e7eb;
+          padding: 6px 10px;
+          text-align: left;
+        }
+
+        .pd-description-html table th {
+          background: #f9fafb;
+          font-weight: 600;
+        }
+
+        .pd-description-html pre {
+          background: #f5f5f5;
+          padding: 12px;
+          border-radius: 6px;
+          overflow-x: auto;
+          font-size: 12px;
+          max-width: 100%;
+        }
+
+        .pd-description-html code {
+          background: #f5f5f5;
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-size: 12px;
+        }
+
+        .pd-description-html * {
+          max-width: 100%;
+        }
+
+        .pd-description-html iframe,
+        .pd-description-html video {
+          max-width: 100%;
+          height: auto;
+        }
 
         .pd-section-header {
           margin: 24px 0 12px;
