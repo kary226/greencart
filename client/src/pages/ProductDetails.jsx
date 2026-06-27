@@ -12,7 +12,6 @@ const ProductDetails = () => {
   const { products, navigate, currency, addToCart, cartItems, getCartKey, addToRecentlyViewed, axios } = useAppContext();
   const { id } = useParams();
   
-  // États
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [selectedColor, setSelectedColor] = useState(null);
@@ -32,7 +31,6 @@ const ProductDetails = () => {
   const [showDetails, setShowDetails] = useState(false);
   const [reviewsKey, setReviewsKey] = useState(0);
 
-  // Refs
   const scrollContainerRef = useRef(null);
   const thumbnailRefs = useRef([]);
   const colorSectionRef = useRef(null);
@@ -41,9 +39,6 @@ const ProductDetails = () => {
 
   const product = products.find((item) => item._id === id);
 
-  // --- Logique métier inchangée ---
-  // (tous les useEffect et fonctions restent identiques)
-  
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
@@ -345,7 +340,6 @@ const ProductDetails = () => {
       />
 
       <div className="pd-page">
-        {/* Fil d'Ariane */}
         <div className="pd-breadcrumb">
           <Link to="/">Accueil</Link> / 
           <Link to="/products">Articles</Link> / 
@@ -353,7 +347,6 @@ const ProductDetails = () => {
         </div>
 
         <div className="pd-main">
-          {/* Galerie */}
           <div className="pd-gallery">
             <div
               className="pd-main-img"
@@ -401,7 +394,6 @@ const ProductDetails = () => {
             )}
           </div>
 
-          {/* Infos */}
           <div className="pd-info">
             <h1 className="pd-title">{product.name}</h1>
 
@@ -471,8 +463,12 @@ const ProductDetails = () => {
 
             <div className="pd-details">
               <button
+                type="button"
                 className={`pd-details-btn ${showDetails ? 'open' : ''}`}
-                onClick={() => setShowDetails(!showDetails)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setShowDetails(!showDetails);
+                }}
               >
                 Détails <span>{showDetails ? '▲' : '▼'}</span>
               </button>
@@ -483,7 +479,6 @@ const ProductDetails = () => {
           </div>
         </div>
 
-        {/* Produits similaires */}
         {relatedProducts.length > 0 && (
           <div className="pd-related">
             <div className="pd-section-header">
@@ -508,7 +503,6 @@ const ProductDetails = () => {
           </div>
         )}
 
-        {/* Avis */}
         <div className="pd-reviews">
           <div className="pd-section-header">
             <h2>Avis clients</h2>
@@ -519,7 +513,6 @@ const ProductDetails = () => {
 
         <RecentlyViewed key={reviewsKey} />
 
-        {/* Barre flottante */}
         <div className="pd-floating">
           <button className="pd-btn-cart" onClick={handleAddToCart}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -534,10 +527,6 @@ const ProductDetails = () => {
       </div>
 
       <style>{`
-        /* ============================================
-           PRODUCT DETAILS - STYLE SHEIN
-           ============================================ */
-
         .pd-page {
           max-width: 1200px;
           margin: 0 auto;
@@ -545,9 +534,9 @@ const ProductDetails = () => {
         }
 
         .pd-breadcrumb {
-          font-size: 12px;
+          font-size: 11px;
           color: #888;
-          margin-bottom: 16px;
+          margin-bottom: 14px;
         }
         .pd-breadcrumb a {
           color: #666;
@@ -560,21 +549,19 @@ const ProductDetails = () => {
         .pd-main {
           display: grid;
           grid-template-columns: 1fr;
-          gap: 24px;
+          gap: 20px;
         }
-
         @media (min-width: 768px) {
           .pd-main {
             grid-template-columns: 1fr 1fr;
-            gap: 40px;
+            gap: 32px;
           }
         }
 
-        /* Galerie */
         .pd-gallery {
           display: flex;
           flex-direction: column;
-          gap: 12px;
+          gap: 10px;
         }
 
         .pd-main-img {
@@ -594,30 +581,30 @@ const ProductDetails = () => {
           position: absolute;
           top: 50%;
           transform: translateY(-50%);
-          width: 36px;
-          height: 36px;
+          width: 32px;
+          height: 32px;
           border-radius: 50%;
           background: rgba(0,0,0,0.4);
           color: white;
           border: none;
-          font-size: 22px;
+          font-size: 18px;
           cursor: pointer;
           transition: background 0.2s;
           z-index: 2;
         }
         .pd-nav:hover { background: rgba(0,0,0,0.6); }
-        .pd-nav-prev { left: 10px; }
-        .pd-nav-next { right: 10px; }
+        .pd-nav-prev { left: 8px; }
+        .pd-nav-next { right: 8px; }
 
         .pd-counter {
           position: absolute;
-          bottom: 12px;
-          right: 12px;
+          bottom: 10px;
+          right: 10px;
           background: rgba(0,0,0,0.5);
           color: white;
-          font-size: 11px;
-          padding: 3px 10px;
-          border-radius: 12px;
+          font-size: 10px;
+          padding: 2px 8px;
+          border-radius: 10px;
         }
 
         .pd-dots {
@@ -626,8 +613,8 @@ const ProductDetails = () => {
           gap: 6px;
         }
         .pd-dot {
-          width: 6px;
-          height: 6px;
+          width: 5px;
+          height: 5px;
           border-radius: 50%;
           background: #ddd;
           cursor: pointer;
@@ -635,21 +622,21 @@ const ProductDetails = () => {
         }
         .pd-dot.active {
           background: #111;
-          width: 20px;
-          border-radius: 4px;
+          width: 18px;
+          border-radius: 3px;
         }
 
         .pd-thumbs {
           display: flex;
-          gap: 8px;
+          gap: 6px;
           overflow-x: auto;
           scrollbar-width: none;
         }
         .pd-thumbs::-webkit-scrollbar { display: none; }
 
         .pd-thumb {
-          width: 56px;
-          height: 56px;
+          width: 50px;
+          height: 50px;
           flex-shrink: 0;
           border-radius: 0;
           overflow: hidden;
@@ -668,81 +655,83 @@ const ProductDetails = () => {
           object-fit: cover;
         }
 
-        /* Infos */
         .pd-title {
-          font-size: 20px;
+          font-size: 18px;
           font-weight: 600;
           color: #111;
-          margin: 0 0 6px;
+          margin: 0 0 4px;
+          line-height: 1.3;
         }
         @media (min-width: 768px) {
-          .pd-title { font-size: 26px; }
+          .pd-title {
+            font-size: 22px;
+          }
         }
 
         .pd-price {
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 8px;
           flex-wrap: wrap;
-          margin: 8px 0 4px;
+          margin: 6px 0 2px;
         }
         .pd-old {
-          font-size: 14px;
+          font-size: 13px;
           color: #bbb;
           text-decoration: line-through;
         }
         .pd-current {
-          font-size: 24px;
+          font-size: 22px;
           font-weight: 700;
           color: #111;
         }
         .pd-discount {
           background: #e53935;
           color: white;
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 600;
-          padding: 2px 10px;
+          padding: 2px 8px;
           border-radius: 20px;
         }
 
         .pd-rating {
           display: flex;
           align-items: center;
-          gap: 8px;
-          margin: 6px 0 10px;
+          gap: 6px;
+          margin: 4px 0 8px;
         }
         .pd-stars {
           display: flex;
           gap: 2px;
         }
         .pd-star {
-          width: 16px;
-          height: 16px;
+          width: 14px;
+          height: 14px;
         }
         .pd-star.full { fill: #ffc107; color: #ffc107; }
         .pd-star.half { fill: #ffc107; color: #ffc107; clip-path: inset(0 50% 0 0); }
         .pd-star.empty { fill: #e0e0e0; color: #e0e0e0; }
         .pd-rating-text {
-          font-size: 12px;
+          font-size: 11px;
           color: #888;
         }
 
         .pd-stock {
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 500;
-          margin: 8px 0;
+          margin: 6px 0;
         }
 
         .pd-option {
-          margin: 16px 0;
+          margin: 12px 0;
           padding: 4px 0;
-          border-radius: 10px;
+          border-radius: 8px;
           transition: all 0.3s;
         }
         .pd-option.error {
           background: #fef2f2;
-          padding: 10px;
-          margin: 10px -10px 16px;
+          padding: 8px;
+          margin: 8px -8px 12px;
           animation: shake 0.4s;
         }
 
@@ -753,10 +742,10 @@ const ProductDetails = () => {
         }
 
         .pd-option-label {
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 600;
           color: #333;
-          margin: 0 0 10px;
+          margin: 0 0 8px;
           text-transform: uppercase;
           letter-spacing: 0.05em;
         }
@@ -769,14 +758,14 @@ const ProductDetails = () => {
         .pd-colors {
           display: flex;
           flex-wrap: wrap;
-          gap: 14px;
+          gap: 12px;
         }
 
         .pd-color {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 4px;
+          gap: 3px;
           background: none;
           border: none;
           padding: 0;
@@ -788,8 +777,8 @@ const ProductDetails = () => {
         }
 
         .pd-swatch {
-          width: 34px;
-          height: 34px;
+          width: 30px;
+          height: 30px;
           border-radius: 50%;
           border: 1px solid rgba(0,0,0,0.08);
           transition: all 0.2s;
@@ -798,7 +787,7 @@ const ProductDetails = () => {
           box-shadow: 0 0 0 2px #fff, 0 0 0 4px #111;
         }
         .pd-color-label {
-          font-size: 10px;
+          font-size: 9px;
           color: #666;
           font-weight: 500;
         }
@@ -809,17 +798,17 @@ const ProductDetails = () => {
         .pd-sizes {
           display: flex;
           flex-wrap: wrap;
-          gap: 8px;
+          gap: 6px;
         }
 
         .pd-size {
-          min-width: 40px;
-          height: 40px;
-          padding: 0 12px;
-          border-radius: 6px;
+          min-width: 36px;
+          height: 36px;
+          padding: 0 10px;
+          border-radius: 4px;
           border: 1.5px solid #e8e3dc;
           background: white;
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 500;
           cursor: pointer;
           transition: all 0.2s;
@@ -838,22 +827,22 @@ const ProductDetails = () => {
 
         .pd-error {
           color: #e53935;
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 500;
-          margin: 8px 0 0;
+          margin: 6px 0 0;
         }
 
         .pd-cart-indicator {
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 500;
           color: #111;
-          margin: 8px 0;
+          margin: 6px 0;
         }
 
         .pd-details {
-          margin-top: 16px;
+          margin-top: 12px;
           border-top: 1px solid #f0ede8;
-          padding-top: 14px;
+          padding-top: 12px;
         }
 
         .pd-details-btn {
@@ -867,25 +856,34 @@ const ProductDetails = () => {
           font-weight: 600;
           color: #111;
           cursor: pointer;
+          transition: all 0.2s;
         }
-        .pd-details-btn span { font-size: 12px; transition: transform 0.3s; }
-        .pd-details-btn.open span { transform: rotate(180deg); }
+        .pd-details-btn:hover {
+          color: #e53935;
+        }
+        .pd-details-btn span {
+          font-size: 11px;
+          transition: transform 0.3s;
+        }
+        .pd-details-btn.open span {
+          transform: rotate(180deg);
+        }
 
         .pd-details-content {
           color: #666;
           font-size: 13px;
-          line-height: 1.7;
-          margin-top: 8px;
+          line-height: 1.6;
+          margin-top: 6px;
+          padding-bottom: 4px;
         }
-        .pd-details-content p { margin: 0 0 10px; }
-        .pd-details-content ul { padding-left: 18px; margin: 0 0 10px; }
+        .pd-details-content p { margin: 0 0 8px; }
+        .pd-details-content ul { padding-left: 16px; margin: 0 0 8px; }
 
-        /* Sections */
         .pd-section-header {
-          margin: 32px 0 16px;
+          margin: 24px 0 12px;
         }
         .pd-section-header h2 {
-          font-size: 18px;
+          font-size: 17px;
           font-weight: 600;
           color: #111;
           margin: 0;
@@ -893,17 +891,16 @@ const ProductDetails = () => {
         .pd-section-header p {
           font-size: 12px;
           color: #888;
-          margin: 4px 0 0;
+          margin: 2px 0 0;
         }
 
-        /* Carrousel */
         .pd-carousel-wrapper {
           position: relative;
         }
 
         .pd-carousel {
           display: flex;
-          gap: 16px;
+          gap: 12px;
           overflow-x: auto;
           scroll-behavior: smooth;
           scrollbar-width: none;
@@ -912,25 +909,25 @@ const ProductDetails = () => {
         .pd-carousel::-webkit-scrollbar { display: none; }
 
         .pd-carousel-item {
-          flex: 0 0 160px;
+          flex: 0 0 150px;
         }
         @media (min-width: 640px) {
-          .pd-carousel-item { flex: 0 0 180px; }
+          .pd-carousel-item { flex: 0 0 170px; }
         }
         @media (min-width: 768px) {
-          .pd-carousel-item { flex: 0 0 200px; }
+          .pd-carousel-item { flex: 0 0 190px; }
         }
 
         .pd-carousel-nav {
           position: absolute;
           top: 50%;
           transform: translateY(-50%);
-          width: 32px;
-          height: 32px;
+          width: 28px;
+          height: 28px;
           border-radius: 50%;
           background: white;
           border: 1px solid #e8e3dc;
-          font-size: 18px;
+          font-size: 16px;
           cursor: pointer;
           box-shadow: 0 2px 8px rgba(0,0,0,0.06);
           transition: all 0.2s;
@@ -941,19 +938,18 @@ const ProductDetails = () => {
           color: white;
           border-color: #111;
         }
-        .pd-carousel-prev { left: -8px; }
-        .pd-carousel-next { right: -8px; }
+        .pd-carousel-prev { left: -6px; }
+        .pd-carousel-next { right: -6px; }
         @media (max-width: 640px) {
           .pd-carousel-nav { display: none; }
         }
 
         .pd-reviews {
           border-top: 1px solid #f0ede8;
-          padding-top: 8px;
-          margin-top: 8px;
+          padding-top: 4px;
+          margin-top: 4px;
         }
 
-        /* Barre flottante */
         .pd-floating {
           position: fixed;
           bottom: 0;
@@ -992,10 +988,6 @@ const ProductDetails = () => {
           color: white;
         }
         .pd-btn-buy:hover { background: #333; }
-
-        /* ============================================
-           FIN PRODUCT DETAILS
-           ============================================ */
       `}</style>
     </>
   );
