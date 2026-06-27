@@ -461,7 +461,6 @@ const ProductDetails = () => {
               <p className="pd-cart-indicator">{currentQty} dans le panier</p>
             )}
 
-            {/* SECTION DÉTAILS CORRIGÉE */}
             <div className="pd-details">
               <button
                 type="button"
@@ -662,7 +661,7 @@ const ProductDetails = () => {
         }
 
         .pd-title {
-          font-size: 18px;
+          font-size: 16px;
           font-weight: 600;
           color: #111;
           margin: 0 0 4px;
@@ -670,7 +669,7 @@ const ProductDetails = () => {
         }
         @media (min-width: 768px) {
           .pd-title {
-            font-size: 22px;
+            font-size: 20px;
           }
         }
 
@@ -880,9 +879,6 @@ const ProductDetails = () => {
           padding-bottom: 4px;
         }
 
-        /* ============================================
-           DESCRIPTION HTML - CORRIGÉ (pas de zoom)
-           ============================================ */
         .pd-description-html {
           color: #444;
           font-size: 13px;
