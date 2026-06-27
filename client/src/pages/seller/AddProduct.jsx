@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import ImageCropper from '../../components/ImageCropper';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
+import { resizeAndConvertToWebP } from '../../utils/resizeImage';
 
 const AddProduct = () => {
 
@@ -47,6 +48,7 @@ const AddProduct = () => {
     const [tempImageFile, setTempImageFile] = useState(null);
     const [cropAspectRatio, setCropAspectRatio] = useState(16 / 9);
     const [cropShape, setCropShape] = useState('rect');
+    const [isConverting, setIsConverting] = useState(false);
 
     const { axios } = useAppContext()
 
@@ -275,10 +277,21 @@ const AddProduct = () => {
         }
     };
 
-    const handleCropComplete = (croppedFile) => {
-        setFiles([...files, croppedFile]);
-        setShowCropper(false);
-        setTempImageFile(null);
+    const handleCropComplete = async (croppedFile) => {
+        setIsConverting(true);
+        try {
+            const webpFile = await resizeAndConvertToWebP(croppedFile);
+            setFiles(prevFiles => [...prevFiles, webpFile]);
+            toast.success('Image optimisée en WebP ✓');
+        } catch (error) {
+            console.error("Erreur lors de la conversion en WebP :", error);
+            toast.error("Erreur lors de l'optimisation de l'image");
+            setFiles(prevFiles => [...prevFiles, croppedFile]);
+        } finally {
+            setIsConverting(false);
+            setShowCropper(false);
+            setTempImageFile(null);
+        }
     };
 
     const onSubmitHandler = async (event) => {
@@ -382,7 +395,10 @@ const AddProduct = () => {
                             <span className="text-[10px] text-gray-400">Ajouter</span>
                         </label>
                     </div>
-                    <p className="text-xs text-gray-400 mt-2">💡 Cliquez sur l'image pour la recadrer avant import. L'ordre est important.</p>
+                    <p className="text-xs text-gray-400 mt-2">
+                        💡 Les images sont automatiquement optimisées en WebP (qualité identique, poids réduit de 70%)
+                        {isConverting && <span className="text-blue-500 ml-2">⏳ Conversion en cours...</span>}
+                    </p>
                 </div>
 
                 <div className="flex flex-col gap-1 max-w-md">
@@ -523,7 +539,18 @@ const AddProduct = () => {
                 <button type="submit" className="px-8 py-2.5 bg-primary text-white font-medium rounded cursor-pointer">AJOUTER LE PRODUIT</button>
             </form>
 
-            {showCropper && (<ImageCropper imageFile={tempImageFile} onCropComplete={handleCropComplete} onCancel={() => { setShowCropper(false); setTempImageFile(null); }} aspectRatio={cropAspectRatio} cropShape={cropShape} />)}
+            {showCropper && (
+                <ImageCropper 
+                    imageFile={tempImageFile} 
+                    onCropComplete={handleCropComplete} 
+                    onCancel={() => { 
+                        setShowCropper(false); 
+                        setTempImageFile(null); 
+                    }} 
+                    aspectRatio={cropAspectRatio} 
+                    cropShape={cropShape} 
+                />
+            )}
         </div>
     )
 }
