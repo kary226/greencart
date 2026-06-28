@@ -1,3 +1,8 @@
 User-agent: *
 Allow: /
-Sitemap: https://greencart-ci.vercel.app/sitemap.xml
+Disallow: /api/
+Disallow: /seller/
+Disallow: /admin/
+
+Sitemap: https://www.ramci.ci/sitemap.xml
+Host: https://www.ramci.ci
