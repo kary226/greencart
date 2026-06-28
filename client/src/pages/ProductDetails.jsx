@@ -336,7 +336,7 @@ const ProductDetails = () => {
         description={getProductDescription().slice(0, 160)}
         keywords={`${product.name}, ${product.category}, vêtements, accessoires`}
         image={allImages[0]}
-        url={`https://www.ramci.ci/products/${product._id}`}
+        url={`https://www.ramci.ci/products/all/${product._id}`}
       />
 
       <div className="pd-page">
@@ -635,12 +635,11 @@ const ProductDetails = () => {
         }
 
         /* ============================================
-           MINIATURES - 6 VISIBLES EN MÊME TEMPS
+           MINIATURES - DÉFILEMENT HORIZONTAL UNIQUEMENT
            ============================================ */
 
         .pd-thumbs {
-          display: grid;
-          grid-template-columns: repeat(6, 1fr);
+          display: flex;
           gap: 6px;
           overflow-x: auto;
           overflow-y: hidden;
@@ -650,6 +649,8 @@ const ProductDetails = () => {
           padding: 4px 0;
           width: 100%;
           max-width: 100%;
+          flex-shrink: 0;
+          flex-wrap: nowrap;
         }
 
         .pd-thumbs::-webkit-scrollbar {
@@ -657,14 +658,17 @@ const ProductDetails = () => {
         }
 
         .pd-thumb {
-          aspect-ratio: 1/1;
+          flex: 0 0 50px;
+          min-width: 50px;
+          max-width: 50px;
+          height: 50px;
           border-radius: 0;
           overflow: hidden;
           cursor: pointer;
           border: 2px solid transparent;
           opacity: 0.5;
           transition: all 0.2s;
-          min-width: 0;
+          flex-shrink: 0;
         }
 
         .pd-thumb.active {
@@ -679,19 +683,26 @@ const ProductDetails = () => {
           display: block;
         }
 
-        /* ✅ Mobile - 5 miniatures visibles */
+        /* ✅ Mobile - Miniatures plus petites */
         @media (max-width: 480px) {
+          .pd-thumb {
+            flex: 0 0 44px;
+            min-width: 44px;
+            max-width: 44px;
+            height: 44px;
+          }
           .pd-thumbs {
-            grid-template-columns: repeat(5, 1fr);
             gap: 4px;
+            padding: 2px 0;
           }
         }
 
-        /* ✅ Très petit écran - 4 miniatures visibles */
         @media (max-width: 380px) {
-          .pd-thumbs {
-            grid-template-columns: repeat(4, 1fr);
-            gap: 4px;
+          .pd-thumb {
+            flex: 0 0 38px;
+            min-width: 38px;
+            max-width: 38px;
+            height: 38px;
           }
         }
 
