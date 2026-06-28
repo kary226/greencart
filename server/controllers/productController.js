@@ -163,10 +163,12 @@ export const changeStock = async (req, res) => {
     }
 }
 
-// Update Product : /api/product/update
+// ✅ UPDATE PRODUCT - CORRIGÉ
 export const updateProduct = async (req, res) => {
     try {
         const { id, name, description, categories, price, offerPrice, variants, stock, size } = req.body
+
+        console.log('📥 Données reçues du frontend:', { id, name, size, stock, hasVariants: variants?.length > 0 })
 
         const hasVariants = variants && variants.length > 0
         
@@ -192,21 +194,40 @@ export const updateProduct = async (req, res) => {
             ? processedVariants.some(v => v.stock > 0) 
             : totalStock > 0
 
-        await Product.findByIdAndUpdate(id, {
+        // ✅ Gestion correcte de la description
+        let descriptionToSave = description
+        if (typeof description === 'string') {
+            // Si c'est une chaîne HTML (ReactQuill), on la garde telle quelle
+            descriptionToSave = description
+        } else if (Array.isArray(description)) {
+            descriptionToSave = description.join('\n')
+        }
+
+        const updateData = {
             name,
-            description: typeof description === 'string' ? description.split('\n') : description,
-            categories: categories,
-            price,
-            offerPrice,
+            description: descriptionToSave,
+            categories: categories || [],
+            price: price || 0,
+            offerPrice: offerPrice || 0,
             variants: hasVariants ? processedVariants : [],
             stock: totalStock,
-            size: hasVariants ? null : (size || null),
             inStock,
-        })
+        }
+
+        // ✅ Ajouter size UNIQUEMENT si c'est un produit simple (sans variantes)
+        if (!hasVariants) {
+            updateData.size = size || null
+        } else {
+            updateData.size = null
+        }
+
+        console.log('📤 Données à enregistrer:', updateData)
+
+        await Product.findByIdAndUpdate(id, updateData)
 
         res.json({ success: true, message: "Product Updated" })
     } catch (error) {
-        console.log(error.message);
+        console.log('❌ Erreur updateProduct:', error.message);
         res.json({ success: false, message: error.message })
     }
 }
