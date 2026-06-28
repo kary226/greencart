@@ -336,7 +336,7 @@ const ProductDetails = () => {
         description={getProductDescription().slice(0, 160)}
         keywords={`${product.name}, ${product.category}, vêtements, accessoires`}
         image={allImages[0]}
-        url={`https://www.ramci.ci/products/${product._id}`}
+        url={`https://www.ramci.ci/products/all/${product._id}`}
       />
 
       <div className="pd-page">
@@ -631,33 +631,74 @@ const ProductDetails = () => {
           border-radius: 3px;
         }
 
+        /* ============================================
+           MINIATURES - CORRIGÉ (pas de zoom sur mobile)
+           ============================================ */
         .pd-thumbs {
           display: flex;
           gap: 6px;
           overflow-x: auto;
+          overflow-y: hidden;
+          scroll-behavior: smooth;
           scrollbar-width: none;
+          -webkit-overflow-scrolling: touch;
+          padding: 4px 0;
+          max-width: 100%;
+          flex-shrink: 0;
         }
-        .pd-thumbs::-webkit-scrollbar { display: none; }
+
+        .pd-thumbs::-webkit-scrollbar {
+          display: none;
+        }
 
         .pd-thumb {
-          width: 50px;
+          flex: 0 0 50px;
+          min-width: 50px;
+          max-width: 50px;
           height: 50px;
-          flex-shrink: 0;
           border-radius: 0;
           overflow: hidden;
           cursor: pointer;
           border: 2px solid transparent;
           opacity: 0.5;
           transition: all 0.2s;
+          flex-shrink: 0;
         }
+
         .pd-thumb.active {
           border-color: #111;
           opacity: 1;
         }
+
         .pd-thumb img {
           width: 100%;
           height: 100%;
           object-fit: cover;
+        }
+
+        /* ✅ Responsive Mobile - Miniatures plus petites */
+        @media (max-width: 480px) {
+          .pd-thumb {
+            flex: 0 0 44px;
+            min-width: 44px;
+            max-width: 44px;
+            height: 44px;
+          }
+          
+          .pd-thumbs {
+            gap: 4px;
+            padding: 2px 0;
+          }
+        }
+
+        /* ✅ Responsive très petit écran */
+        @media (max-width: 380px) {
+          .pd-thumb {
+            flex: 0 0 38px;
+            min-width: 38px;
+            max-width: 38px;
+            height: 38px;
+          }
         }
 
         .pd-title {
