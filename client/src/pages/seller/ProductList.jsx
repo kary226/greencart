@@ -32,7 +32,6 @@ const ProductList = () => {
     const [uploadingImages, setUploadingImages] = useState(false)
     const [showImageUpload, setShowImageUpload] = useState(false)
 
-    // --- Sélection multiple ---
     const [selectedIds, setSelectedIds] = useState([])
     const [deletingMultiple, setDeletingMultiple] = useState(false)
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -160,7 +159,6 @@ const ProductList = () => {
         onSale: products.filter(p => p.offerPrice && p.offerPrice < p.price).length
     }
 
-    // --- Sélection ---
     const allPageSelected = paginatedProducts.length > 0 && paginatedProducts.every(p => selectedIds.includes(p._id))
     const somePageSelected = paginatedProducts.some(p => selectedIds.includes(p._id))
 
@@ -213,6 +211,7 @@ const ProductList = () => {
         }
     }
 
+    // ✅ FONCTION handleEdit CORRIGÉE - charge size et stock
     const handleEdit = (product) => {
         setEditProduct({
             ...product,
@@ -221,6 +220,8 @@ const ProductList = () => {
                 : (product.description || ''),
             variants: product.variants || [],
             categories: product.categories || [],
+            size: product.size || null,
+            stock: product.stock || 0
         })
         setSelectedCategories(product.categories || [])
         setColorInput('')
@@ -243,19 +244,25 @@ const ProductList = () => {
         }
     };
 
+    // ✅ FONCTION handleUpdate CORRIGÉE - envoie size et stock
     const handleUpdate = async () => {
         try {
-            const { data } = await axios.post('/api/product/update', {
+            const productData = {
                 id: editProduct._id,
                 name: editProduct.name,
                 description: editProduct.description,
                 categories: selectedCategories,
                 price: editProduct.price,
                 offerPrice: editProduct.offerPrice,
-                variants: editProduct.variants,
-                stock: editProduct.stock,
-                size: editProduct.size,
-            })
+                variants: editProduct.variants || [],
+                stock: editProduct.stock || 0,
+                size: editProduct.size || null,
+            }
+
+            console.log('📤 Envoi des données :', productData)
+
+            const { data } = await axios.post('/api/product/update', productData)
+            
             if (data.success) {
                 toast.success(data.message)
                 await fetchProducts()
@@ -264,7 +271,8 @@ const ProductList = () => {
                 toast.error(data.message)
             }
         } catch (error) {
-            toast.error(error.message)
+            console.error('❌ Erreur :', error)
+            toast.error(error.response?.data?.message || error.message)
         }
     }
 
@@ -936,6 +944,7 @@ const ProductList = () => {
                                             className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
                                             placeholder="Ex: S, M, L, XL"
                                         />
+                                        <p className="text-xs text-gray-400 mt-1">💡 Laissez vide si ce produit n'a pas de taille</p>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Stock</label>
