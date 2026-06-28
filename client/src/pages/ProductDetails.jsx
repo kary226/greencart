@@ -336,7 +336,7 @@ const ProductDetails = () => {
         description={getProductDescription().slice(0, 160)}
         keywords={`${product.name}, ${product.category}, vêtements, accessoires`}
         image={allImages[0]}
-        url={`https://greencart-ci.vercel.app/products/${getProductCategory()?.toLowerCase()}/${product._id}`}
+        url={`https://www.ramci.ci/products/${product._id}`}
       />
 
       <div className="pd-page">

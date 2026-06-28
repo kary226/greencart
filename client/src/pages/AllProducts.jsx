@@ -69,7 +69,7 @@ const AllProducts = () => {
                 title={getPageTitle()}
                 description={getPageDescription()}
                 keywords="vêtements, accessoires, boutique en ligne, Ramci, Côte d'Ivoire, Abidjan"
-                url="https://greencart-ci.vercel.app/products"
+                url="https://www.ramci.ci/products"
             />
             
             <div className='mt-16 flex flex-col'>
