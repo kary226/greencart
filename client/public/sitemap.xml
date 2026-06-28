@@ -19,30 +19,6 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.ramci.ci/wishlist</loc>
-    <lastmod>2026-06-28</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>https://www.ramci.ci/account</loc>
-    <lastmod>2026-06-28</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>https://www.ramci.ci/cart</loc>
-    <lastmod>2026-06-28</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>https://www.ramci.ci/my-orders</loc>
-    <lastmod>2026-06-28</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
     <loc>https://www.ramci.ci/install</loc>
     <lastmod>2026-06-28</lastmod>
     <changefreq>monthly</changefreq>
