@@ -204,7 +204,7 @@ const Home = () => {
   if (loading) {
     return (
       <>
-        <SEO title="Ramci – Mode & Tendances" description="Découvrez les meilleures offres sur Ramci." />
+        <SEO title="Ramci – Mode & Tendances" description="Découvrez vêtements, accessoires et plus sur Ramci. Livraison rapide à Abidjan, Côte d'Ivoire." />
         <div className="ramci-home">
           <div className="ramci-skeleton-hero" />
           <div className="ramci-cats-section">
