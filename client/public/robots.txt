@@ -1,8 +1,3 @@
 User-agent: *
 Allow: /
-Disallow: /api/
-Disallow: /seller/
-Disallow: /admin/
-
 Sitemap: https://www.ramci.ci/sitemap.xml
-Host: https://www.ramci.ci
