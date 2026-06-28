@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { dummyProducts } from "../assets/assets";
 import toast from "react-hot-toast";
 import axios from "axios";
 
@@ -173,13 +172,18 @@ export const AppContextProvider = ({ children }) => {
         }
     };
 
+    // ✅ fetchProducts CORRIGÉ - Plus de dummyProducts
     const fetchProducts = async () => {
         try {
             const { data } = await axios.get('/api/product/list');
-            if (data.success) setProducts(data.products);
-            else setProducts(dummyProducts);
+            if (data.success) {
+                setProducts(data.products);
+            } else {
+                setProducts([]);
+            }
         } catch (error) {
-            setProducts(dummyProducts);
+            console.error("Erreur chargement produits:", error);
+            setProducts([]);
         }
     };
 
@@ -314,7 +318,6 @@ export const AppContextProvider = ({ children }) => {
         return totalAmount;
     };
 
-    // ✅ LOGIN USER CORRIGÉ - Fusion du panier local
     const loginUser = async (email, password) => {
         try {
             const { data } = await axios.post('/api/user/login', { email, password });
@@ -323,12 +326,8 @@ export const AppContextProvider = ({ children }) => {
                 setToken(data.token);
                 setAuthToken(data.token);
                 
-                // Récupérer le panier local avant de le perdre
                 const localCart = loadCartFromLocalStorage();
-                
                 setUser(data.user);
-                
-                // Fusionner le panier local avec le panier du serveur
                 const serverCart = data.user.cartItems || {};
                 const mergedCart = { ...serverCart, ...localCart };
                 setCartItems(mergedCart);
@@ -344,7 +343,6 @@ export const AppContextProvider = ({ children }) => {
         }
     };
 
-    // ✅ REGISTER USER CORRIGÉ - Garde le panier local
     const registerUser = async (firstName, lastName, email, password) => {
         try {
             const { data } = await axios.post('/api/user/register', {
@@ -358,12 +356,8 @@ export const AppContextProvider = ({ children }) => {
                 setToken(data.token);
                 setAuthToken(data.token);
                 
-                // Récupérer le panier local
                 const localCart = loadCartFromLocalStorage();
-                
                 setUser(data.user);
-                
-                // Le panier du serveur est vide pour un nouveau compte
                 setCartItems(localCart);
                 
                 toast.success("Inscription réussie");
@@ -376,10 +370,8 @@ export const AppContextProvider = ({ children }) => {
         }
     };
 
-    // ✅ LOGOUT USER CORRIGÉ - Sauvegarde le panier
     const logoutUser = async () => {
         try {
-            // Sauvegarder le panier dans localStorage avant déconnexion
             if (cartItems && Object.keys(cartItems).length > 0) {
                 localStorage.setItem(CART_KEY, JSON.stringify(cartItems));
             }
@@ -393,7 +385,6 @@ export const AppContextProvider = ({ children }) => {
             setUser(null);
             setIsSeller(false);
             
-            // Recharger le panier depuis localStorage (pas de perte)
             setCartItems(loadCartFromLocalStorage());
             setOrders([]);
             
