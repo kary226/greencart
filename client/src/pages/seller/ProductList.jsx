@@ -211,7 +211,6 @@ const ProductList = () => {
         }
     }
 
-    // ✅ FONCTION handleEdit CORRIGÉE - charge size et stock
     const handleEdit = (product) => {
         setEditProduct({
             ...product,
@@ -244,7 +243,6 @@ const ProductList = () => {
         }
     };
 
-    // ✅ FONCTION handleUpdate CORRIGÉE - envoie size et stock
     const handleUpdate = async () => {
         try {
             const productData = {
@@ -324,18 +322,15 @@ const ProductList = () => {
         }
     }
 
+    // ✅ FONCTION addVariant MODIFIÉE - Couleur optionnelle
     const addVariant = () => {
-        if (!colorInput.trim()) {
-            toast.error('Entrez une couleur')
-            return
-        }
         if (!stockInput || Number(stockInput) < 0) {
             toast.error('Entrez un stock valide')
             return
         }
 
         const newVariant = {
-            color: colorInput.trim(),
+            color: colorInput.trim() || null,
             colorCode: colorCodeInput,
             size: sizeInput.trim().toUpperCase() || null,
             stock: Number(stockInput),
@@ -362,9 +357,10 @@ const ProductList = () => {
         setStartImageIndexInput(0)
     }
 
+    // ✅ FONCTION editVariant MODIFIÉE - Gère le cas où color est null
     const editVariant = (index) => {
         const variant = editProduct.variants[index]
-        setColorInput(variant.color)
+        setColorInput(variant.color || '')
         setColorCodeInput(variant.colorCode || '#000000')
         setSizeInput(variant.size || '')
         setStockInput(variant.stock.toString())
@@ -960,14 +956,15 @@ const ProductList = () => {
                             )}
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Variantes par couleur</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Variantes</label>
+                                <p className="text-xs text-gray-400 mb-2">💡 Laissez "Couleur" vide pour ajouter une taille seule</p>
                                 <div className="bg-gray-50 p-3 rounded-xl space-y-3 mb-3">
                                     <div className="flex gap-2 items-center">
                                         <input
                                             value={colorInput}
                                             onChange={e => setColorInput(e.target.value)}
                                             type="text"
-                                            placeholder="Couleur (ex: Rouge)"
+                                            placeholder="Couleur (optionnel)"
                                             className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
                                         />
                                         <input
@@ -1025,7 +1022,7 @@ const ProductList = () => {
                                         onClick={addVariant}
                                         className="w-full py-2 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 transition"
                                     >
-                                        {editingVariantIndex !== null ? 'Mettre à jour la variante' : '+ Ajouter cette couleur'}
+                                        {editingVariantIndex !== null ? 'Mettre à jour la variante' : '+ Ajouter une variante'}
                                     </button>
                                 </div>
 
@@ -1048,7 +1045,7 @@ const ProductList = () => {
                                                         <td className="px-3 py-2">
                                                             <div className="flex items-center gap-2">
                                                                 <div className="w-4 h-4 rounded-full" style={{ backgroundColor: v.colorCode || '#000' }}></div>
-                                                                <span className="text-sm text-gray-600">{v.color}</span>
+                                                                <span className="text-sm text-gray-600">{v.color || '—'}</span>
                                                             </div>
                                                         </td>
                                                         <td className="px-3 py-2 text-sm text-gray-600">{v.size || '—'}</td>
