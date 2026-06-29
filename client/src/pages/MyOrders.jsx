@@ -18,7 +18,6 @@ const FILTERS = [
     { key: 'cancelled', label: 'Annulées' },
 ]
 
-// Couleur unique par statut — thème Rouge / Blanc / Noir
 const STATUS_MAP = {
     'Order Placed':     { text: 'En attente',   color: '#B45309', bg: '#FEF3C7', step: 1 },
     'Confirmed':        { text: 'Confirmée',    color: '#0369A1', bg: '#E0F2FE', step: 2 },
@@ -38,7 +37,7 @@ const FILTER_MATCH = {
     cancelled: (o) => o.status === 'Cancelled',
 }
 
-// ✅ TRACKER AVEC POINTS MODERNES (sans icônes)
+// ✅ TRACKER AVEC PETITS POINTS
 const TRACKER_STEPS = [
     { key: 'Order Placed', label: 'En attente' },
     { key: 'Confirmed',    label: 'Confirmée' },
@@ -91,7 +90,6 @@ export default function MyOrders() {
 
     const filtered = myOrders.filter(FILTER_MATCH[filter])
 
-    /* ── Empty state ─────────────────────────────────────── */
     if (myOrders.length === 0) {
         return (
             <div style={{ minHeight: '100vh', background: '#F9F9F9', paddingTop: 80, paddingBottom: 80, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -113,14 +111,12 @@ export default function MyOrders() {
     return (
         <div style={{ minHeight: '100vh', background: '#F2F2F2', paddingBottom: 90 }}>
 
-            {/* ── Header ──────────────────────────────────────── */}
             <div style={{ background: '#fff', padding: '56px 20px 0' }}>
                 <div style={{ marginBottom: 4 }}>
                     <h1 style={{ fontSize: 28, fontWeight: 800, color: '#111', margin: 0, lineHeight: 1.2 }}>Mes commandes</h1>
                     <p style={{ color: '#888', fontSize: 14, margin: '4px 0 0' }}>Suivez et gérez toutes vos commandes</p>
                 </div>
 
-                {/* ── Filtres ─────────────────────────────────── */}
                 <div style={{ display: 'flex', gap: 0, marginTop: 20, overflowX: 'auto', scrollbarWidth: 'none' }}>
                     {FILTERS.map(f => {
                         const active = filter === f.key
@@ -140,7 +136,6 @@ export default function MyOrders() {
                 </div>
             </div>
 
-            {/* ── Liste ───────────────────────────────────────── */}
             <div style={{ padding: '12px 12px 0' }}>
                 {filtered.length === 0 && (
                     <div style={{ textAlign: 'center', padding: '48px 0', color: '#aaa', fontSize: 15 }}>
@@ -158,18 +153,15 @@ export default function MyOrders() {
                     const discountAmount = order.discountAmount || 0
                     const couponApplied  = order.couponApplied || null
 
-                    // Index de l'étape actuelle dans STEP_ORDER (0-based)
                     const currentStepIndex = STEP_ORDER.indexOf(order.status)
 
                     return (
                         <div key={order._id}
                             style={{ background: '#fff', borderRadius: 16, marginBottom: 10, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
 
-                            {/* ── Ligne compacte ───────────────────────── */}
                             <button onClick={() => setExpanded(isOpen ? null : order._id)}
                                 style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '14px 16px', textAlign: 'left' }}>
 
-                                {/* Miniature */}
                                 <div style={{ width: 68, height: 68, borderRadius: 10, overflow: 'hidden', background: '#F8F8F8', flexShrink: 0 }}>
                                     {firstImg
                                         ? <img src={firstImg} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -177,13 +169,11 @@ export default function MyOrders() {
                                     }
                                 </div>
 
-                                {/* Infos */}
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                                         <span style={{ fontWeight: 700, fontSize: 15, color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                             Commande #{order._id.slice(-8).toUpperCase()}
                                         </span>
-                                        {/* Badge statut avec couleur unique */}
                                         <span style={{
                                             fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, flexShrink: 0,
                                             color: st.color, background: st.bg,
@@ -205,9 +195,9 @@ export default function MyOrders() {
                                 <ChevronRight size={18} color="#ccc" style={{ flexShrink: 0, transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }} />
                             </button>
 
-                            {/* ── Tracker d'étapes avec POINTS modernes ── */}
+                            {/* ✅ TRACKER AVEC PETITS POINTS */}
                             {order.status !== 'Cancelled' && (
-                                <div style={{ padding: '4px 16px 16px', borderTop: '1px solid #F3F3F3' }}>
+                                <div style={{ padding: '2px 16px 14px', borderTop: '1px solid #F3F3F3' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                         {TRACKER_STEPS.map((step, i) => {
                                             const stepIndex = STEP_ORDER.indexOf(step.key)
@@ -216,53 +206,45 @@ export default function MyOrders() {
 
                                             return (
                                                 <React.Fragment key={step.key}>
-                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                                                        {/* ✅ Cercle avec POINT ou PLEIN */}
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                                                        {/* ✅ Petit cercle */}
                                                         <div style={{
-                                                            width: 32,
-                                                            height: 32,
+                                                            width: 20,
+                                                            height: 20,
                                                             borderRadius: '50%',
-                                                            background: active ? '#DC2626' : done ? '#DC2626' : '#E5E7EB',
+                                                            background: done ? '#DC2626' : '#E5E7EB',
                                                             display: 'flex',
                                                             alignItems: 'center',
                                                             justifyContent: 'center',
-                                                            border: active ? '3px solid #DC2626' : 'none',
-                                                            boxShadow: active ? '0 0 0 4px #FEE2E2' : 'none',
+                                                            border: active ? '2px solid #DC2626' : 'none',
+                                                            boxShadow: active ? '0 0 0 3px #FEE2E2' : 'none',
                                                             transition: 'all 0.3s ease'
                                                         }}>
-                                                            {/* ✅ Petit point blanc pour les étapes complétées */}
-                                                            {done && !active && (
+                                                            {/* ✅ Petit point blanc */}
+                                                            {done && (
                                                                 <div style={{
-                                                                    width: 8,
-                                                                    height: 8,
+                                                                    width: 5,
+                                                                    height: 5,
                                                                     borderRadius: '50%',
                                                                     background: '#fff'
                                                                 }} />
                                                             )}
-                                                            {/* ✅ Point rouge pour l'étape active */}
-                                                            {active && (
+                                                            {/* ✅ Cercle gris pour non atteint */}
+                                                            {!done && (
                                                                 <div style={{
-                                                                    width: 10,
-                                                                    height: 10,
-                                                                    borderRadius: '50%',
-                                                                    background: '#fff'
-                                                                }} />
-                                                            )}
-                                                            {/* ✅ Cercle vide pour les étapes non atteintes */}
-                                                            {!done && !active && (
-                                                                <div style={{
-                                                                    width: 8,
-                                                                    height: 8,
+                                                                    width: 5,
+                                                                    height: 5,
                                                                     borderRadius: '50%',
                                                                     background: '#D1D5DB'
                                                                 }} />
                                                             )}
                                                         </div>
                                                         <span style={{
-                                                            fontSize: 10,
-                                                            color: done || active ? '#111' : '#9CA3AF',
-                                                            fontWeight: active ? 700 : 500,
-                                                            textAlign: 'center'
+                                                            fontSize: 9,
+                                                            color: done ? '#111' : '#9CA3AF',
+                                                            fontWeight: active ? 700 : 400,
+                                                            textAlign: 'center',
+                                                            maxWidth: 50
                                                         }}>
                                                             {step.label}
                                                         </span>
@@ -270,8 +252,8 @@ export default function MyOrders() {
                                                     {i < TRACKER_STEPS.length - 1 && (
                                                         <div style={{
                                                             flex: 1,
-                                                            height: 2,
-                                                            marginBottom: 14,
+                                                            height: 1.5,
+                                                            marginBottom: 18,
                                                             background: STEP_ORDER.indexOf(TRACKER_STEPS[i + 1].key) <= currentStepIndex ? '#DC2626' : '#E5E7EB',
                                                             borderRadius: 2
                                                         }} />
@@ -283,25 +265,21 @@ export default function MyOrders() {
                                 </div>
                             )}
 
-                            {/* ── Détail expandé ───────────────────────── */}
                             {isOpen && (
                                 <div style={{ borderTop: '1px solid #F3F3F3', padding: '16px' }}>
 
-                                    {/* Message statut */}
                                     {getStatusMessage(order.status) && (
                                         <p style={{ fontSize: 13, color: '#666', marginBottom: 16, lineHeight: 1.5 }}>
                                             {getStatusMessage(order.status)}
                                         </p>
                                     )}
 
-                                    {/* Coupon */}
                                     {couponApplied && (
                                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#DCFCE7', color: '#16A34A', fontSize: 12, fontWeight: 600, padding: '4px 12px', borderRadius: 20, marginBottom: 14 }}>
                                             <Tag size={12} /> {couponApplied}
                                         </div>
                                     )}
 
-                                    {/* Articles */}
                                     <div style={{ marginBottom: 16 }}>
                                         {order.items.map((item, idx2) => (
                                             <div key={idx2} style={{ display: 'flex', gap: 12, paddingBottom: 12, marginBottom: 12, borderBottom: idx2 < order.items.length - 1 ? '1px solid #F3F3F3' : 'none' }}>
@@ -332,7 +310,6 @@ export default function MyOrders() {
                                         ))}
                                     </div>
 
-                                    {/* Récapitulatif montant */}
                                     <div style={{ background: '#F9F9F9', borderRadius: 12, padding: '12px 14px', marginBottom: 14 }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#666', marginBottom: 6 }}>
                                             <span>Sous-total articles</span><span>{itemsSubtotal} {currency}</span>
@@ -354,13 +331,11 @@ export default function MyOrders() {
                                         </div>
                                     </div>
 
-                                    {/* Moyen de paiement */}
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, color: '#666', fontSize: 13 }}>
                                         <Banknote size={16} color="#9CA3AF" />
                                         <span>{getPaymentLabel(order)}</span>
                                     </div>
 
-                                    {/* Adresse */}
                                     {order.address && (
                                         <div style={{ background: '#F9F9F9', borderRadius: 12, padding: '12px 14px', marginBottom: 14 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
@@ -380,7 +355,6 @@ export default function MyOrders() {
                                         </div>
                                     )}
 
-                                    {/* Bouton PDF — toujours présent */}
                                     <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                                         <PDFDownloadLink
                                             document={<OrderReceiptPDF order={order} currency={currency} />}
