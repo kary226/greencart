@@ -6,7 +6,7 @@ import OrderReceiptPDF from '../components/OrderReceiptPDF'
 import {
     Package, Calendar, CreditCard, MapPin, Phone, FileText,
     CheckCircle, Truck, PackageCheck, Home, XCircle, Tag,
-    Banknote, ChevronRight, ShoppingBag, Clock
+    Banknote, ChevronRight, ShoppingBag, Clock, RotateCw
 } from 'lucide-react'
 
 const FILTERS = [
@@ -14,17 +14,19 @@ const FILTERS = [
     { key: 'pending',   label: 'En attente' },
     { key: 'shipped',   label: 'Expédiées' },
     { key: 'delivered', label: 'Livrées' },
+    { key: 'returned',  label: 'Retournées' },
     { key: 'cancelled', label: 'Annulées' },
 ]
 
 // Couleur unique par statut — thème Rouge / Blanc / Noir
 const STATUS_MAP = {
-    'Order Placed':     { text: 'En attente',   color: '#B45309', bg: '#FEF3C7', step: 1 }, // Ambre
-    'Confirmed':        { text: 'Confirmée',    color: '#0369A1', bg: '#E0F2FE', step: 2 }, // Bleu
-    'Shipped':          { text: 'Expédiée',     color: '#7C3AED', bg: '#EDE9FE', step: 3 }, // Violet
-    'Out for Delivery': { text: 'En livraison', color: '#DC2626', bg: '#FEE2E2', step: 4 }, // Rouge
-    'Delivered':        { text: 'Livrée',       color: '#16A34A', bg: '#DCFCE7', step: 5 }, // Vert
-    'Cancelled':        { text: 'Annulée',      color: '#6B7280', bg: '#F3F4F6', step: 0 }, // Gris
+    'Order Placed':     { text: 'En attente',   color: '#B45309', bg: '#FEF3C7', step: 1 },
+    'Confirmed':        { text: 'Confirmée',    color: '#0369A1', bg: '#E0F2FE', step: 2 },
+    'Shipped':          { text: 'Expédiée',     color: '#7C3AED', bg: '#EDE9FE', step: 3 },
+    'Out for Delivery': { text: 'En livraison', color: '#DC2626', bg: '#FEE2E2', step: 4 },
+    'Delivered':        { text: 'Livrée',       color: '#16A34A', bg: '#DCFCE7', step: 5 },
+    'Returned':         { text: 'Retournée',    color: '#7C3AED', bg: '#EDE9FE', step: 6 },
+    'Cancelled':        { text: 'Annulée',      color: '#6B7280', bg: '#F3F4F6', step: 0 },
 }
 
 const FILTER_MATCH = {
@@ -32,6 +34,7 @@ const FILTER_MATCH = {
     pending:   (o) => ['Order Placed', 'Confirmed'].includes(o.status),
     shipped:   (o) => ['Shipped', 'Out for Delivery'].includes(o.status),
     delivered: (o) => o.status === 'Delivered',
+    returned:  (o) => o.status === 'Returned',
     cancelled: (o) => o.status === 'Cancelled',
 }
 
@@ -42,9 +45,10 @@ const TRACKER_STEPS = [
     { key: 'Shipped',      label: 'Expédiée',   Icon: Truck },
     { key: 'Out for Delivery', label: 'En livraison', Icon: PackageCheck },
     { key: 'Delivered',    label: 'Livrée',     Icon: Home },
+    { key: 'Returned',     label: 'Retournée',  Icon: RotateCw },
 ]
 
-const STEP_ORDER = ['Order Placed', 'Confirmed', 'Shipped', 'Out for Delivery', 'Delivered']
+const STEP_ORDER = ['Order Placed', 'Confirmed', 'Shipped', 'Out for Delivery', 'Delivered', 'Returned']
 
 const getPaymentLabel = (order) => {
     if (order.paymentType === 'COD') return 'Paiement à la livraison'
@@ -63,6 +67,7 @@ const getStatusMessage = (status) => ({
     'Shipped':          'Votre commande a été expédiée !',
     'Out for Delivery': 'Votre commande est en cours de livraison.',
     'Delivered':        'Votre commande a été livrée. Merci pour votre confiance !',
+    'Returned':         'Votre commande a été retournée.',
     'Cancelled':        'Votre commande a été annulée.',
 }[status] || '')
 

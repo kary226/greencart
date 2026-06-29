@@ -6,7 +6,7 @@ import toast from 'react-hot-toast'
 import * as XLSX from 'xlsx'
 import { PDFDownloadLink } from '@react-pdf/renderer'
 import OrderReceiptPDF from '../../components/OrderReceiptPDF'
-import { Package, Calendar, Truck, CheckCircle, XCircle, Clock, Download, Filter, Search, RefreshCw, FileText, Eye } from 'lucide-react'
+import { Package, Calendar, Truck, CheckCircle, XCircle, Clock, Download, Filter, Search, RefreshCw, FileText, Eye, RotateCw } from 'lucide-react'
 
 const Orders = () => {
     const { currency, axios } = useAppContext()
@@ -67,6 +67,7 @@ const Orders = () => {
             'Shipped': 'Expédiée',
             'Out for Delivery': 'En livraison',
             'Delivered': 'Livrée',
+            'Returned': 'Retournée',
             'Cancelled': 'Annulée'
         };
         return statusMap[status] || status;
@@ -75,6 +76,7 @@ const Orders = () => {
     const getStatusIcon = (status) => {
         switch (status) {
             case 'Delivered': return <CheckCircle size={14} className="text-green-600" />;
+            case 'Returned': return <RotateCw size={14} className="text-purple-600" />;
             case 'Cancelled': return <XCircle size={14} className="text-red-600" />;
             case 'Shipped': case 'Out for Delivery': return <Truck size={14} className="text-purple-600" />;
             default: return <Clock size={14} className="text-blue-600" />;
@@ -83,6 +85,7 @@ const Orders = () => {
 
     const getStatusColor = (status) => {
         if (status === 'Delivered') return 'bg-green-100 text-green-700';
+        if (status === 'Returned') return 'bg-purple-100 text-purple-700';
         if (status === 'Cancelled') return 'bg-red-100 text-red-700';
         if (status === 'Shipped' || status === 'Out for Delivery') return 'bg-purple-100 text-purple-700';
         return 'bg-blue-100 text-blue-700';
@@ -190,6 +193,7 @@ const Orders = () => {
             shipped: orders.filter(o => o.status === 'Shipped').length,
             outForDelivery: orders.filter(o => o.status === 'Out for Delivery').length,
             delivered: orders.filter(o => o.status === 'Delivered').length,
+            returned: orders.filter(o => o.status === 'Returned').length,
             cancelled: orders.filter(o => o.status === 'Cancelled').length
         },
         byPayment: {
@@ -263,6 +267,7 @@ const Orders = () => {
                 'Expédiée': stats.byStatus.shipped,
                 'En livraison': stats.byStatus.outForDelivery,
                 'Livrée': stats.byStatus.delivered,
+                'Retournée': stats.byStatus.returned,
                 'Annulée': stats.byStatus.cancelled
             }).map(([label, count]) => [label, count]),
             [''],
@@ -344,6 +349,7 @@ const Orders = () => {
                             <option value="Shipped">Expédiée ({stats.byStatus.shipped})</option>
                             <option value="Out for Delivery">En livraison ({stats.byStatus.outForDelivery})</option>
                             <option value="Delivered">Livrée ({stats.byStatus.delivered})</option>
+                            <option value="Returned">Retournée ({stats.byStatus.returned})</option>
                             <option value="Cancelled">Annulée ({stats.byStatus.cancelled})</option>
                         </select>
 
@@ -556,6 +562,7 @@ const Orders = () => {
                                                     <option value="Shipped">Expédiée</option>
                                                     <option value="Out for Delivery">En livraison</option>
                                                     <option value="Delivered">Livrée</option>
+                                                    <option value="Returned">Retournée</option>
                                                     <option value="Cancelled">Annulée</option>
                                                 </select>
                                                 {updatingStatus === order._id && (
