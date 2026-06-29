@@ -6,7 +6,7 @@ import OrderReceiptPDF from '../components/OrderReceiptPDF'
 import {
     Package, Calendar, CreditCard, MapPin, Phone, FileText,
     CheckCircle, Truck, PackageCheck, Home, XCircle, Tag,
-    Banknote, ChevronRight, ShoppingBag, Clock, Bell
+    Banknote, ChevronRight, ShoppingBag, Clock
 } from 'lucide-react'
 
 const FILTERS = [
@@ -17,13 +17,14 @@ const FILTERS = [
     { key: 'cancelled', label: 'Annulées' },
 ]
 
+// Couleur unique par statut — thème Rouge / Blanc / Noir
 const STATUS_MAP = {
-    'Order Placed':     { text: 'En attente',   color: '#F97316', bg: '#FFF7ED', step: 1 },
-    'Confirmed':        { text: 'Confirmée',    color: '#16A34A', bg: '#F0FDF4', step: 2 },
-    'Shipped':          { text: 'Expédiée',     color: '#6366F1', bg: '#EEF2FF', step: 3 },
-    'Out for Delivery': { text: 'En livraison', color: '#EA580C', bg: '#FFF7ED', step: 4 },
-    'Delivered':        { text: 'Livrée',       color: '#16A34A', bg: '#F0FDF4', step: 5 },
-    'Cancelled':        { text: 'Annulée',      color: '#EF4444', bg: '#FEF2F2', step: 0 },
+    'Order Placed':     { text: 'En attente',   color: '#B45309', bg: '#FEF3C7', step: 1 }, // Ambre
+    'Confirmed':        { text: 'Confirmée',    color: '#0369A1', bg: '#E0F2FE', step: 2 }, // Bleu
+    'Shipped':          { text: 'Expédiée',     color: '#7C3AED', bg: '#EDE9FE', step: 3 }, // Violet
+    'Out for Delivery': { text: 'En livraison', color: '#DC2626', bg: '#FEE2E2', step: 4 }, // Rouge
+    'Delivered':        { text: 'Livrée',       color: '#16A34A', bg: '#DCFCE7', step: 5 }, // Vert
+    'Cancelled':        { text: 'Annulée',      color: '#6B7280', bg: '#F3F4F6', step: 0 }, // Gris
 }
 
 const FILTER_MATCH = {
@@ -34,12 +35,16 @@ const FILTER_MATCH = {
     cancelled: (o) => o.status === 'Cancelled',
 }
 
+// Étapes du tracker dans l'ordre exact de la BDD
 const TRACKER_STEPS = [
-    { key: 'Order Placed',     label: 'En attente', Icon: ShoppingBag },
-    { key: 'Shipped',          label: 'Expédiée',   Icon: Truck },
-    { key: 'Out for Delivery', label: 'En cours',   Icon: PackageCheck },
-    { key: 'Delivered',        label: 'Livrée',     Icon: CheckCircle },
+    { key: 'Order Placed', label: 'En attente', Icon: ShoppingBag },
+    { key: 'Confirmed',    label: 'Confirmée',  Icon: CheckCircle },
+    { key: 'Shipped',      label: 'Expédiée',   Icon: Truck },
+    { key: 'Out for Delivery', label: 'En livraison', Icon: PackageCheck },
+    { key: 'Delivered',    label: 'Livrée',     Icon: Home },
 ]
+
+const STEP_ORDER = ['Order Placed', 'Confirmed', 'Shipped', 'Out for Delivery', 'Delivered']
 
 const getPaymentLabel = (order) => {
     if (order.paymentType === 'COD') return 'Paiement à la livraison'
@@ -86,8 +91,8 @@ export default function MyOrders() {
         return (
             <div style={{ minHeight: '100vh', background: '#F9F9F9', paddingTop: 80, paddingBottom: 80, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <div style={{ textAlign: 'center', padding: '0 24px' }}>
-                    <div style={{ width: 72, height: 72, borderRadius: '50%', background: '#FFF1F1', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                        <Package size={36} color="#EF4444" />
+                    <div style={{ width: 72, height: 72, borderRadius: '50%', background: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                        <Package size={36} color="#DC2626" />
                     </div>
                     <h2 style={{ fontSize: 20, fontWeight: 700, color: '#111', marginBottom: 8 }}>Aucune commande</h2>
                     <p style={{ color: '#888', marginBottom: 24 }}>Vous n'avez pas encore passé de commande</p>
@@ -105,18 +110,12 @@ export default function MyOrders() {
 
             {/* ── Header ──────────────────────────────────────── */}
             <div style={{ background: '#fff', padding: '56px 20px 0' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-                    <div>
-                        <h1 style={{ fontSize: 28, fontWeight: 800, color: '#111', margin: 0, lineHeight: 1.2 }}>Mes commandes</h1>
-                        <p style={{ color: '#888', fontSize: 14, margin: '4px 0 0' }}>Suivez et gérez toutes vos commandes</p>
-                    </div>
-                    <div style={{ position: 'relative', marginTop: 4 }}>
-                        <Bell size={24} color="#222" />
-                        <span style={{ position: 'absolute', top: -4, right: -4, width: 10, height: 10, background: '#EF4444', borderRadius: '50%', border: '2px solid #fff' }} />
-                    </div>
+                <div style={{ marginBottom: 4 }}>
+                    <h1 style={{ fontSize: 28, fontWeight: 800, color: '#111', margin: 0, lineHeight: 1.2 }}>Mes commandes</h1>
+                    <p style={{ color: '#888', fontSize: 14, margin: '4px 0 0' }}>Suivez et gérez toutes vos commandes</p>
                 </div>
 
-                {/* ── Filtre ─────────────────────────────────── */}
+                {/* ── Filtres ─────────────────────────────────── */}
                 <div style={{ display: 'flex', gap: 0, marginTop: 20, overflowX: 'auto', scrollbarWidth: 'none' }}>
                     {FILTERS.map(f => {
                         const active = filter === f.key
@@ -126,7 +125,7 @@ export default function MyOrders() {
                                     background: 'none', border: 'none', cursor: 'pointer',
                                     padding: '8px 14px 12px', fontSize: 14, fontWeight: active ? 700 : 500,
                                     color: active ? '#111' : '#999', whiteSpace: 'nowrap',
-                                    borderBottom: active ? '2.5px solid #D97706' : '2.5px solid transparent',
+                                    borderBottom: active ? '2.5px solid #DC2626' : '2.5px solid transparent',
                                     transition: 'all .15s',
                                 }}>
                                 {f.label}
@@ -144,22 +143,24 @@ export default function MyOrders() {
                     </div>
                 )}
 
-                {filtered.map((order, idx) => {
-                    const st       = STATUS_MAP[order.status] || { text: order.status, color: '#888', bg: '#f5f5f5', step: 0 }
-                    const isOpen   = expanded === order._id
-                    const firstImg = order.items?.[0]?.product?.image?.[0]
-                    const itemCount = order.items?.length || 0
+                {filtered.map((order) => {
+                    const st            = STATUS_MAP[order.status] || { text: order.status, color: '#888', bg: '#f5f5f5', step: 0 }
+                    const isOpen        = expanded === order._id
+                    const firstImg      = order.items?.[0]?.product?.image?.[0]
+                    const itemCount     = order.items?.length || 0
                     const itemsSubtotal  = getItemsSubtotal(order)
                     const deliveryPrice  = order.deliveryPrice || 0
                     const discountAmount = order.discountAmount || 0
                     const couponApplied  = order.couponApplied || null
-                    const currentStep    = TRACKER_STEPS.findIndex(s => s.key === order.status)
+
+                    // Index de l'étape actuelle dans STEP_ORDER (0-based)
+                    const currentStepIndex = STEP_ORDER.indexOf(order.status)
 
                     return (
                         <div key={order._id}
                             style={{ background: '#fff', borderRadius: 16, marginBottom: 10, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
 
-                            {/* ── Ligne compacte (toujours visible) ───── */}
+                            {/* ── Ligne compacte ───────────────────────── */}
                             <button onClick={() => setExpanded(isOpen ? null : order._id)}
                                 style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '14px 16px', textAlign: 'left' }}>
 
@@ -177,7 +178,7 @@ export default function MyOrders() {
                                         <span style={{ fontWeight: 700, fontSize: 15, color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                             Commande #{order._id.slice(-8).toUpperCase()}
                                         </span>
-                                        {/* Badge statut */}
+                                        {/* Badge statut avec couleur unique */}
                                         <span style={{
                                             fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, flexShrink: 0,
                                             color: st.color, background: st.bg,
@@ -204,27 +205,30 @@ export default function MyOrders() {
                                 <div style={{ padding: '4px 16px 16px', borderTop: '1px solid #F3F3F3' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                         {TRACKER_STEPS.map((step, i) => {
-                                            const done   = st.step >= TRACKER_STEPS.indexOf(step) + 1 || (i === 0 && st.step >= 1)
-                                            const active = step.key === order.status ||
-                                                (i === 0 && ['Order Placed', 'Confirmed'].includes(order.status))
-                                            const color  = done ? '#D97706' : '#D1D5DB'
+                                            const stepIndex = STEP_ORDER.indexOf(step.key)
+                                            const done      = stepIndex <= currentStepIndex
+                                            const active    = step.key === order.status
+
                                             return (
                                                 <React.Fragment key={step.key}>
                                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                                                         <div style={{
                                                             width: 40, height: 40, borderRadius: '50%',
-                                                            background: active ? '#FEF3C7' : done ? '#FEF9EE' : '#F3F4F6',
+                                                            background: active ? '#FEE2E2' : done ? '#FFF5F5' : '#F3F4F6',
                                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                            border: active ? `2px solid #D97706` : 'none',
+                                                            border: active ? '2px solid #DC2626' : done ? '2px solid #DC2626' : 'none',
                                                         }}>
-                                                            <step.Icon size={18} color={done || active ? '#D97706' : '#9CA3AF'} />
+                                                            <step.Icon size={18} color={done || active ? '#DC2626' : '#9CA3AF'} />
                                                         </div>
-                                                        <span style={{ fontSize: 11, color: done || active ? '#D97706' : '#9CA3AF', fontWeight: active ? 700 : 500 }}>
+                                                        <span style={{ fontSize: 11, color: done || active ? '#DC2626' : '#9CA3AF', fontWeight: active ? 700 : 500 }}>
                                                             {step.label}
                                                         </span>
                                                     </div>
                                                     {i < TRACKER_STEPS.length - 1 && (
-                                                        <div style={{ flex: 1, height: 1.5, background: done ? '#D97706' : '#E5E7EB', marginBottom: 20 }} />
+                                                        <div style={{
+                                                            flex: 1, height: 1.5, marginBottom: 20,
+                                                            background: STEP_ORDER.indexOf(TRACKER_STEPS[i + 1].key) <= currentStepIndex ? '#DC2626' : '#E5E7EB',
+                                                        }} />
                                                     )}
                                                 </React.Fragment>
                                             )
@@ -246,7 +250,7 @@ export default function MyOrders() {
 
                                     {/* Coupon */}
                                     {couponApplied && (
-                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#ECFDF5', color: '#059669', fontSize: 12, fontWeight: 600, padding: '4px 12px', borderRadius: 20, marginBottom: 14 }}>
+                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#DCFCE7', color: '#16A34A', fontSize: 12, fontWeight: 600, padding: '4px 12px', borderRadius: 20, marginBottom: 14 }}>
                                             <Tag size={12} /> {couponApplied}
                                         </div>
                                     )}
@@ -288,14 +292,14 @@ export default function MyOrders() {
                                             <span>Sous-total articles</span><span>{itemsSubtotal} {currency}</span>
                                         </div>
                                         {discountAmount > 0 && (
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#059669', marginBottom: 6 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#16A34A', marginBottom: 6 }}>
                                                 <span>Réduction{couponApplied ? ` (${couponApplied})` : ''}</span>
                                                 <span>− {discountAmount} {currency}</span>
                                             </div>
                                         )}
                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#666', marginBottom: 8 }}>
                                             <span>Livraison</span>
-                                            <span style={{ color: deliveryPrice === 0 ? '#059669' : '#666' }}>
+                                            <span style={{ color: deliveryPrice === 0 ? '#16A34A' : '#666' }}>
                                                 {deliveryPrice === 0 ? 'Gratuit' : `${deliveryPrice} ${currency}`}
                                             </span>
                                         </div>
@@ -314,7 +318,7 @@ export default function MyOrders() {
                                     {order.address && (
                                         <div style={{ background: '#F9F9F9', borderRadius: 12, padding: '12px 14px', marginBottom: 14 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                                                <MapPin size={15} color="#EF4444" />
+                                                <MapPin size={15} color="#DC2626" />
                                                 <span style={{ fontSize: 13, fontWeight: 600, color: '#333' }}>Adresse de livraison</span>
                                             </div>
                                             <p style={{ fontSize: 13, color: '#555', margin: '0 0 2px' }}>
@@ -330,7 +334,7 @@ export default function MyOrders() {
                                         </div>
                                     )}
 
-                                    {/* Bouton PDF */}
+                                    {/* Bouton PDF — toujours présent */}
                                     <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                                         <PDFDownloadLink
                                             document={<OrderReceiptPDF order={order} currency={currency} />}
