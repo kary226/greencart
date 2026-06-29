@@ -29,6 +29,8 @@ const ProductDetails = () => {
   const [averageRating, setAverageRating] = useState(4);
   const [totalReviews, setTotalReviews] = useState(0);
   const [showDetails, setShowDetails] = useState(false);
+  const [showReturnPolicy, setShowReturnPolicy] = useState(false);
+  const [returnPolicy, setReturnPolicy] = useState('');
   const [reviewsKey, setReviewsKey] = useState(0);
 
   const scrollContainerRef = useRef(null);
@@ -38,6 +40,21 @@ const ProductDetails = () => {
   const relatedCarouselRef = useRef(null);
 
   const product = products.find((item) => item._id === id);
+
+  // ✅ Récupérer la politique de retour
+  useEffect(() => {
+    const fetchReturnPolicy = async () => {
+      try {
+        const { data } = await axios.get('/api/setting/return-policy');
+        if (data.success && data.data) {
+          setReturnPolicy(data.data);
+        }
+      } catch (error) {
+        console.error('Erreur chargement politique de retour:', error);
+      }
+    };
+    fetchReturnPolicy();
+  }, []);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -481,6 +498,30 @@ const ProductDetails = () => {
                 </div>
               )}
             </div>
+
+            {/* ✅ NOUVEAU : Politique de retour */}
+            {returnPolicy && (
+              <div className="pd-return-policy">
+                <button
+                  type="button"
+                  className={`pd-return-policy-btn ${showReturnPolicy ? 'open' : ''}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setShowReturnPolicy(!showReturnPolicy);
+                  }}
+                >
+                  Politique de retour <span>{showReturnPolicy ? '▲' : '▼'}</span>
+                </button>
+                {showReturnPolicy && (
+                  <div className="pd-return-policy-content">
+                    <div 
+                      className="pd-return-policy-html"
+                      dangerouslySetInnerHTML={{ __html: returnPolicy }}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -634,10 +675,6 @@ const ProductDetails = () => {
           border-radius: 3px;
         }
 
-        /* ============================================
-           MINIATURES - DÉFILEMENT HORIZONTAL UNIQUEMENT
-           ============================================ */
-
         .pd-thumbs {
           display: flex;
           gap: 6px;
@@ -683,7 +720,6 @@ const ProductDetails = () => {
           display: block;
         }
 
-        /* ✅ Mobile - Miniatures plus petites */
         @media (max-width: 480px) {
           .pd-thumb {
             flex: 0 0 44px;
@@ -1005,6 +1041,93 @@ const ProductDetails = () => {
         .pd-description-html video {
           max-width: 100%;
           height: auto;
+        }
+
+        /* ============================================
+           POLITIQUE DE RETOUR - NOUVEAU
+           ============================================ */
+        .pd-return-policy {
+          margin-top: 12px;
+          border-top: 1px solid #f0ede8;
+          padding-top: 12px;
+        }
+
+        .pd-return-policy-btn {
+          display: flex;
+          justify-content: space-between;
+          width: 100%;
+          padding: 8px 0;
+          background: none;
+          border: none;
+          font-size: 14px;
+          font-weight: 600;
+          color: #111;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .pd-return-policy-btn:hover {
+          color: #e53935;
+        }
+        .pd-return-policy-btn span {
+          font-size: 11px;
+          transition: transform 0.3s;
+        }
+        .pd-return-policy-btn.open span {
+          transform: rotate(180deg);
+        }
+
+        .pd-return-policy-content {
+          margin-top: 6px;
+          padding-bottom: 4px;
+        }
+
+        .pd-return-policy-html {
+          color: #444;
+          font-size: 13px;
+          line-height: 1.7;
+          max-width: 100%;
+          overflow-wrap: break-word;
+          word-wrap: break-word;
+          word-break: break-word;
+        }
+
+        .pd-return-policy-html h2 {
+          font-size: 18px;
+          font-weight: 700;
+          color: #111;
+          margin: 0 0 12px;
+        }
+
+        .pd-return-policy-html h3 {
+          font-size: 15px;
+          font-weight: 600;
+          color: #111;
+          margin: 16px 0 8px;
+        }
+
+        .pd-return-policy-html p {
+          margin: 0 0 10px;
+        }
+
+        .pd-return-policy-html ul,
+        .pd-return-policy-html ol {
+          padding-left: 20px;
+          margin: 0 0 10px;
+        }
+
+        .pd-return-policy-html li {
+          margin-bottom: 4px;
+        }
+
+        .pd-return-policy-html strong {
+          color: #111;
+          font-weight: 600;
+        }
+
+        .pd-return-policy-html hr {
+          border: none;
+          border-top: 1px solid #f0ede8;
+          margin: 16px 0;
         }
 
         .pd-section-header {
