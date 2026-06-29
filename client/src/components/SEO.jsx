@@ -2,8 +2,8 @@ import React from 'react'
 import { Helmet } from 'react-helmet-async'
 
 const SEO = ({ title, description, keywords, image, url }) => {
-  const siteTitle = 'Ramci | Votre boutique en ligne en Côte d\'Ivoire'
-  const fullTitle = title ? `${title} | ${siteTitle}` : siteTitle
+  const siteTitle = 'Ramci.ci'
+  const fullTitle = title ? `${title} | ${siteTitle}` : 'Ramci | Votre boutique en ligne en Côte d\'Ivoire'
   const siteDescription = description || 'Ramci - Vêtements, accessoires et plus. Livraison rapide à Abidjan.'
   const siteUrl = url || 'https://www.ramci.ci'
   const siteImage = image || 'https://www.ramci.ci/logo.png'
