@@ -38,14 +38,14 @@ const FILTER_MATCH = {
     cancelled: (o) => o.status === 'Cancelled',
 }
 
-// Étapes du tracker dans l'ordre exact de la BDD
+// ✅ TRACKER AVEC POINTS MODERNES (sans icônes)
 const TRACKER_STEPS = [
-    { key: 'Order Placed', label: 'En attente', Icon: ShoppingBag },
-    { key: 'Confirmed',    label: 'Confirmée',  Icon: CheckCircle },
-    { key: 'Shipped',      label: 'Expédiée',   Icon: Truck },
-    { key: 'Out for Delivery', label: 'En livraison', Icon: PackageCheck },
-    { key: 'Delivered',    label: 'Livrée',     Icon: Home },
-    { key: 'Returned',     label: 'Retournée',  Icon: RotateCw },
+    { key: 'Order Placed', label: 'En attente' },
+    { key: 'Confirmed',    label: 'Confirmée' },
+    { key: 'Shipped',      label: 'Expédiée' },
+    { key: 'Out for Delivery', label: 'En livraison' },
+    { key: 'Delivered',    label: 'Livrée' },
+    { key: 'Returned',     label: 'Retournée' },
 ]
 
 const STEP_ORDER = ['Order Placed', 'Confirmed', 'Shipped', 'Out for Delivery', 'Delivered', 'Returned']
@@ -205,7 +205,7 @@ export default function MyOrders() {
                                 <ChevronRight size={18} color="#ccc" style={{ flexShrink: 0, transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }} />
                             </button>
 
-                            {/* ── Tracker d'étapes ─────────────────────── */}
+                            {/* ── Tracker d'étapes avec POINTS modernes ── */}
                             {order.status !== 'Cancelled' && (
                                 <div style={{ padding: '4px 16px 16px', borderTop: '1px solid #F3F3F3' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -216,23 +216,64 @@ export default function MyOrders() {
 
                                             return (
                                                 <React.Fragment key={step.key}>
-                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                                        {/* ✅ Cercle avec POINT ou PLEIN */}
                                                         <div style={{
-                                                            width: 40, height: 40, borderRadius: '50%',
-                                                            background: active ? '#FEE2E2' : done ? '#FFF5F5' : '#F3F4F6',
-                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                            border: active ? '2px solid #DC2626' : done ? '2px solid #DC2626' : 'none',
+                                                            width: 32,
+                                                            height: 32,
+                                                            borderRadius: '50%',
+                                                            background: active ? '#DC2626' : done ? '#DC2626' : '#E5E7EB',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            border: active ? '3px solid #DC2626' : 'none',
+                                                            boxShadow: active ? '0 0 0 4px #FEE2E2' : 'none',
+                                                            transition: 'all 0.3s ease'
                                                         }}>
-                                                            <step.Icon size={18} color={done || active ? '#DC2626' : '#9CA3AF'} />
+                                                            {/* ✅ Petit point blanc pour les étapes complétées */}
+                                                            {done && !active && (
+                                                                <div style={{
+                                                                    width: 8,
+                                                                    height: 8,
+                                                                    borderRadius: '50%',
+                                                                    background: '#fff'
+                                                                }} />
+                                                            )}
+                                                            {/* ✅ Point rouge pour l'étape active */}
+                                                            {active && (
+                                                                <div style={{
+                                                                    width: 10,
+                                                                    height: 10,
+                                                                    borderRadius: '50%',
+                                                                    background: '#fff'
+                                                                }} />
+                                                            )}
+                                                            {/* ✅ Cercle vide pour les étapes non atteintes */}
+                                                            {!done && !active && (
+                                                                <div style={{
+                                                                    width: 8,
+                                                                    height: 8,
+                                                                    borderRadius: '50%',
+                                                                    background: '#D1D5DB'
+                                                                }} />
+                                                            )}
                                                         </div>
-                                                        <span style={{ fontSize: 11, color: done || active ? '#DC2626' : '#9CA3AF', fontWeight: active ? 700 : 500 }}>
+                                                        <span style={{
+                                                            fontSize: 10,
+                                                            color: done || active ? '#111' : '#9CA3AF',
+                                                            fontWeight: active ? 700 : 500,
+                                                            textAlign: 'center'
+                                                        }}>
                                                             {step.label}
                                                         </span>
                                                     </div>
                                                     {i < TRACKER_STEPS.length - 1 && (
                                                         <div style={{
-                                                            flex: 1, height: 1.5, marginBottom: 20,
+                                                            flex: 1,
+                                                            height: 2,
+                                                            marginBottom: 14,
                                                             background: STEP_ORDER.indexOf(TRACKER_STEPS[i + 1].key) <= currentStepIndex ? '#DC2626' : '#E5E7EB',
+                                                            borderRadius: 2
                                                         }} />
                                                     )}
                                                 </React.Fragment>
