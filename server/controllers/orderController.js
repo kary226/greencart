@@ -35,12 +35,6 @@ const reduceVariantStock = async (items) => {
 };
 
 // Place Order COD : /api/order/cod
-//
-// [FIX M2] Les frais de livraison et la remise coupon sont désormais
-// recalculés et revalidés côté serveur (même logique que
-// geniuspayController.initiateGeniusPay), au lieu d'être ignorés. Les
-// valeurs envoyées par le client ('deliveryPrice', 'discountAmount') ne
-// sont jamais utilisées directement pour le calcul du montant final.
 export const placeOrderCOD = async (req, res)=>{
     try {
         const { userId, items, address, deliveryType, couponApplied } = req.body;
@@ -56,9 +50,6 @@ export const placeOrderCOD = async (req, res)=>{
             }
 
             let priceAtOrder = product.offerPrice;
-            // Même garde-fou que GeniusPay : prix de variante utilisé
-            // uniquement s'il est strictement positif, sinon fallback sur
-            // le prix du produit parent.
             if (product.variants && product.variants.length > 0) {
                 const variant = product.variants.find(v =>
                     (item.selectedColor == null ? v.color == null : v.color === item.selectedColor) &&
@@ -84,9 +75,6 @@ export const placeOrderCOD = async (req, res)=>{
 
         const itemsSubtotal = amount;
 
-        // [FIX M2] Recalcul des frais de livraison côté serveur, à partir
-        // de la commune de l'adresse — même logique de fallback ville/
-        // commune que deliveryController.getDeliveryPrice.
         let deliveryPrice = 0;
         if (deliveryType) {
             const addressDoc = await Address.findById(address);
@@ -117,11 +105,6 @@ export const placeOrderCOD = async (req, res)=>{
             }
         }
 
-        // [FIX M2] Revalidation et recalcul de la remise coupon côté
-        // serveur, même logique que couponController.validateCoupon. Le
-        // coupon a normalement déjà été "consommé" via POST /api/coupon/apply
-        // appelé par le frontend avant cette étape (voir geniuspayController
-        // pour la note détaillée sur canUserUse()).
         let discountAmount = 0;
         if (couponApplied) {
             const coupon = await Coupon.findOne({ code: String(couponApplied).toUpperCase() });
@@ -154,7 +137,6 @@ export const placeOrderCOD = async (req, res)=>{
         await reduceVariantStock(itemsWithPrice);
         await User.findByIdAndUpdate(userId, {cartItems: {}});
 
-        // === ENVOI DES EMAILS ===
         const user = await User.findById(userId);
         if (user && user.email) {
             await sendOrderConfirmationEmail(user.email, order._id.toString(), amount);
@@ -167,16 +149,11 @@ export const placeOrderCOD = async (req, res)=>{
     }
 };
 
-// [FIX] Stripe retiré : GreenCart n'utilise que GeniusPay et COD comme
-// moyens de paiement. Les fonctions placeOrderStripe et stripeWebhooks
-// (anciennement définies ici, route POST /stripe) ont été supprimées,
-// ainsi que l'import du SDK 'stripe'.
-
-// Update Order Status : /api/order/status
+// ✅ Update Order Status : /api/order/status - AJOUT DE 'Returned'
 export const updateOrderStatus = async (req, res)=>{
     try {
         const { orderId, status } = req.body;
-        const validStatuses = ['Order Placed', 'Confirmed', 'Shipped', 'Out for Delivery', 'Delivered', 'Cancelled'];
+        const validStatuses = ['Order Placed', 'Confirmed', 'Shipped', 'Out for Delivery', 'Delivered', 'Returned', 'Cancelled'];
         
         if (!validStatuses.includes(status)) {
             return res.json({ success: false, message: "Statut invalide" });
