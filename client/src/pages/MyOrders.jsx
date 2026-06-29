@@ -1,90 +1,98 @@
 import React, { useEffect, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
 import { PDFDownloadLink } from '@react-pdf/renderer'
 import OrderReceiptPDF from '../components/OrderReceiptPDF'
-import { Package, Calendar, CreditCard, MapPin, Phone, FileText, CheckCircle, Truck, PackageCheck, Home, XCircle, Tag, Banknote } from 'lucide-react'
+import {
+    Package, Calendar, CreditCard, MapPin, Phone, FileText,
+    CheckCircle, Truck, PackageCheck, Home, XCircle, Tag,
+    Banknote, ChevronRight, ShoppingBag, Clock, Bell
+} from 'lucide-react'
 
-const MyOrders = () => {
+const FILTERS = [
+    { key: 'all',       label: 'Toutes' },
+    { key: 'pending',   label: 'En attente' },
+    { key: 'shipped',   label: 'Expédiées' },
+    { key: 'delivered', label: 'Livrées' },
+    { key: 'cancelled', label: 'Annulées' },
+]
 
-    const [myOrders, setMyOrders] = useState([])
+const STATUS_MAP = {
+    'Order Placed':     { text: 'En attente',   color: '#F97316', bg: '#FFF7ED', step: 1 },
+    'Confirmed':        { text: 'Confirmée',    color: '#16A34A', bg: '#F0FDF4', step: 2 },
+    'Shipped':          { text: 'Expédiée',     color: '#6366F1', bg: '#EEF2FF', step: 3 },
+    'Out for Delivery': { text: 'En livraison', color: '#EA580C', bg: '#FFF7ED', step: 4 },
+    'Delivered':        { text: 'Livrée',       color: '#16A34A', bg: '#F0FDF4', step: 5 },
+    'Cancelled':        { text: 'Annulée',      color: '#EF4444', bg: '#FEF2F2', step: 0 },
+}
+
+const FILTER_MATCH = {
+    all:       () => true,
+    pending:   (o) => ['Order Placed', 'Confirmed'].includes(o.status),
+    shipped:   (o) => ['Shipped', 'Out for Delivery'].includes(o.status),
+    delivered: (o) => o.status === 'Delivered',
+    cancelled: (o) => o.status === 'Cancelled',
+}
+
+const TRACKER_STEPS = [
+    { key: 'Order Placed',     label: 'En attente', Icon: ShoppingBag },
+    { key: 'Shipped',          label: 'Expédiée',   Icon: Truck },
+    { key: 'Out for Delivery', label: 'En cours',   Icon: PackageCheck },
+    { key: 'Delivered',        label: 'Livrée',     Icon: CheckCircle },
+]
+
+const getPaymentLabel = (order) => {
+    if (order.paymentType === 'COD') return 'Paiement à la livraison'
+    if (order.paymentType === 'GeniusPay')
+        return order.isPaid ? 'Mobile Money — Payé' : 'Mobile Money — En attente'
+    return order.paymentType || 'Paiement en ligne'
+}
+
+const getItemsSubtotal = (order) =>
+    order.items.reduce((sum, item) =>
+        sum + ((item.priceAtOrder || item.product?.offerPrice || 0) * item.quantity), 0)
+
+const getStatusMessage = (status) => ({
+    'Order Placed':     'Votre commande a été enregistrée et est en cours de traitement.',
+    'Confirmed':        'Votre commande a été confirmée. Nous la préparons.',
+    'Shipped':          'Votre commande a été expédiée !',
+    'Out for Delivery': 'Votre commande est en cours de livraison.',
+    'Delivered':        'Votre commande a été livrée. Merci pour votre confiance !',
+    'Cancelled':        'Votre commande a été annulée.',
+}[status] || '')
+
+export default function MyOrders() {
+    const [myOrders, setMyOrders]   = useState([])
+    const [filter, setFilter]       = useState('all')
+    const [expanded, setExpanded]   = useState(null)
     const { currency, axios, user } = useAppContext()
     const location = useLocation()
 
     const fetchMyOrders = async () => {
         try {
             const { data } = await axios.get('/api/order/user')
-            if (data.success) {
-                setMyOrders(data.orders)
-            }
-        } catch (error) {
-            console.log(error);
-        }
+            if (data.success) setMyOrders(data.orders)
+        } catch (err) { console.log(err) }
     }
 
-    const getStatusBadge = (status) => {
-        const statusMap = {
-            'Order Placed': { text: 'Commandée', color: 'bg-blue-50 text-blue-700 border-blue-200', icon: Package, step: 1 },
-            'Confirmed': { text: 'Confirmée', color: 'bg-green-50 text-green-700 border-green-200', icon: CheckCircle, step: 2 },
-            'Shipped': { text: 'Expédiée', color: 'bg-purple-50 text-purple-700 border-purple-200', icon: PackageCheck, step: 3 },
-            'Out for Delivery': { text: 'En livraison', color: 'bg-orange-50 text-orange-700 border-orange-200', icon: Truck, step: 4 },
-            'Delivered': { text: 'Livrée', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: Home, step: 5 },
-            'Cancelled': { text: 'Annulée', color: 'bg-red-50 text-red-700 border-red-200', icon: XCircle, step: 0 }
-        };
-        return statusMap[status] || { text: status, color: 'bg-gray-50 text-gray-700 border-gray-200', icon: Package, step: 0 };
-    };
-
-    const getStatusMessage = (status) => {
-        const messages = {
-            'Order Placed': 'Votre commande a été enregistrée et est en cours de traitement.',
-            'Confirmed': 'Votre commande a été confirmée. Nous la préparons.',
-            'Shipped': 'Votre commande a été expédiée !',
-            'Out for Delivery': 'Votre commande est en cours de livraison.',
-            'Delivered': 'Votre commande a été livrée. Merci pour votre confiance !',
-            'Cancelled': 'Votre commande a été annulée.'
-        };
-        return messages[status] || '';
-    };
-
-    // [FIX] Libellé clair du moyen de paiement. L'ancien code n'affichait
-    // que deux cas ("Paiement à la livraison" / "Paiement en ligne"), ce
-    // qui ne distinguait pas GeniusPay (mobile money) — pourtant le seul
-    // moyen de paiement en ligne utilisé sur la plateforme.
-    const getPaymentLabel = (order) => {
-        if (order.paymentType === 'COD') return 'Paiement à la livraison';
-        if (order.paymentType === 'GeniusPay') {
-            return order.isPaid ? 'Mobile Money — Payé' : 'Mobile Money — En attente';
-        }
-        return order.paymentType || 'Paiement en ligne';
-    };
-
-    // [FIX] Sous-total des articles, pour pouvoir afficher le détail
-    // (sous-total / livraison / remise / total) au lieu du seul montant
-    // final qui mélangeait tout sans explication.
-    const getItemsSubtotal = (order) => {
-        return order.items.reduce((sum, item) =>
-            sum + ((item.priceAtOrder || item.product?.offerPrice || 0) * item.quantity), 0);
-    };
-
     useEffect(() => {
-        if (user) {
-            fetchMyOrders()
-        }
+        if (user) fetchMyOrders()
     }, [user, location.pathname])
 
+    const filtered = myOrders.filter(FILTER_MATCH[filter])
+
+    /* ── Empty state ─────────────────────────────────────── */
     if (myOrders.length === 0) {
         return (
-            <div className="min-h-screen bg-white pt-20 pb-16 px-4">
-                <div className="max-w-md mx-auto text-center">
-                    <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Package size={40} className="text-red-500" />
+            <div style={{ minHeight: '100vh', background: '#F9F9F9', paddingTop: 80, paddingBottom: 80, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ textAlign: 'center', padding: '0 24px' }}>
+                    <div style={{ width: 72, height: 72, borderRadius: '50%', background: '#FFF1F1', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                        <Package size={36} color="#EF4444" />
                     </div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">Aucune commande</h2>
-                    <p className="text-gray-500 mb-6">Vous n'avez pas encore passé de commande</p>
-                    <button 
-                        onClick={() => window.location.href = '/products'} 
-                        className="bg-black text-white px-6 py-3 rounded-full font-medium hover:bg-gray-800 transition shadow-lg"
-                    >
+                    <h2 style={{ fontSize: 20, fontWeight: 700, color: '#111', marginBottom: 8 }}>Aucune commande</h2>
+                    <p style={{ color: '#888', marginBottom: 24 }}>Vous n'avez pas encore passé de commande</p>
+                    <button onClick={() => window.location.href = '/products'}
+                        style={{ background: '#111', color: '#fff', border: 'none', borderRadius: 24, padding: '12px 28px', fontWeight: 600, fontSize: 15, cursor: 'pointer' }}>
                         Découvrir nos produits
                     </button>
                 </div>
@@ -93,202 +101,253 @@ const MyOrders = () => {
     }
 
     return (
-        <div className="min-h-screen bg-white pt-20 pb-16 px-4">
-            <div className="max-w-5xl mx-auto">
-                {/* En-tête */}
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900">Mes commandes</h1>
-                    <div className="w-20 h-1 bg-red-500 rounded-full mt-2"></div>
-                    <p className="text-gray-500 mt-2">Suivez l'état de vos commandes</p>
+        <div style={{ minHeight: '100vh', background: '#F2F2F2', paddingBottom: 90 }}>
+
+            {/* ── Header ──────────────────────────────────────── */}
+            <div style={{ background: '#fff', padding: '56px 20px 0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+                    <div>
+                        <h1 style={{ fontSize: 28, fontWeight: 800, color: '#111', margin: 0, lineHeight: 1.2 }}>Mes commandes</h1>
+                        <p style={{ color: '#888', fontSize: 14, margin: '4px 0 0' }}>Suivez et gérez toutes vos commandes</p>
+                    </div>
+                    <div style={{ position: 'relative', marginTop: 4 }}>
+                        <Bell size={24} color="#222" />
+                        <span style={{ position: 'absolute', top: -4, right: -4, width: 10, height: 10, background: '#EF4444', borderRadius: '50%', border: '2px solid #fff' }} />
+                    </div>
                 </div>
 
-                {/* Liste des commandes */}
-                <div className="space-y-6">
-                    {myOrders.map((order, index) => {
-                        const statusBadge = getStatusBadge(order.status);
-                        const StatusIcon = statusBadge.icon;
-                        const statusMessage = getStatusMessage(order.status);
-                        const itemsSubtotal = getItemsSubtotal(order);
-                        const deliveryPrice = order.deliveryPrice || 0;
-                        const discountAmount = order.discountAmount || 0;
-                        const couponApplied = order.couponApplied || null;
-                        
+                {/* ── Filtre ─────────────────────────────────── */}
+                <div style={{ display: 'flex', gap: 0, marginTop: 20, overflowX: 'auto', scrollbarWidth: 'none' }}>
+                    {FILTERS.map(f => {
+                        const active = filter === f.key
                         return (
-                            <div key={index} className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                                {/* En-tête de la commande */}
-                                <div className="bg-gray-50 px-6 py-4 border-b border-gray-100">
-                                    <div className="flex flex-wrap justify-between items-center gap-3">
-                                        <div className="flex items-center gap-4">
-                                            <div className="flex items-center gap-2 text-gray-500">
-                                                <Package size={16} />
-                                                <span className="text-sm font-mono">#{order._id.slice(-8)}</span>
-                                            </div>
-                                            <div className="flex items-center gap-2 text-gray-500">
-                                                <Calendar size={16} />
-                                                <span className="text-sm">{new Date(order.createdAt).toLocaleDateString('fr-FR')}</span>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-4">
-                                            {/* [FIX] Moyen de paiement visible directement dans l'en-tête,
-                                                plus seulement dans une ligne de texte discrète */}
-                                            <div className="flex items-center gap-2 text-gray-500">
-                                                <Banknote size={16} />
-                                                <span className="text-sm">{getPaymentLabel(order)}</span>
-                                            </div>
-                                            <div className="text-lg font-bold text-gray-900">
-                                                {order.amount} {currency}
-                                            </div>
-                                        </div>
-                                    </div>
+                            <button key={f.key} onClick={() => setFilter(f.key)}
+                                style={{
+                                    background: 'none', border: 'none', cursor: 'pointer',
+                                    padding: '8px 14px 12px', fontSize: 14, fontWeight: active ? 700 : 500,
+                                    color: active ? '#111' : '#999', whiteSpace: 'nowrap',
+                                    borderBottom: active ? '2.5px solid #D97706' : '2.5px solid transparent',
+                                    transition: 'all .15s',
+                                }}>
+                                {f.label}
+                            </button>
+                        )
+                    })}
+                </div>
+            </div>
+
+            {/* ── Liste ───────────────────────────────────────── */}
+            <div style={{ padding: '12px 12px 0' }}>
+                {filtered.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: '48px 0', color: '#aaa', fontSize: 15 }}>
+                        Aucune commande dans cette catégorie
+                    </div>
+                )}
+
+                {filtered.map((order, idx) => {
+                    const st       = STATUS_MAP[order.status] || { text: order.status, color: '#888', bg: '#f5f5f5', step: 0 }
+                    const isOpen   = expanded === order._id
+                    const firstImg = order.items?.[0]?.product?.image?.[0]
+                    const itemCount = order.items?.length || 0
+                    const itemsSubtotal  = getItemsSubtotal(order)
+                    const deliveryPrice  = order.deliveryPrice || 0
+                    const discountAmount = order.discountAmount || 0
+                    const couponApplied  = order.couponApplied || null
+                    const currentStep    = TRACKER_STEPS.findIndex(s => s.key === order.status)
+
+                    return (
+                        <div key={order._id}
+                            style={{ background: '#fff', borderRadius: 16, marginBottom: 10, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+
+                            {/* ── Ligne compacte (toujours visible) ───── */}
+                            <button onClick={() => setExpanded(isOpen ? null : order._id)}
+                                style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '14px 16px', textAlign: 'left' }}>
+
+                                {/* Miniature */}
+                                <div style={{ width: 68, height: 68, borderRadius: 10, overflow: 'hidden', background: '#F8F8F8', flexShrink: 0 }}>
+                                    {firstImg
+                                        ? <img src={firstImg} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={28} color="#ccc" /></div>
+                                    }
                                 </div>
 
-                                {/* Corps de la commande */}
-                                <div className="px-6 py-5">
-                                    {/* Statut */}
-                                    <div className="mb-6">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <div className={`p-1.5 rounded-full ${statusBadge.color.split(' ')[0]} bg-opacity-100`}>
-                                                <StatusIcon size={18} className={statusBadge.color.split(' ')[2]?.replace('text-', '')} />
-                                            </div>
-                                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusBadge.color}`}>
-                                                {statusBadge.text}
-                                            </span>
-                                            {/* [FIX] Badge coupon visible directement à côté du statut */}
-                                            {couponApplied && (
-                                                <span className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                                    <Tag size={12} />
-                                                    {couponApplied}
-                                                </span>
-                                            )}
-                                        </div>
-                                        
-                                        {order.status !== 'Cancelled' && (
-                                            <div className="mb-3">
-                                                <div className="w-full bg-gray-100 rounded-full h-1.5">
-                                                    <div 
-                                                        className="bg-red-500 h-1.5 rounded-full transition-all duration-500"
-                                                        style={{ width: `${(statusBadge.step / 5) * 100}%` }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        )}
-                                        
-                                        {statusMessage && (
-                                            <p className="text-sm text-gray-600">{statusMessage}</p>
-                                        )}
+                                {/* Infos */}
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                                        <span style={{ fontWeight: 700, fontSize: 15, color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            Commande #{order._id.slice(-8).toUpperCase()}
+                                        </span>
+                                        {/* Badge statut */}
+                                        <span style={{
+                                            fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, flexShrink: 0,
+                                            color: st.color, background: st.bg,
+                                        }}>{st.text}</span>
                                     </div>
+                                    <p style={{ color: '#888', fontSize: 13, margin: '3px 0 2px' }}>
+                                        {new Date(order.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                        {' à '}
+                                        {new Date(order.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                    </p>
+                                    <p style={{ color: '#888', fontSize: 13, margin: '0 0 4px' }}>
+                                        {itemCount} article{itemCount > 1 ? 's' : ''}
+                                    </p>
+                                    <p style={{ fontWeight: 700, fontSize: 15, color: '#111', margin: 0 }}>
+                                        {order.amount} {currency}
+                                    </p>
+                                </div>
 
-                                    {/* Liste des produits */}
-                                    <div className="space-y-3 mb-6">
-                                        {order.items.map((item, idx) => (
-                                            <div key={idx} className="flex gap-4 py-3 border-b border-gray-100 last:border-0">
-                                                <div className="w-16 h-16 bg-gray-50 rounded-xl overflow-hidden flex-shrink-0">
-                                                    {item.product && item.product.image && item.product.image[0] ? (
-                                                        <img src={item.product.image[0]} alt="" className="w-full h-full object-cover" />
-                                                    ) : (
-                                                        <div className="w-full h-full flex items-center justify-center text-gray-300">
-                                                            <Package size={24} />
+                                <ChevronRight size={18} color="#ccc" style={{ flexShrink: 0, transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }} />
+                            </button>
+
+                            {/* ── Tracker d'étapes ─────────────────────── */}
+                            {order.status !== 'Cancelled' && (
+                                <div style={{ padding: '4px 16px 16px', borderTop: '1px solid #F3F3F3' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        {TRACKER_STEPS.map((step, i) => {
+                                            const done   = st.step >= TRACKER_STEPS.indexOf(step) + 1 || (i === 0 && st.step >= 1)
+                                            const active = step.key === order.status ||
+                                                (i === 0 && ['Order Placed', 'Confirmed'].includes(order.status))
+                                            const color  = done ? '#D97706' : '#D1D5DB'
+                                            return (
+                                                <React.Fragment key={step.key}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                                                        <div style={{
+                                                            width: 40, height: 40, borderRadius: '50%',
+                                                            background: active ? '#FEF3C7' : done ? '#FEF9EE' : '#F3F4F6',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            border: active ? `2px solid #D97706` : 'none',
+                                                        }}>
+                                                            <step.Icon size={18} color={done || active ? '#D97706' : '#9CA3AF'} />
                                                         </div>
+                                                        <span style={{ fontSize: 11, color: done || active ? '#D97706' : '#9CA3AF', fontWeight: active ? 700 : 500 }}>
+                                                            {step.label}
+                                                        </span>
+                                                    </div>
+                                                    {i < TRACKER_STEPS.length - 1 && (
+                                                        <div style={{ flex: 1, height: 1.5, background: done ? '#D97706' : '#E5E7EB', marginBottom: 20 }} />
                                                     )}
+                                                </React.Fragment>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ── Détail expandé ───────────────────────── */}
+                            {isOpen && (
+                                <div style={{ borderTop: '1px solid #F3F3F3', padding: '16px' }}>
+
+                                    {/* Message statut */}
+                                    {getStatusMessage(order.status) && (
+                                        <p style={{ fontSize: 13, color: '#666', marginBottom: 16, lineHeight: 1.5 }}>
+                                            {getStatusMessage(order.status)}
+                                        </p>
+                                    )}
+
+                                    {/* Coupon */}
+                                    {couponApplied && (
+                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#ECFDF5', color: '#059669', fontSize: 12, fontWeight: 600, padding: '4px 12px', borderRadius: 20, marginBottom: 14 }}>
+                                            <Tag size={12} /> {couponApplied}
+                                        </div>
+                                    )}
+
+                                    {/* Articles */}
+                                    <div style={{ marginBottom: 16 }}>
+                                        {order.items.map((item, idx2) => (
+                                            <div key={idx2} style={{ display: 'flex', gap: 12, paddingBottom: 12, marginBottom: 12, borderBottom: idx2 < order.items.length - 1 ? '1px solid #F3F3F3' : 'none' }}>
+                                                <div style={{ width: 56, height: 56, borderRadius: 10, overflow: 'hidden', background: '#F8F8F8', flexShrink: 0 }}>
+                                                    {item.product?.image?.[0]
+                                                        ? <img src={item.product.image[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                        : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={20} color="#ccc" /></div>
+                                                    }
                                                 </div>
-                                                <div className="flex-1">
-                                                    <h3 className="font-semibold text-gray-900">{item.product?.name || 'Produit indisponible'}</h3>
-                                                    <div className="flex flex-wrap gap-2 mt-1">
+                                                <div style={{ flex: 1 }}>
+                                                    <p style={{ fontWeight: 600, fontSize: 14, color: '#111', margin: '0 0 4px' }}>{item.product?.name || 'Produit indisponible'}</p>
+                                                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                                                         {item.color && item.color !== 'null' && (
-                                                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                                                                {item.color}
-                                                            </span>
+                                                            <span style={{ fontSize: 11, background: '#F3F4F6', color: '#555', padding: '2px 8px', borderRadius: 12 }}>{item.color}</span>
                                                         )}
                                                         {item.size && item.size !== 'null' && (
-                                                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                                                                {item.size}
-                                                            </span>
+                                                            <span style={{ fontSize: 11, background: '#F3F4F6', color: '#555', padding: '2px 8px', borderRadius: 12 }}>{item.size}</span>
                                                         )}
                                                     </div>
-                                                    <div className="flex gap-4 mt-2 text-sm text-gray-500">
-                                                        <span>Qté : {item.quantity || 1}</span>
-                                                        <span>{item.priceAtOrder || item.product?.offerPrice || 0} {currency}/u</span>
-                                                    </div>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="font-bold text-gray-900">
-                                                        {(item.priceAtOrder || item.product?.offerPrice || 0) * (item.quantity || 1)} {currency}
+                                                    <p style={{ fontSize: 13, color: '#888', margin: '4px 0 0' }}>
+                                                        Qté : {item.quantity || 1} · {item.priceAtOrder || item.product?.offerPrice || 0} {currency}/u
                                                     </p>
                                                 </div>
+                                                <p style={{ fontWeight: 700, fontSize: 14, color: '#111', margin: 0, flexShrink: 0 }}>
+                                                    {(item.priceAtOrder || item.product?.offerPrice || 0) * (item.quantity || 1)} {currency}
+                                                </p>
                                             </div>
                                         ))}
                                     </div>
 
-                                    {/* [FIX] Récapitulatif du montant : sous-total / remise / livraison / total,
-                                        au lieu du seul montant final affiché sans détail dans l'en-tête */}
-                                    <div className="bg-gray-50 rounded-xl p-4 mb-4 space-y-1.5">
-                                        <div className="flex justify-between text-sm text-gray-600">
-                                            <span>Sous-total articles</span>
-                                            <span>{itemsSubtotal} {currency}</span>
+                                    {/* Récapitulatif montant */}
+                                    <div style={{ background: '#F9F9F9', borderRadius: 12, padding: '12px 14px', marginBottom: 14 }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#666', marginBottom: 6 }}>
+                                            <span>Sous-total articles</span><span>{itemsSubtotal} {currency}</span>
                                         </div>
                                         {discountAmount > 0 && (
-                                            <div className="flex justify-between text-sm text-emerald-600">
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#059669', marginBottom: 6 }}>
                                                 <span>Réduction{couponApplied ? ` (${couponApplied})` : ''}</span>
                                                 <span>− {discountAmount} {currency}</span>
                                             </div>
                                         )}
-                                        <div className="flex justify-between text-sm text-gray-600">
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#666', marginBottom: 8 }}>
                                             <span>Livraison</span>
-                                            <span className={deliveryPrice === 0 ? 'text-green-600' : ''}>
+                                            <span style={{ color: deliveryPrice === 0 ? '#059669' : '#666' }}>
                                                 {deliveryPrice === 0 ? 'Gratuit' : `${deliveryPrice} ${currency}`}
                                             </span>
                                         </div>
-                                        <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t border-gray-200 mt-1">
-                                            <span>Total payé</span>
-                                            <span>{order.amount} {currency}</span>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15, fontWeight: 700, color: '#111', borderTop: '1px solid #E5E7EB', paddingTop: 8 }}>
+                                            <span>Total payé</span><span>{order.amount} {currency}</span>
                                         </div>
                                     </div>
 
-                                    {/* Adresse de livraison */}
+                                    {/* Moyen de paiement */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, color: '#666', fontSize: 13 }}>
+                                        <Banknote size={16} color="#9CA3AF" />
+                                        <span>{getPaymentLabel(order)}</span>
+                                    </div>
+
+                                    {/* Adresse */}
                                     {order.address && (
-                                        <div className="bg-gray-50 rounded-xl p-4 mb-4">
-                                            <div className="flex items-center gap-2 mb-3">
-                                                <MapPin size={16} className="text-red-500" />
-                                                <span className="text-sm font-medium text-gray-700">Adresse de livraison</span>
+                                        <div style={{ background: '#F9F9F9', borderRadius: 12, padding: '12px 14px', marginBottom: 14 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                                <MapPin size={15} color="#EF4444" />
+                                                <span style={{ fontSize: 13, fontWeight: 600, color: '#333' }}>Adresse de livraison</span>
                                             </div>
-                                            <p className="text-sm text-gray-600">
+                                            <p style={{ fontSize: 13, color: '#555', margin: '0 0 2px' }}>
                                                 {order.address.firstName} {order.address.lastName}
                                             </p>
-                                            <p className="text-sm text-gray-600">
+                                            <p style={{ fontSize: 13, color: '#555', margin: '0 0 4px' }}>
                                                 {order.address.street}, {order.address.city}
                                             </p>
-                                            <div className="flex items-center gap-2 mt-1">
-                                                <Phone size={14} className="text-gray-400" />
-                                                <span className="text-sm text-gray-600">{order.address.phone}</span>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                <Phone size={13} color="#9CA3AF" />
+                                                <span style={{ fontSize: 13, color: '#555' }}>{order.address.phone}</span>
                                             </div>
                                         </div>
                                     )}
 
                                     {/* Bouton PDF */}
-                                    <div className="flex justify-end">
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                                         <PDFDownloadLink
                                             document={<OrderReceiptPDF order={order} currency={currency} />}
                                             fileName={`facture_${order._id.slice(-8)}.pdf`}
-                                            className="inline-flex items-center gap-2 px-4 py-2 bg-black text-white rounded-full text-sm font-medium hover:bg-gray-800 transition shadow-sm"
+                                            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#111', color: '#fff', borderRadius: 24, padding: '10px 20px', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}
                                         >
-                                            {({ loading }) => loading ? (
-                                                <span className="text-white">Chargement...</span>
-                                            ) : (
-                                                <>
-                                                    <FileText size={16} className="text-white" />
-                                                    <span className="text-white">Télécharger le reçu</span>
-                                                </>
+                                            {({ loading }) => loading ? 'Chargement...' : (
+                                                <><FileText size={15} /> Télécharger le reçu</>
                                             )}
                                         </PDFDownloadLink>
                                     </div>
                                 </div>
-                            </div>
-                        );
-                    })}
-                </div>
+                            )}
+                        </div>
+                    )
+                })}
             </div>
         </div>
     )
 }
-
-export default MyOrders
