@@ -18,6 +18,7 @@ import wishlistRouter from './routes/wishlistRoute.js';
 import couponRouter from './routes/couponRoute.js';
 import locationRouter from './routes/locationRoute.js';
 import deliveryRouter from './routes/deliveryRoute.js';
+import settingRouter from './routes/settingRoute.js';
 import { geniuspayWebhook } from './controllers/geniuspayController.js';
 import dns from 'dns';
 
@@ -38,25 +39,10 @@ const allowedOrigins = [
     'https://greencart-five-ochre.vercel.app',
     'https://greencart-y.vercel.app',
     'https://ramci.vercel.app',
-    'https://ramci.ci',       // ← AJOUTER
-    'https://www.ramci.ci'    // ← AJOUTER
+    'https://ramci.ci',
+    'https://www.ramci.ci'
 ];
 
-// [FIX H2] Vraie liste blanche CORS. L'ancienne version loguait un
-// avertissement pour une origine non listée puis l'autorisait quand même
-// (callback(null, true) dans le bloc 'else'), ce qui revenait à
-// origin: '*' combiné à credentials: true — la pire combinaison possible.
-// Désormais une origine absente de allowedOrigins est explicitement
-// rejetée.
-//
-// [FIX bug post-déploiement] Le package 'cors' gère nativement les
-// requêtes preflight OPTIONS dès lors qu'il est monté via app.use() —
-// un second app.options('*', cors({...})) séparé est non seulement
-// redondant mais peut interférer avec la réponse au preflight et la
-// faire échouer pour TOUTES les origines, y compris légitimes (symptôme
-// observé : 'No Access-Control-Allow-Origin header' sur le preflight
-// lui-même, alors que l'origine était bien dans la liste blanche). Le
-// bloc séparé a donc été supprimé ; app.use(cors(...)) seul suffit.
 app.use(cors({
     origin: function(origin, callback) {
         if (!origin || allowedOrigins.includes(origin)) {
@@ -71,30 +57,9 @@ app.use(cors({
     exposedHeaders: ['Set-Cookie']
 }));
 
-// [FIX] Stripe retiré : GreenCart n'utilise que GeniusPay et COD comme
-// moyens de paiement. L'ancienne route 'app.post('/stripe', ...)' et
-// son contrôleur stripeWebhooks ont été supprimés.
-
-// [FIX] Webhook GeniusPay — DOIT être monté avant express.json() global,
-// avec express.raw(), pour que geniuspayWebhook reçoive le corps brut
-// exact envoyé par GeniusPay. La signature HMAC de GeniusPay est calculée
-// sur ce corps brut (`${timestamp}.${raw_json}`) ; si le corps est déjà
-// reparsé en objet JS par express.json() avant d'arriver au contrôleur,
-// JSON.stringify(req.body) peut différer octet pour octet de ce que
-// GeniusPay a signé (ordre des clés, espacement) et la vérification
-// échoue systématiquement même avec le bon secret — c'est exactement le
-// symptôme "Invalid signature" observé en test malgré un paiement réel.
+// Webhook GeniusPay
 app.post('/api/geniuspay/webhook', express.raw({ type: 'application/json' }), geniuspayWebhook);
 
-// [FIX H5 - partiel] En-têtes de sécurité de base via helmet (X-Frame-Options,
-// X-Content-Type-Options, etc.). Le Content-Security-Policy par défaut de
-// helmet est volontairement désactivé ici : il est strict par défaut et
-// bloquerait probablement le chargement d'images Cloudinary ou d'autres
-// ressources externes légitimes sans une configuration fine dédiée — au vu
-// des incidents CORS de ce jour, mieux vaut l'activer dans une passe séparée,
-// testée spécifiquement pour ça, plutôt que de risquer une nouvelle panne
-// généralisée. La migration du JWT hors localStorage (cookie httpOnly) reste
-// également à faire séparément — non traitée ici.
 app.use(helmet({
     contentSecurityPolicy: false,
     crossOriginResourcePolicy: false,
@@ -121,34 +86,14 @@ app.use('/api/wishlist', wishlistRouter);
 app.use('/api/coupon', couponRouter);
 app.use('/api/location', locationRouter);
 app.use('/api/delivery', deliveryRouter);
-
-
-// ============================================================
-// [FIX C1/C2] La route ci-dessous a été SUPPRIMÉE :
-//   app.post('/api/order/geniuspay/initiate', geniuspayInitiate);
-//
-// Elle dupliquait la route déjà déclarée dans orderRoute.js
-// (orderRouter.post('/geniuspay/initiate', authUser, initiateGeniusPay))
-// mais SANS le middleware authUser — un attaquant non connecté
-// pouvait donc initier des paiements/commandes directement sur
-// ce endpoint, contournant entièrement l'authentification et
-// rendant inutile le 'userId' attendu par le contrôleur.
-//
-// Le seul point d'entrée pour initier un paiement GeniusPay est
-// désormais : POST /api/order/geniuspay/initiate (monté via
-// orderRouter, protégé par authUser).
-// ============================================================
+app.use('/api/setting', settingRouter); // ✅ AJOUTÉ
 
 // Démarrage du serveur
 app.listen(port, ()=>{
     console.log(`Server is running on http://localhost:${port}`);
 });
 
-// [FIX] Gestionnaire d'erreur dédié pour les rejets CORS : sans lui,
-// l'erreur levée par callback(new Error(...)) dans la config CORS
-// remonterait telle quelle et Express renverrait une page d'erreur par
-// défaut (parfois HTML) au lieu d'une réponse JSON cohérente avec le
-// reste de l'API.
+// Gestionnaire d'erreur CORS
 app.use((err, req, res, next) => {
     if (err && err.message === 'Origine non autorisée par CORS') {
         return res.status(403).json({ success: false, message: 'Origine non autorisée' });

@@ -28,6 +28,7 @@ import CategoryManager from './pages/seller/CategoryManager';
 import CouponManager from './pages/seller/CouponManager';
 import LocationManager from './pages/seller/LocationManager';
 import DeliveryManager from './pages/seller/DeliveryManager';
+import SettingsManager from './pages/seller/SettingsManager'; // ✅ AJOUTÉ
 import AllCategories from './pages/AllCategories';
 import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentError from './pages/PaymentError';
@@ -35,26 +36,22 @@ import Loading from './components/Loading';
 import BottomNav from './components/BottomNav';
 import InstallApp from './pages/InstallApp';
 
-// 🔝 ScrollToTop intelligent : téléporte en haut sur navigation avant, restaure la position au retour
+// 🔝 ScrollToTop intelligent
 const useSmartScroll = () => {
   const location = useLocation();
   const navigationKey = location.key;
 
   useEffect(() => {
-    // 1. Sauvegarder la position actuelle AVANT de changer de page
     const savedPosition = sessionStorage.getItem(`scrollPos-${navigationKey}`);
 
     if (savedPosition !== null) {
-      // C'est un retour arrière → restaurer la position sauvegardée
       requestAnimationFrame(() => {
         window.scrollTo(0, parseInt(savedPosition, 10));
       });
     } else {
-      // C'est une nouvelle navigation → téléporter en haut
       window.scrollTo(0, 0);
     }
 
-    // 2. Sauvegarder la position quand l'utilisateur quitte la page
     const handleBeforeUnload = () => {
       sessionStorage.setItem(`scrollPos-${navigationKey}`, window.scrollY.toString());
     };
@@ -62,7 +59,6 @@ const useSmartScroll = () => {
     window.addEventListener('beforeunload', handleBeforeUnload);
     
     return () => {
-      // Sauvegarder aussi au démontage du composant (changement de route)
       sessionStorage.setItem(`scrollPos-${navigationKey}`, window.scrollY.toString());
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
@@ -80,10 +76,8 @@ const App = () => {
   return (
     <div className='text-default min-h-screen text-gray-700 bg-white'>
 
-      {/* Navbar - visible sur toutes les pages client (pas sur seller) */}
       {!isSellerPath && <Navbar />}
       
-      {/* Modal de connexion - seulement si demandé ET utilisateur non connecté */}
       {showUserLogin && !user ? <Login /> : null}
 
       <Toaster 
@@ -154,6 +148,7 @@ const App = () => {
             <Route path='coupons' element={<CouponManager />} />
             <Route path='locations' element={<LocationManager />} />
             <Route path='delivery' element={<DeliveryManager />} />
+            <Route path='settings' element={<SettingsManager />} /> {/* ✅ AJOUTÉ */}
           </Route>
         </Routes>
       </div>
