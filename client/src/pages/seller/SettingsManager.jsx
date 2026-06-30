@@ -3,24 +3,13 @@ import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
-import { 
-    Settings, 
-    Save, 
-    Eye, 
-    Code2, 
-    ArrowLeft,
-    AlertCircle,
-    CheckCircle2
-} from 'lucide-react';
 
 const SettingsManager = () => {
     const { axios } = useAppContext();
     const [returnPolicy, setReturnPolicy] = useState('');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [editorMode, setEditorMode] = useState('rich');
-    const [previewMode, setPreviewMode] = useState(false);
-    const [saved, setSaved] = useState(false);
+    const [editorMode, setEditorMode] = useState('html'); // Par défaut HTML
 
     useEffect(() => {
         const fetchReturnPolicy = async () => {
@@ -47,8 +36,6 @@ const SettingsManager = () => {
             });
             if (data.success) {
                 toast.success('Politique de retour mise à jour ✓');
-                setSaved(true);
-                setTimeout(() => setSaved(false), 3000);
             } else {
                 toast.error(data.message);
             }
@@ -68,147 +55,82 @@ const SettingsManager = () => {
     }
 
     return (
-        <div className="max-w-5xl mx-auto p-6">
-            {/* Header avec badges */}
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
-                    <div className="p-2.5 bg-red-50 rounded-xl">
-                        <Settings className="w-6 h-6 text-red-500" />
-                    </div>
+        <div className="max-w-4xl mx-auto p-6">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div className="flex items-center justify-between mb-6">
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900">Politique de retour</h1>
-                        <p className="text-sm text-gray-500">
-                            Gérez la politique de retour et remboursement
+                        <p className="text-sm text-gray-500 mt-1">
+                            Gérez la politique de retour et remboursement affichée sur chaque produit
                         </p>
                     </div>
-                </div>
-                <div className="flex items-center gap-3">
-                    {saved && (
-                        <span className="flex items-center gap-1.5 text-sm text-green-600 bg-green-50 px-3 py-1.5 rounded-full">
-                            <CheckCircle2 className="w-4 h-4" />
-                            Sauvegardé
-                        </span>
-                    )}
                     <button
                         onClick={handleSave}
                         disabled={saving}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-red-500 text-white font-medium rounded-xl hover:bg-red-600 transition disabled:opacity-50 shadow-sm"
+                        className="px-6 py-2.5 bg-red-500 text-white font-medium rounded-lg hover:bg-red-600 transition disabled:opacity-50"
                     >
-                        <Save className="w-4 h-4" />
-                        {saving ? 'Enregistrement...' : 'Enregistrer'}
+                        {saving ? 'Enregistrement...' : '💾 Enregistrer'}
                     </button>
                 </div>
-            </div>
 
-            {/* Cartes des modes */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
-                <button
-                    onClick={() => { setEditorMode('rich'); setPreviewMode(false); }}
-                    className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${
-                        editorMode === 'rich' && !previewMode
-                            ? 'border-red-500 bg-red-50 shadow-sm'
-                            : 'border-gray-200 hover:border-gray-300 bg-white'
-                    }`}
-                >
-                    <div className={`p-2 rounded-lg ${editorMode === 'rich' && !previewMode ? 'bg-red-100' : 'bg-gray-100'}`}>
-                        <Eye className="w-4 h-4 text-gray-600" />
+                <div className="border-t border-gray-100 pt-4">
+                    <div className="flex items-center gap-3 mb-3">
+                        <label className="text-sm font-medium text-gray-700">Mode d'édition :</label>
+                        <button
+                            onClick={() => setEditorMode('rich')}
+                            className={`px-3 py-1.5 text-xs rounded-lg transition ${
+                                editorMode === 'rich' 
+                                    ? 'bg-red-500 text-white' 
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                        >
+                            📝 Éditeur visuel
+                        </button>
+                        <button
+                            onClick={() => setEditorMode('html')}
+                            className={`px-3 py-1.5 text-xs rounded-lg transition ${
+                                editorMode === 'html' 
+                                    ? 'bg-red-500 text-white' 
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                        >
+                            🖥️ Code HTML (recommandé)
+                        </button>
                     </div>
-                    <div className="text-left">
-                        <p className={`text-sm font-medium ${editorMode === 'rich' && !previewMode ? 'text-red-600' : 'text-gray-700'}`}>
-                            Éditeur visuel
-                        </p>
-                        <p className="text-xs text-gray-400">Saisie simplifiée</p>
-                    </div>
-                </button>
 
-                <button
-                    onClick={() => { setEditorMode('html'); setPreviewMode(false); }}
-                    className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${
-                        editorMode === 'html' && !previewMode
-                            ? 'border-red-500 bg-red-50 shadow-sm'
-                            : 'border-gray-200 hover:border-gray-300 bg-white'
-                    }`}
-                >
-                    <div className={`p-2 rounded-lg ${editorMode === 'html' && !previewMode ? 'bg-red-100' : 'bg-gray-100'}`}>
-                        <Code2 className="w-4 h-4 text-gray-600" />
-                    </div>
-                    <div className="text-left">
-                        <p className={`text-sm font-medium ${editorMode === 'html' && !previewMode ? 'text-red-600' : 'text-gray-700'}`}>
-                            Code HTML
-                        </p>
-                        <p className="text-xs text-gray-400">HTML complet</p>
-                    </div>
-                </button>
+                    <p className="text-xs text-gray-400 mb-2">
+                        {editorMode === 'html' 
+                            ? '💡 Mode HTML : collez votre code HTML complet. Il sera conservé tel quel.'
+                            : '💡 Éditeur visuel : saisissez votre texte simplement.'}
+                    </p>
 
-                <button
-                    onClick={() => setPreviewMode(!previewMode)}
-                    className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${
-                        previewMode
-                            ? 'border-red-500 bg-red-50 shadow-sm'
-                            : 'border-gray-200 hover:border-gray-300 bg-white'
-                    }`}
-                >
-                    <div className={`p-2 rounded-lg ${previewMode ? 'bg-red-100' : 'bg-gray-100'}`}>
-                        <ArrowLeft className="w-4 h-4 text-gray-600" />
-                    </div>
-                    <div className="text-left">
-                        <p className={`text-sm font-medium ${previewMode ? 'text-red-600' : 'text-gray-700'}`}>
-                            Aperçu
-                        </p>
-                        <p className="text-xs text-gray-400">Voir le résultat</p>
-                    </div>
-                </button>
-            </div>
-
-            {/* Éditeur */}
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="p-4 border-b border-gray-100 bg-gray-50/50">
-                    <div className="flex items-center gap-2">
-                        {editorMode === 'rich' && !previewMode && (
-                            <span className="text-xs font-medium text-gray-500">📝 Mode visuel</span>
-                        )}
-                        {editorMode === 'html' && !previewMode && (
-                            <span className="text-xs font-medium text-gray-500">🖥️ Mode HTML</span>
-                        )}
-                        {previewMode && (
-                            <span className="text-xs font-medium text-gray-500">👁️ Aperçu</span>
-                        )}
-                    </div>
-                </div>
-
-                <div className="p-4">
-                    {previewMode ? (
-                        <div 
-                            className="prose prose-sm max-w-none"
-                            dangerouslySetInnerHTML={{ __html: returnPolicy || '<p class="text-gray-400 text-center py-8">Aucun contenu à afficher</p>' }}
-                        />
-                    ) : editorMode === 'rich' ? (
+                    {editorMode === 'rich' ? (
                         <ReactQuill
                             value={returnPolicy}
                             onChange={setReturnPolicy}
                             theme="snow"
                             placeholder="Ex: Retours acceptés sous 14 jours..."
                             className="bg-white rounded-lg"
-                            style={{ minHeight: '300px' }}
+                            style={{ minHeight: '250px' }}
                         />
                     ) : (
                         <textarea
                             value={returnPolicy}
                             onChange={(e) => setReturnPolicy(e.target.value)}
-                            className="w-full h-[400px] p-4 border border-gray-200 rounded-lg font-mono text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none bg-white"
+                            className="w-full h-[500px] p-4 border border-gray-200 rounded-lg font-mono text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none bg-white"
                             placeholder="Collez votre HTML ici..."
                         />
                     )}
                 </div>
-            </div>
 
-            {/* Footer info */}
-            <div className="mt-4 p-3 bg-blue-50 rounded-xl border border-blue-100 flex items-start gap-3">
-                <AlertCircle className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-blue-600">
-                    📌 La politique de retour s'affichera dans une section pliable sur chaque page produit.
-                    {editorMode === 'html' && ' Le mode HTML permet d\'utiliser du code personnalisé.'}
-                </p>
+                <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100 flex items-start gap-3">
+                    <span className="text-blue-500">💡</span>
+                    <p className="text-xs text-blue-600">
+                        {editorMode === 'html' 
+                            ? 'Le mode HTML conserve exactement votre code. Utilisez-le pour un design personnalisé.'
+                            : 'L\'éditeur visuel est plus simple mais peut modifier votre mise en page.'}
+                    </p>
+                </div>
             </div>
         </div>
     );
