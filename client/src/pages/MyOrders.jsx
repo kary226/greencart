@@ -230,7 +230,7 @@ export default function MyOrders() {
                                                 padding: '2px 10px',
                                                 borderRadius: 20,
                                             }}>
-                                                📦 Livraison {deliveryStart} - {deliveryEnd}
+                                                📦 Livraison prévue entre le {deliveryStart} et le {deliveryEnd}
                                             </span>
                                         )}
                                     </div>
