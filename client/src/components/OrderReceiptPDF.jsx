@@ -127,6 +127,16 @@ const styles = StyleSheet.create({
         backgroundColor: '#f3f4f6',
         color: '#374151',
     },
+    // ✅ Nouveau style pour la livraison
+    deliveryBadge: {
+        paddingVertical: 3,
+        paddingHorizontal: 10,
+        borderRadius: 12,
+        fontSize: 8,
+        fontWeight: 'bold',
+        backgroundColor: '#EFF6FF',
+        color: '#1E40AF',
+    },
 
     // TABLEAU
     table: {
@@ -271,6 +281,17 @@ const formatPrice = (price) => {
     return `${formatted} FCFA`;
 };
 
+// ✅ Formater une date en français
+const formatDate = (dateString) => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    return date.toLocaleDateString('fr-FR', { 
+        day: 'numeric', 
+        month: 'long', 
+        year: 'numeric' 
+    });
+};
+
 const OrderReceiptPDF = ({ order, currency }) => {
     if (!order || !order.address) {
         return (
@@ -291,8 +312,11 @@ const OrderReceiptPDF = ({ order, currency }) => {
     const couponCode = order.couponApplied || null;
     const total = order.amount;
     
-    // ✅ Calcul correct de la livraison : Livraison = Total - (Sous-total - Réduction)
     const shipping = total - (subtotal - discount);
+
+    // ✅ Récupérer les dates de livraison estimées
+    const deliveryStart = order.estimatedDeliveryStart ? formatDate(order.estimatedDeliveryStart) : null;
+    const deliveryEnd = order.estimatedDeliveryEnd ? formatDate(order.estimatedDeliveryEnd) : null;
 
     return (
         <Document>
@@ -358,6 +382,15 @@ const OrderReceiptPDF = ({ order, currency }) => {
                             <Text style={styles.couponBadgeNone}>Aucun code utilisé</Text>
                         )}
                     </View>
+                    {/* ✅ AJOUT : Dates de livraison estimées */}
+                    {deliveryStart && deliveryEnd && (
+                        <View style={styles.statusRow}>
+                            <Text style={styles.statusLabel}>Livraison prévue</Text>
+                            <Text style={styles.deliveryBadge}>
+                                Du {deliveryStart} au {deliveryEnd}
+                            </Text>
+                        </View>
+                    )}
                 </View>
 
                 {/* TABLEAU PRODUITS */}

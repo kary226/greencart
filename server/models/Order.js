@@ -21,6 +21,9 @@ const orderSchema = new mongoose.Schema({
     },
     paymentType: {type: String, required: true},
     isPaid: {type: Boolean, required: true, default: false},
+    
+    estimatedDeliveryStart: { type: Date, default: null },
+    estimatedDeliveryEnd: { type: Date, default: null },
 },{ timestamps: true })
 
 const Order = mongoose.models.order || mongoose.model('order', orderSchema)

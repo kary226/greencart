@@ -6,7 +6,7 @@ import OrderReceiptPDF from '../components/OrderReceiptPDF'
 import {
     Package, Calendar, CreditCard, MapPin, Phone, FileText,
     CheckCircle, Truck, PackageCheck, Home, XCircle, Tag,
-    Banknote, ChevronRight, ShoppingBag, Clock, RotateCw
+    Banknote, ChevronRight, ShoppingBag, Clock, RotateCw, CalendarDays
 } from 'lucide-react'
 
 const FILTERS = [
@@ -69,6 +69,17 @@ const getStatusMessage = (status) => ({
     'Returned':         'Votre commande a été retournée.',
     'Cancelled':        'Votre commande a été annulée.',
 }[status] || '')
+
+// ✅ Formater la date en français
+const formatDate = (dateString) => {
+    if (!dateString) return null
+    const date = new Date(dateString)
+    return date.toLocaleDateString('fr-FR', { 
+        day: 'numeric', 
+        month: 'long', 
+        year: 'numeric' 
+    })
+}
 
 export default function MyOrders() {
     const [myOrders, setMyOrders]   = useState([])
@@ -155,6 +166,10 @@ export default function MyOrders() {
 
                     const currentStepIndex = STEP_ORDER.indexOf(order.status)
 
+                    // ✅ Dates de livraison estimées
+                    const deliveryStart = order.estimatedDeliveryStart ? formatDate(order.estimatedDeliveryStart) : null
+                    const deliveryEnd = order.estimatedDeliveryEnd ? formatDate(order.estimatedDeliveryEnd) : null
+
                     return (
                         <div key={order._id}
                             style={{ background: '#fff', borderRadius: 16, marginBottom: 10, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
@@ -190,6 +205,25 @@ export default function MyOrders() {
                                     <p style={{ fontWeight: 700, fontSize: 15, color: '#111', margin: 0 }}>
                                         {order.amount} {currency}
                                     </p>
+                                    {/* ✅ AFFICHAGE DES DATES DE LIVRAISON ESTIMÉES */}
+                                    {deliveryStart && deliveryEnd && (
+                                        <p style={{ 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            gap: 5, 
+                                            fontSize: 12, 
+                                            color: '#2563eb', 
+                                            fontWeight: 600,
+                                            margin: '4px 0 0',
+                                            background: '#EFF6FF',
+                                            padding: '3px 10px',
+                                            borderRadius: 20,
+                                            width: 'fit-content'
+                                        }}>
+                                            <CalendarDays size={14} />
+                                            Livraison prévue du {deliveryStart} au {deliveryEnd}
+                                        </p>
+                                    )}
                                 </div>
 
                                 <ChevronRight size={18} color="#ccc" style={{ flexShrink: 0, transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }} />
@@ -207,7 +241,6 @@ export default function MyOrders() {
                                             return (
                                                 <React.Fragment key={step.key}>
                                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                                                        {/* ✅ Petit cercle */}
                                                         <div style={{
                                                             width: 20,
                                                             height: 20,
@@ -220,7 +253,6 @@ export default function MyOrders() {
                                                             boxShadow: active ? '0 0 0 3px #FEE2E2' : 'none',
                                                             transition: 'all 0.3s ease'
                                                         }}>
-                                                            {/* ✅ Petit point blanc */}
                                                             {done && (
                                                                 <div style={{
                                                                     width: 5,
@@ -229,7 +261,6 @@ export default function MyOrders() {
                                                                     background: '#fff'
                                                                 }} />
                                                             )}
-                                                            {/* ✅ Cercle gris pour non atteint */}
                                                             {!done && (
                                                                 <div style={{
                                                                     width: 5,

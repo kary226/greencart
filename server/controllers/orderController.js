@@ -8,6 +8,37 @@ import DeliveryType from "../models/DeliveryType.js";
 import Commune from "../models/Commune.js";
 import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
 
+// ✅ Fonction pour calculer les dates de livraison estimées (7 jours ouvrés)
+const calculateEstimatedDeliveryDates = (orderDate) => {
+    const startDate = new Date(orderDate);
+    const endDate = new Date(orderDate);
+    
+    let workingDaysAdded = 0;
+    let daysAdded = 0;
+    
+    // Compter 7 jours ouvrés à partir de la date de commande
+    while (workingDaysAdded < 7) {
+        daysAdded++;
+        const currentDate = new Date(startDate);
+        currentDate.setDate(startDate.getDate() + daysAdded);
+        const dayOfWeek = currentDate.getDay();
+        // Du lundi au vendredi (1 à 5)
+        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+            workingDaysAdded++;
+        }
+    }
+    
+    // Date de début : 7 jours ouvrés après la commande
+    const deliveryStart = new Date(startDate);
+    deliveryStart.setDate(startDate.getDate() + daysAdded);
+    
+    // Date de fin : 3 jours supplémentaires (marge)
+    const deliveryEnd = new Date(deliveryStart);
+    deliveryEnd.setDate(deliveryStart.getDate() + 3);
+    
+    return { deliveryStart, deliveryEnd };
+};
+
 // Fonction pour réduire le stock des VARIANTS après commande
 const reduceVariantStock = async (items) => {
     for (const item of items) {
@@ -122,6 +153,9 @@ export const placeOrderCOD = async (req, res)=>{
 
         amount = itemsSubtotal + deliveryPrice - discountAmount;
 
+        // ✅ Calculer les dates de livraison estimées
+        const { deliveryStart, deliveryEnd } = calculateEstimatedDeliveryDates(new Date());
+
         const order = await Order.create({
             userId,
             items: itemsWithPrice,
@@ -131,7 +165,9 @@ export const placeOrderCOD = async (req, res)=>{
             couponApplied: couponApplied ? String(couponApplied).toUpperCase() : null,
             address,
             paymentType: "COD",
-            status: "Order Placed"
+            status: "Order Placed",
+            estimatedDeliveryStart: deliveryStart,
+            estimatedDeliveryEnd: deliveryEnd
         });
 
         await reduceVariantStock(itemsWithPrice);
@@ -139,7 +175,14 @@ export const placeOrderCOD = async (req, res)=>{
 
         const user = await User.findById(userId);
         if (user && user.email) {
-            await sendOrderConfirmationEmail(user.email, order._id.toString(), amount);
+            // ✅ PASSER LES DATES À L'EMAIL DE CONFIRMATION
+            await sendOrderConfirmationEmail(
+                user.email, 
+                order._id.toString(), 
+                amount,
+                deliveryStart,  // ✅ AJOUTÉ
+                deliveryEnd     // ✅ AJOUTÉ
+            );
             await sendAdminNotificationEmail(order._id.toString(), amount, `${user.name}`, user.email);
         }
 

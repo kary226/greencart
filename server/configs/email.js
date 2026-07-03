@@ -65,38 +65,169 @@ export const sendEmail = async (to, subject, html) => {
     }
 };
 
+// ✅ Fonction pour formater une date en français
+const formatDateFr = (date) => {
+    if (!date) return null;
+    const d = new Date(date);
+    return d.toLocaleDateString('fr-FR', { 
+        day: 'numeric', 
+        month: 'long', 
+        year: 'numeric' 
+    });
+};
+
 // Email de réinitialisation de mot de passe
 export const sendPasswordResetEmail = async (to, resetToken) => {
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
     const html = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #e53935;">RAMCI - Réinitialisation du mot de passe</h2>
-            <p>Bonjour,</p>
-            <p>Vous avez demandé à réinitialiser votre mot de passe. Cliquez sur le lien ci-dessous :</p>
-            <a href="${resetUrl}" style="display: inline-block; background-color: #e53935; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Réinitialiser mon mot de passe</a>
-            <p>Ce lien expirera dans 1 heure.</p>
-            <p>Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>
-            <hr />
-            <p style="font-size: 12px; color: #666;">RAMCI - Votre boutique en ligne</p>
-        </div>
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f5f5f5; color: #333333;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 0;">
+                <tr>
+                    <td align="center">
+                        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); overflow: hidden;">
+                            <!-- Header -->
+                            <tr>
+                                <td style="padding: 30px 40px 20px; border-bottom: 2px solid #e53935;">
+                                    <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #111111; letter-spacing: 0.5px;">RAMCI<span style="color: #e53935;">.ci</span></h1>
+                                    <p style="margin: 4px 0 0; font-size: 13px; color: #888888;">Votre boutique en ligne</p>
+                                </td>
+                            </tr>
+                            <!-- Body -->
+                            <tr>
+                                <td style="padding: 35px 40px 25px;">
+                                    <h2 style="margin: 0 0 16px; font-size: 20px; font-weight: 600; color: #111111;">Réinitialisation du mot de passe</h2>
+                                    <p style="margin: 0 0 16px; font-size: 14px; line-height: 1.6; color: #555555;">Bonjour,</p>
+                                    <p style="margin: 0 0 20px; font-size: 14px; line-height: 1.6; color: #555555;">Vous avez demandé à réinitialiser votre mot de passe. Cliquez sur le bouton ci-dessous pour créer un nouveau mot de passe.</p>
+                                    <table width="100%" cellpadding="0" cellspacing="0">
+                                        <tr>
+                                            <td align="center" style="padding: 10px 0 20px;">
+                                                <a href="${resetUrl}" style="display: inline-block; background-color: #e53935; color: #ffffff; padding: 12px 32px; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 4px;">Réinitialiser mon mot de passe</a>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                    <p style="margin: 0 0 8px; font-size: 13px; color: #888888;">Ce lien expirera dans 1 heure.</p>
+                                    <p style="margin: 0; font-size: 13px; color: #888888;">Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>
+                                </td>
+                            </tr>
+                            <!-- Footer -->
+                            <tr>
+                                <td style="padding: 20px 40px 30px; border-top: 1px solid #eeeeee; text-align: center;">
+                                    <p style="margin: 0; font-size: 12px; color: #999999;">RAMCI - Votre boutique en ligne</p>
+                                    <p style="margin: 4px 0 0; font-size: 12px; color: #999999;">&copy; ${new Date().getFullYear()} RAMCI. Tous droits réservés.</p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </body>
+        </html>
     `;
     return sendEmail(to, "RAMCI - Réinitialisation de votre mot de passe", html);
 };
 
-// Email de confirmation de commande (client)
-export const sendOrderConfirmationEmail = async (to, orderId, amount) => {
+// ✅ Email de confirmation de commande (client) - PROFESSIONNEL SANS STICKER
+export const sendOrderConfirmationEmail = async (to, orderId, amount, estimatedDeliveryStart = null, estimatedDeliveryEnd = null) => {
+    const deliveryStart = formatDateFr(estimatedDeliveryStart);
+    const deliveryEnd = formatDateFr(estimatedDeliveryEnd);
+    
+    let deliveryHtml = '';
+    if (deliveryStart && deliveryEnd) {
+        deliveryHtml = `
+            <tr>
+                <td style="background: #f8f9fa; border: 1px solid #e8edf2; border-radius: 4px; padding: 14px 18px;">
+                    <p style="margin: 0; font-size: 14px; font-weight: 600; color: #1a3c6e;">Livraison prévue</p>
+                    <p style="margin: 4px 0 0; font-size: 14px; color: #2c5282;">Du ${deliveryStart} au ${deliveryEnd}</p>
+                    <p style="margin: 2px 0 0; font-size: 12px; color: #718096;">Délai de livraison : 7 jours ouvrés</p>
+                </td>
+            </tr>
+        `;
+    }
+
     const html = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #e53935;">RAMCI - Confirmation de commande</h2>
-            <p>Bonjour,</p>
-            <p>Votre commande <strong>#${orderId.slice(-8)}</strong> a bien été enregistrée.</p>
-            <p><strong>Montant total :</strong> ${amount.toLocaleString()} FCFA</p>
-            <p>Vous pouvez suivre l'état de votre commande dans votre espace client.</p>
-            <p>Merci pour votre confiance !</p>
-            <hr />
-            <p style="font-size: 12px; color: #666;">RAMCI - Votre boutique en ligne</p>
-            <p><a href="${process.env.FRONTEND_URL}/my-orders" style="color: #e53935;">Voir mes commandes</a></p>
-        </div>
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f5f5f5; color: #333333;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 0;">
+                <tr>
+                    <td align="center">
+                        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); overflow: hidden;">
+                            <!-- Header -->
+                            <tr>
+                                <td style="padding: 30px 40px 20px; border-bottom: 2px solid #e53935;">
+                                    <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #111111; letter-spacing: 0.5px;">RAMCI<span style="color: #e53935;">.ci</span></h1>
+                                    <p style="margin: 4px 0 0; font-size: 13px; color: #888888;">Votre boutique en ligne</p>
+                                </td>
+                            </tr>
+                            <!-- Body -->
+                            <tr>
+                                <td style="padding: 35px 40px 25px;">
+                                    <h2 style="margin: 0 0 4px; font-size: 20px; font-weight: 600; color: #111111;">Confirmation de commande</h2>
+                                    <p style="margin: 0 0 20px; font-size: 14px; color: #888888;">Commande #${orderId.slice(-8)}</p>
+                                    
+                                    <p style="margin: 0 0 16px; font-size: 14px; line-height: 1.6; color: #555555;">Bonjour,</p>
+                                    <p style="margin: 0 0 20px; font-size: 14px; line-height: 1.6; color: #555555;">Nous vous remercions pour votre commande. Celle-ci a bien été enregistrée et est en cours de traitement.</p>
+                                    
+                                    <!-- Récapitulatif -->
+                                    <table width="100%" cellpadding="0" cellspacing="0" style="background: #f8f9fa; border-radius: 4px; margin-bottom: 20px;">
+                                        <tr>
+                                            <td style="padding: 14px 18px;">
+                                                <table width="100%" cellpadding="0" cellspacing="0">
+                                                    <tr>
+                                                        <td style="padding: 4px 0; font-size: 14px; color: #555555;"><strong>Montant total</strong></td>
+                                                        <td style="padding: 4px 0; font-size: 14px; font-weight: 700; color: #111111; text-align: right;">${amount.toLocaleString()} FCFA</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td style="padding: 4px 0; font-size: 14px; color: #555555;"><strong>Date de commande</strong></td>
+                                                        <td style="padding: 4px 0; font-size: 14px; color: #555555; text-align: right;">${new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td style="padding: 4px 0; font-size: 14px; color: #555555;"><strong>Mode de paiement</strong></td>
+                                                        <td style="padding: 4px 0; font-size: 14px; color: #555555; text-align: right;">Paiement à la livraison</td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                    
+                                    <!-- Livraison -->
+                                    ${deliveryHtml}
+                                    
+                                    <!-- Informations -->
+                                    <p style="margin: 20px 0 8px; font-size: 14px; color: #555555;">Vous pouvez suivre l'état de votre commande dans votre espace client.</p>
+                                    <p style="margin: 0; font-size: 14px; color: #555555;">Nous restons à votre disposition pour toute question.</p>
+                                    <p style="margin: 16px 0 0; font-size: 14px; color: #555555;">Cordialement,</p>
+                                    <p style="margin: 0; font-size: 14px; font-weight: 600; color: #111111;">L'équipe RAMCI</p>
+                                </td>
+                            </tr>
+                            <!-- Footer -->
+                            <tr>
+                                <td style="padding: 20px 40px 30px; border-top: 1px solid #eeeeee; text-align: center;">
+                                    <p style="margin: 0; font-size: 13px; color: #555555;">
+                                        <a href="${process.env.FRONTEND_URL}/my-orders" style="color: #e53935; text-decoration: none; font-weight: 500;">Voir mes commandes</a>
+                                        &nbsp;·&nbsp;
+                                        <a href="${process.env.FRONTEND_URL}" style="color: #555555; text-decoration: none;">Visiter le site</a>
+                                    </p>
+                                    <p style="margin: 8px 0 0; font-size: 12px; color: #999999;">RAMCI - Votre boutique en ligne</p>
+                                    <p style="margin: 2px 0 0; font-size: 12px; color: #999999;">&copy; ${new Date().getFullYear()} RAMCI. Tous droits réservés.</p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </body>
+        </html>
     `;
     return sendEmail(to, `RAMCI - Confirmation de votre commande #${orderId.slice(-8)}`, html);
 };
@@ -110,32 +241,71 @@ export const sendAdminNotificationEmail = async (orderId, amount, customerName, 
     }
     
     const html = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #e53935;">🛍️ Nouvelle commande !</h2>
-            <p>Une nouvelle commande a été passée sur <strong>RAMCI</strong>.</p>
-            <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f5f5f5; color: #333333;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 0;">
                 <tr>
-                    <td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>Commande :</strong></td>
-                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">#${orderId.slice(-8)}</td>
-                </tr>
-                <tr>
-                    <td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>Client :</strong></td>
-                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">${customerName}</td>
-                </tr>
-                <tr>
-                    <td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>Email :</strong></td>
-                    <td style="padding: 8px; border-bottom: 1px solid #ddd;">${customerEmail}</td>
-                </tr>
-                <tr>
-                    <td style="padding: 8px;"><strong>Montant :</strong></td>
-                    <td style="padding: 8px;">${amount.toLocaleString()} FCFA</td>
+                    <td align="center">
+                        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); overflow: hidden;">
+                            <tr>
+                                <td style="padding: 30px 40px 20px; border-bottom: 2px solid #e53935;">
+                                    <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #111111; letter-spacing: 0.5px;">RAMCI<span style="color: #e53935;">.ci</span></h1>
+                                    <p style="margin: 4px 0 0; font-size: 13px; color: #888888;">Administration</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 35px 40px 25px;">
+                                    <h2 style="margin: 0 0 4px; font-size: 20px; font-weight: 600; color: #111111;">Nouvelle commande</h2>
+                                    <p style="margin: 0 0 20px; font-size: 14px; color: #888888;">Commande #${orderId.slice(-8)}</p>
+                                    
+                                    <table width="100%" cellpadding="0" cellspacing="0" style="background: #f8f9fa; border-radius: 4px; margin-bottom: 20px;">
+                                        <tr>
+                                            <td style="padding: 14px 18px;">
+                                                <table width="100%" cellpadding="0" cellspacing="0">
+                                                    <tr>
+                                                        <td style="padding: 4px 0; font-size: 14px; color: #555555;"><strong>Commande</strong></td>
+                                                        <td style="padding: 4px 0; font-size: 14px; color: #555555; text-align: right;">#${orderId.slice(-8)}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td style="padding: 4px 0; font-size: 14px; color: #555555;"><strong>Client</strong></td>
+                                                        <td style="padding: 4px 0; font-size: 14px; color: #555555; text-align: right;">${customerName}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td style="padding: 4px 0; font-size: 14px; color: #555555;"><strong>Email</strong></td>
+                                                        <td style="padding: 4px 0; font-size: 14px; color: #555555; text-align: right;">${customerEmail}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td style="padding: 4px 0; font-size: 14px; color: #555555;"><strong>Montant</strong></td>
+                                                        <td style="padding: 4px 0; font-size: 14px; font-weight: 700; color: #111111; text-align: right;">${amount.toLocaleString()} FCFA</td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                    
+                                    <p style="margin: 0 0 8px; font-size: 14px; color: #555555;">Connectez-vous à l'administration pour gérer cette commande.</p>
+                                    <p style="margin: 0; font-size: 14px; color: #555555;">
+                                        <a href="${process.env.FRONTEND_URL}/seller/orders" style="color: #e53935; text-decoration: none; font-weight: 500;">Gérer les commandes</a>
+                                    </p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 20px 40px 30px; border-top: 1px solid #eeeeee; text-align: center;">
+                                    <p style="margin: 0; font-size: 12px; color: #999999;">RAMCI - Notification automatique</p>
+                                    <p style="margin: 2px 0 0; font-size: 12px; color: #999999;">&copy; ${new Date().getFullYear()} RAMCI. Tous droits réservés.</p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
                 </tr>
             </table>
-            <p>Connectez-vous à l'administration pour gérer cette commande.</p>
-            <hr />
-            <p style="font-size: 12px; color: #666;">RAMCI - Notification automatique</p>
-            <p><a href="${process.env.FRONTEND_URL}/seller/orders" style="color: #e53935;">Gérer les commandes</a></p>
-        </div>
+        </body>
+        </html>
     `;
-    return sendEmail(adminEmail, `🛍️ RAMCI - Nouvelle commande #${orderId.slice(-8)}`, html);
+    return sendEmail(adminEmail, `RAMCI - Nouvelle commande #${orderId.slice(-8)}`, html);
 };
