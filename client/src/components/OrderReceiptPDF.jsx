@@ -127,7 +127,6 @@ const styles = StyleSheet.create({
         backgroundColor: '#f3f4f6',
         color: '#374151',
     },
-    // ✅ Nouveau style pour la livraison
     deliveryBadge: {
         paddingVertical: 3,
         paddingHorizontal: 10,

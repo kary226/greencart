@@ -11,7 +11,6 @@ import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../confi
 // ✅ Fonction pour calculer les dates de livraison estimées (7 jours ouvrés)
 const calculateEstimatedDeliveryDates = (orderDate) => {
     const startDate = new Date(orderDate);
-    const endDate = new Date(orderDate);
     
     let workingDaysAdded = 0;
     let daysAdded = 0;
@@ -175,13 +174,12 @@ export const placeOrderCOD = async (req, res)=>{
 
         const user = await User.findById(userId);
         if (user && user.email) {
-            // ✅ PASSER LES DATES À L'EMAIL DE CONFIRMATION
             await sendOrderConfirmationEmail(
                 user.email, 
                 order._id.toString(), 
                 amount,
-                deliveryStart,  // ✅ AJOUTÉ
-                deliveryEnd     // ✅ AJOUTÉ
+                deliveryStart,
+                deliveryEnd
             );
             await sendAdminNotificationEmail(order._id.toString(), amount, `${user.name}`, user.email);
         }
@@ -192,7 +190,7 @@ export const placeOrderCOD = async (req, res)=>{
     }
 };
 
-// ✅ Update Order Status : /api/order/status - AJOUT DE 'Returned'
+// ✅ Update Order Status
 export const updateOrderStatus = async (req, res)=>{
     try {
         const { orderId, status } = req.body;
