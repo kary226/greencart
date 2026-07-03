@@ -6,8 +6,7 @@ import OrderReceiptPDF from '../components/OrderReceiptPDF'
 import {
     Package, Calendar, CreditCard, MapPin, Phone, FileText,
     CheckCircle, Truck, PackageCheck, Home, XCircle, Tag,
-    Banknote, ChevronRight, ShoppingBag, Clock, RotateCw, CalendarDays,
-    ChevronDown, ChevronUp, Bell, Eye
+    Banknote, ChevronRight, ShoppingBag, Clock, RotateCw, CalendarDays
 } from 'lucide-react'
 
 const FILTERS = [
@@ -38,16 +37,7 @@ const FILTER_MATCH = {
     cancelled: (o) => o.status === 'Cancelled',
 }
 
-// ✅ ÉTAPES DU SUIVI
-const TRACKER_STEPS = [
-    { key: 'Order Placed', label: 'Commandée', icon: ShoppingBag },
-    { key: 'Confirmed',    label: 'Confirmée',  icon: CheckCircle },
-    { key: 'Shipped',      label: 'Expédiée',   icon: Truck },
-    { key: 'Out for Delivery', label: 'En livraison', icon: PackageCheck },
-    { key: 'Delivered',    label: 'Livrée',     icon: Home },
-    { key: 'Returned',     label: 'Retournée',  icon: RotateCw },
-]
-
+const TRACKER_STEPS = ['Commandée', 'Confirmée', 'Expédiée', 'En livraison', 'Livrée', 'Retournée']
 const STEP_ORDER = ['Order Placed', 'Confirmed', 'Shipped', 'Out for Delivery', 'Delivered', 'Returned']
 
 const getPaymentLabel = (order) => {
@@ -64,9 +54,9 @@ const getItemsSubtotal = (order) =>
 const getStatusMessage = (status) => ({
     'Order Placed':     'Votre commande a été enregistrée et est en cours de traitement.',
     'Confirmed':        'Votre commande a été confirmée. Nous la préparons.',
-    'Shipped':          'Votre commande a été expédiée !',
+    'Shipped':          'Votre commande a été expédiée.',
     'Out for Delivery': 'Votre commande est en cours de livraison.',
-    'Delivered':        'Votre commande a été livrée. Merci pour votre confiance !',
+    'Delivered':        'Votre commande a été livrée.',
     'Returned':         'Votre commande a été retournée.',
     'Cancelled':        'Votre commande a été annulée.',
 }[status] || '')
@@ -79,22 +69,6 @@ const formatDate = (dateString) => {
         month: 'long', 
         year: 'numeric' 
     })
-}
-
-const formatDateShort = (dateString) => {
-    if (!dateString) return null
-    const date = new Date(dateString)
-    return date.toLocaleDateString('fr-FR', { 
-        day: 'numeric', 
-        month: 'short', 
-        year: 'numeric' 
-    })
-}
-
-const formatTime = (dateString) => {
-    if (!dateString) return null
-    const date = new Date(dateString)
-    return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 }
 
 export default function MyOrders() {
@@ -138,7 +112,6 @@ export default function MyOrders() {
     return (
         <div style={{ minHeight: '100vh', background: '#F2F2F2', paddingBottom: 90 }}>
 
-            {/* ── Header ──────────────────────────────────────── */}
             <div style={{ background: '#fff', padding: '56px 20px 0' }}>
                 <div style={{ marginBottom: 4 }}>
                     <h1 style={{ fontSize: 28, fontWeight: 800, color: '#111', margin: 0, lineHeight: 1.2 }}>Mes commandes</h1>
@@ -164,7 +137,6 @@ export default function MyOrders() {
                 </div>
             </div>
 
-            {/* ── Liste ───────────────────────────────────────── */}
             <div style={{ padding: '12px 12px 0' }}>
                 {filtered.length === 0 && (
                     <div style={{ textAlign: 'center', padding: '48px 0', color: '#aaa', fontSize: 15 }}>
@@ -189,129 +161,163 @@ export default function MyOrders() {
 
                     return (
                         <div key={order._id}
-                            style={{ background: '#fff', borderRadius: 16, marginBottom: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                            style={{ 
+                                background: '#fff', 
+                                borderRadius: 12, 
+                                marginBottom: 12, 
+                                overflow: 'hidden', 
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                            }}>
 
-                            {/* ── Ligne compacte ───────────────────────── */}
                             <div 
                                 onClick={() => setExpanded(isOpen ? null : order._id)}
-                                style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', cursor: 'pointer', padding: '14px 16px' }}>
+                                style={{ 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    gap: 14, 
+                                    width: '100%', 
+                                    cursor: 'pointer', 
+                                    padding: '14px 16px',
+                                }}>
 
-                                <div style={{ width: 68, height: 68, borderRadius: 10, overflow: 'hidden', background: '#F8F8F8', flexShrink: 0 }}>
+                                <div style={{ 
+                                    width: 56, 
+                                    height: 56, 
+                                    borderRadius: 8, 
+                                    overflow: 'hidden', 
+                                    background: '#F8F8F8', 
+                                    flexShrink: 0 
+                                }}>
                                     {firstImg
                                         ? <img src={firstImg} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                        : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={28} color="#ccc" /></div>
+                                        : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={24} color="#ccc" /></div>
                                     }
                                 </div>
 
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                                        <div>
-                                            <span style={{ fontWeight: 700, fontSize: 15, color: '#111' }}>
-                                                Commande #{order._id.slice(-8).toUpperCase()}
-                                            </span>
-                                            {/* ✅ Badge statut */}
-                                            <span style={{
-                                                display: 'inline-block',
-                                                fontSize: 11,
-                                                fontWeight: 600,
-                                                padding: '2px 10px',
-                                                borderRadius: 20,
-                                                marginLeft: 8,
-                                                color: st.color,
-                                                background: st.bg,
-                                            }}>{st.text}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                                            <span style={{ fontSize: 12, fontWeight: 700, color: '#111' }}>
-                                                {order.amount} {currency}
-                                            </span>
-                                            <ChevronRight size={18} color="#ccc" style={{ transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }} />
-                                        </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ fontWeight: 600, fontSize: 14, color: '#111' }}>
+                                            #{order._id.slice(-8).toUpperCase()}
+                                        </span>
+                                        <span style={{
+                                            fontSize: 11,
+                                            fontWeight: 500,
+                                            padding: '2px 10px',
+                                            borderRadius: 20,
+                                            color: st.color,
+                                            background: st.bg,
+                                            flexShrink: 0,
+                                            marginLeft: 8,
+                                        }}>{st.text}</span>
                                     </div>
 
                                     <p style={{ color: '#888', fontSize: 12, margin: '2px 0' }}>
                                         {new Date(order.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                        {' à '}
-                                        {new Date(order.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                                         {' • '}{itemCount} article{itemCount > 1 ? 's' : ''}
                                     </p>
 
-                                    {/* ✅ Livraison estimée */}
-                                    {deliveryStart && deliveryEnd && (
-                                        <p style={{ 
-                                            display: 'inline-flex',
-                                            alignItems: 'center', 
-                                            gap: 4, 
-                                            fontSize: 12, 
-                                            color: '#2563eb', 
-                                            fontWeight: 500,
-                                            margin: '2px 0 0',
-                                            background: '#EFF6FF',
-                                            padding: '2px 10px',
-                                            borderRadius: 20,
-                                        }}>
-                                            <CalendarDays size={13} />
-                                            Livraison prévue du {deliveryStart} au {deliveryEnd}
-                                        </p>
-                                    )}
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
+                                        <span style={{ fontWeight: 700, fontSize: 15, color: '#111' }}>
+                                            {order.amount} {currency}
+                                        </span>
+                                        {deliveryStart && deliveryEnd && (
+                                            <span style={{ 
+                                                fontSize: 11, 
+                                                color: '#2563eb', 
+                                                fontWeight: 500,
+                                                background: '#EFF6FF',
+                                                padding: '2px 10px',
+                                                borderRadius: 20,
+                                            }}>
+                                                Livraison {deliveryStart}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
+
+                                <ChevronRight 
+                                    size={18} 
+                                    color="#ccc" 
+                                    style={{ 
+                                        flexShrink: 0, 
+                                        transform: isOpen ? 'rotate(90deg)' : 'none', 
+                                        transition: 'transform .2s' 
+                                    }} 
+                                />
                             </div>
 
-                            {/* ── Détails expandés ───────────────────────── */}
                             {isOpen && (
                                 <div style={{ borderTop: '1px solid #F3F3F3', padding: '16px' }}>
 
-                                    {/* ── Tracker de suivi modernisé ── */}
+                                    {/* ── Tracker ── */}
                                     {order.status !== 'Cancelled' && (
-                                        <div style={{ marginBottom: 16, padding: '0 4px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative' }}>
-                                                {TRACKER_STEPS.map((step, i) => {
-                                                    const stepIndex = STEP_ORDER.indexOf(step.key)
-                                                    const done      = stepIndex <= currentStepIndex
-                                                    const active    = step.key === order.status
-                                                    const isLast    = i === TRACKER_STEPS.length - 1
+                                        <div style={{ marginBottom: 16 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                {TRACKER_STEPS.map((label, i) => {
+                                                    const done = i <= currentStepIndex
+                                                    const isLast = i === TRACKER_STEPS.length - 1
 
                                                     return (
-                                                        <React.Fragment key={step.key}>
-                                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flex: 1 }}>
+                                                        <div key={i} style={{ 
+                                                            display: 'flex', 
+                                                            flexDirection: 'column', 
+                                                            alignItems: 'center', 
+                                                            flex: 1,
+                                                            position: 'relative',
+                                                        }}>
+                                                            {!isLast && (
                                                                 <div style={{
-                                                                    width: 32,
-                                                                    height: 32,
-                                                                    borderRadius: '50%',
-                                                                    background: done ? '#DC2626' : '#E5E7EB',
-                                                                    display: 'flex',
-                                                                    alignItems: 'center',
-                                                                    justifyContent: 'center',
-                                                                    border: active ? '2px solid #DC2626' : 'none',
-                                                                    boxShadow: active ? '0 0 0 3px #FEE2E2' : 'none',
-                                                                    transition: 'all 0.3s ease'
-                                                                }}>
-                                                                    {done ? (
-                                                                        <CheckCircle size={16} color="#fff" />
-                                                                    ) : (
-                                                                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#D1D5DB' }} />
-                                                                    )}
-                                                                </div>
-                                                                <span style={{
-                                                                    fontSize: 9,
-                                                                    color: done ? '#111' : '#9CA3AF',
-                                                                    fontWeight: active ? 700 : 400,
-                                                                    textAlign: 'center'
-                                                                }}>
-                                                                    {step.label}
-                                                                </span>
-                                                                {!isLast && (
+                                                                    position: 'absolute',
+                                                                    top: 10,
+                                                                    left: '50%',
+                                                                    width: '100%',
+                                                                    height: 1.5,
+                                                                    background: i < currentStepIndex ? '#DC2626' : '#E5E7EB',
+                                                                    zIndex: 0,
+                                                                }} />
+                                                            )}
+                                                            
+                                                            <div style={{
+                                                                width: 18,
+                                                                height: 18,
+                                                                borderRadius: '50%',
+                                                                background: done ? '#DC2626' : '#F3F4F6',
+                                                                border: done ? 'none' : '1.5px solid #E5E7EB',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                zIndex: 1,
+                                                                transition: 'all 0.3s ease',
+                                                            }}>
+                                                                {done && i === currentStepIndex && (
                                                                     <div style={{
-                                                                        position: 'absolute',
-                                                                        top: 14,
-                                                                        left: `calc(${i * 20}% + 16px)`,
-                                                                        width: `calc(${100 / TRACKER_STEPS.length}% - 32px)`,
-                                                                        height: 2,
-                                                                        background: STEP_ORDER.indexOf(TRACKER_STEPS[i + 1].key) <= currentStepIndex ? '#DC2626' : '#E5E7EB',
+                                                                        width: 6,
+                                                                        height: 6,
+                                                                        borderRadius: '50%',
+                                                                        background: '#fff',
+                                                                    }} />
+                                                                )}
+                                                                {done && i < currentStepIndex && (
+                                                                    <div style={{
+                                                                        width: 10,
+                                                                        height: 10,
+                                                                        borderRadius: '50%',
+                                                                        background: '#fff',
                                                                     }} />
                                                                 )}
                                                             </div>
-                                                        </React.Fragment>
+                                                            
+                                                            <span style={{
+                                                                fontSize: 9,
+                                                                color: done ? '#111' : '#9CA3AF',
+                                                                fontWeight: done && i === currentStepIndex ? 700 : 400,
+                                                                marginTop: 4,
+                                                                textAlign: 'center',
+                                                                maxWidth: 50,
+                                                            }}>
+                                                                {label}
+                                                            </span>
+                                                        </div>
                                                     )
                                                 })}
                                             </div>
@@ -320,120 +326,99 @@ export default function MyOrders() {
 
                                     {/* ── Message statut ── */}
                                     {getStatusMessage(order.status) && (
-                                        <p style={{ fontSize: 13, color: '#666', marginBottom: 16, lineHeight: 1.5, background: '#F8F9FA', padding: '10px 14px', borderRadius: 8 }}>
+                                        <p style={{ fontSize: 13, color: '#666', marginBottom: 14, lineHeight: 1.5, background: '#F8F9FA', padding: '10px 14px', borderRadius: 8 }}>
                                             {getStatusMessage(order.status)}
                                         </p>
                                     )}
 
-                                    {/* ── Détails produit ── */}
-                                    <div style={{ marginBottom: 16 }}>
+                                    {/* ── Articles ── */}
+                                    <div style={{ marginBottom: 14 }}>
                                         {order.items.map((item, idx2) => (
-                                            <div key={idx2} style={{ display: 'flex', gap: 12, paddingBottom: 12, marginBottom: 12, borderBottom: idx2 < order.items.length - 1 ? '1px solid #F3F3F3' : 'none' }}>
-                                                <div style={{ width: 56, height: 56, borderRadius: 10, overflow: 'hidden', background: '#F8F8F8', flexShrink: 0 }}>
+                                            <div key={idx2} style={{ display: 'flex', gap: 10, paddingBottom: 10, marginBottom: 10, borderBottom: idx2 < order.items.length - 1 ? '1px solid #F3F3F3' : 'none' }}>
+                                                <div style={{ width: 48, height: 48, borderRadius: 6, overflow: 'hidden', background: '#F8F8F8', flexShrink: 0 }}>
                                                     {item.product?.image?.[0]
                                                         ? <img src={item.product.image[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                        : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={20} color="#ccc" /></div>
+                                                        : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Package size={16} color="#ccc" /></div>
                                                     }
                                                 </div>
                                                 <div style={{ flex: 1 }}>
-                                                    <p style={{ fontWeight: 600, fontSize: 14, color: '#111', margin: '0 0 4px' }}>{item.product?.name || 'Produit indisponible'}</p>
-                                                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                                    <p style={{ fontWeight: 500, fontSize: 13, color: '#111', margin: '0 0 2px' }}>{item.product?.name || 'Produit indisponible'}</p>
+                                                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                                                         {item.color && item.color !== 'null' && (
-                                                            <span style={{ fontSize: 11, background: '#F3F4F6', color: '#555', padding: '2px 8px', borderRadius: 12 }}>{item.color}</span>
+                                                            <span style={{ fontSize: 10, background: '#F3F4F6', color: '#555', padding: '1px 6px', borderRadius: 10 }}>{item.color}</span>
                                                         )}
                                                         {item.size && item.size !== 'null' && (
-                                                            <span style={{ fontSize: 11, background: '#F3F4F6', color: '#555', padding: '2px 8px', borderRadius: 12 }}>{item.size}</span>
+                                                            <span style={{ fontSize: 10, background: '#F3F4F6', color: '#555', padding: '1px 6px', borderRadius: 10 }}>{item.size}</span>
                                                         )}
                                                     </div>
-                                                    <p style={{ fontSize: 13, color: '#888', margin: '4px 0 0' }}>
-                                                        Qté : {item.quantity || 1} · {item.priceAtOrder || item.product?.offerPrice || 0} {currency}/u
+                                                    <p style={{ fontSize: 12, color: '#888', margin: '2px 0 0' }}>
+                                                        Qté: {item.quantity || 1} × {item.priceAtOrder || item.product?.offerPrice || 0} {currency}
                                                     </p>
                                                 </div>
-                                                <p style={{ fontWeight: 700, fontSize: 14, color: '#111', margin: 0, flexShrink: 0 }}>
+                                                <p style={{ fontWeight: 600, fontSize: 13, color: '#111', margin: 0, flexShrink: 0 }}>
                                                     {(item.priceAtOrder || item.product?.offerPrice || 0) * (item.quantity || 1)} {currency}
                                                 </p>
                                             </div>
                                         ))}
                                     </div>
 
-                                    {/* ── Récapitulatif ── */}
-                                    <div style={{ background: '#F9F9F9', borderRadius: 12, padding: '12px 14px', marginBottom: 14 }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#666', marginBottom: 4 }}>
-                                            <span>Sous-total</span><span>{itemsSubtotal} {currency}</span>
-                                        </div>
-                                        {discountAmount > 0 && (
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#16A34A', marginBottom: 4 }}>
-                                                <span>Réduction{couponApplied ? ` (${couponApplied})` : ''}</span>
-                                                <span>− {discountAmount} {currency}</span>
-                                            </div>
-                                        )}
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#666', marginBottom: 4 }}>
-                                            <span>Livraison</span>
-                                            <span style={{ color: deliveryPrice === 0 ? '#16A34A' : '#666' }}>
-                                                {deliveryPrice === 0 ? 'Gratuit' : `${deliveryPrice} ${currency}`}
-                                            </span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 700, color: '#111', borderTop: '1px solid #E5E7EB', paddingTop: 8 }}>
-                                            <span>Total</span><span>{order.amount} {currency}</span>
-                                        </div>
-                                    </div>
-
-                                    {/* ── Paiement ── */}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, color: '#666', fontSize: 13 }}>
-                                        <Banknote size={16} color="#9CA3AF" />
-                                        <span>{getPaymentLabel(order)}</span>
+                                    {/* ── Moyen de paiement ── */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, color: '#666', fontSize: 13, background: '#F8F9FA', padding: '8px 12px', borderRadius: 8 }}>
+                                        <CreditCard size={14} color="#6B7280" />
+                                        <span><strong>Moyen de paiement :</strong> {getPaymentLabel(order)}</span>
                                     </div>
 
                                     {/* ── Adresse ── */}
                                     {order.address && (
-                                        <div style={{ background: '#F9F9F9', borderRadius: 12, padding: '12px 14px', marginBottom: 12 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                                                <MapPin size={15} color="#DC2626" />
-                                                <span style={{ fontSize: 13, fontWeight: 600, color: '#333' }}>Adresse de livraison</span>
+                                        <div style={{ background: '#F9F9F9', borderRadius: 8, padding: '10px 14px', marginBottom: 12 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                                                <MapPin size={14} color="#DC2626" />
+                                                <span style={{ fontSize: 12, fontWeight: 600, color: '#333' }}>Adresse de livraison</span>
                                             </div>
-                                            <p style={{ fontSize: 13, color: '#555', margin: '0 0 2px' }}>
+                                            <p style={{ fontSize: 12, color: '#555', margin: '0 0 2px' }}>
                                                 {order.address.firstName} {order.address.lastName}
                                             </p>
-                                            <p style={{ fontSize: 13, color: '#555', margin: '0 0 4px' }}>
+                                            <p style={{ fontSize: 12, color: '#555', margin: '0 0 2px' }}>
                                                 {order.address.street}, {order.address.city}
                                             </p>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                <Phone size={13} color="#9CA3AF" />
-                                                <span style={{ fontSize: 13, color: '#555' }}>{order.address.phone}</span>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                <Phone size={12} color="#9CA3AF" />
+                                                <span style={{ fontSize: 12, color: '#555' }}>{order.address.phone}</span>
                                             </div>
                                         </div>
                                     )}
 
-                                    {/* ── Actions ── */}
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-                                        <div style={{ display: 'flex', gap: 8 }}>
-                                            <button
-                                                onClick={() => window.location.href = '/products'}
-                                                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#F3F4F6', color: '#555', border: 'none', borderRadius: 20, padding: '8px 16px', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}
-                                            >
-                                                <ShoppingBag size={14} /> Commander à nouveau
-                                            </button>
+                                    {/* ── Total ── */}
+                                    <div style={{ background: '#F9F9F9', borderRadius: 8, padding: '10px 14px', marginBottom: 12 }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#666', marginBottom: 3 }}>
+                                            <span>Sous-total</span><span>{itemsSubtotal} {currency}</span>
                                         </div>
+                                        {discountAmount > 0 && (
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#16A34A', marginBottom: 3 }}>
+                                                <span>Réduction{couponApplied ? ` (${couponApplied})` : ''}</span>
+                                                <span>− {discountAmount} {currency}</span>
+                                            </div>
+                                        )}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#666', marginBottom: 3 }}>
+                                            <span>Livraison</span>
+                                            <span>{deliveryPrice === 0 ? 'Gratuit' : `${deliveryPrice} ${currency}`}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15, fontWeight: 700, color: '#111', borderTop: '1px solid #E5E7EB', paddingTop: 6 }}>
+                                            <span>Total</span><span>{order.amount} {currency}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* ── PDF ── */}
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                                         <PDFDownloadLink
                                             document={<OrderReceiptPDF order={order} currency={currency} />}
                                             fileName={`facture_${order._id.slice(-8)}.pdf`}
-                                            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#111', color: '#fff', borderRadius: 20, padding: '8px 16px', fontSize: 12, fontWeight: 500, textDecoration: 'none' }}
+                                            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#111', color: '#fff', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 500, textDecoration: 'none' }}
                                         >
                                             {({ loading }) => loading ? 'Chargement...' : (
                                                 <><FileText size={14} /> Télécharger</>
                                             )}
                                         </PDFDownloadLink>
-                                    </div>
-
-                                    {/* ── Bouton notification ── */}
-                                    <div style={{ marginTop: 12, padding: '8px 14px', background: '#F8FAFC', borderRadius: 10, border: '1px dashed #CBD5E1', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            <Bell size={14} color="#64748B" />
-                                            <span style={{ fontSize: 12, color: '#64748B' }}>Restez informé de l'avancement</span>
-                                        </div>
-                                        <button style={{ background: 'none', border: 'none', color: '#DC2626', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                                            Activer
-                                        </button>
                                     </div>
                                 </div>
                             )}
