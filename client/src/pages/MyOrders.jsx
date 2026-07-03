@@ -4,9 +4,8 @@ import { useAppContext } from '../context/AppContext'
 import { PDFDownloadLink } from '@react-pdf/renderer'
 import OrderReceiptPDF from '../components/OrderReceiptPDF'
 import {
-    Package, Calendar, CreditCard, MapPin, Phone, FileText,
-    CheckCircle, Truck, PackageCheck, Home, XCircle, Tag,
-    Banknote, ChevronRight, ShoppingBag, Clock, RotateCw, CalendarDays
+    Package, CreditCard, MapPin, Phone, FileText,
+    CheckCircle, ChevronRight
 } from 'lucide-react'
 
 const FILTERS = [
@@ -19,13 +18,13 @@ const FILTERS = [
 ]
 
 const STATUS_MAP = {
-    'Order Placed':     { text: 'En attente',   color: '#B45309', bg: '#FEF3C7', step: 1 },
-    'Confirmed':        { text: 'Confirmée',    color: '#0369A1', bg: '#E0F2FE', step: 2 },
-    'Shipped':          { text: 'Expédiée',     color: '#7C3AED', bg: '#EDE9FE', step: 3 },
-    'Out for Delivery': { text: 'En livraison', color: '#DC2626', bg: '#FEE2E2', step: 4 },
-    'Delivered':        { text: 'Livrée',       color: '#16A34A', bg: '#DCFCE7', step: 5 },
-    'Returned':         { text: 'Retournée',    color: '#7C3AED', bg: '#EDE9FE', step: 6 },
-    'Cancelled':        { text: 'Annulée',      color: '#6B7280', bg: '#F3F4F6', step: 0 },
+    'Order Placed':     { text: 'En attente',   color: '#B45309', bg: '#FEF3C7' },
+    'Confirmed':        { text: 'Confirmée',    color: '#0369A1', bg: '#E0F2FE' },
+    'Shipped':          { text: 'Expédiée',     color: '#7C3AED', bg: '#EDE9FE' },
+    'Out for Delivery': { text: 'En livraison', color: '#DC2626', bg: '#FEE2E2' },
+    'Delivered':        { text: 'Livrée',       color: '#16A34A', bg: '#DCFCE7' },
+    'Returned':         { text: 'Retournée',    color: '#7C3AED', bg: '#EDE9FE' },
+    'Cancelled':        { text: 'Annulée',      color: '#6B7280', bg: '#F3F4F6' },
 }
 
 const FILTER_MATCH = {
@@ -37,9 +36,8 @@ const FILTER_MATCH = {
     cancelled: (o) => o.status === 'Cancelled',
 }
 
-// ✅ TRACKER AVEC PETITS POINTS
 const TRACKER_STEPS = ['Commandée', 'Confirmée', 'Expédiée', 'En livraison', 'Livrée']
-const STEP_ORDER = ['Order Placed', 'Confirmed', 'Shipped', 'Out for Delivery', 'Delivered', 'Returned']
+const STEP_ORDER = ['Order Placed', 'Confirmed', 'Shipped', 'Out for Delivery', 'Delivered']
 
 const getPaymentLabel = (order) => {
     if (order.paymentType === 'COD') return 'Paiement à la livraison'
@@ -146,7 +144,7 @@ export default function MyOrders() {
                 )}
 
                 {filtered.map((order) => {
-                    const st            = STATUS_MAP[order.status] || { text: order.status, color: '#888', bg: '#f5f5f5', step: 0 }
+                    const st            = STATUS_MAP[order.status] || { text: order.status, color: '#888', bg: '#f5f5f5' }
                     const isOpen        = expanded === order._id
                     const firstImg      = order.items?.[0]?.product?.image?.[0]
                     const itemCount     = order.items?.length || 0
@@ -156,6 +154,7 @@ export default function MyOrders() {
                     const couponApplied  = order.couponApplied || null
 
                     const currentStepIndex = STEP_ORDER.indexOf(order.status)
+                    const isDelivered = order.status === 'Delivered'
 
                     const deliveryStart = order.estimatedDeliveryStart ? formatDate(order.estimatedDeliveryStart) : null
                     const deliveryEnd = order.estimatedDeliveryEnd ? formatDate(order.estimatedDeliveryEnd) : null
@@ -221,16 +220,17 @@ export default function MyOrders() {
                                         <span style={{ fontWeight: 700, fontSize: 15, color: '#111' }}>
                                             {order.amount} {currency}
                                         </span>
+                                        {/* ✅ AFFICHAGE DE LA FOURCHETTE DE LIVRAISON */}
                                         {deliveryStart && deliveryEnd && (
                                             <span style={{ 
-                                                fontSize: 11, 
+                                                fontSize: 10, 
                                                 color: '#2563eb', 
                                                 fontWeight: 500,
                                                 background: '#EFF6FF',
                                                 padding: '2px 10px',
                                                 borderRadius: 20,
                                             }}>
-                                                Livraison {deliveryStart}
+                                                📦 Livraison {deliveryStart} - {deliveryEnd}
                                             </span>
                                         )}
                                     </div>
@@ -250,7 +250,7 @@ export default function MyOrders() {
                             {isOpen && (
                                 <div style={{ borderTop: '1px solid #F3F3F3', padding: '16px' }}>
 
-                                    {/* ✅ TRACKER AVEC PETITS POINTS ET BARRES */}
+                                    {/* ── Tracker ── */}
                                     {order.status !== 'Cancelled' && order.status !== 'Returned' && (
                                         <div style={{ marginBottom: 16, padding: '0 4px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -278,7 +278,6 @@ export default function MyOrders() {
                                                                 }} />
                                                             )}
                                                             
-                                                            {/* ✅ Petit point */}
                                                             <div style={{
                                                                 width: 10,
                                                                 height: 10,
@@ -306,14 +305,14 @@ export default function MyOrders() {
                                         </div>
                                     )}
 
-                                    {/* ✅ Message statut */}
+                                    {/* ── Message statut ── */}
                                     {getStatusMessage(order.status) && (
                                         <p style={{ fontSize: 13, color: '#666', marginBottom: 14, lineHeight: 1.5, background: '#F8F9FA', padding: '10px 14px', borderRadius: 8 }}>
                                             {getStatusMessage(order.status)}
                                         </p>
                                     )}
 
-                                    {/* ✅ Articles */}
+                                    {/* ── Articles ── */}
                                     <div style={{ marginBottom: 14 }}>
                                         {order.items.map((item, idx2) => (
                                             <div key={idx2} style={{ display: 'flex', gap: 10, paddingBottom: 10, marginBottom: 10, borderBottom: idx2 < order.items.length - 1 ? '1px solid #F3F3F3' : 'none' }}>
@@ -344,13 +343,13 @@ export default function MyOrders() {
                                         ))}
                                     </div>
 
-                                    {/* ✅ Moyen de paiement */}
+                                    {/* ── Moyen de paiement ── */}
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, color: '#666', fontSize: 13, background: '#F8F9FA', padding: '8px 12px', borderRadius: 8 }}>
                                         <CreditCard size={14} color="#6B7280" />
                                         <span><strong>Moyen de paiement :</strong> {getPaymentLabel(order)}</span>
                                     </div>
 
-                                    {/* ✅ Adresse */}
+                                    {/* ── Adresse ── */}
                                     {order.address && (
                                         <div style={{ background: '#F9F9F9', borderRadius: 8, padding: '10px 14px', marginBottom: 12 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
@@ -370,7 +369,7 @@ export default function MyOrders() {
                                         </div>
                                     )}
 
-                                    {/* ✅ TOTAL À LA FIN */}
+                                    {/* ── Total ── */}
                                     <div style={{ background: '#F9F9F9', borderRadius: 8, padding: '10px 14px', marginBottom: 12 }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#666', marginBottom: 3 }}>
                                             <span>Sous-total</span><span>{itemsSubtotal} {currency}</span>
@@ -390,18 +389,20 @@ export default function MyOrders() {
                                         </div>
                                     </div>
 
-                                    {/* ✅ PDF */}
-                                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                                        <PDFDownloadLink
-                                            document={<OrderReceiptPDF order={order} currency={currency} />}
-                                            fileName={`facture_${order._id.slice(-8)}.pdf`}
-                                            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#111', color: '#fff', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 500, textDecoration: 'none' }}
-                                        >
-                                            {({ loading }) => loading ? 'Chargement...' : (
-                                                <><FileText size={14} /> Télécharger</>
-                                            )}
-                                        </PDFDownloadLink>
-                                    </div>
+                                    {/* ── PDF ── */}
+                                    {isDelivered && (
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                            <PDFDownloadLink
+                                                document={<OrderReceiptPDF order={order} currency={currency} />}
+                                                fileName={`facture_${order._id.slice(-8)}.pdf`}
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#111', color: '#fff', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 500, textDecoration: 'none' }}
+                                            >
+                                                {({ loading }) => loading ? 'Chargement...' : (
+                                                    <><FileText size={14} /> Télécharger</>
+                                                )}
+                                            </PDFDownloadLink>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
