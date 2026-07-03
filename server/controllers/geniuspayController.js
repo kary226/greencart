@@ -10,6 +10,38 @@ import DeliveryType from '../models/DeliveryType.js';
 import Commune from '../models/Commune.js';
 import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
 
+// ✅ Fonction pour calculer les dates de livraison estimées (7 jours ouvrés)
+// Identique à celle de orderController.js, dupliquée ici pour éviter un
+// couplage entre les deux contrôleurs. Le calcul démarre à la date passée
+// en argument (ici : la date de confirmation du paiement, pas la date
+// d'initiation, car une commande "pending_payment" peut être abandonnée
+// et ne jamais aboutir — il serait incohérent de lui donner une date de
+// livraison avant d'être sûr qu'elle est payée).
+const calculateEstimatedDeliveryDates = (orderDate) => {
+    const startDate = new Date(orderDate);
+
+    let workingDaysAdded = 0;
+    let daysAdded = 0;
+
+    while (workingDaysAdded < 7) {
+        daysAdded++;
+        const currentDate = new Date(startDate);
+        currentDate.setDate(startDate.getDate() + daysAdded);
+        const dayOfWeek = currentDate.getDay();
+        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+            workingDaysAdded++;
+        }
+    }
+
+    const deliveryStart = new Date(startDate);
+    deliveryStart.setDate(startDate.getDate() + daysAdded);
+
+    const deliveryEnd = new Date(deliveryStart);
+    deliveryEnd.setDate(deliveryStart.getDate() + 3);
+
+    return { deliveryStart, deliveryEnd };
+};
+
 // ============================================================
 // [FIX C1] Vérification de la signature du webhook GeniusPay.
 //
@@ -526,8 +558,16 @@ export const geniuspayWebhook = async (req, res) => {
             }
 
             // 3. Marquer la commande comme payée
+            // ✅ Calculer les dates de livraison estimées au moment de la
+            // confirmation du paiement (et non à l'initiation), puisque
+            // c'est seulement maintenant qu'on sait que la commande est
+            // réellement passée.
+            const { deliveryStart, deliveryEnd } = calculateEstimatedDeliveryDates(new Date());
+
             order.isPaid = true;
             order.status = "Confirmed";
+            order.estimatedDeliveryStart = deliveryStart;
+            order.estimatedDeliveryEnd = deliveryEnd;
             if (reference) {
                 order.geniuspay_reference = reference;
             }
@@ -575,7 +615,9 @@ export const geniuspayWebhook = async (req, res) => {
                     await sendOrderConfirmationEmail(
                         user.email,
                         order._id.toString(),
-                        order.amount
+                        order.amount,
+                        deliveryStart,
+                        deliveryEnd
                     );
                     await sendAdminNotificationEmail(
                         order._id.toString(),

@@ -154,7 +154,7 @@ export default function MyOrders() {
                     const couponApplied  = order.couponApplied || null
 
                     const currentStepIndex = STEP_ORDER.indexOf(order.status)
-                    const isDelivered = order.status === 'Delivered'
+                    const isDelivered = ['Out for Delivery', 'Delivered'].includes(order.status)
 
                     const deliveryStart = order.estimatedDeliveryStart ? formatDate(order.estimatedDeliveryStart) : null
                     const deliveryEnd = order.estimatedDeliveryEnd ? formatDate(order.estimatedDeliveryEnd) : null
