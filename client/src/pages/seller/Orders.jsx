@@ -26,6 +26,9 @@ const Orders = () => {
     const [itemsPerPage, setItemsPerPage] = useState(10)
     const [sortBy, setSortBy] = useState('date')
     const [sortOrder, setSortOrder] = useState('desc')
+    
+    // ✅ NOUVEAU : Filtre pour les livraisons
+    const [deliveryFilter, setDeliveryFilter] = useState('all') // all, pending, today, week
 
     const fetchOrders = async () => {
         try {
@@ -90,6 +93,66 @@ const Orders = () => {
         if (status === 'Shipped' || status === 'Out for Delivery') return 'bg-purple-100 text-purple-700';
         return 'bg-blue-100 text-blue-700';
     };
+
+    // ✅ Calcul des livraisons à effectuer
+    const deliveryStats = useMemo(() => {
+        const toDeliver = orders.filter(o => 
+            o.status !== 'Delivered' && o.status !== 'Cancelled' && o.status !== 'Returned'
+        );
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const todayDeliveries = toDeliver.filter(o => {
+            if (!o.estimatedDeliveryStart) return false;
+            const deliveryDate = new Date(o.estimatedDeliveryStart);
+            deliveryDate.setHours(0, 0, 0, 0);
+            return deliveryDate.getTime() === today.getTime();
+        });
+        
+        const weekDeliveries = toDeliver.filter(o => {
+            if (!o.estimatedDeliveryStart) return false;
+            const deliveryDate = new Date(o.estimatedDeliveryStart);
+            const weekFromNow = new Date(today);
+            weekFromNow.setDate(weekFromNow.getDate() + 7);
+            return deliveryDate >= today && deliveryDate <= weekFromNow;
+        });
+
+        return {
+            total: toDeliver.length,
+            today: todayDeliveries.length,
+            week: weekDeliveries.length,
+        };
+    }, [orders]);
+
+    // ✅ Filtrer les commandes à livrer
+    const deliveryOrders = useMemo(() => {
+        let filtered = orders.filter(o => 
+            o.status !== 'Delivered' && o.status !== 'Cancelled' && o.status !== 'Returned'
+        );
+
+        if (deliveryFilter === 'today') {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            filtered = filtered.filter(o => {
+                if (!o.estimatedDeliveryStart) return false;
+                const deliveryDate = new Date(o.estimatedDeliveryStart);
+                deliveryDate.setHours(0, 0, 0, 0);
+                return deliveryDate.getTime() === today.getTime();
+            });
+        } else if (deliveryFilter === 'week') {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const weekFromNow = new Date(today);
+            weekFromNow.setDate(weekFromNow.getDate() + 7);
+            filtered = filtered.filter(o => {
+                if (!o.estimatedDeliveryStart) return false;
+                const deliveryDate = new Date(o.estimatedDeliveryStart);
+                return deliveryDate >= today && deliveryDate <= weekFromNow;
+            });
+        }
+
+        return filtered;
+    }, [orders, deliveryFilter]);
 
     // 📊 COMMANDES FILTRÉES ET TRIÉES
     const filteredOrders = useMemo(() => {
@@ -238,7 +301,10 @@ const Orders = () => {
                     'Montant': order.amount,
                     'Statut': getStatusLabel(order.status),
                     'Paiement': order.paymentType === "COD" ? "Paiement à la livraison" : "Paiement en ligne",
-                    'Payé': order.isPaid ? "Oui" : "Non"
+                    'Payé': order.isPaid ? "Oui" : "Non",
+                    'Livraison estimée': order.estimatedDeliveryStart 
+                        ? new Date(order.estimatedDeliveryStart).toLocaleDateString('fr-FR')
+                        : 'Non définie'
                 };
             })
             .sort((a, b) => a['Client'].localeCompare(b['Client']));
@@ -247,7 +313,7 @@ const Orders = () => {
         worksheet['!cols'] = [
             { wch: 28 }, { wch: 12 }, { wch: 10 }, { wch: 28 }, { wch: 15 },
             { wch: 25 }, { wch: 20 }, { wch: 20 }, { wch: 60 }, { wch: 15 },
-            { wch: 15 }, { wch: 25 }, { wch: 8 }
+            { wch: 15 }, { wch: 25 }, { wch: 8 }, { wch: 18 }
         ];
 
         const workbook = XLSX.utils.book_new();
@@ -300,7 +366,7 @@ const Orders = () => {
                     <p className="text-sm text-gray-500 mt-1">Gérez toutes les commandes des clients</p>
                     
                     {/* Cartes statistiques */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4">
                         <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
                             <p className="text-xs text-gray-500">Total commandes</p>
                             <p className="text-xl font-bold text-gray-900">{stats.total}</p>
@@ -317,8 +383,107 @@ const Orders = () => {
                             <p className="text-xs text-gray-500">En attente</p>
                             <p className="text-xl font-bold text-orange-500">{stats.byStatus.placed + stats.byStatus.confirmed}</p>
                         </div>
+                        <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
+                            <p className="text-xs text-gray-500">🚚 À livrer</p>
+                            <p className="text-xl font-bold text-purple-600">{deliveryStats.total}</p>
+                        </div>
                     </div>
                 </div>
+
+                {/* ✅ NOUVEAU : Section Livraisons à effectuer */}
+                {deliveryStats.total > 0 && (
+                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                        <div className="bg-purple-50 px-5 py-3 border-b border-gray-100 flex flex-wrap justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <Truck size={18} className="text-purple-600" />
+                                <span className="font-medium text-gray-900">🚚 Livraisons à effectuer</span>
+                                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+                                    {deliveryStats.total} commandes
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={() => setDeliveryFilter('all')}
+                                    className={`text-xs px-3 py-1 rounded-full transition ${
+                                        deliveryFilter === 'all' 
+                                            ? 'bg-purple-600 text-white' 
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    Toutes ({deliveryStats.total})
+                                </button>
+                                <button
+                                    onClick={() => setDeliveryFilter('today')}
+                                    className={`text-xs px-3 py-1 rounded-full transition ${
+                                        deliveryFilter === 'today' 
+                                            ? 'bg-purple-600 text-white' 
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    Aujourd'hui ({deliveryStats.today})
+                                </button>
+                                <button
+                                    onClick={() => setDeliveryFilter('week')}
+                                    className={`text-xs px-3 py-1 rounded-full transition ${
+                                        deliveryFilter === 'week' 
+                                            ? 'bg-purple-600 text-white' 
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    Cette semaine ({deliveryStats.week})
+                                </button>
+                            </div>
+                        </div>
+
+                        {deliveryOrders.length > 0 && (
+                            <div className="divide-y divide-gray-100 max-h-[400px] overflow-y-auto">
+                                {deliveryOrders.slice(0, 10).map((order) => (
+                                    <div key={order._id} className="px-5 py-3 flex flex-wrap justify-between items-center gap-2 hover:bg-gray-50 transition">
+                                        <div className="flex items-center gap-4">
+                                            <span className="text-xs font-mono text-gray-500">#{order._id.slice(-8)}</span>
+                                            <span className="text-sm text-gray-700">
+                                                {order.address?.firstName} {order.address?.lastName}
+                                            </span>
+                                            <span className="text-xs text-gray-400">
+                                                {order.address?.communeName || order.address?.city || '-'}
+                                            </span>
+                                            <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                                                📅 {order.estimatedDeliveryStart 
+                                                    ? new Date(order.estimatedDeliveryStart).toLocaleDateString('fr-FR')
+                                                    : 'Non définie'
+                                                }
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(order.status)}`}>
+                                                {getStatusLabel(order.status)}
+                                            </span>
+                                            <select 
+                                                value={order.status}
+                                                onChange={(e) => updateOrderStatus(order._id, e.target.value)}
+                                                disabled={updatingStatus === order._id}
+                                                className="text-xs border border-gray-200 rounded-lg px-2 py-1 outline-none focus:border-purple-500"
+                                            >
+                                                <option value="Confirmed">Confirmée</option>
+                                                <option value="Shipped">Expédiée</option>
+                                                <option value="Out for Delivery">En livraison</option>
+                                                <option value="Delivered">✅ Livrée</option>
+                                            </select>
+                                            {updatingStatus === order._id && (
+                                                <span className="text-xs text-gray-400 animate-pulse">...</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                                {deliveryOrders.length > 10 && (
+                                    <div className="px-5 py-2 text-center text-xs text-gray-400 bg-gray-50">
+                                        + {deliveryOrders.length - 10} autres commandes
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* Barre de recherche et filtres */}
                 <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
@@ -528,6 +693,11 @@ const Orders = () => {
                                             <p className="text-sm text-gray-600">{order.address.street}</p>
                                             <p className="text-sm text-gray-600">{order.address.communeName}, {order.address.cityName || order.address.city}</p>
                                             <p className="text-sm text-gray-600">{order.address.phone}</p>
+                                            {order.estimatedDeliveryStart && (
+                                                <p className="text-xs text-blue-600 mt-1">
+                                                    📅 Livraison estimée : {new Date(order.estimatedDeliveryStart).toLocaleDateString('fr-FR')}
+                                                </p>
+                                            )}
                                         </div>
 
                                         {/* Totaux et actions */}
