@@ -37,7 +37,8 @@ const FILTER_MATCH = {
     cancelled: (o) => o.status === 'Cancelled',
 }
 
-const TRACKER_STEPS = ['Commandée', 'Confirmée', 'Expédiée', 'En livraison', 'Livrée', 'Retournée']
+// ✅ TRACKER AVEC PETITS POINTS
+const TRACKER_STEPS = ['Commandée', 'Confirmée', 'Expédiée', 'En livraison', 'Livrée']
 const STEP_ORDER = ['Order Placed', 'Confirmed', 'Shipped', 'Out for Delivery', 'Delivered', 'Returned']
 
 const getPaymentLabel = (order) => {
@@ -249,9 +250,9 @@ export default function MyOrders() {
                             {isOpen && (
                                 <div style={{ borderTop: '1px solid #F3F3F3', padding: '16px' }}>
 
-                                    {/* ── Tracker ── */}
-                                    {order.status !== 'Cancelled' && (
-                                        <div style={{ marginBottom: 16 }}>
+                                    {/* ✅ TRACKER AVEC PETITS POINTS ET BARRES */}
+                                    {order.status !== 'Cancelled' && order.status !== 'Returned' && (
+                                        <div style={{ marginBottom: 16, padding: '0 4px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                                 {TRACKER_STEPS.map((label, i) => {
                                                     const done = i <= currentStepIndex
@@ -268,7 +269,7 @@ export default function MyOrders() {
                                                             {!isLast && (
                                                                 <div style={{
                                                                     position: 'absolute',
-                                                                    top: 10,
+                                                                    top: 8,
                                                                     left: '50%',
                                                                     width: '100%',
                                                                     height: 1.5,
@@ -277,43 +278,24 @@ export default function MyOrders() {
                                                                 }} />
                                                             )}
                                                             
+                                                            {/* ✅ Petit point */}
                                                             <div style={{
-                                                                width: 18,
-                                                                height: 18,
+                                                                width: 10,
+                                                                height: 10,
                                                                 borderRadius: '50%',
-                                                                background: done ? '#DC2626' : '#F3F4F6',
-                                                                border: done ? 'none' : '1.5px solid #E5E7EB',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'center',
+                                                                background: done ? '#DC2626' : '#E5E7EB',
                                                                 zIndex: 1,
                                                                 transition: 'all 0.3s ease',
-                                                            }}>
-                                                                {done && i === currentStepIndex && (
-                                                                    <div style={{
-                                                                        width: 6,
-                                                                        height: 6,
-                                                                        borderRadius: '50%',
-                                                                        background: '#fff',
-                                                                    }} />
-                                                                )}
-                                                                {done && i < currentStepIndex && (
-                                                                    <div style={{
-                                                                        width: 10,
-                                                                        height: 10,
-                                                                        borderRadius: '50%',
-                                                                        background: '#fff',
-                                                                    }} />
-                                                                )}
-                                                            </div>
+                                                            }} />
                                                             
                                                             <span style={{
-                                                                fontSize: 9,
+                                                                fontSize: 8,
                                                                 color: done ? '#111' : '#9CA3AF',
-                                                                fontWeight: done && i === currentStepIndex ? 700 : 400,
-                                                                marginTop: 4,
+                                                                fontWeight: done ? 600 : 400,
+                                                                marginTop: 6,
                                                                 textAlign: 'center',
-                                                                maxWidth: 50,
+                                                                maxWidth: 60,
+                                                                whiteSpace: 'nowrap',
                                                             }}>
                                                                 {label}
                                                             </span>
@@ -324,14 +306,14 @@ export default function MyOrders() {
                                         </div>
                                     )}
 
-                                    {/* ── Message statut ── */}
+                                    {/* ✅ Message statut */}
                                     {getStatusMessage(order.status) && (
                                         <p style={{ fontSize: 13, color: '#666', marginBottom: 14, lineHeight: 1.5, background: '#F8F9FA', padding: '10px 14px', borderRadius: 8 }}>
                                             {getStatusMessage(order.status)}
                                         </p>
                                     )}
 
-                                    {/* ── Articles ── */}
+                                    {/* ✅ Articles */}
                                     <div style={{ marginBottom: 14 }}>
                                         {order.items.map((item, idx2) => (
                                             <div key={idx2} style={{ display: 'flex', gap: 10, paddingBottom: 10, marginBottom: 10, borderBottom: idx2 < order.items.length - 1 ? '1px solid #F3F3F3' : 'none' }}>
@@ -362,13 +344,13 @@ export default function MyOrders() {
                                         ))}
                                     </div>
 
-                                    {/* ── Moyen de paiement ── */}
+                                    {/* ✅ Moyen de paiement */}
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, color: '#666', fontSize: 13, background: '#F8F9FA', padding: '8px 12px', borderRadius: 8 }}>
                                         <CreditCard size={14} color="#6B7280" />
                                         <span><strong>Moyen de paiement :</strong> {getPaymentLabel(order)}</span>
                                     </div>
 
-                                    {/* ── Adresse ── */}
+                                    {/* ✅ Adresse */}
                                     {order.address && (
                                         <div style={{ background: '#F9F9F9', borderRadius: 8, padding: '10px 14px', marginBottom: 12 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
@@ -388,7 +370,7 @@ export default function MyOrders() {
                                         </div>
                                     )}
 
-                                    {/* ── Total ── */}
+                                    {/* ✅ TOTAL À LA FIN */}
                                     <div style={{ background: '#F9F9F9', borderRadius: 8, padding: '10px 14px', marginBottom: 12 }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#666', marginBottom: 3 }}>
                                             <span>Sous-total</span><span>{itemsSubtotal} {currency}</span>
@@ -408,7 +390,7 @@ export default function MyOrders() {
                                         </div>
                                     </div>
 
-                                    {/* ── PDF ── */}
+                                    {/* ✅ PDF */}
                                     <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                                         <PDFDownloadLink
                                             document={<OrderReceiptPDF order={order} currency={currency} />}
