@@ -25,11 +25,28 @@ const DeliveryManager = () => {
     const [bulkForm, setBulkForm] = useState({ deliveryTypeId: '', cityId: '', communeNames: '', price: '' });
     const [selectedCityFilter, setSelectedCityFilter] = useState('');
 
-    // ✅ NOUVEAU : Livraisons à effectuer
+    // ✅ Livraisons à effectuer
     const [orders, setOrders] = useState([]);
-    const [orderFilter, setOrderFilter] = useState('all'); // all, pending, shipped, delivered
+    const [orderFilter, setOrderFilter] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [updatingOrder, setUpdatingOrder] = useState(null);
+
+    // ✅ Fonction pour obtenir le libellé de livraison (professionnel)
+    const getDeliveryLabel = (order) => {
+        if (order.status === 'Delivered') {
+            if (order.deliveredAt) {
+                const deliveredDate = new Date(order.deliveredAt);
+                return `Livrée le ${deliveredDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+            }
+            return 'Livrée';
+        }
+        if (order.estimatedDeliveryStart && order.estimatedDeliveryEnd) {
+            const start = new Date(order.estimatedDeliveryStart);
+            const end = new Date(order.estimatedDeliveryEnd);
+            return `Livraison estimée du ${start.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })} au ${end.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+        }
+        return 'Non définie';
+    };
 
     const fetchDeliveryTypes = async () => {
         try {
@@ -79,7 +96,6 @@ const DeliveryManager = () => {
         try {
             const { data } = await axios.get('/api/order/seller');
             if (data.success) {
-                // Filtrer les commandes qui ne sont pas encore livrées ou annulées
                 const pendingOrders = data.orders.filter(o => 
                     o.status !== 'Delivered' && o.status !== 'Cancelled' && o.status !== 'Returned'
                 );
@@ -107,7 +123,7 @@ const DeliveryManager = () => {
         }
     }, [priceForm.cityId]);
 
-    // ✅ Mettre à jour le statut d'une commande (marquer comme livrée)
+    // ✅ Mettre à jour le statut d'une commande
     const updateOrderStatus = async (orderId, newStatus) => {
         setUpdatingOrder(orderId);
         try {
@@ -116,7 +132,7 @@ const DeliveryManager = () => {
                 status: newStatus
             });
             if (data.success) {
-                toast.success(`Commande #${orderId.slice(-8)} ${newStatus === 'Delivered' ? 'livrée ✅' : 'mis à jour'}`);
+                toast.success(`Commande #${orderId.slice(-8)} ${newStatus === 'Delivered' ? 'livrée' : 'mis à jour'}`);
                 await fetchOrdersToDeliver();
                 await fetchDeliveryPrices();
             } else {
@@ -304,11 +320,331 @@ const DeliveryManager = () => {
                                 : 'text-gray-500 hover:text-gray-700'
                         }`}
                     >
-                        🚚 Livraisons à effectuer ({stats.total})
+                        Livraisons à effectuer ({stats.total})
                     </button>
                 </div>
 
-                {/* ✅ NOUVEL ONGLET : Livraisons à effectuer */}
+                {activeTab === 'types' && (
+                    <div>
+                        <div className="flex justify-end mb-4">
+                            <button
+                                onClick={() => {
+                                    setEditingType(null);
+                                    setTypeForm({ name: '', description: '', order: 0 });
+                                    setShowTypeForm(!showTypeForm);
+                                }}
+                                className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 transition shadow-sm"
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <line x1="12" y1="8" x2="12" y2="16"/>
+                                    <line x1="8" y1="12" x2="16" y2="12"/>
+                                </svg>
+                                {showTypeForm ? 'Annuler' : 'Ajouter un type'}
+                            </button>
+                        </div>
+
+                        {showTypeForm && (
+                            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-6">
+                                <div className="p-6 border-b border-gray-100">
+                                    <h2 className="text-lg font-semibold text-gray-900">
+                                        {editingType ? 'Modifier le type' : 'Nouveau type de livraison'}
+                                    </h2>
+                                </div>
+                                <form onSubmit={handleTypeSubmit} className="p-6 space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <input
+                                            type="text"
+                                            placeholder="Nom (ex: Standard, Express)"
+                                            value={typeForm.name}
+                                            onChange={(e) => setTypeForm({ ...typeForm, name: e.target.value })}
+                                            className="border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                            required
+                                        />
+                                        <input
+                                            type="text"
+                                            placeholder="Description"
+                                            value={typeForm.description}
+                                            onChange={(e) => setTypeForm({ ...typeForm, description: e.target.value })}
+                                            className="border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                        />
+                                        <input
+                                            type="number"
+                                            placeholder="Ordre"
+                                            value={typeForm.order}
+                                            onChange={(e) => setTypeForm({ ...typeForm, order: parseInt(e.target.value) })}
+                                            className="border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                        />
+                                    </div>
+                                    <button type="submit" className="px-6 py-2 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 transition">
+                                        {editingType ? 'Mettre à jour' : 'Ajouter'}
+                                    </button>
+                                </form>
+                            </div>
+                        )}
+
+                        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="bg-gray-50 border-b border-gray-100">
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Nom</th>
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Description</th>
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Statut</th>
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {deliveryTypes.map((type) => (
+                                            <tr key={type._id} className="hover:bg-gray-50 transition">
+                                                <td className="px-6 py-4 font-medium text-gray-900">{type.name}</td>
+                                                <td className="px-6 py-4 text-sm text-gray-500">{type.description || '-'}</td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
+                                                        type.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                                                    }`}>
+                                                        {type.isActive ? 'Actif' : 'Inactif'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            onClick={() => {
+                                                                setEditingType(type);
+                                                                setTypeForm({ name: type.name, description: type.description || '', order: type.order });
+                                                                setShowTypeForm(true);
+                                                            }}
+                                                            className="text-xs px-3 py-1.5 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition"
+                                                        >
+                                                            Modifier
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteType(type._id)}
+                                                            className="text-xs px-3 py-1.5 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition"
+                                                        >
+                                                            Supprimer
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'prices' && (
+                    <div>
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                            <select
+                                value={selectedCityFilter}
+                                onChange={(e) => setSelectedCityFilter(e.target.value)}
+                                className="border border-gray-200 rounded-xl px-4 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                            >
+                                <option value="">Toutes les villes</option>
+                                {cities.map(city => (
+                                    <option key={city._id} value={city._id}>{city.name}</option>
+                                ))}
+                            </select>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => {
+                                        setEditingPrice(null);
+                                        setPriceForm({ deliveryTypeId: '', cityId: '', communeId: '', price: '' });
+                                        setShowPriceForm(!showPriceForm);
+                                        setShowBulkForm(false);
+                                    }}
+                                    className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 transition shadow-sm"
+                                >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <circle cx="12" cy="12" r="10"/>
+                                        <line x1="12" y1="8" x2="12" y2="16"/>
+                                        <line x1="8" y1="12" x2="16" y2="12"/>
+                                    </svg>
+                                    {showPriceForm ? 'Annuler' : 'Ajouter un tarif'}
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setShowBulkForm(!showBulkForm);
+                                        setShowPriceForm(false);
+                                    }}
+                                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition shadow-sm"
+                                >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <rect x="2" y="4" width="20" height="16" rx="2"/>
+                                        <line x1="2" y1="10" x2="22" y2="10"/>
+                                    </svg>
+                                    Ajouter plusieurs
+                                </button>
+                            </div>
+                        </div>
+
+                        {showPriceForm && (
+                            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-6">
+                                <div className="p-6 border-b border-gray-100">
+                                    <h2 className="text-lg font-semibold text-gray-900">
+                                        {editingPrice ? 'Modifier le tarif' : 'Nouveau tarif'}
+                                    </h2>
+                                </div>
+                                <form onSubmit={handlePriceSubmit} className="p-6 space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                        <select
+                                            value={priceForm.deliveryTypeId}
+                                            onChange={(e) => setPriceForm({ ...priceForm, deliveryTypeId: e.target.value })}
+                                            className="border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                            required
+                                        >
+                                            <option value="">Type de livraison</option>
+                                            {deliveryTypes.filter(t => t.isActive).map(type => (
+                                                <option key={type._id} value={type._id}>{type.name}</option>
+                                            ))}
+                                        </select>
+                                        <select
+                                            value={priceForm.cityId}
+                                            onChange={(e) => setPriceForm({ ...priceForm, cityId: e.target.value })}
+                                            className="border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                        >
+                                            <option value="">Toutes les villes</option>
+                                            {cities.map(city => (
+                                                <option key={city._id} value={city._id}>{city.name}</option>
+                                            ))}
+                                        </select>
+                                        <select
+                                            value={priceForm.communeId}
+                                            onChange={(e) => setPriceForm({ ...priceForm, communeId: e.target.value })}
+                                            className="border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                            disabled={!priceForm.cityId}
+                                        >
+                                            <option value="">Toutes les communes</option>
+                                            {communes.map(commune => (
+                                                <option key={commune._id} value={commune._id}>{commune.name}</option>
+                                            ))}
+                                        </select>
+                                        <input
+                                            type="number"
+                                            placeholder="Prix (FCFA)"
+                                            value={priceForm.price}
+                                            onChange={(e) => setPriceForm({ ...priceForm, price: e.target.value })}
+                                            className="border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                            required
+                                        />
+                                    </div>
+                                    <button type="submit" className="px-6 py-2 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 transition">
+                                        {editingPrice ? 'Mettre à jour' : 'Ajouter'}
+                                    </button>
+                                </form>
+                            </div>
+                        )}
+
+                        {showBulkForm && (
+                            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-6">
+                                <div className="p-6 border-b border-gray-100">
+                                    <h2 className="text-lg font-semibold text-gray-900">Ajouter plusieurs communes</h2>
+                                </div>
+                                <form onSubmit={handleBulkSubmit} className="p-6 space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <select
+                                            value={bulkForm.deliveryTypeId}
+                                            onChange={(e) => setBulkForm({ ...bulkForm, deliveryTypeId: e.target.value })}
+                                            className="border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                            required
+                                        >
+                                            <option value="">Type de livraison</option>
+                                            {deliveryTypes.filter(t => t.isActive).map(type => (
+                                                <option key={type._id} value={type._id}>{type.name}</option>
+                                            ))}
+                                        </select>
+                                        <select
+                                            value={bulkForm.cityId}
+                                            onChange={(e) => setBulkForm({ ...bulkForm, cityId: e.target.value })}
+                                            className="border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                            required
+                                        >
+                                            <option value="">Sélectionner une ville</option>
+                                            {cities.map(city => (
+                                                <option key={city._id} value={city._id}>{city.name}</option>
+                                            ))}
+                                        </select>
+                                        <textarea
+                                            placeholder="Noms des communes (séparés par des virgules)"
+                                            value={bulkForm.communeNames}
+                                            onChange={(e) => setBulkForm({ ...bulkForm, communeNames: e.target.value })}
+                                            rows={3}
+                                            className="border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                            required
+                                        />
+                                        <input
+                                            type="number"
+                                            placeholder="Prix (FCFA)"
+                                            value={bulkForm.price}
+                                            onChange={(e) => setBulkForm({ ...bulkForm, price: e.target.value })}
+                                            className="border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+                                            required
+                                        />
+                                    </div>
+                                    <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition">
+                                        Ajouter toutes les communes
+                                    </button>
+                                </form>
+                            </div>
+                        )}
+
+                        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="bg-gray-50 border-b border-gray-100">
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</th>
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Ville</th>
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Commune</th>
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Prix</th>
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {filteredPrices.map((price) => (
+                                            <tr key={price._id} className="hover:bg-gray-50 transition">
+                                                <td className="px-6 py-4 text-sm text-gray-900">{price.deliveryTypeId?.name || '-'}</td>
+                                                <td className="px-6 py-4 text-sm text-gray-500">{price.cityId?.name || 'Toutes'}</td>
+                                                <td className="px-6 py-4 text-sm text-gray-500">{price.communeId?.name || 'Toutes'}</td>
+                                                <td className="px-6 py-4 text-sm font-medium text-red-600">{price.price.toLocaleString()} FCFA</td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            onClick={() => {
+                                                                setEditingPrice(price);
+                                                                setPriceForm({
+                                                                    deliveryTypeId: price.deliveryTypeId?._id || price.deliveryTypeId,
+                                                                    cityId: price.cityId?._id || price.cityId || '',
+                                                                    communeId: price.communeId?._id || price.communeId || '',
+                                                                    price: price.price
+                                                                });
+                                                                setShowPriceForm(true);
+                                                                setShowBulkForm(false);
+                                                            }}
+                                                            className="text-xs px-3 py-1.5 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition"
+                                                        >
+                                                            Modifier
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeletePrice(price._id)}
+                                                            className="text-xs px-3 py-1.5 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition"
+                                                        >
+                                                            Supprimer
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {activeTab === 'deliveries' && (
                     <div>
                         {/* Statistiques */}
@@ -357,7 +693,6 @@ const DeliveryManager = () => {
                         {/* Liste des commandes */}
                         {filteredOrders.length === 0 ? (
                             <div className="text-center py-16 bg-white rounded-xl border border-gray-100">
-                                <div className="text-4xl mb-4">📦</div>
                                 <p className="text-gray-500">Aucune livraison à effectuer</p>
                                 <p className="text-sm text-gray-400 mt-1">Toutes les commandes sont livrées ou en attente</p>
                             </div>
@@ -365,9 +700,7 @@ const DeliveryManager = () => {
                             <div className="space-y-4">
                                 {filteredOrders.map((order) => {
                                     const orderDate = new Date(order.createdAt);
-                                    const deliveryStart = order.estimatedDeliveryStart 
-                                        ? new Date(order.estimatedDeliveryStart).toLocaleDateString('fr-FR') 
-                                        : 'Non définie';
+                                    const deliveryLabel = getDeliveryLabel(order);
                                     
                                     const statusColors = {
                                         'Confirmed': 'bg-blue-100 text-blue-700',
@@ -394,31 +727,26 @@ const DeliveryManager = () => {
                                                             </span>
                                                         </div>
                                                         <div className="mt-1 space-y-0.5 text-sm text-gray-600">
-                                                            <p>👤 {order.address?.firstName} {order.address?.lastName}</p>
-                                                            <p>📞 {order.address?.phone}</p>
-                                                            <p>📍 {order.address?.street}, {order.address?.city || order.address?.communeName}</p>
+                                                            <p>{order.address?.firstName} {order.address?.lastName}</p>
+                                                            <p>{order.address?.phone}</p>
+                                                            <p>{order.address?.street}, {order.address?.city || order.address?.communeName}</p>
                                                             <p className="text-xs text-gray-400">Commande du {orderDate.toLocaleDateString('fr-FR')}</p>
+                                                            <p className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full mt-1">
+                                                                {deliveryLabel}
+                                                            </p>
                                                         </div>
                                                     </div>
                                                     <div className="text-right">
                                                         <p className="text-lg font-bold text-red-600">{order.amount.toLocaleString()} FCFA</p>
-                                                        <p className="text-xs text-blue-600 bg-blue-50 px-3 py-1 rounded-full mt-1">
-                                                            🚚 Livraison estimée : {deliveryStart}
-                                                        </p>
                                                         <button
                                                             onClick={() => updateOrderStatus(order._id, 'Delivered')}
                                                             disabled={updatingOrder === order._id}
-                                                            className={`mt-2 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 transition shadow-sm disabled:opacity-50 flex items-center gap-2 mx-auto`}
+                                                            className={`mt-2 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 transition shadow-sm disabled:opacity-50`}
                                                         >
                                                             {updatingOrder === order._id ? (
-                                                                '⏳ Mise à jour...'
+                                                                'Mise à jour...'
                                                             ) : (
-                                                                <>
-                                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                                        <polyline points="20 6 9 17 4 12"/>
-                                                                    </svg>
-                                                                    Marquer livrée
-                                                                </>
+                                                                'Marquer livrée'
                                                             )}
                                                         </button>
                                                     </div>
@@ -429,19 +757,6 @@ const DeliveryManager = () => {
                                 })}
                             </div>
                         )}
-                    </div>
-                )}
-
-                {/* Reste des onglets inchangé */}
-                {activeTab === 'types' && (
-                    <div>
-                        {/* ... (contenu existant) ... */}
-                    </div>
-                )}
-
-                {activeTab === 'prices' && (
-                    <div>
-                        {/* ... (contenu existant) ... */}
                     </div>
                 )}
             </div>
