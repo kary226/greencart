@@ -24,6 +24,8 @@ const orderSchema = new mongoose.Schema({
     // ✅ Dates de livraison estimées
     estimatedDeliveryStart: { type: Date, default: null },
     estimatedDeliveryEnd: { type: Date, default: null },
+    // ✅ Date de livraison réelle (enregistrée une fois quand statut = Delivered)
+    deliveredAt: { type: Date, default: null },
 },{ timestamps: true })
 
 const Order = mongoose.models.order || mongoose.model('order', orderSchema)

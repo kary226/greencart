@@ -15,7 +15,6 @@ const Orders = () => {
     const [selectedImage, setSelectedImage] = useState(null)
     const location = useLocation()
     
-    // 🔍 ÉTATS POUR LA RECHERCHE ET LES FILTRES
     const [statusFilter, setStatusFilter] = useState('all')
     const [dateFilter, setDateFilter] = useState('all')
     const [searchTerm, setSearchTerm] = useState('')
@@ -26,9 +25,7 @@ const Orders = () => {
     const [itemsPerPage, setItemsPerPage] = useState(10)
     const [sortBy, setSortBy] = useState('date')
     const [sortOrder, setSortOrder] = useState('desc')
-    
-    // ✅ NOUVEAU : Filtre pour les livraisons
-    const [deliveryFilter, setDeliveryFilter] = useState('all') // all, pending, today, week
+    const [deliveryFilter, setDeliveryFilter] = useState('all')
 
     const fetchOrders = async () => {
         try {
@@ -43,6 +40,38 @@ const Orders = () => {
         }
     };
 
+    // ✅ Fonction pour obtenir le libellé de livraison (avec deliveredAt)
+    const getDeliveryLabel = (order) => {
+        if (order.status === 'Delivered') {
+            // ✅ Utiliser deliveredAt au lieu de updatedAt
+            if (order.deliveredAt) {
+                const deliveredDate = new Date(order.deliveredAt);
+                return `✅ Livré le ${deliveredDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+            }
+            return '✅ Livrée';
+        }
+        if (order.estimatedDeliveryStart) {
+            return `📅 Livraison estimée : ${new Date(order.estimatedDeliveryStart).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+        }
+        return null;
+    };
+
+    // ✅ Fonction pour obtenir le libellé court de livraison
+    const getDeliveryLabelShort = (order) => {
+        if (order.status === 'Delivered') {
+            if (order.deliveredAt) {
+                const deliveredDate = new Date(order.deliveredAt);
+                return `✅ Livré ${deliveredDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`;
+            }
+            return '✅ Livrée';
+        }
+        if (order.estimatedDeliveryStart) {
+            return `📅 ${new Date(order.estimatedDeliveryStart).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`;
+        }
+        return null;
+    };
+
+    // ✅ Mise à jour du statut avec rafraîchissement forcé
     const updateOrderStatus = async (orderId, newStatus) => {
         setUpdatingStatus(orderId)
         try {
@@ -52,7 +81,8 @@ const Orders = () => {
             });
             if (data.success) {
                 toast.success(`Statut mis à jour : ${newStatus}`);
-                fetchOrders();
+                await fetchOrders();
+                setCurrentPage(1);
             } else {
                 toast.error(data.message)
             }
@@ -94,7 +124,6 @@ const Orders = () => {
         return 'bg-blue-100 text-blue-700';
     };
 
-    // ✅ Calcul des livraisons à effectuer
     const deliveryStats = useMemo(() => {
         const toDeliver = orders.filter(o => 
             o.status !== 'Delivered' && o.status !== 'Cancelled' && o.status !== 'Returned'
@@ -124,7 +153,6 @@ const Orders = () => {
         };
     }, [orders]);
 
-    // ✅ Filtrer les commandes à livrer
     const deliveryOrders = useMemo(() => {
         let filtered = orders.filter(o => 
             o.status !== 'Delivered' && o.status !== 'Cancelled' && o.status !== 'Returned'
@@ -154,23 +182,19 @@ const Orders = () => {
         return filtered;
     }, [orders, deliveryFilter]);
 
-    // 📊 COMMANDES FILTRÉES ET TRIÉES
     const filteredOrders = useMemo(() => {
         let filtered = [...orders]
 
-        // Filtre par statut
         if (statusFilter !== 'all') {
             filtered = filtered.filter(order => order.status === statusFilter)
         }
 
-        // Filtre par paiement
         if (paymentFilter !== 'all') {
             filtered = filtered.filter(order => 
                 paymentFilter === 'cod' ? order.paymentType === 'COD' : order.paymentType !== 'COD'
             )
         }
 
-        // Filtre par date
         const now = new Date()
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
         const weekAgo = new Date(today)
@@ -194,7 +218,6 @@ const Orders = () => {
             })
         }
 
-        // Recherche par n° commande ou nom client
         if (searchTerm) {
             filtered = filtered.filter(order => 
                 order._id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -203,7 +226,6 @@ const Orders = () => {
             )
         }
 
-        // Tri
         filtered.sort((a, b) => {
             let aVal, bVal;
             switch (sortBy) {
@@ -233,7 +255,6 @@ const Orders = () => {
         return filtered
     }, [orders, statusFilter, dateFilter, searchTerm, startDate, endDate, paymentFilter, sortBy, sortOrder])
 
-    // 📄 PAGINATION
     const totalOrders = filteredOrders.length
     const totalPages = Math.ceil(totalOrders / itemsPerPage)
     const paginatedOrders = filteredOrders.slice(
@@ -241,12 +262,10 @@ const Orders = () => {
         currentPage * itemsPerPage
     )
 
-    // Reset page quand les filtres changent
     useEffect(() => {
         setCurrentPage(1)
     }, [statusFilter, dateFilter, searchTerm, startDate, endDate, paymentFilter, sortBy, sortOrder])
 
-    // 📊 STATISTIQUES
     const stats = {
         total: orders.length,
         totalAmount: orders.reduce((sum, o) => sum + o.amount, 0),
@@ -265,15 +284,6 @@ const Orders = () => {
         }
     }
 
-    const getStatusCount = (status) => {
-        return orders.filter(o => o.status === status).length
-    }
-
-    const getTotalSales = () => {
-        return filteredOrders.reduce((sum, order) => sum + order.amount, 0)
-    }
-
-    // Export Excel amélioré
     const exportToExcel = () => {
         if (filteredOrders.length === 0) {
             toast.error('Aucune commande à exporter');
@@ -302,9 +312,7 @@ const Orders = () => {
                     'Statut': getStatusLabel(order.status),
                     'Paiement': order.paymentType === "COD" ? "Paiement à la livraison" : "Paiement en ligne",
                     'Payé': order.isPaid ? "Oui" : "Non",
-                    'Livraison estimée': order.estimatedDeliveryStart 
-                        ? new Date(order.estimatedDeliveryStart).toLocaleDateString('fr-FR')
-                        : 'Non définie'
+                    'Livraison': getDeliveryLabel(order) || 'Non définie'
                 };
             })
             .sort((a, b) => a['Client'].localeCompare(b['Client']));
@@ -313,7 +321,7 @@ const Orders = () => {
         worksheet['!cols'] = [
             { wch: 28 }, { wch: 12 }, { wch: 10 }, { wch: 28 }, { wch: 15 },
             { wch: 25 }, { wch: 20 }, { wch: 20 }, { wch: 60 }, { wch: 15 },
-            { wch: 15 }, { wch: 25 }, { wch: 8 }, { wch: 18 }
+            { wch: 15 }, { wch: 25 }, { wch: 8 }, { wch: 25 }
         ];
 
         const workbook = XLSX.utils.book_new();
@@ -365,7 +373,6 @@ const Orders = () => {
                     <h1 className="text-2xl font-bold text-gray-900">Commandes</h1>
                     <p className="text-sm text-gray-500 mt-1">Gérez toutes les commandes des clients</p>
                     
-                    {/* Cartes statistiques */}
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4">
                         <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
                             <p className="text-xs text-gray-500">Total commandes</p>
@@ -390,7 +397,7 @@ const Orders = () => {
                     </div>
                 </div>
 
-                {/* ✅ NOUVEAU : Section Livraisons à effectuer */}
+                {/* Section Livraisons à effectuer */}
                 {deliveryStats.total > 0 && (
                     <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
                         <div className="bg-purple-50 px-5 py-3 border-b border-gray-100 flex flex-wrap justify-between items-center">
@@ -488,7 +495,6 @@ const Orders = () => {
                 {/* Barre de recherche et filtres */}
                 <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
                     <div className="flex flex-col md:flex-row gap-4">
-                        {/* Recherche */}
                         <div className="flex-1">
                             <div className="relative">
                                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -502,7 +508,6 @@ const Orders = () => {
                             </div>
                         </div>
 
-                        {/* Filtre statut */}
                         <select
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
@@ -518,7 +523,6 @@ const Orders = () => {
                             <option value="Cancelled">Annulée ({stats.byStatus.cancelled})</option>
                         </select>
 
-                        {/* Filtre paiement */}
                         <select
                             value={paymentFilter}
                             onChange={(e) => setPaymentFilter(e.target.value)}
@@ -529,7 +533,6 @@ const Orders = () => {
                             <option value="online">Paiement en ligne</option>
                         </select>
 
-                        {/* Filtre date */}
                         <select
                             value={dateFilter}
                             onChange={(e) => setDateFilter(e.target.value)}
@@ -542,7 +545,6 @@ const Orders = () => {
                             <option value="custom">Période personnalisée</option>
                         </select>
 
-                        {/* Tri */}
                         <select
                             value={sortBy}
                             onChange={(e) => setSortBy(e.target.value)}
@@ -554,7 +556,6 @@ const Orders = () => {
                             <option value="customer">Trier par client</option>
                         </select>
 
-                        {/* Ordre de tri */}
                         <button
                             onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
                             className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm hover:bg-gray-50 transition flex items-center gap-2"
@@ -562,7 +563,6 @@ const Orders = () => {
                             {sortOrder === 'asc' ? '↑ Croissant' : '↓ Décroissant'}
                         </button>
 
-                        {/* Export */}
                         <button
                             onClick={exportToExcel}
                             className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-medium hover:bg-green-700 transition shadow-sm"
@@ -572,7 +572,6 @@ const Orders = () => {
                         </button>
                     </div>
 
-                    {/* Période personnalisée */}
                     {dateFilter === 'custom' && (
                         <div className="flex flex-wrap gap-3 mt-4 pt-3 border-t border-gray-100">
                             <input
@@ -591,7 +590,6 @@ const Orders = () => {
                         </div>
                     )}
 
-                    {/* Résultats */}
                     <div className="flex justify-between items-center mt-3">
                         <p className="text-xs text-gray-500">
                             {filteredOrders.length} commande(s) trouvée(s) sur {stats.total}
@@ -693,9 +691,10 @@ const Orders = () => {
                                             <p className="text-sm text-gray-600">{order.address.street}</p>
                                             <p className="text-sm text-gray-600">{order.address.communeName}, {order.address.cityName || order.address.city}</p>
                                             <p className="text-sm text-gray-600">{order.address.phone}</p>
-                                            {order.estimatedDeliveryStart && (
-                                                <p className="text-xs text-blue-600 mt-1">
-                                                    📅 Livraison estimée : {new Date(order.estimatedDeliveryStart).toLocaleDateString('fr-FR')}
+                                            {/* ✅ Affichage "Livré le ..." avec deliveredAt */}
+                                            {getDeliveryLabel(order) && (
+                                                <p className={`text-xs mt-1 ${order.status === 'Delivered' ? 'text-green-600 font-medium' : 'text-blue-600'}`}>
+                                                    {getDeliveryLabel(order)}
                                                 </p>
                                             )}
                                         </div>

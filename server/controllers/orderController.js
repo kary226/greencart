@@ -190,7 +190,7 @@ export const placeOrderCOD = async (req, res)=>{
     }
 };
 
-// ✅ Update Order Status
+// ✅ Update Order Status - AVEC ENREGISTREMENT DE deliveredAt
 export const updateOrderStatus = async (req, res)=>{
     try {
         const { orderId, status } = req.body;
@@ -200,7 +200,13 @@ export const updateOrderStatus = async (req, res)=>{
             return res.json({ success: false, message: "Statut invalide" });
         }
         
-        await Order.findByIdAndUpdate(orderId, { status });
+        // ✅ Si le statut est "Delivered", enregistrer la date de livraison réelle
+        const updateData = { status };
+        if (status === 'Delivered') {
+            updateData.deliveredAt = new Date();
+        }
+        
+        await Order.findByIdAndUpdate(orderId, updateData);
         res.json({ success: true, message: "Statut mis à jour" });
     } catch (error) {
         res.json({ success: false, message: error.message });

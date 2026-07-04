@@ -70,6 +70,17 @@ const formatDate = (dateString) => {
     })
 }
 
+// ✅ Formater une date courte
+const formatDateShort = (dateString) => {
+    if (!dateString) return null
+    const date = new Date(dateString)
+    return date.toLocaleDateString('fr-FR', { 
+        day: 'numeric', 
+        month: 'short', 
+        year: 'numeric' 
+    })
+}
+
 export default function MyOrders() {
     const [myOrders, setMyOrders]   = useState([])
     const [filter, setFilter]       = useState('all')
@@ -154,10 +165,13 @@ export default function MyOrders() {
                     const couponApplied  = order.couponApplied || null
 
                     const currentStepIndex = STEP_ORDER.indexOf(order.status)
-                    const isDelivered = ['Out for Delivery', 'Delivered'].includes(order.status)
+                    const isDelivered = order.status === 'Delivered'
 
                     const deliveryStart = order.estimatedDeliveryStart ? formatDate(order.estimatedDeliveryStart) : null
                     const deliveryEnd = order.estimatedDeliveryEnd ? formatDate(order.estimatedDeliveryEnd) : null
+                    
+                    // ✅ Date de livraison réelle (deliveredAt)
+                    const deliveredAt = order.deliveredAt ? formatDateShort(order.deliveredAt) : null
 
                     return (
                         <div key={order._id}
@@ -220,18 +234,31 @@ export default function MyOrders() {
                                         <span style={{ fontWeight: 700, fontSize: 15, color: '#111' }}>
                                             {order.amount} {currency}
                                         </span>
-                                        {/* ✅ AFFICHAGE DE LA FOURCHETTE DE LIVRAISON */}
-                                        {deliveryStart && deliveryEnd && (
+                                        {/* ✅ AFFICHAGE : Livrée le ... OU Livraison estimée */}
+                                        {order.status === 'Delivered' && deliveredAt ? (
                                             <span style={{ 
                                                 fontSize: 10, 
-                                                color: '#2563eb', 
+                                                color: '#16A34A', 
                                                 fontWeight: 500,
-                                                background: '#EFF6FF',
+                                                background: '#DCFCE7',
                                                 padding: '2px 10px',
                                                 borderRadius: 20,
                                             }}>
-                                                 Livraison prévue entre le {deliveryStart} et le {deliveryEnd}
+                                                ✅ Livrée le {deliveredAt}
                                             </span>
+                                        ) : (
+                                            deliveryStart && deliveryEnd && (
+                                                <span style={{ 
+                                                    fontSize: 10, 
+                                                    color: '#2563eb', 
+                                                    fontWeight: 500,
+                                                    background: '#EFF6FF',
+                                                    padding: '2px 10px',
+                                                    borderRadius: 20,
+                                                }}>
+                                                    📅 {deliveryStart} - {deliveryEnd}
+                                                </span>
+                                            )
                                         )}
                                     </div>
                                 </div>
