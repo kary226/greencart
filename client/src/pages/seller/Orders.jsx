@@ -40,38 +40,40 @@ const Orders = () => {
         }
     };
 
-    // ✅ Fonction pour obtenir le libellé de livraison (avec deliveredAt)
+    // ✅ Fonction pour obtenir le libellé de livraison - Version professionnelle
     const getDeliveryLabel = (order) => {
         if (order.status === 'Delivered') {
-            // ✅ Utiliser deliveredAt au lieu de updatedAt
             if (order.deliveredAt) {
                 const deliveredDate = new Date(order.deliveredAt);
-                return `✅ Livré le ${deliveredDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+                return `Livrée le ${deliveredDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`;
             }
-            return '✅ Livrée';
+            return 'Livrée';
         }
-        if (order.estimatedDeliveryStart) {
-            return `📅 Livraison estimée : ${new Date(order.estimatedDeliveryStart).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+        if (order.estimatedDeliveryStart && order.estimatedDeliveryEnd) {
+            const start = new Date(order.estimatedDeliveryStart);
+            const end = new Date(order.estimatedDeliveryEnd);
+            return `Livraison estimée du ${start.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })} au ${end.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`;
         }
         return null;
     };
 
-    // ✅ Fonction pour obtenir le libellé court de livraison
+    // ✅ Fonction pour obtenir le libellé court
     const getDeliveryLabelShort = (order) => {
         if (order.status === 'Delivered') {
             if (order.deliveredAt) {
                 const deliveredDate = new Date(order.deliveredAt);
-                return `✅ Livré ${deliveredDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`;
+                return `Livrée ${deliveredDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`;
             }
-            return '✅ Livrée';
+            return 'Livrée';
         }
-        if (order.estimatedDeliveryStart) {
-            return `📅 ${new Date(order.estimatedDeliveryStart).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`;
+        if (order.estimatedDeliveryStart && order.estimatedDeliveryEnd) {
+            const start = new Date(order.estimatedDeliveryStart);
+            const end = new Date(order.estimatedDeliveryEnd);
+            return `${start.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} - ${end.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`;
         }
         return null;
     };
 
-    // ✅ Mise à jour du statut avec rafraîchissement forcé
     const updateOrderStatus = async (orderId, newStatus) => {
         setUpdatingStatus(orderId)
         try {
@@ -321,7 +323,7 @@ const Orders = () => {
         worksheet['!cols'] = [
             { wch: 28 }, { wch: 12 }, { wch: 10 }, { wch: 28 }, { wch: 15 },
             { wch: 25 }, { wch: 20 }, { wch: 20 }, { wch: 60 }, { wch: 15 },
-            { wch: 15 }, { wch: 25 }, { wch: 8 }, { wch: 25 }
+            { wch: 15 }, { wch: 25 }, { wch: 8 }, { wch: 35 }
         ];
 
         const workbook = XLSX.utils.book_new();
@@ -368,7 +370,6 @@ const Orders = () => {
     return (
         <div className="bg-gray-50 min-h-screen">
             <div className="p-6 space-y-6">
-                {/* Header avec statistiques */}
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Commandes</h1>
                     <p className="text-sm text-gray-500 mt-1">Gérez toutes les commandes des clients</p>
@@ -391,19 +392,18 @@ const Orders = () => {
                             <p className="text-xl font-bold text-orange-500">{stats.byStatus.placed + stats.byStatus.confirmed}</p>
                         </div>
                         <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
-                            <p className="text-xs text-gray-500">🚚 À livrer</p>
+                            <p className="text-xs text-gray-500">À livrer</p>
                             <p className="text-xl font-bold text-purple-600">{deliveryStats.total}</p>
                         </div>
                     </div>
                 </div>
 
-                {/* Section Livraisons à effectuer */}
                 {deliveryStats.total > 0 && (
                     <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
                         <div className="bg-purple-50 px-5 py-3 border-b border-gray-100 flex flex-wrap justify-between items-center">
                             <div className="flex items-center gap-3">
                                 <Truck size={18} className="text-purple-600" />
-                                <span className="font-medium text-gray-900">🚚 Livraisons à effectuer</span>
+                                <span className="font-medium text-gray-900">Livraisons à effectuer</span>
                                 <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
                                     {deliveryStats.total} commandes
                                 </span>
@@ -455,7 +455,7 @@ const Orders = () => {
                                                 {order.address?.communeName || order.address?.city || '-'}
                                             </span>
                                             <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                                                📅 {order.estimatedDeliveryStart 
+                                                {order.estimatedDeliveryStart 
                                                     ? new Date(order.estimatedDeliveryStart).toLocaleDateString('fr-FR')
                                                     : 'Non définie'
                                                 }
@@ -474,7 +474,7 @@ const Orders = () => {
                                                 <option value="Confirmed">Confirmée</option>
                                                 <option value="Shipped">Expédiée</option>
                                                 <option value="Out for Delivery">En livraison</option>
-                                                <option value="Delivered">✅ Livrée</option>
+                                                <option value="Delivered">Livrée</option>
                                             </select>
                                             {updatingStatus === order._id && (
                                                 <span className="text-xs text-gray-400 animate-pulse">...</span>
@@ -492,7 +492,6 @@ const Orders = () => {
                     </div>
                 )}
 
-                {/* Barre de recherche et filtres */}
                 <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
                     <div className="flex flex-col md:flex-row gap-4">
                         <div className="flex-1">
@@ -615,7 +614,6 @@ const Orders = () => {
                     </div>
                 </div>
 
-                {/* Liste des commandes */}
                 {filteredOrders.length === 0 ? (
                     <div className="text-center py-16 bg-white rounded-xl border border-gray-100">
                         <Package size={48} className="mx-auto text-gray-300 mb-4" />
@@ -626,7 +624,6 @@ const Orders = () => {
                         <div className="space-y-5">
                             {paginatedOrders.map((order, index) => (
                                 <div key={index} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition">
-                                    {/* En-tête commande */}
                                     <div className="bg-gray-50 px-5 py-3 border-b border-gray-100 flex flex-wrap justify-between items-center gap-2">
                                         <div className="flex items-center gap-3">
                                             <Package size={16} className="text-gray-400" />
@@ -643,7 +640,6 @@ const Orders = () => {
                                     </div>
 
                                     <div className="p-5 space-y-4">
-                                        {/* Items */}
                                         <div className="space-y-3">
                                             {order.items.map((item, idx) => (
                                                 <div key={idx} className="flex gap-3 pb-3 border-b border-gray-100 last:border-0">
@@ -684,14 +680,12 @@ const Orders = () => {
                                             ))}
                                         </div>
 
-                                        {/* Adresse livraison */}
                                         <div className="bg-gray-50 rounded-xl p-3">
                                             <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Livraison</p>
                                             <p className="text-sm text-gray-700">{order.address.firstName} {order.address.lastName}</p>
                                             <p className="text-sm text-gray-600">{order.address.street}</p>
                                             <p className="text-sm text-gray-600">{order.address.communeName}, {order.address.cityName || order.address.city}</p>
                                             <p className="text-sm text-gray-600">{order.address.phone}</p>
-                                            {/* ✅ Affichage "Livré le ..." avec deliveredAt */}
                                             {getDeliveryLabel(order) && (
                                                 <p className={`text-xs mt-1 ${order.status === 'Delivered' ? 'text-green-600 font-medium' : 'text-blue-600'}`}>
                                                     {getDeliveryLabel(order)}
@@ -699,18 +693,16 @@ const Orders = () => {
                                             )}
                                         </div>
 
-                                        {/* Totaux et actions */}
                                         <div className="flex flex-wrap justify-between items-center">
                                             <div>
                                                 <p className="text-xs text-gray-500">{order.paymentType === "COD" ? "Paiement à la livraison" : "Paiement en ligne"}</p>
-                                                <p className="text-xs text-gray-500 mt-0.5">{order.isPaid ? "✅ Payé" : "⏳ En attente"}</p>
+                                                <p className="text-xs text-gray-500 mt-0.5">{order.isPaid ? "Payé" : "En attente"}</p>
                                             </div>
                                             <p className="text-xl font-bold text-red-500">
                                                 {order.amount.toLocaleString()} {currency}
                                             </p>
                                         </div>
 
-                                        {/* Actions */}
                                         <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-gray-100">
                                             <div className="flex items-center gap-2">
                                                 {getStatusIcon(order.status)}
@@ -758,7 +750,6 @@ const Orders = () => {
                             ))}
                         </div>
 
-                        {/* Pagination */}
                         {totalPages > 1 && (
                             <div className="flex justify-between items-center mt-6">
                                 <div className="flex items-center gap-2">
@@ -814,7 +805,6 @@ const Orders = () => {
                 )}
             </div>
 
-            {/* Modal image */}
             {selectedImage && (
                 <div 
                     className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center cursor-pointer"

@@ -8,37 +8,31 @@ import DeliveryType from "../models/DeliveryType.js";
 import Commune from "../models/Commune.js";
 import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
 
-// ✅ Fonction pour calculer les dates de livraison estimées (7 jours ouvrés)
 const calculateEstimatedDeliveryDates = (orderDate) => {
     const startDate = new Date(orderDate);
     
     let workingDaysAdded = 0;
     let daysAdded = 0;
     
-    // Compter 7 jours ouvrés à partir de la date de commande
     while (workingDaysAdded < 7) {
         daysAdded++;
         const currentDate = new Date(startDate);
         currentDate.setDate(startDate.getDate() + daysAdded);
         const dayOfWeek = currentDate.getDay();
-        // Du lundi au vendredi (1 à 5)
         if (dayOfWeek >= 1 && dayOfWeek <= 5) {
             workingDaysAdded++;
         }
     }
     
-    // Date de début : 7 jours ouvrés après la commande
     const deliveryStart = new Date(startDate);
     deliveryStart.setDate(startDate.getDate() + daysAdded);
     
-    // Date de fin : 3 jours supplémentaires (marge)
     const deliveryEnd = new Date(deliveryStart);
     deliveryEnd.setDate(deliveryStart.getDate() + 3);
     
     return { deliveryStart, deliveryEnd };
 };
 
-// Fonction pour réduire le stock des VARIANTS après commande
 const reduceVariantStock = async (items) => {
     for (const item of items) {
         const product = await Product.findById(item.product)
@@ -64,7 +58,6 @@ const reduceVariantStock = async (items) => {
     }
 };
 
-// Place Order COD : /api/order/cod
 export const placeOrderCOD = async (req, res)=>{
     try {
         const { userId, items, address, deliveryType, couponApplied } = req.body;
@@ -152,7 +145,6 @@ export const placeOrderCOD = async (req, res)=>{
 
         amount = itemsSubtotal + deliveryPrice - discountAmount;
 
-        // ✅ Calculer les dates de livraison estimées
         const { deliveryStart, deliveryEnd } = calculateEstimatedDeliveryDates(new Date());
 
         const order = await Order.create({
@@ -190,7 +182,6 @@ export const placeOrderCOD = async (req, res)=>{
     }
 };
 
-// ✅ Update Order Status - AVEC ENREGISTREMENT DE deliveredAt
 export const updateOrderStatus = async (req, res)=>{
     try {
         const { orderId, status } = req.body;
@@ -200,7 +191,6 @@ export const updateOrderStatus = async (req, res)=>{
             return res.json({ success: false, message: "Statut invalide" });
         }
         
-        // ✅ Si le statut est "Delivered", enregistrer la date de livraison réelle
         const updateData = { status };
         if (status === 'Delivered') {
             updateData.deliveredAt = new Date();
@@ -213,7 +203,6 @@ export const updateOrderStatus = async (req, res)=>{
     }
 };
 
-// Get Orders by User ID : /api/order/user
 export const getUserOrders = async (req, res)=>{
     try {
         const { userId } = req.body;
@@ -227,7 +216,6 @@ export const getUserOrders = async (req, res)=>{
     }
 };
 
-// Get All Orders ( for seller / admin) : /api/order/seller
 export const getAllOrders = async (req, res)=>{
     try {
         const orders = await Order.find({
@@ -238,8 +226,6 @@ export const getAllOrders = async (req, res)=>{
         res.json({ success: false, message: error.message });
     }
 };
-
-// ==================== ADMIN : Récupérer les commandes d'un client spécifique ====================
 
 export const getUserOrdersByAdmin = async (req, res) => {
     try {

@@ -70,7 +70,6 @@ const formatDate = (dateString) => {
     })
 }
 
-// ✅ Formater une date courte
 const formatDateShort = (dateString) => {
     if (!dateString) return null
     const date = new Date(dateString)
@@ -169,8 +168,6 @@ export default function MyOrders() {
 
                     const deliveryStart = order.estimatedDeliveryStart ? formatDate(order.estimatedDeliveryStart) : null
                     const deliveryEnd = order.estimatedDeliveryEnd ? formatDate(order.estimatedDeliveryEnd) : null
-                    
-                    // ✅ Date de livraison réelle (deliveredAt)
                     const deliveredAt = order.deliveredAt ? formatDateShort(order.deliveredAt) : null
 
                     return (
@@ -234,7 +231,6 @@ export default function MyOrders() {
                                         <span style={{ fontWeight: 700, fontSize: 15, color: '#111' }}>
                                             {order.amount} {currency}
                                         </span>
-                                        {/* ✅ AFFICHAGE : Livrée le ... OU Livraison estimée */}
                                         {order.status === 'Delivered' && deliveredAt ? (
                                             <span style={{ 
                                                 fontSize: 10, 
@@ -244,7 +240,7 @@ export default function MyOrders() {
                                                 padding: '2px 10px',
                                                 borderRadius: 20,
                                             }}>
-                                                ✅ Livrée le {deliveredAt}
+                                                Livrée le {deliveredAt}
                                             </span>
                                         ) : (
                                             deliveryStart && deliveryEnd && (
@@ -256,7 +252,7 @@ export default function MyOrders() {
                                                     padding: '2px 10px',
                                                     borderRadius: 20,
                                                 }}>
-                                                    📅 {deliveryStart} - {deliveryEnd}
+                                                    {deliveryStart} - {deliveryEnd}
                                                 </span>
                                             )
                                         )}
@@ -277,7 +273,6 @@ export default function MyOrders() {
                             {isOpen && (
                                 <div style={{ borderTop: '1px solid #F3F3F3', padding: '16px' }}>
 
-                                    {/* ── Tracker ── */}
                                     {order.status !== 'Cancelled' && order.status !== 'Returned' && (
                                         <div style={{ marginBottom: 16, padding: '0 4px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -332,14 +327,12 @@ export default function MyOrders() {
                                         </div>
                                     )}
 
-                                    {/* ── Message statut ── */}
                                     {getStatusMessage(order.status) && (
                                         <p style={{ fontSize: 13, color: '#666', marginBottom: 14, lineHeight: 1.5, background: '#F8F9FA', padding: '10px 14px', borderRadius: 8 }}>
                                             {getStatusMessage(order.status)}
                                         </p>
                                     )}
 
-                                    {/* ── Articles ── */}
                                     <div style={{ marginBottom: 14 }}>
                                         {order.items.map((item, idx2) => (
                                             <div key={idx2} style={{ display: 'flex', gap: 10, paddingBottom: 10, marginBottom: 10, borderBottom: idx2 < order.items.length - 1 ? '1px solid #F3F3F3' : 'none' }}>
@@ -370,13 +363,11 @@ export default function MyOrders() {
                                         ))}
                                     </div>
 
-                                    {/* ── Moyen de paiement ── */}
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, color: '#666', fontSize: 13, background: '#F8F9FA', padding: '8px 12px', borderRadius: 8 }}>
                                         <CreditCard size={14} color="#6B7280" />
                                         <span><strong>Moyen de paiement :</strong> {getPaymentLabel(order)}</span>
                                     </div>
 
-                                    {/* ── Adresse ── */}
                                     {order.address && (
                                         <div style={{ background: '#F9F9F9', borderRadius: 8, padding: '10px 14px', marginBottom: 12 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
@@ -396,7 +387,6 @@ export default function MyOrders() {
                                         </div>
                                     )}
 
-                                    {/* ── Total ── */}
                                     <div style={{ background: '#F9F9F9', borderRadius: 8, padding: '10px 14px', marginBottom: 12 }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#666', marginBottom: 3 }}>
                                             <span>Sous-total</span><span>{itemsSubtotal} {currency}</span>
@@ -416,7 +406,6 @@ export default function MyOrders() {
                                         </div>
                                     </div>
 
-                                    {/* ── PDF ── */}
                                     {isDelivered && (
                                         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                                             <PDFDownloadLink
