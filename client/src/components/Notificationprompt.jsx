@@ -1,16 +1,37 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useAppContext } from "../context/AppContext";
 
-// Clé sessionStorage : une seule apparition par session d'onglet.
-// sessionStorage est effacé quand l'onglet/le navigateur est fermé,
-// donc la popup réapparaît à la prochaine visite, mais pas sur un
-// simple refresh (F5) de la page en cours.
-const SESSION_FLAG_KEY = "ramci_notif_prompt_shown";
+// [FIX] localStorage (et non sessionStorage) : la valeur doit survivre à la
+// fermeture de l'onglet/du navigateur pour que le cooldown de 2h ait un sens
+// sur plusieurs sessions ("l'utilisateur se connecte 2h plus tard").
+const LAST_DISMISS_KEY = "ramci_notif_prompt_last_dismiss";
+// Délai avant réapparition après un clic sur "Plus tard".
+const COOLDOWN_MS = 2 * 60 * 60 * 1000; // 2 heures
+// Petit délai avant la toute première apparition, pour laisser le temps de
+// voir le site avant de proposer la popup.
+const INITIAL_DELAY_MS = 1500;
+// Fréquence de re-vérification pendant qu'un onglet reste ouvert longtemps
+// (permet à la popup de réapparaître sans que l'utilisateur ait à recharger
+// la page une fois les 2h de cooldown écoulées).
+const RECHECK_INTERVAL_MS = 60 * 1000; // 1 minute
+
+const getLastDismiss = () => {
+    const raw = localStorage.getItem(LAST_DISMISS_KEY);
+    const ts = raw ? parseInt(raw, 10) : NaN;
+    return Number.isNaN(ts) ? null : ts;
+};
+
+const cooldownElapsed = () => {
+    const lastDismiss = getLastDismiss();
+    if (lastDismiss === null) return true;
+    return Date.now() - lastDismiss >= COOLDOWN_MS;
+};
 
 const NotificationPrompt = () => {
     const { user, subscribeToPushNotifications } = useAppContext();
     const [visible, setVisible] = useState(false);
     const [loading, setLoading] = useState(false);
+    const shownOnceRef = useRef(false);
 
     useEffect(() => {
         // Conditions pour proposer la popup automatique :
@@ -19,30 +40,63 @@ const NotificationPrompt = () => {
         // - permission jamais tranchée ("default" = ni accordée ni refusée)
         //   -> si déjà "granted" ou "denied", on ne redemande jamais ici,
         //      exactement comme le bouton existant de la Navbar
-        // - pas déjà montrée durant cette session d'onglet
-        if (!user) return;
-        if (typeof Notification === "undefined") return;
-        if (Notification.permission !== "default") return;
-        if (sessionStorage.getItem(SESSION_FLAG_KEY)) return;
+        // - le cooldown de 2h depuis le dernier "Plus tard" est écoulé
+        //   (ou l'utilisateur n'a encore jamais cliqué sur "Plus tard")
+        const canShow = () =>
+            !!user &&
+            typeof Notification !== "undefined" &&
+            Notification.permission === "default" &&
+            cooldownElapsed();
 
-        // Petit délai pour ne pas assaillir l'utilisateur dès le premier
-        // rendu de la page (laisse le temps de voir le site apparaître).
-        const timer = setTimeout(() => {
+        const tryShow = () => {
+            if (!canShow()) {
+                setVisible(false);
+                return;
+            }
             setVisible(true);
-            sessionStorage.setItem(SESSION_FLAG_KEY, "1");
-        }, 1500);
+        };
 
-        return () => clearTimeout(timer);
+        // Première apparition : petit délai, une seule fois par montage.
+        let initialTimer;
+        if (!shownOnceRef.current) {
+            initialTimer = setTimeout(() => {
+                shownOnceRef.current = true;
+                tryShow();
+            }, INITIAL_DELAY_MS);
+        } else {
+            tryShow();
+        }
+
+        // Revérifie régulièrement : si le cooldown de 2h se termine pendant
+        // que l'onglet reste ouvert, la popup réapparaît sans attendre un
+        // rechargement de page.
+        const interval = setInterval(tryShow, RECHECK_INTERVAL_MS);
+
+        return () => {
+            clearTimeout(initialTimer);
+            clearInterval(interval);
+        };
     }, [user]);
 
     const handleEnable = async () => {
         setLoading(true);
-        await subscribeToPushNotifications();
+        const result = await subscribeToPushNotifications();
         setLoading(false);
         setVisible(false);
+        // Si accepté, Notification.permission passe à "granted" : la popup ne
+        // sera plus jamais proposée (voir canShow ci-dessus). Si l'utilisateur
+        // a refusé la popup native du navigateur, permission passe à "denied"
+        // et on ne redemande plus non plus. On ne pose donc le cooldown que
+        // dans handleDismiss, pas ici.
+        void result;
     };
 
+    // [FIX] "Plus tard" = on cache la popup ET on mémorise l'instant du clic
+    // (persistant, via localStorage) pour ne pas la réafficher avant 2h.
+    // Après ces 2h, elle réapparaît, et ainsi de suite jusqu'à ce que
+    // l'utilisateur clique sur "Activer".
     const handleDismiss = () => {
+        localStorage.setItem(LAST_DISMISS_KEY, String(Date.now()));
         setVisible(false);
     };
 
@@ -51,9 +105,7 @@ const NotificationPrompt = () => {
     return (
         <>
             <div className="notif-prompt-overlay" onClick={handleDismiss} />
-            <div className="notif-prompt-sheet" role="dialog" aria-live="polite">
-                <div className="notif-prompt-handle" />
-
+            <div className="notif-prompt-modal" role="dialog" aria-live="polite" aria-modal="true">
                 <div className="notif-prompt-icon">
                     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                         <path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
@@ -88,27 +140,19 @@ const NotificationPrompt = () => {
                     animation: notifFadeIn 0.25s ease;
                 }
 
-                .notif-prompt-sheet {
+                .notif-prompt-modal {
                     position: fixed;
-                    left: 12px;
-                    right: 12px;
-                    bottom: calc(86px + env(safe-area-inset-bottom));
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
                     z-index: 2000;
                     background: #fff;
                     border-radius: 22px;
-                    padding: 10px 22px 22px;
-                    box-shadow: 0 -8px 40px rgba(0,0,0,0.18);
-                    max-width: 480px;
-                    margin: 0 auto;
-                    animation: notifSlideUp 0.32s cubic-bezier(0.32, 0.72, 0, 1);
-                }
-
-                .notif-prompt-handle {
-                    width: 36px;
-                    height: 4px;
-                    background: #e5e2dc;
-                    border-radius: 4px;
-                    margin: 6px auto 18px;
+                    padding: 26px 24px 24px;
+                    box-shadow: 0 20px 60px rgba(0,0,0,0.22);
+                    width: calc(100% - 40px);
+                    max-width: 380px;
+                    animation: notifPopIn 0.28s cubic-bezier(0.32, 0.72, 0, 1);
                 }
 
                 .notif-prompt-icon {
@@ -120,7 +164,7 @@ const NotificationPrompt = () => {
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    margin-bottom: 14px;
+                    margin: 0 auto 14px;
                 }
 
                 .notif-prompt-title {
@@ -128,6 +172,7 @@ const NotificationPrompt = () => {
                     font-size: 18px;
                     font-weight: 700;
                     color: #111;
+                    text-align: center;
                     margin: 0 0 6px;
                 }
 
@@ -136,6 +181,7 @@ const NotificationPrompt = () => {
                     font-size: 14px;
                     color: #777;
                     line-height: 1.5;
+                    text-align: center;
                     margin: 0 0 20px;
                 }
 
@@ -183,9 +229,15 @@ const NotificationPrompt = () => {
                     to { opacity: 1; }
                 }
 
-                @keyframes notifSlideUp {
-                    from { transform: translateY(100%); }
-                    to { transform: translateY(0); }
+                @keyframes notifPopIn {
+                    from {
+                        opacity: 0;
+                        transform: translate(-50%, -50%) scale(0.92);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translate(-50%, -50%) scale(1);
+                    }
                 }
             `}</style>
         </>

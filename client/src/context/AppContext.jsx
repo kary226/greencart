@@ -491,20 +491,25 @@ export const AppContextProvider = ({ children }) => {
     // auprès du navigateur, puis l'enregistre côté serveur pour cet utilisateur.
     // À appeler depuis un clic explicite (bouton "Activer les notifications"),
     // jamais automatiquement au chargement de la page.
-    const subscribeToPushNotifications = async () => {
+    //
+    // [FIX] Paramètre `silent` : utilisé par la resynchronisation automatique
+    // (voir useEffect ci-dessous) pour réabonner l'utilisateur sans spammer
+    // de toast à chaque refresh de la page. Un clic explicite sur un bouton
+    // continue lui d'afficher les toasts normalement (silent = false par défaut).
+    const subscribeToPushNotifications = async (silent = false) => {
         if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-            toast.error("Les notifications ne sont pas supportées sur cet appareil/navigateur");
+            if (!silent) toast.error("Les notifications ne sont pas supportées sur cet appareil/navigateur");
             return { success: false, reason: 'unsupported' };
         }
         if (!user) {
-            toast.error("Connectez-vous pour activer les notifications");
+            if (!silent) toast.error("Connectez-vous pour activer les notifications");
             return { success: false, reason: 'not-logged-in' };
         }
 
         try {
             const permission = await Notification.requestPermission();
             if (permission !== 'granted') {
-                toast.error("Notifications refusées. Vous pouvez les activer depuis les réglages du navigateur.");
+                if (!silent) toast.error("Notifications refusées. Vous pouvez les activer depuis les réglages du navigateur.");
                 return { success: false, reason: 'denied' };
             }
 
@@ -527,11 +532,11 @@ export const AppContextProvider = ({ children }) => {
                 }
             });
 
-            toast.success("Notifications activées 🔔");
+            if (!silent) toast.success("Notifications activées 🔔");
             return { success: true };
         } catch (error) {
             console.error("Erreur abonnement push:", error);
-            toast.error("Impossible d'activer les notifications");
+            if (!silent) toast.error("Impossible d'activer les notifications");
             return { success: false, reason: 'error' };
         }
     };
@@ -539,9 +544,15 @@ export const AppContextProvider = ({ children }) => {
     // Si la permission a déjà été accordée lors d'une session précédente,
     // on refait silencieusement l'abonnement (il peut expirer côté navigateur),
     // sans re-demander la permission à l'utilisateur.
+    // [FIX] `silent = true` : avant, cet effet appelait subscribeToPushNotifications()
+    // sans argument, donc le toast "Notifications activées 🔔" s'affichait à
+    // CHAQUE refresh de page (le useEffect se redéclenche dès que `user` reprend
+    // une nouvelle référence, ex: fetchUser() au chargement). On garde le
+    // réabonnement silencieux, mais sans le toast qui n'a de sens que lors
+    // d'une activation explicite par l'utilisateur.
     useEffect(() => {
         if (user && 'Notification' in window && Notification.permission === 'granted') {
-            subscribeToPushNotifications();
+            subscribeToPushNotifications(true);
         }
     }, [user]);
 

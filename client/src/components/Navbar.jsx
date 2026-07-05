@@ -20,21 +20,52 @@ const Navbar = () => {
   const cartCount = cartItems ? Object.values(cartItems).reduce((a, b) => a + b, 0) : 0;
   const wishlistCount = wishlist?.length || 0;
 
-  const [notificationsGranted, setNotificationsGranted] = useState(
-    typeof Notification !== "undefined" && Notification.permission === "granted"
+  // [FIX] Avant, ces deux valeurs étaient calculées une seule fois au montage
+  // (useState(...) avec valeur initiale figée). Résultat : si la permission
+  // changeait ailleurs (ex: popup d'accueil qui accorde/refuse la notif, ou
+  // paramètres du navigateur modifiés dans un autre onglet), la Navbar ne le
+  // savait jamais et le bouton "Activer les notifications" pouvait rester
+  // affiché à tort, ou à l'inverse ne réapparaître qu'après un F5 complet —
+  // ce qui donnait l'impression qu'il "disparaissait" au hasard.
+  // On lit maintenant Notification.permission à chaque ouverture du menu et
+  // on écoute les changements via l'API Permissions quand le navigateur la
+  // supporte, pour rester toujours synchronisé avec l'état réel.
+  const [notifPermission, setNotifPermission] = useState(
+    typeof Notification !== "undefined" ? Notification.permission : "unsupported"
   );
 
-  // [FIX] Une fois la permission refusée au niveau du navigateur, on ne
-  // peut plus jamais redemander (le navigateur renvoie 'denied' à chaque
-  // tentative, sans repasser par une vraie popup). Cacher le bouton dans
-  // ce cas évite d'inviter l'utilisateur à cliquer pour rien.
-  const notificationsBlocked =
-    typeof Notification !== "undefined" && Notification.permission === "denied";
+  const notificationsGranted = notifPermission === "granted";
+  // Une fois la permission refusée au niveau du navigateur, on ne peut plus
+  // jamais redemander (le navigateur renvoie 'denied' à chaque tentative,
+  // sans repasser par une vraie popup native).
+  const notificationsBlocked = notifPermission === "denied";
+
+  useEffect(() => {
+    if (typeof Notification === "undefined") return;
+
+    // Se resynchronise à chaque ouverture du menu (couvre le cas où la
+    // permission a changé pendant que le menu était fermé).
+    setNotifPermission(Notification.permission);
+
+    if (!menuOpen) return;
+    if (!navigator.permissions?.query) return;
+
+    let permissionStatus;
+    const onChange = () => setNotifPermission(Notification.permission);
+
+    navigator.permissions.query({ name: "notifications" }).then((status) => {
+      permissionStatus = status;
+      setNotifPermission(Notification.permission);
+      status.addEventListener("change", onChange);
+    }).catch(() => {});
+
+    return () => permissionStatus?.removeEventListener("change", onChange);
+  }, [menuOpen]);
 
   const handleEnableNotifications = async () => {
-    setMenuOpen(false);
     const result = await subscribeToPushNotifications();
-    if (result?.success) setNotificationsGranted(true);
+    setNotifPermission(typeof Notification !== "undefined" ? Notification.permission : "unsupported");
+    if (result?.success) setMenuOpen(false);
   };
 
   const [filters, setFilters] = useState({
@@ -373,9 +404,13 @@ const Navbar = () => {
 
           <div className="drawer-divider"></div>
 
-          {/* [FIX] Bouton caché si déjà accordé OU si déjà refusé au niveau
-              du navigateur — dans ce dernier cas, cliquer ne ferait que
-              redéclencher un 'denied' silencieux pour rien. */}
+          {/* [FIX] Bouton caché uniquement si déjà accordé (rien à faire).
+              Si la permission est "denied", on ne cache plus silencieusement
+              le bouton (ça donnait l'impression qu'il "disparaissait" sans
+              raison) : on affiche à la place une ligne explicative, car dans
+              ce cas cliquer ne redéclencherait qu'un refus automatique côté
+              navigateur — seuls les réglages du navigateur permettent de
+              revenir en arrière. */}
           {user && typeof Notification !== "undefined" && !notificationsGranted && !notificationsBlocked && (
             <button className="drawer-item" onClick={handleEnableNotifications}>
               <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -384,6 +419,17 @@ const Navbar = () => {
               </svg>
               Activer les notifications
             </button>
+          )}
+
+          {user && notificationsBlocked && (
+            <div className="drawer-item drawer-item-disabled" title="Réactivez les notifications depuis les réglages du navigateur pour ce site">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 01-3.46 0"/>
+                <line x1="3" y1="3" x2="21" y2="21" />
+              </svg>
+              Notifications bloquées (réglages navigateur)
+            </div>
           )}
 
           <button className="drawer-item" onClick={handleHelp}>
@@ -767,6 +813,15 @@ const Navbar = () => {
         }
         .drawer-item:hover {
           background: #faf8f5;
+        }
+
+        .drawer-item-disabled {
+          color: #b7b2aa;
+          cursor: default;
+          font-size: 13.5px;
+        }
+        .drawer-item-disabled:hover {
+          background: none;
         }
 
         .drawer-divider {

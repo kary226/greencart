@@ -35,6 +35,7 @@ import PaymentError from './pages/PaymentError';
 import Loading from './components/Loading';
 import BottomNav from './components/BottomNav';
 import InstallApp from './pages/InstallApp';
+import NotificationPrompt from './components/Notificationprompt';
 
 // 🔝 ScrollToTop intelligent
 const useSmartScroll = () => {
@@ -79,6 +80,8 @@ const App = () => {
       {!isSellerPath && <Navbar />}
       
       {showUserLogin && !user ? <Login /> : null}
+
+      {!isSellerPath && <NotificationPrompt />}
 
       <Toaster 
         position="top-center"
