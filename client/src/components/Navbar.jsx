@@ -24,6 +24,13 @@ const Navbar = () => {
     typeof Notification !== "undefined" && Notification.permission === "granted"
   );
 
+  // [FIX] Une fois la permission refusée au niveau du navigateur, on ne
+  // peut plus jamais redemander (le navigateur renvoie 'denied' à chaque
+  // tentative, sans repasser par une vraie popup). Cacher le bouton dans
+  // ce cas évite d'inviter l'utilisateur à cliquer pour rien.
+  const notificationsBlocked =
+    typeof Notification !== "undefined" && Notification.permission === "denied";
+
   const handleEnableNotifications = async () => {
     setMenuOpen(false);
     const result = await subscribeToPushNotifications();
@@ -366,7 +373,10 @@ const Navbar = () => {
 
           <div className="drawer-divider"></div>
 
-          {user && typeof Notification !== "undefined" && !notificationsGranted && (
+          {/* [FIX] Bouton caché si déjà accordé OU si déjà refusé au niveau
+              du navigateur — dans ce dernier cas, cliquer ne ferait que
+              redéclencher un 'denied' silencieux pour rien. */}
+          {user && typeof Notification !== "undefined" && !notificationsGranted && !notificationsBlocked && (
             <button className="drawer-item" onClick={handleEnableNotifications}>
               <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
