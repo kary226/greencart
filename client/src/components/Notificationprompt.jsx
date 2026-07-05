@@ -90,13 +90,13 @@ const NotificationPrompt = () => {
 
                 .notif-prompt-sheet {
                     position: fixed;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
-                    z-index: 1101;
+                    left: 12px;
+                    right: 12px;
+                    bottom: calc(86px + env(safe-area-inset-bottom));
+                    z-index: 2000;
                     background: #fff;
-                    border-radius: 22px 22px 0 0;
-                    padding: 10px 22px calc(22px + env(safe-area-inset-bottom));
+                    border-radius: 22px;
+                    padding: 10px 22px 22px;
                     box-shadow: 0 -8px 40px rgba(0,0,0,0.18);
                     max-width: 480px;
                     margin: 0 auto;
