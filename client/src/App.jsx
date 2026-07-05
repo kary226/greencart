@@ -35,7 +35,6 @@ import PaymentError from './pages/PaymentError';
 import Loading from './components/Loading';
 import BottomNav from './components/BottomNav';
 import InstallApp from './pages/InstallApp';
-import NotificationPrompt from './components/NotificationPrompt'; // ✅ AJOUTÉ
 
 // 🔝 ScrollToTop intelligent
 const useSmartScroll = () => {
@@ -78,8 +77,6 @@ const App = () => {
     <div className='text-default min-h-screen text-gray-700 bg-white'>
 
       {!isSellerPath && <Navbar />}
-
-      {!isSellerPath && <NotificationPrompt />} {/* ✅ AJOUTÉ */}
       
       {showUserLogin && !user ? <Login /> : null}
 
