@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
 
 const Navbar = () => {
-  const { cartItems, wishlist, user, searchQuery, setSearchQuery, axios, products, logoutUser } = useAppContext();
+  const { cartItems, wishlist, user, searchQuery, setSearchQuery, axios, products, logoutUser, setShowUserLogin } = useAppContext();
   const [query, setQuery] = useState(searchQuery || "");
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -61,15 +61,13 @@ const Navbar = () => {
     setQuery("");
   };
 
+  // Le drawer se ferme via l'overlay, le bouton X ou un clic sur un item —
+  // pas besoin d'un handler "clic extérieur" générique ici.
+
   useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    document.body.style.overflow = menuOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [menuOpen]);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -174,6 +172,11 @@ const Navbar = () => {
     logoutUser();
   };
 
+  const handleLoginClick = () => {
+    setMenuOpen(false);
+    setShowUserLogin && setShowUserLogin(true);
+  };
+
   const handleHelp = () => {
     setMenuOpen(false);
     if (window.Tawk_API) {
@@ -248,85 +251,6 @@ const Navbar = () => {
               <span /><span /><span />
             </button>
             
-            {menuOpen && (
-              <div className="ramci-dropdown-menu">
-                <Link to="/" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                    <polyline points="9,22 9,12 15,12 15,22"/>
-                  </svg>
-                  Accueil
-                </Link>
-                <Link to="/products" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
-                    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-                  </svg>
-                  Produits
-                </Link>
-                <Link to="/categories" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <rect x="3" y="3" width="7" height="7" rx="1"/>
-                    <rect x="14" y="3" width="7" height="7" rx="1"/>
-                    <rect x="3" y="14" width="7" height="7" rx="1"/>
-                    <rect x="14" y="14" width="7" height="7" rx="1"/>
-                  </svg>
-                  Catégories
-                </Link>
-                <Link to="/my-orders" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <rect x="2" y="4" width="20" height="16" rx="2"/>
-                    <line x1="8" y1="2" x2="8" y2="6"/>
-                    <line x1="16" y1="2" x2="16" y2="6"/>
-                    <line x1="2" y1="10" x2="22" y2="10"/>
-                  </svg>
-                  Mes commandes
-                </Link>
-                <Link to="/account" className="dropdown-item" onClick={() => setMenuOpen(false)}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                    <circle cx="12" cy="7" r="4"/>
-                  </svg>
-                  Mon compte
-                </Link>
-
-                {!isInStandaloneMode && (
-                  <>
-                    <div className="dropdown-divider"></div>
-                    <button className="dropdown-item install-menu-btn" onClick={() => { setMenuOpen(false); handleInstallClick(); }}>
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                        <path d="M12 16l-4-4h3V4h2v8h3z"/>
-                        <path d="M4 20h16v-2H4z"/>
-                      </svg>
-                      Installer l'application
-                    </button>
-                  </>
-                )}
-
-                <div className="dropdown-divider"></div>
-                <button className="dropdown-item help-btn" onClick={handleHelp}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <circle cx="12" cy="12" r="10"/>
-                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
-                    <line x1="12" y1="17" x2="12.01" y2="17"/>
-                  </svg>
-                  Service client
-                </button>
-                {user && (
-                  <>
-                    <div className="dropdown-divider"></div>
-                    <button className="dropdown-item logout-btn" onClick={handleLogout}>
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                        <polyline points="16 17 21 12 16 7"/>
-                        <line x1="21" y1="12" x2="9" y2="12"/>
-                      </svg>
-                      Déconnexion
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
           </div>
 
           <Link to="/" className="ramci-logo">RAMCI</Link>
@@ -350,6 +274,117 @@ const Navbar = () => {
           </div>
         </div>
       </header>
+
+      {/* Overlay + Drawer plein écran (menu latéral) */}
+      <div className={`ramci-drawer-overlay ${menuOpen ? "open" : ""}`} onClick={() => setMenuOpen(false)} />
+
+      <aside className={`ramci-drawer ${menuOpen ? "open" : ""}`}>
+        <div className="ramci-drawer-header">
+          <Link to="/" className="ramci-drawer-logo" onClick={() => setMenuOpen(false)}>RAMCI</Link>
+          <button className="ramci-drawer-close" aria-label="Fermer" onClick={() => setMenuOpen(false)}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        <button
+          className="ramci-drawer-profile"
+          onClick={() => { if (!user) handleLoginClick(); else { setMenuOpen(false); navigate('/account'); } }}
+        >
+          <span className="ramci-drawer-avatar">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+          </span>
+          <span className="ramci-drawer-profile-text">
+            <span className="ramci-drawer-profile-name">{user ? user.name : "Visiteur"}</span>
+            <span className="ramci-drawer-profile-sub">{user ? user.email : "Non connecté"}</span>
+          </span>
+        </button>
+
+        <nav className="ramci-drawer-nav">
+          <Link to="/" className="drawer-item" onClick={() => setMenuOpen(false)}>
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+              <polyline points="9,22 9,12 15,12 15,22"/>
+            </svg>
+            Accueil
+          </Link>
+          <Link to="/products" className="drawer-item" onClick={() => setMenuOpen(false)}>
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+            </svg>
+            Produits
+          </Link>
+          <Link to="/categories" className="drawer-item" onClick={() => setMenuOpen(false)}>
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <rect x="3" y="3" width="7" height="7" rx="1"/>
+              <rect x="14" y="3" width="7" height="7" rx="1"/>
+              <rect x="3" y="14" width="7" height="7" rx="1"/>
+              <rect x="14" y="14" width="7" height="7" rx="1"/>
+            </svg>
+            Catégories
+          </Link>
+          <Link to="/my-orders" className="drawer-item" onClick={() => setMenuOpen(false)}>
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <rect x="2" y="4" width="20" height="16" rx="2"/>
+              <line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="2" y1="10" x2="22" y2="10"/>
+            </svg>
+            Mes commandes
+          </Link>
+          <Link to="/account" className="drawer-item" onClick={() => setMenuOpen(false)}>
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+            Mon compte
+          </Link>
+
+          <div className="drawer-divider"></div>
+
+          <button className="drawer-item" onClick={handleHelp}>
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            Service client
+          </button>
+        </nav>
+
+        <div className="ramci-drawer-footer">
+          {!isInStandaloneMode && (
+            <button className="drawer-install-btn" onClick={() => { setMenuOpen(false); handleInstallClick(); }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M12 16l-4-4h3V4h2v8h3z"/>
+                <path d="M4 20h16v-2H4z"/>
+              </svg>
+              Installer l'application
+            </button>
+          )}
+
+          {user ? (
+            <button className="drawer-logout-btn" onClick={handleLogout}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+              Déconnexion
+            </button>
+          ) : (
+            <button className="drawer-login-btn" onClick={handleLoginClick}>
+              Se connecter
+            </button>
+          )}
+        </div>
+      </aside>
 
       {/* Modal de recherche avec bouton filtre */}
       {showSearchModal && (
@@ -557,27 +592,131 @@ const Navbar = () => {
         .ramci-menu-btn span:nth-child(2) { width: 16px; }
         .ramci-menu-btn span:nth-child(3) { width: 19px; }
         
-        .ramci-dropdown-menu {
-          position: absolute;
-          top: 100%;
+        /* Overlay sombre derrière le drawer */
+        .ramci-drawer-overlay {
+          position: fixed;
+          top: 0;
           left: 0;
-          min-width: 250px;
-          background: white;
-          border-radius: 16px;
-          box-shadow: 0 10px 30px rgba(0,0,0,0.12);
-          margin-top: 12px;
-          overflow: hidden;
-          z-index: 1000;
-          border: 1px solid #f0ede8;
+          right: 0;
+          bottom: 0;
+          background: rgba(0,0,0,0);
+          z-index: 998;
+          opacity: 0;
+          visibility: hidden;
+          transition: opacity 0.3s ease, background 0.3s ease, visibility 0.3s;
         }
-        
-        .dropdown-item {
+        .ramci-drawer-overlay.open {
+          background: rgba(0,0,0,0.5);
+          opacity: 1;
+          visibility: visible;
+        }
+
+        /* Drawer plein écran (menu latéral gauche) */
+        .ramci-drawer {
+          position: fixed;
+          top: 0;
+          left: 0;
+          bottom: 0;
+          width: 82%;
+          max-width: 340px;
+          background: #fff;
+          z-index: 999;
+          display: flex;
+          flex-direction: column;
+          transform: translateX(-100%);
+          transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          box-shadow: 0 0 40px rgba(0,0,0,0.15);
+        }
+        .ramci-drawer.open {
+          transform: translateX(0);
+        }
+
+        .ramci-drawer-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 18px 18px 14px;
+          border-bottom: 1px solid #f0ede8;
+        }
+        .ramci-drawer-logo {
+          font-family: 'Cormorant Garamond', Georgia, serif;
+          font-size: 22px;
+          font-weight: 600;
+          letter-spacing: 5px;
+          color: #111;
+          text-decoration: none;
+        }
+        .ramci-drawer-close {
+          background: none;
+          border: none;
+          cursor: pointer;
+          color: #111;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 4px;
+        }
+
+        .ramci-drawer-profile {
           display: flex;
           align-items: center;
           gap: 12px;
-          padding: 12px 16px;
+          padding: 16px 18px;
+          background: #111;
+          border: none;
+          cursor: pointer;
+          text-align: left;
+          margin: 14px 16px;
+          border-radius: 14px;
+        }
+        .ramci-drawer-avatar {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 40px;
+          height: 40px;
+          min-width: 40px;
+          border-radius: 50%;
+          background: rgba(255,255,255,0.12);
+          color: #fff;
+        }
+        .ramci-drawer-profile-text {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          overflow: hidden;
+        }
+        .ramci-drawer-profile-name {
           font-family: 'DM Sans', sans-serif;
           font-size: 14px;
+          font-weight: 600;
+          color: #fff;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .ramci-drawer-profile-sub {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 12px;
+          color: rgba(255,255,255,0.6);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .ramci-drawer-nav {
+          flex: 1;
+          overflow-y: auto;
+          padding: 4px 8px;
+        }
+
+        .drawer-item {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          padding: 13px 12px;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 15px;
           color: #333;
           text-decoration: none;
           cursor: pointer;
@@ -586,45 +725,78 @@ const Navbar = () => {
           background: none;
           border: none;
           text-align: left;
+          border-radius: 10px;
         }
-        .dropdown-item:hover {
+        .drawer-item:hover {
           background: #faf8f5;
         }
-        
-        .dropdown-divider {
+
+        .drawer-divider {
           height: 1px;
           background: #f0ede8;
-          margin: 4px 0;
+          margin: 8px 8px;
         }
-        
-        .install-menu-btn {
-          background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-          color: white !important;
-          margin: 4px 8px;
-          border-radius: 40px;
-          width: calc(100% - 16px);
+
+        .ramci-drawer-footer {
+          padding: 14px 16px;
+          padding-bottom: calc(14px + env(safe-area-inset-bottom));
+          border-top: 1px solid #f0ede8;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .drawer-install-btn {
+          display: flex;
+          align-items: center;
           justify-content: center;
           gap: 8px;
+          background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+          color: white;
+          border: none;
+          border-radius: 40px;
+          padding: 13px 16px;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: transform 0.2s, background 0.2s;
         }
-        
-        .install-menu-btn:hover {
+        .drawer-install-btn:hover {
           background: linear-gradient(135deg, #e53935 0%, #c62828 100%);
           transform: scale(1.02);
         }
-        
-        .install-menu-btn svg {
-          stroke: white;
+
+        .drawer-login-btn {
+          background: #111;
+          color: #fff;
+          border: none;
+          border-radius: 40px;
+          padding: 13px 16px;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: opacity 0.2s;
         }
-        
-        .logout-btn {
+        .drawer-login-btn:hover {
+          opacity: 0.85;
+        }
+
+        .drawer-logout-btn {
+          background: none;
+          border: 1px solid #f0d5d5;
           color: #e53935;
+          border-radius: 40px;
+          padding: 12px 16px;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.2s;
         }
-        .logout-btn:hover {
+        .drawer-logout-btn:hover {
           background: #fef2f2;
-        }
-        
-        .help-btn {
-          color: #111;
         }
 
         .ramci-logo {
