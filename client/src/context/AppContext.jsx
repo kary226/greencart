@@ -59,6 +59,11 @@ export const AppContextProvider = ({ children }) => {
     const [wishlist, setWishlist] = useState([]);
     const [recentlyViewed, setRecentlyViewed] = useState([]);
     const [orders, setOrders] = useState([]);
+    const [installPromptEvent, setInstallPromptEvent] = useState(null);
+    const [canInstallPWA, setCanInstallPWA] = useState(false);
+    const [isPWAInstalled, setIsPWAInstalled] = useState(
+        window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
+    );
 
     const setCartItems = (newCart) => {
         setCartItemsState(newCart);
@@ -430,6 +435,44 @@ export const AppContextProvider = ({ children }) => {
         navigate('/seller');
     };
 
+    // 📲 Installation PWA (Android / Chrome / Edge)
+    // Le navigateur envoie cet événement s'il juge le site installable.
+    // On l'intercepte et on le stocke pour pouvoir l'appeler plus tard,
+    // au clic sur notre propre bouton "Installer l'application".
+    useEffect(() => {
+        const handleBeforeInstallPrompt = (e) => {
+            e.preventDefault();
+            setInstallPromptEvent(e);
+            setCanInstallPWA(true);
+        };
+        const handleAppInstalled = () => {
+            setInstallPromptEvent(null);
+            setCanInstallPWA(false);
+            setIsPWAInstalled(true);
+            toast.success("Application installée avec succès");
+        };
+
+        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        window.addEventListener('appinstalled', handleAppInstalled);
+
+        return () => {
+            window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+            window.removeEventListener('appinstalled', handleAppInstalled);
+        };
+    }, []);
+
+    // Déclenche la popup native d'installation.
+    // Retourne 'accepted', 'dismissed', ou null si aucun prompt natif n'est disponible
+    // (cas iOS/Safari notamment, où il faut alors rediriger vers le guide manuel).
+    const installPWA = async () => {
+        if (!installPromptEvent) return null;
+        installPromptEvent.prompt();
+        const { outcome } = await installPromptEvent.userChoice;
+        setInstallPromptEvent(null);
+        setCanInstallPWA(false);
+        return outcome;
+    };
+
     useEffect(() => {
         const token = getToken();
         const isOnSellerPage = window.location.pathname.includes('/seller');
@@ -485,7 +528,8 @@ export const AppContextProvider = ({ children }) => {
         fetchUser, loginUser, registerUser, logoutUser,
         loginSeller, logoutSeller,
         recentlyViewed, addToRecentlyViewed,
-        orders
+        orders,
+        canInstallPWA, isPWAInstalled, installPWA
     };
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

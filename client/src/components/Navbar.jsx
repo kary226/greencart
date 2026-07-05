@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
 
 const Navbar = () => {
-  const { cartItems, wishlist, user, searchQuery, setSearchQuery, axios, products, logoutUser, setShowUserLogin } = useAppContext();
+  const { cartItems, wishlist, user, searchQuery, setSearchQuery, axios, products, logoutUser, setShowUserLogin, canInstallPWA, isPWAInstalled, installPWA } = useAppContext();
   const [query, setQuery] = useState(searchQuery || "");
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -19,9 +19,6 @@ const Navbar = () => {
 
   const cartCount = cartItems ? Object.values(cartItems).reduce((a, b) => a + b, 0) : 0;
   const wishlistCount = wishlist?.length || 0;
-
-  const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches
-    || window.navigator.standalone === true;
 
   const [filters, setFilters] = useState({
     category: '',
@@ -44,7 +41,18 @@ const Navbar = () => {
     });
   }, [location.search]);
 
-  const handleInstallClick = () => {
+  const handleInstallClick = async () => {
+    // Si le navigateur nous a donné le prompt natif (Android/Chrome/Edge),
+    // on l'affiche directement — un seul clic, pas de guide nécessaire.
+    if (canInstallPWA) {
+      const outcome = await installPWA();
+      if (outcome === 'dismissed') {
+        // L'utilisateur a fermé la popup native : pas besoin de rediriger,
+        // il pourra retenter plus tard depuis le même bouton.
+      }
+      return;
+    }
+    // Sinon (iOS/Safari, ou prompt pas encore disponible) : guide manuel.
     navigate('/install');
   };
 
@@ -359,7 +367,7 @@ const Navbar = () => {
         </nav>
 
         <div className="ramci-drawer-footer">
-          {!isInStandaloneMode && (
+          {!isPWAInstalled && (
             <button className="drawer-install-btn" onClick={() => { setMenuOpen(false); handleInstallClick(); }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M12 16l-4-4h3V4h2v8h3z"/>

@@ -1,9 +1,12 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAppContext } from "../context/AppContext";
 
 const InstallApp = () => {
   const navigate = useNavigate();
+  const { canInstallPWA, isPWAInstalled, installPWA } = useAppContext();
   const [selectedPlatform, setSelectedPlatform] = useState(null);
+  const [installing, setInstalling] = useState(false);
 
   const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const isAndroid = /android/i.test(navigator.userAgent);
@@ -14,6 +17,19 @@ const InstallApp = () => {
     } else {
       navigate(-1);
     }
+  };
+
+  // Bouton principal unique : tente l'installation native (Android/Chrome/Edge).
+  // Si le navigateur ne le permet pas (iOS/Safari, ou prompt indisponible),
+  // on affiche le guide manuel correspondant à la plateforme détectée.
+  const handleMainInstallClick = async () => {
+    if (canInstallPWA) {
+      setInstalling(true);
+      await installPWA();
+      setInstalling(false);
+      return;
+    }
+    setSelectedPlatform(isIOS ? "ios" : "android");
   };
 
   const androidSteps = [
@@ -53,6 +69,20 @@ const InstallApp = () => {
             </div>
             <h2>Application RAMCI</h2>
             <p>Une expérience d'achat plus rapide,<br />directement depuis votre écran d'accueil</p>
+
+            {isPWAInstalled ? (
+              <div className="already-installed-pill">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4caf50" strokeWidth="2.5">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M8 12l3 3 6-6" />
+                </svg>
+                Déjà installée sur cet appareil
+              </div>
+            ) : (
+              <button className="main-install-btn" onClick={handleMainInstallClick} disabled={installing}>
+                {installing ? "Installation..." : "Installer l'application"}
+              </button>
+            )}
           </div>
 
           <div className="platform-buttons">
@@ -247,6 +277,39 @@ const InstallApp = () => {
           opacity: 0.7;
           line-height: 1.6;
           margin: 0;
+        }
+
+        .main-install-btn {
+          margin-top: 22px;
+          background: #e53935;
+          color: #fff;
+          border: none;
+          border-radius: 40px;
+          padding: 13px 28px;
+          font-size: 14.5px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: transform 0.15s, opacity 0.2s;
+        }
+        .main-install-btn:hover {
+          transform: scale(1.03);
+        }
+        .main-install-btn:disabled {
+          opacity: 0.7;
+          cursor: default;
+        }
+
+        .already-installed-pill {
+          margin-top: 22px;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          background: rgba(76,175,80,0.15);
+          color: #4caf50;
+          font-size: 13px;
+          font-weight: 600;
+          padding: 10px 18px;
+          border-radius: 40px;
         }
 
         .platform-buttons {
