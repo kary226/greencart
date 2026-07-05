@@ -473,6 +473,78 @@ export const AppContextProvider = ({ children }) => {
         return outcome;
     };
 
+    // 🔔 Notifications push
+    // Convertit la clé publique VAPID (format base64url) en Uint8Array,
+    // format attendu par l'API PushManager du navigateur.
+    const urlBase64ToUint8Array = (base64String) => {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    };
+
+    // Demande la permission (si pas déjà accordée/refusée), crée l'abonnement push
+    // auprès du navigateur, puis l'enregistre côté serveur pour cet utilisateur.
+    // À appeler depuis un clic explicite (bouton "Activer les notifications"),
+    // jamais automatiquement au chargement de la page.
+    const subscribeToPushNotifications = async () => {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+            toast.error("Les notifications ne sont pas supportées sur cet appareil/navigateur");
+            return { success: false, reason: 'unsupported' };
+        }
+        if (!user) {
+            toast.error("Connectez-vous pour activer les notifications");
+            return { success: false, reason: 'not-logged-in' };
+        }
+
+        try {
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+                toast.error("Notifications refusées. Vous pouvez les activer depuis les réglages du navigateur.");
+                return { success: false, reason: 'denied' };
+            }
+
+            const registration = await navigator.serviceWorker.ready;
+            let subscription = await registration.pushManager.getSubscription();
+
+            if (!subscription) {
+                subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC_KEY)
+                });
+            }
+
+            const subJson = subscription.toJSON();
+            await axios.post('/api/push/subscribe', {
+                userId: user._id,
+                subscription: {
+                    endpoint: subJson.endpoint,
+                    keys: subJson.keys
+                }
+            });
+
+            toast.success("Notifications activées 🔔");
+            return { success: true };
+        } catch (error) {
+            console.error("Erreur abonnement push:", error);
+            toast.error("Impossible d'activer les notifications");
+            return { success: false, reason: 'error' };
+        }
+    };
+
+    // Si la permission a déjà été accordée lors d'une session précédente,
+    // on refait silencieusement l'abonnement (il peut expirer côté navigateur),
+    // sans re-demander la permission à l'utilisateur.
+    useEffect(() => {
+        if (user && 'Notification' in window && Notification.permission === 'granted') {
+            subscribeToPushNotifications();
+        }
+    }, [user]);
+
     useEffect(() => {
         const token = getToken();
         const isOnSellerPage = window.location.pathname.includes('/seller');
@@ -529,7 +601,8 @@ export const AppContextProvider = ({ children }) => {
         loginSeller, logoutSeller,
         recentlyViewed, addToRecentlyViewed,
         orders,
-        canInstallPWA, isPWAInstalled, installPWA
+        canInstallPWA, isPWAInstalled, installPWA,
+        subscribeToPushNotifications
     };
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

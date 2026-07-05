@@ -19,6 +19,7 @@ import couponRouter from './routes/couponRoute.js';
 import locationRouter from './routes/locationRoute.js';
 import deliveryRouter from './routes/deliveryRoute.js';
 import settingRouter from './routes/settingRoute.js';
+import pushRouter from './routes/pushRoute.js';
 import { geniuspayWebhook } from './controllers/geniuspayController.js';
 import dns from 'dns';
 
@@ -87,6 +88,7 @@ app.use('/api/coupon', couponRouter);
 app.use('/api/location', locationRouter);
 app.use('/api/delivery', deliveryRouter);
 app.use('/api/setting', settingRouter); // ✅ AJOUTÉ
+app.use('/api/push', pushRouter); // 🔔 Notifications push
 
 // Démarrage du serveur
 app.listen(port, ()=>{

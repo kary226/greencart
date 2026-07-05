@@ -7,6 +7,18 @@ import DeliveryPrice from "../models/DeliveryPrice.js";
 import DeliveryType from "../models/DeliveryType.js";
 import Commune from "../models/Commune.js";
 import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
+import { sendPushToUser } from './pushController.js';
+
+// Messages affichés dans la notification push selon le nouveau statut de la commande.
+// 'Order Placed' n'est pas ici : ce statut initial est déjà couvert par l'email de confirmation.
+const orderStatusPushMessages = {
+    'Confirmed': { title: 'Commande confirmée ✅', body: 'Votre commande a été confirmée et est en cours de préparation.' },
+    'Shipped': { title: 'Commande expédiée 📦', body: 'Votre commande vient d\'être expédiée.' },
+    'Out for Delivery': { title: 'Livraison en cours 🚴', body: 'Votre livreur est en route vers vous !' },
+    'Delivered': { title: 'Commande livrée 🎉', body: 'Votre commande a été livrée. Merci pour votre confiance !' },
+    'Returned': { title: 'Commande retournée', body: 'Votre commande a été marquée comme retournée.' },
+    'Cancelled': { title: 'Commande annulée', body: 'Votre commande a été annulée.' }
+};
 
 const calculateEstimatedDeliveryDates = (orderDate) => {
     const startDate = new Date(orderDate);
@@ -196,7 +208,19 @@ export const updateOrderStatus = async (req, res)=>{
             updateData.deliveredAt = new Date();
         }
         
-        await Order.findByIdAndUpdate(orderId, updateData);
+        const order = await Order.findByIdAndUpdate(orderId, updateData);
+
+        // 🔔 Notification push : envoyée en arrière-plan (pas de "await"),
+        // pour ne jamais faire attendre la réponse au vendeur/admin.
+        const pushContent = orderStatusPushMessages[status];
+        if (order && pushContent) {
+            sendPushToUser(order.userId, {
+                title: pushContent.title,
+                body: pushContent.body,
+                url: '/my-orders'
+            });
+        }
+
         res.json({ success: true, message: "Statut mis à jour" });
     } catch (error) {
         res.json({ success: false, message: error.message });
