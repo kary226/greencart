@@ -214,7 +214,7 @@ const Account = () => {
                     <p className="text-gray-500 mt-2">Gérez vos informations personnelles</p>
                 </div>
 
-                <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+                <div className="bg-white rounded-2xl shadow-lg">
                     <div className="p-6 md:p-8">
                         {!isEditing ? (
                             <div className="space-y-6">
