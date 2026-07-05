@@ -76,7 +76,8 @@ const Account = () => {
     const [loadingCities, setLoadingCities] = useState(true);
     const [loadingCommunes, setLoadingCommunes] = useState(false);
     const [formData, setFormData] = useState({
-        name: '',
+        firstName: '',
+        lastName: '',
         email: '',
         phone: '',
         street: '',
@@ -124,7 +125,8 @@ const Account = () => {
     useEffect(() => {
         if (user) {
             setFormData({
-                name: user.name || '',
+                firstName: user.firstName || '',
+                lastName: user.lastName || '',
                 email: user.email || '',
                 phone: user.phone || '',
                 street: user.street || '',
@@ -152,7 +154,8 @@ const Account = () => {
                 const { data: userData } = await axios.get('/api/user/is-auth');
                 if (userData.success) {
                     setFormData({
-                        name: userData.user.name || '',
+                        firstName: userData.user.firstName || '',
+                        lastName: userData.user.lastName || '',
                         email: userData.user.email || '',
                         phone: userData.user.phone || '',
                         street: userData.user.street || '',
@@ -220,7 +223,9 @@ const Account = () => {
                                         <User size={20} className="text-primary mt-0.5" />
                                         <div>
                                             <p className="text-xs text-gray-400 uppercase tracking-wide">Nom complet</p>
-                                            <p className="text-gray-800 font-medium">{formData.name || 'Non renseigné'}</p>
+                                            <p className="text-gray-800 font-medium">
+                                                {[formData.firstName, formData.lastName].filter(Boolean).join(' ') || 'Non renseigné'}
+                                            </p>
                                         </div>
                                     </div>
                                     <div className="flex items-start gap-3">
@@ -283,16 +288,29 @@ const Account = () => {
                             </div>
                         ) : (
                             <form onSubmit={handleUpdate} className="space-y-5">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Nom complet</label>
-                                    <input
-                                        type="text"
-                                        name="name"
-                                        value={formData.name}
-                                        onChange={handleChange}
-                                        className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-primary focus:ring-1 focus:ring-primary transition"
-                                        required
-                                    />
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Prénom</label>
+                                        <input
+                                            type="text"
+                                            name="firstName"
+                                            value={formData.firstName}
+                                            onChange={handleChange}
+                                            className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-primary focus:ring-1 focus:ring-primary transition"
+                                            required
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Nom</label>
+                                        <input
+                                            type="text"
+                                            name="lastName"
+                                            value={formData.lastName}
+                                            onChange={handleChange}
+                                            className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-primary focus:ring-1 focus:ring-primary transition"
+                                            required
+                                        />
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
