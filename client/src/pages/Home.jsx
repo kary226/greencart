@@ -11,15 +11,8 @@ const SECTIONS = [
   { id: "deals",  label: "Promotions" },
 ];
 
-// [MODERNISATION] Nombre de produits affichés dans la rangée Best-sellers
-// en scroll horizontal, juste après les catégories.
 const BESTSELLERS_COUNT = 10;
 
-// [MODERNISATION] Squelette d'une carte produit, utilisé pendant le
-// chargement initial à la place de l'ancien spinner plein écran.
-// Reprend les proportions d'une vraie ProductCard (image carrée + 2 lignes
-// de texte + prix) pour que la mise en page ne "saute" pas une fois les
-// vraies données chargées.
 const ProductCardSkeleton = () => (
   <div className="ramci-skeleton-card">
     <div className="ramci-skeleton-img" />
@@ -33,14 +26,12 @@ const Home = () => {
   const [categories, setCategories] = useState([]);
   const [activeSection, setActiveSection] = useState("trends");
   
-  // État pour les produits avec pagination
   const [allProducts, setAllProducts] = useState([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   
-  // État pour les produits triés par section (TOUS les produits, pas de limite)
   const [trendProducts, setTrendProducts] = useState([]);
   const [newProducts, setNewProducts] = useState([]);
   const [dealProducts, setDealProducts] = useState([]);
@@ -48,7 +39,6 @@ const Home = () => {
   const observerRef = useRef(null);
   const navigate = useNavigate();
 
-  // Charger les catégories
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -59,7 +49,6 @@ const Home = () => {
     fetchCategories();
   }, []);
 
-  // Charger les produits avec pagination
   const fetchProducts = async (pageNum = 1, isInitial = false) => {
     if (isInitial) {
       setLoading(true);
@@ -92,12 +81,10 @@ const Home = () => {
     }
   };
 
-  // Chargement initial
   useEffect(() => {
     fetchProducts(1, true);
   }, []);
 
-  // Observer pour l'infinite scroll (charge plus de produits quand on descend)
   const lastProductRef = useCallback((node) => {
     if (loadingMore) return;
     if (observerRef.current) observerRef.current.disconnect();
@@ -111,7 +98,6 @@ const Home = () => {
     if (node) observerRef.current.observe(node);
   }, [loadingMore, hasMore, page]);
 
-  // Calculer les produits triés quand allProducts change (TOUS les produits, pas de slice)
   useEffect(() => {
     if (allProducts.length > 0) {
       setTrendProducts(getTrendingProducts());
@@ -120,7 +106,6 @@ const Home = () => {
     }
   }, [allProducts, orders]);
 
-  // Supprimé .slice(0, 10) pour afficher TOUS les produits tendances
   const getTrendingProducts = () => {
     if (!allProducts.length) return [];
     const productSales = {};
@@ -145,7 +130,6 @@ const Home = () => {
     return productsWithSales;
   };
 
-  // Supprimé .slice(0, 10) pour afficher TOUS les nouveaux produits
   const getNewProducts = () => {
     if (!allProducts.length) return [];
     const sorted = [...allProducts].sort((a, b) => {
@@ -156,7 +140,6 @@ const Home = () => {
     return sorted;
   };
 
-  // Supprimé .slice(0, 10) pour afficher TOUTES les promotions
   const getDealProducts = () => {
     if (!allProducts.length) return [];
     const productsWithOffer = allProducts.filter(p => p.offerPrice && p.offerPrice < p.price);
@@ -186,21 +169,10 @@ const Home = () => {
   const sectionProducts = getSectionProducts();
   const activeCategories = categories.filter(c => c.active !== false);
 
-  // [MODERNISATION] Rangée Best-sellers : les produits les plus vendus
-  // (trendProducts est déjà trié par salesCount décroissant), limités à
-  // BESTSELLERS_COUNT pour rester une rangée courte et non une grille.
-  // N'affiche la rangée que si au moins un produit a réellement des
-  // ventes enregistrées, pour éviter de montrer "best-sellers" sur un
-  // catalogue tout neuf sans aucune commande.
   const bestSellers = trendProducts
     .filter(p => p.salesCount > 0)
     .slice(0, BESTSELLERS_COUNT);
 
-  // [MODERNISATION] Skeleton loading : remplace l'ancien spinner plein
-  // écran par une esquisse de la mise en page réelle (bandeau hero +
-  // rangée de catégories + grille de cartes), pour donner une impression
-  // de rapidité et éviter le saut brutal de mise en page une fois les
-  // données chargées.
   if (loading) {
     return (
       <>
@@ -270,10 +242,6 @@ const Home = () => {
           </section>
         )}
 
-        {/* [MODERNISATION] Rangée Best-sellers en scroll horizontal.
-            Placée juste après les catégories, avant la grille à onglets,
-            pour créer une rupture de rythme visuelle — pattern courant
-            sur les apps e-commerce modernes (Shein, Jumia, Amazon). */}
         {bestSellers.length > 0 && (
           <section className="ramci-bestsellers-section">
             <div className="ramci-section-header">
@@ -321,7 +289,6 @@ const Home = () => {
             <>
               <div className="ramci-grid">
                 {sectionProducts.map((p, index) => {
-                  // Ajouter une ref au dernier élément pour l'intersection observer
                   const isLastItem = index === sectionProducts.length - 1 && activeSection === "trends";
                   return (
                     <div key={p._id} ref={isLastItem ? lastProductRef : null}>
@@ -356,10 +323,6 @@ const Home = () => {
   );
 };
 
-// [MODERNISATION] Styles extraits dans une constante partagée entre l'état
-// de chargement (skeleton) et l'état chargé, pour garder une seule source
-// de vérité et éviter la duplication de <style> entre les deux branches
-// de rendu.
 const SHARED_STYLES = `
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=DM+Sans:wght@400;500;600;700;800&display=swap');
 
@@ -372,6 +335,39 @@ const SHARED_STYLES = `
         .ramci-hero {
           margin-bottom: 0;
           overflow: hidden;
+        }
+
+        /* ✅ BANNIÈRE RESPONSIVE - CORRIGÉ */
+        .ramci-hero .banner-carousel,
+        .ramci-hero .banner-slide,
+        .ramci-hero .banner-image {
+          width: 100%;
+          height: auto;
+        }
+
+        .ramci-hero .banner-slide img,
+        .ramci-hero .banner-image img {
+          width: 100%;
+          height: auto;
+          object-fit: cover;
+          display: block;
+        }
+
+        /* ✅ SUR MOBILE - BANNIÈRE ADAPTÉE */
+        @media (max-width: 768px) {
+          .ramci-hero .banner-slide img,
+          .ramci-hero .banner-image img {
+            max-height: 250px;
+            object-fit: cover;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .ramci-hero .banner-slide img,
+          .ramci-hero .banner-image img {
+            max-height: 180px;
+            object-fit: cover;
+          }
         }
 
         .ramci-cats-section {
@@ -530,9 +526,6 @@ const SHARED_STYLES = `
           font-size: 14px;
         }
 
-        /* ============================================================
-           [MODERNISATION] Rangée Best-sellers — scroll horizontal
-           ============================================================ */
         .ramci-bestsellers-section {
           background: #fff;
           padding: 20px 0 24px;
@@ -569,9 +562,6 @@ const SHARED_STYLES = `
           scroll-snap-align: start;
         }
 
-        /* ============================================================
-           [MODERNISATION] Skeleton loading
-           ============================================================ */
         @keyframes ramci-shimmer {
           0%   { background-position: -200% 0; }
           100% { background-position: 200% 0; }
