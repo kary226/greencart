@@ -16,7 +16,7 @@ const BannerManager = () => {
     const [imagePreview, setImagePreview] = useState('');
     const [showCropper, setShowCropper] = useState(false);
     const [tempImageFile, setTempImageFile] = useState(null);
-    const [linkType, setLinkType] = useState('custom'); // 'category', 'product', 'custom'
+    const [linkType, setLinkType] = useState('custom');
     const [selectedCategory, setSelectedCategory] = useState('');
     const [selectedProduct, setSelectedProduct] = useState('');
     const [products, setProducts] = useState([]);
@@ -72,7 +72,6 @@ const BannerManager = () => {
         fetchProducts();
     }, []);
 
-    // Filtrer les produits pour la recherche
     useEffect(() => {
         if (searchProduct.trim()) {
             const filtered = products.filter(p => 
@@ -84,17 +83,26 @@ const BannerManager = () => {
         }
     }, [searchProduct, products]);
 
+    // ✅ handleImageFileChange - capture le fichier
     const handleImageFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
+            console.log('📸 Fichier sélectionné:', file.name, file.size);
             setTempImageFile(file);
             setShowCropper(true);
         }
     };
 
-    const handleCropComplete = (croppedFile) => {
-        setImageFile(croppedFile);
-        setImagePreview(URL.createObjectURL(croppedFile));
+    // ✅ handleCropComplete - convertit le Blob en File
+    const handleCropComplete = (croppedBlob) => {
+        const file = new File(
+            [croppedBlob], 
+            `banner-${Date.now()}.png`, 
+            { type: 'image/png' }
+        );
+        console.log('✂️ Image recadrée:', file.name, file.size);
+        setImageFile(file);
+        setImagePreview(URL.createObjectURL(file));
         setShowCropper(false);
         setTempImageFile(null);
     };
@@ -106,7 +114,6 @@ const BannerManager = () => {
         setImageFile(null);
     };
 
-    // Générer le lien en fonction du type sélectionné
     const generateLink = () => {
         if (linkType === 'category' && selectedCategory) {
             const category = categories.find(c => c._id === selectedCategory);
@@ -118,7 +125,6 @@ const BannerManager = () => {
         return formData.link;
     };
 
-    // Mettre à jour le lien quand la catégorie change
     useEffect(() => {
         if (linkType === 'category' && selectedCategory) {
             const category = categories.find(c => c._id === selectedCategory);
@@ -129,7 +135,6 @@ const BannerManager = () => {
         }
     }, [selectedCategory, linkType, categories]);
 
-    // Mettre à jour le lien quand le produit change
     useEffect(() => {
         if (linkType === 'product' && selectedProduct) {
             const product = products.find(p => p._id === selectedProduct);
@@ -170,39 +175,47 @@ const BannerManager = () => {
         setLinkType('product');
     };
 
+    // ✅ handleSubmit - corrigé avec console.log pour debug
     const handleSubmit = async (e) => {
         e.preventDefault();
         
         const finalLink = generateLink();
         
         const formDataToSend = new FormData();
-        formDataToSend.append('title', formData.title);
-        formDataToSend.append('subtitle', formData.subtitle);
+        formDataToSend.append('title', formData.title || '');
+        formDataToSend.append('subtitle', formData.subtitle || '');
         formDataToSend.append('link', finalLink);
-        formDataToSend.append('order', formData.order);
-        formDataToSend.append('position', formData.position);
+        formDataToSend.append('order', formData.order || 0);
+        formDataToSend.append('position', formData.position || 'top');
         
+        // ✅ Vérifier le type d'image et ajouter au FormData
         if (imageType === 'upload' && imageFile) {
+            console.log('📤 Upload image:', imageFile.name, imageFile.size);
             formDataToSend.append('image', imageFile);
         } else if (imageType === 'url' && imageUrl) {
+            console.log('📤 URL image:', imageUrl);
             formDataToSend.append('imageUrl', imageUrl);
         } else {
             toast.error('Veuillez choisir une image (upload ou URL)');
             return;
         }
 
+        if (editingBanner) {
+            formDataToSend.append('id', editingBanner._id);
+        }
+
+        // ✅ Debug : afficher le contenu du FormData
+        for (let [key, value] of formDataToSend.entries()) {
+            console.log('🔑 FormData:', key, value instanceof File ? `File: ${value.name}` : value);
+        }
+
         try {
             let res;
-            if (editingBanner) {
-                formDataToSend.append('id', editingBanner._id);
-                res = await axios.post('/api/banner/update', formDataToSend, {
-                    headers: { 'Content-Type': 'multipart/form-data' }
-                });
-            } else {
-                res = await axios.post('/api/banner/add', formDataToSend, {
-                    headers: { 'Content-Type': 'multipart/form-data' }
-                });
-            }
+            const endpoint = editingBanner ? '/api/banner/update' : '/api/banner/add';
+            
+            res = await axios.post(endpoint, formDataToSend, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
             
             if (res.data.success) {
                 toast.success(res.data.message);
@@ -221,7 +234,8 @@ const BannerManager = () => {
                 toast.error(res.data.message);
             }
         } catch (error) {
-            toast.error(error.message);
+            console.error('❌ Erreur:', error.response?.data || error.message);
+            toast.error(error.response?.data?.message || error.message);
         }
     };
 
