@@ -7,10 +7,12 @@ const BannerCarousel = ({ position = 'top', className = '' }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [loading, setLoading] = useState(true);
     
+    // État pour le swipe
     const [touchStart, setTouchStart] = useState(0);
     const [touchEnd, setTouchEnd] = useState(0);
     const carouselRef = useRef(null);
     
+    // État pour l'auto-défilement (pause après interaction)
     const [autoPlayEnabled, setAutoPlayEnabled] = useState(true);
     const autoPlayTimerRef = useRef(null);
 
@@ -31,25 +33,30 @@ const BannerCarousel = ({ position = 'top', className = '' }) => {
         fetchBanners();
     }, [position]);
 
+    // Fonction pour passer à l'image suivante
     const goToNext = () => {
         setCurrentIndex((prev) => (prev + 1) % banners.length);
     };
 
+    // Fonction pour passer à l'image précédente
     const goToPrevious = () => {
         setCurrentIndex((prev) => (prev - 1 + banners.length) % banners.length);
     };
 
+    // Réinitialiser le timer d'auto-défilement après interaction manuelle
     const resetAutoPlayTimer = () => {
         if (autoPlayTimerRef.current) {
             clearInterval(autoPlayTimerRef.current);
         }
         setAutoPlayEnabled(false);
         
+        // Attendre 5 secondes avant de réactiver l'auto-défilement
         setTimeout(() => {
             setAutoPlayEnabled(true);
         }, 5000);
     };
 
+    // Défilement automatique (toutes les 5 secondes, sauf si désactivé)
     useEffect(() => {
         if (banners.length <= 1) return;
         
@@ -61,6 +68,7 @@ const BannerCarousel = ({ position = 'top', className = '' }) => {
         }
     }, [banners.length, autoPlayEnabled, currentIndex]);
 
+    // Gestion du swipe (touch)
     const handleTouchStart = (e) => {
         setTouchStart(e.targetTouches[0].clientX);
         resetAutoPlayTimer();
@@ -78,8 +86,10 @@ const BannerCarousel = ({ position = 'top', className = '' }) => {
         
         if (Math.abs(distance) > minSwipeDistance) {
             if (distance > 0) {
+                // Swipe gauche → suivant
                 goToNext();
             } else {
+                // Swipe droite → précédent
                 goToPrevious();
             }
         }
@@ -88,6 +98,7 @@ const BannerCarousel = ({ position = 'top', className = '' }) => {
         setTouchEnd(0);
     };
 
+    // Gestion du swipe (souris pour desktop)
     const [mouseStart, setMouseStart] = useState(0);
     const [mouseEnd, setMouseEnd] = useState(0);
     const [isDragging, setIsDragging] = useState(false);
@@ -133,6 +144,9 @@ const BannerCarousel = ({ position = 'top', className = '' }) => {
         }
     };
 
+    // [MODERNISATION] Skeleton de chargement cohérent avec le reste du site
+    // (effet de balayage rouge/crème) au lieu du simple "Chargement..." sur
+    // fond gris plat.
     if (loading) {
         return (
             <div className={`ramci-banner-skeleton ${className}`}>
@@ -145,6 +159,7 @@ const BannerCarousel = ({ position = 'top', className = '' }) => {
         return null;
     }
 
+    // Style spécifique selon la position
     const isTopPosition = position === 'top';
     const containerStyle = isTopPosition 
         ? { borderRadius: '0 0 16px 16px', overflow: 'hidden' }
@@ -163,6 +178,7 @@ const BannerCarousel = ({ position = 'top', className = '' }) => {
             onMouseUp={handleMouseUp}
             onMouseLeave={() => setIsDragging(false)}
         >
+            {/* Conteneur du carrousel */}
             <div 
                 className="flex transition-transform duration-500 ease-out"
                 style={{ transform: `translateX(-${currentIndex * 100}%)` }}
@@ -179,6 +195,7 @@ const BannerCarousel = ({ position = 'top', className = '' }) => {
                             className="w-full h-[200px] md:h-[280px] lg:h-[320px] object-cover"
                             draggable={false}
                         />
+                        {/* Overlay texte */}
                         {(banner.title || banner.subtitle) && (
                             <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/15 to-transparent flex flex-col items-center justify-center text-white text-center p-4">
                                 {banner.title && (
@@ -200,6 +217,11 @@ const BannerCarousel = ({ position = 'top', className = '' }) => {
                 ))}
             </div>
 
+            {/* [MODERNISATION] Flèches de navigation : masquées sur mobile
+                (le swipe tactile suffit et des flèches semi-transparentes
+                encombrent une petite image), visibles uniquement au survol
+                sur desktop — pattern standard des carousels modernes
+                (Airbnb, Amazon). */}
             {banners.length > 1 && (
                 <>
                     <button
@@ -229,6 +251,9 @@ const BannerCarousel = ({ position = 'top', className = '' }) => {
                 </>
             )}
 
+            {/* [MODERNISATION] Indicateurs minimalistes style Apple : traits
+                fins plutôt que des points ronds, celui actif s'allonge et
+                passe au rouge de la marque (au lieu du blanc neutre). */}
             {banners.length > 1 && (
                 <div className="ramci-banner-dots">
                     {banners.map((_, index) => (
@@ -289,7 +314,10 @@ const BANNER_STYLES = `
           transform: translateY(-1px);
         }
 
-        /* ✅ FLÈCHES - modernisées */
+        /* ============================================================
+           Flèches : invisibles sur tactile (pas de hover sur mobile),
+           apparition au survol uniquement sur pointeurs fins (souris).
+           ============================================================ */
         .ramci-banner-arrow {
           position: absolute;
           top: 50%;
@@ -322,47 +350,39 @@ const BANNER_STYLES = `
           }
         }
 
-        /* ✅ DOTS - NOIRS ET PLUS ÉPAIS */
+        /* ============================================================
+           Dots minimalistes style Apple : traits fins, actif en rouge.
+           ============================================================ */
         .ramci-banner-dots {
           position: absolute;
-          bottom: 12px;
+          bottom: 14px;
           left: 50%;
           transform: translateX(-50%);
           display: flex;
           align-items: center;
-          gap: 6px;
+          gap: 5px;
           z-index: 5;
-          background: rgba(0,0,0,0.3);
-          padding: 6px 12px;
-          border-radius: 20px;
-          backdrop-filter: blur(4px);
         }
 
         .ramci-banner-dot {
-          width: 16px;
+          width: 14px;
           height: 3px;
-          border-radius: 3px;
+          border-radius: 2px;
           border: none;
-          background: rgba(255,255,255,0.6);
+          background: rgba(255,255,255,.5);
           cursor: pointer;
           padding: 0;
-          transition: width .3s ease, background .3s ease;
+          transition: width .25s, background .25s;
         }
 
         .ramci-banner-dot.active {
-          width: 28px;
-          background: #111111;
+          width: 22px;
+          background: #e53935;
         }
 
-        /* ✅ SURVOL DES DOTS */
-        .ramci-banner-dot:hover {
-          background: rgba(255,255,255,0.9);
-        }
-        .ramci-banner-dot.active:hover {
-          background: #111111;
-        }
-
-        /* ✅ SKELETON */
+        /* ============================================================
+           Skeleton de chargement
+           ============================================================ */
         @keyframes ramci-banner-shimmer {
           0%   { background-position: -200% 0; }
           100% { background-position: 200% 0; }
