@@ -332,19 +332,12 @@ const SHARED_STYLES = `
           padding-bottom: 90px;
         }
 
-        /* ✅ ÉVITER QUE LA NAVBAR COUPE LA BANNIÈRE */
         .ramci-hero {
           margin-bottom: 0;
           overflow: hidden;
-          padding-top: 70px;
         }
 
-        @media (max-width: 768px) {
-          .ramci-hero {
-            padding-top: 60px;
-          }
-        }
-
+        /* ✅ BANNIÈRE RESPONSIVE - CORRIGÉ */
         .ramci-hero .banner-carousel,
         .ramci-hero .banner-slide,
         .ramci-hero .banner-image {
@@ -360,6 +353,7 @@ const SHARED_STYLES = `
           display: block;
         }
 
+        /* ✅ SUR MOBILE - BANNIÈRE ADAPTÉE */
         @media (max-width: 768px) {
           .ramci-hero .banner-slide img,
           .ramci-hero .banner-image img {
