@@ -38,10 +38,10 @@ const ProductCard = ({ product }) => {
   const categorySlug = category?.slug || product.categorySlug || "all";
 
   return (
-    <div className="sc-card">
+    <div className={`sc-card${isOutOfStock ? ' sc-card-out' : ''}`}>
       <Link 
         to={`/products/${categorySlug}/${_id}`} 
-        className="sc-card-img-wrap"
+        className={`sc-card-img-wrap${isOutOfStock ? ' sc-out-of-stock' : ''}`}
         onMouseEnter={() => images[1] && setImgIdx(1)}
         onMouseLeave={() => setImgIdx(0)}
       >
@@ -63,11 +63,17 @@ const ProductCard = ({ product }) => {
         {discount && !isOutOfStock && (
           <span className="sc-badge sc-promo">-{discount}%</span>
         )}
-        {isOutOfStock && (
-          <span className="sc-badge sc-sold">Épuisé</span>
-        )}
         {isLowStock && !discount && (
           <span className="sc-badge sc-low">+ que {totalStock}</span>
+        )}
+
+        {/* [FIX] Rupture de stock : avant, un simple petit badge en coin
+            (facile à manquer). Maintenant : image assombrie/grisée +
+            bandeau centré bien visible, comme sur les gros sites e-commerce. */}
+        {isOutOfStock && (
+          <div className="sc-out-overlay">
+            <span className="sc-out-ribbon">Épuisé</span>
+          </div>
         )}
 
         {/* Wishlist */}
@@ -91,7 +97,7 @@ const ProductCard = ({ product }) => {
       </Link>
 
       {/* Infos produit */}
-      <Link to={`/products/${categorySlug}/${_id}`} className="sc-info">
+      <Link to={`/products/${categorySlug}/${_id}`} className={`sc-info${isOutOfStock ? ' sc-info-out' : ''}`}>
         <p className="sc-name">{name}</p>
         <div className="sc-prices">
           <span className="sc-price">
