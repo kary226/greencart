@@ -589,12 +589,19 @@ export const geniuspayWebhook = async (req, res) => {
                     );
                     if (variant) {
                         variant.stock = Math.max(0, (variant.stock || 0) - item.quantity);
+                        // [FIX] inStock n'était jamais recalculé ici : le stock
+                        // baissait bien, mais le produit continuait d'apparaître
+                        // "en stock" côté boutique tant que personne n'allait le
+                        // resauvegarder manuellement dans le panneau admin.
+                        product.inStock = product.variants.some(v => v.stock > 0);
                         await product.save();
                     } else {
                         console.warn(`⚠️ Variant (${item.color}/${item.size}) non trouvé pour produit ${product.name}`);
                     }
                 } else {
                     product.stock = Math.max(0, (product.stock || 0) - item.quantity);
+                    // [FIX] Même correctif pour les produits sans variantes.
+                    product.inStock = product.stock > 0;
                     await product.save();
                 }
             }
