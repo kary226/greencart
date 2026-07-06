@@ -11,11 +11,11 @@ export const getBanners = async (req, res) => {
             filter.position = position;
         }
         
-        console.log("🔍 Filtre:", filter); // Debug
+        console.log("🔍 Filtre:", filter);
         
         const banners = await Banner.find(filter).sort({ order: 1 });
         
-        console.log("✅ Bannières trouvées:", banners.length); // Debug
+        console.log("✅ Bannières trouvées:", banners.length);
         
         res.json({ success: true, banners });
     } catch (error) {
@@ -34,7 +34,7 @@ export const getAllBanners = async (req, res) => {
     }
 };
 
-// Ajouter une bannière (upload ou URL)
+// ✅ Ajouter une bannière - CORRIGÉ (utilisation de buffer)
 export const addBanner = async (req, res) => {
     try {
         const { title, subtitle, link, order, position, imageUrl } = req.body;
@@ -44,9 +44,19 @@ export const addBanner = async (req, res) => {
         let publicId = null;
 
         if (imageFile) {
-            const result = await cloudinary.uploader.upload(imageFile.path, {
-                folder: "banners",
-                resource_type: "image"
+            // ✅ Utiliser buffer au lieu de path (memoryStorage)
+            const result = await new Promise((resolve, reject) => {
+                const uploadStream = cloudinary.uploader.upload_stream(
+                    { 
+                        folder: "banners",
+                        resource_type: "image"
+                    },
+                    (error, result) => {
+                        if (error) reject(error);
+                        else resolve(result);
+                    }
+                );
+                uploadStream.end(imageFile.buffer);
             });
             finalImageUrl = result.secure_url;
             publicId = result.public_id;
@@ -66,19 +76,22 @@ export const addBanner = async (req, res) => {
             link: link || '/products',
             order: order || 0,
             position: position || 'top',
-            active: true  // 👈 CRUCIAL
+            active: true
         });
 
         res.json({ success: true, message: "Bannière ajoutée", banner });
     } catch (error) {
+        console.error("❌ Erreur addBanner:", error);
         res.json({ success: false, message: error.message });
     }
 };
 
-// Modifier une bannière
+// ✅ Modifier une bannière - CORRIGÉ (utilisation de buffer)
 export const updateBanner = async (req, res) => {
     try {
         const { id, title, subtitle, link, order, active, position, imageUrl } = req.body;
+        const imageFile = req.file;
+        
         const updateData = { 
             title, 
             subtitle, 
@@ -88,14 +101,26 @@ export const updateBanner = async (req, res) => {
             position 
         };
 
-        if (req.file) {
+        if (imageFile) {
+            // Supprimer l'ancienne image si elle existe
             const banner = await Banner.findById(id);
             if (banner?.publicId) {
                 await cloudinary.uploader.destroy(banner.publicId);
             }
-            const result = await cloudinary.uploader.upload(req.file.path, {
-                folder: "banners",
-                resource_type: "image"
+            
+            // ✅ Utiliser buffer au lieu de path
+            const result = await new Promise((resolve, reject) => {
+                const uploadStream = cloudinary.uploader.upload_stream(
+                    { 
+                        folder: "banners",
+                        resource_type: "image"
+                    },
+                    (error, result) => {
+                        if (error) reject(error);
+                        else resolve(result);
+                    }
+                );
+                uploadStream.end(imageFile.buffer);
             });
             updateData.image = result.secure_url;
             updateData.publicId = result.public_id;
@@ -108,6 +133,7 @@ export const updateBanner = async (req, res) => {
         await Banner.findByIdAndUpdate(id, updateData);
         res.json({ success: true, message: "Bannière modifiée" });
     } catch (error) {
+        console.error("❌ Erreur updateBanner:", error);
         res.json({ success: false, message: error.message });
     }
 };
@@ -123,6 +149,7 @@ export const deleteBanner = async (req, res) => {
         await Banner.findByIdAndDelete(id);
         res.json({ success: true, message: "Bannière supprimée" });
     } catch (error) {
+        console.error("❌ Erreur deleteBanner:", error);
         res.json({ success: false, message: error.message });
     }
 };
