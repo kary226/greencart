@@ -11,11 +11,7 @@ export const getBanners = async (req, res) => {
             filter.position = position;
         }
         
-        console.log("🔍 Filtre:", filter);
-        
         const banners = await Banner.find(filter).sort({ order: 1 });
-        
-        console.log("✅ Bannières trouvées:", banners.length);
         
         res.json({ success: true, banners });
     } catch (error) {
@@ -34,7 +30,7 @@ export const getAllBanners = async (req, res) => {
     }
 };
 
-// ✅ Ajouter une bannière - CORRIGÉ (utilisation de buffer)
+// Ajouter une bannière (upload ou URL)
 export const addBanner = async (req, res) => {
     try {
         const { title, subtitle, link, order, position, imageUrl } = req.body;
@@ -44,7 +40,6 @@ export const addBanner = async (req, res) => {
         let publicId = null;
 
         if (imageFile) {
-            // ✅ Utiliser buffer au lieu de path (memoryStorage)
             const result = await new Promise((resolve, reject) => {
                 const uploadStream = cloudinary.uploader.upload_stream(
                     { 
@@ -86,7 +81,7 @@ export const addBanner = async (req, res) => {
     }
 };
 
-// ✅ Modifier une bannière - CORRIGÉ (utilisation de buffer)
+// Modifier une bannière
 export const updateBanner = async (req, res) => {
     try {
         const { id, title, subtitle, link, order, active, position, imageUrl } = req.body;
@@ -102,13 +97,11 @@ export const updateBanner = async (req, res) => {
         };
 
         if (imageFile) {
-            // Supprimer l'ancienne image si elle existe
             const banner = await Banner.findById(id);
             if (banner?.publicId) {
                 await cloudinary.uploader.destroy(banner.publicId);
             }
             
-            // ✅ Utiliser buffer au lieu de path
             const result = await new Promise((resolve, reject) => {
                 const uploadStream = cloudinary.uploader.upload_stream(
                     { 
