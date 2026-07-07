@@ -149,29 +149,27 @@ export const footerLinks = [
   {
     title: "Accès rapide",
     links: [
-      { text: "Accueil", url: "#" },
-      { text: "Articles populaires", url: "#" },
-      { text: "Offres et promotions", url: "#" },
-      { text: "Contactez-nous", url: "#" },
-      { text: "FAQ", url: "#" },
-    ],
+      { text: "Accueil", url: "/" },
+      { text: "Articles populaires", url: "/products" },
+      { text: "Offres et promotions", url: "/products?sort=discount" },
+      { text: "Contactez-nous", url: "/contact" },
+    ]
   },
   {
-    title: "Besoin d'aide ?",
+    title: "Mon compte",
     links: [
-      { text: "Informations de livraison", url: "#" },
-      { text: "Politique de retour et remboursement", url: "#" },
-      { text: "Moyens de paiement", url: "#" },
-      { text: "Suivre ma commande", url: "#" },
-      { text: "Contactez-nous", url: "#" },
-    ],
+      { text: "Mes commandes", url: "/my-orders" },
+      { text: "Mon panier", url: "/cart" },
+      { text: "Mes favoris", url: "/wishlist" },
+      { text: "Mon profil", url: "/account" },
+    ]
   },
   {
-    title: "Follow Us",
+    title: "Suivez-nous",
     links: [
-      { text: "Instagram", url: "#" },
-      { text: "Twitter", url: "#" },
-      { text: "Facebook", url: "#" },
+      { text: "Instagram", url: "https://www.instagram.com/ramci.ci" },
+      { text: "TikTok", url: "https://www.tiktok.com/@ramci.ci" },
+      { text: "Facebook", url: "https://www.facebook.com/share/18V41aoDkM/" },
       { text: "YouTube", url: "#" },
     ],
   },
@@ -180,23 +178,23 @@ export const footerLinks = [
 export const features = [
   {
     icon: delivery_truck_icon,
-    title: "Fastest Delivery",
-    description: "Groceries delivered in under 30 minutes.",
+    title: "Livraison rapide",
+    description: "Livraison à Abidjan et dans toute la Côte d'Ivoire.",
   },
   {
     icon: leaf_icon,
-    title: "Freshness Guaranteed",
-    description: "Fresh produce straight from the source.",
+    title: "Qualité garantie",
+    description: "Des produits frais et authentiques.",
   },
   {
     icon: coin_icon,
-    title: "Affordable Prices",
-    description: "Quality groceries at unbeatable prices.",
+    title: "Prix abordables",
+    description: "Des prix compétitifs sur toute la gamme.",
   },
   {
     icon: trust_icon,
-    title: "Trusted by Thousands",
-    description: "Loved by 10,000+ happy customers.",
+    title: "Confiance",
+    description: "Des milliers de clients satisfaits.",
   },
 ];
 
