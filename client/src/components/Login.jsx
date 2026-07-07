@@ -7,7 +7,7 @@ import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 
 const Login = () => {
 
-    const { setShowUserLogin, loginUser, registerUser, axios, setUser, setToken, setAuthToken } = useAppContext()
+    const { setShowUserLogin, loginUser, registerUser, axios, setUser } = useAppContext()
 
     const [state, setState] = React.useState("login");
     const [firstName, setFirstName] = React.useState("");
@@ -45,9 +45,6 @@ const Login = () => {
 
             if (data.success) {
                 setUser(data.user);
-                setToken(data.token);
-                localStorage.setItem('token', data.token);
-                setAuthToken(data.token);
                 toast.success(`Bienvenue ${data.user.firstName || data.user.name} !`);
                 setShowUserLogin(false);
             } else {

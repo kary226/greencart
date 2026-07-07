@@ -1,45 +1,48 @@
 import jwt from 'jsonwebtoken';
 
 const authUser = async (req, res, next) => {
-    // Récupérer le token depuis le header Authorization
-    const authHeader = req.headers.authorization;
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        // ✅ Renvoyer une réponse 401 avec indicateur de redirection
-        return res.status(401).json({ 
-            success: false, 
+    // [MIGRATION cookie httpOnly] Le token est maintenant lu depuis le
+    // cookie httpOnly 'token' (posé par login/register/googleAuth).
+    // On garde une lecture du header Authorization en secours (compatibilité
+    // avec d'éventuels appels API externes), mais le cookie est la source
+    // normale désormais.
+    const token = req.cookies?.token
+        || (req.headers.authorization?.startsWith('Bearer ')
+            ? req.headers.authorization.split(' ')[1]
+            : null);
+
+    if (!token) {
+        return res.status(401).json({
+            success: false,
             message: 'Veuillez vous connecter pour continuer',
-            redirectToLogin: true 
+            redirectToLogin: true
         });
     }
-    
-    const token = authHeader.split(' ')[1];
 
     try {
         const tokenDecode = jwt.verify(token, process.env.JWT_SECRET);
         if (tokenDecode.id) {
             req.body.userId = tokenDecode.id;
         } else {
-            return res.status(401).json({ 
-                success: false, 
+            return res.status(401).json({
+                success: false,
                 message: 'Session expirée, veuillez vous reconnecter',
-                redirectToLogin: true 
+                redirectToLogin: true
             });
         }
         next();
     } catch (error) {
-        // ✅ Gestion des erreurs de token (expiré, invalide)
         if (error.name === 'TokenExpiredError') {
-            return res.status(401).json({ 
-                success: false, 
+            return res.status(401).json({
+                success: false,
                 message: 'Session expirée, veuillez vous reconnecter',
-                redirectToLogin: true 
+                redirectToLogin: true
             });
         }
-        return res.status(401).json({ 
-            success: false, 
+        return res.status(401).json({
+            success: false,
             message: 'Token invalide, veuillez vous reconnecter',
-            redirectToLogin: true 
+            redirectToLogin: true
         });
     }
 };

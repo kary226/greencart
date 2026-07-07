@@ -126,8 +126,8 @@ const SellerLayout = () => {
         try {
             const { data } = await axios.get('/api/seller/logout');
             if(data.success){
-                localStorage.removeItem('sellerToken');
-                delete axios.defaults.headers.common['Authorization'];
+                localStorage.removeItem('isSeller');
+                localStorage.removeItem('sellerData');
                 setIsSeller(false);
                 toast.success(data.message);
                 navigate('/seller');

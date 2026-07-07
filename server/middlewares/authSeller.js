@@ -1,17 +1,21 @@
 import jwt from 'jsonwebtoken';
 
 const authSeller = async (req, res, next) => {
-    const authHeader = req.headers.authorization;
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // [MIGRATION cookie httpOnly] Le token vendeur est maintenant lu depuis
+    // le cookie httpOnly 'sellerToken'. Header Authorization gardé en
+    // secours pour compatibilité.
+    const token = req.cookies?.sellerToken
+        || (req.headers.authorization?.startsWith('Bearer ')
+            ? req.headers.authorization.split(' ')[1]
+            : null);
+
+    if (!token) {
         return res.json({ success: false, message: 'Not Authorized - Token manquant' });
     }
-    
-    const token = authHeader.split(' ')[1];
 
     try {
         const tokenDecode = jwt.verify(token, process.env.JWT_SECRET);
-        
+
         if (tokenDecode.email === process.env.SELLER_EMAIL) {
             next();
         } else {

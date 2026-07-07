@@ -17,8 +17,6 @@ const SellerLogin = () => {
         try {
             const { data } = await axios.post('/api/seller/login', { email, password })
             if (data.success) {
-                localStorage.setItem('sellerToken', data.token);
-                axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
                 setIsSeller(true);
                 toast.success("Connexion admin réussie");
                 navigate('/seller');
@@ -33,13 +31,15 @@ const SellerLogin = () => {
     }
 
     useEffect(() => {
-        const sellerToken = localStorage.getItem('sellerToken');
-        if (sellerToken) {
-            axios.defaults.headers.common['Authorization'] = `Bearer ${sellerToken}`;
-            setIsSeller(true);
+        // [MIGRATION cookie httpOnly] On ne peut plus lire le token pour
+        // savoir si un vendeur est déjà connecté (il est dans un cookie
+        // httpOnly, invisible pour JS). AppContext vérifie ça au chargement
+        // via fetchSeller() qui interroge /api/seller/is-auth ; on se
+        // contente ici de rediriger si isSeller est déjà true.
+        if (isSeller) {
             navigate("/seller");
         }
-    }, [isSeller, navigate, setIsSeller, axios]);
+    }, [isSeller, navigate]);
 
     if (isSeller) return null;
 

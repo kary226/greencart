@@ -3,19 +3,23 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 
-// [FIX sécurité] Pose le token dans un cookie httpOnly, en plus de le
-// renvoyer dans le JSON (pour l'instant — le JSON sera retiré une fois
-// le client migré). httpOnly = invisible pour JavaScript, donc invisible
-// pour une éventuelle faille XSS. sameSite: 'none' + secure: true car le
-// client (ramci.ci) et ce serveur sont sur deux domaines différents
-// (cookie "cross-site").
+// [FIX sécurité] Pose le token dans un cookie httpOnly. httpOnly = invisible
+// pour JavaScript, donc invisible pour une éventuelle faille XSS.
+// sameSite: 'lax' + domain: '.ramci.ci' fonctionnent car le client
+// (www.ramci.ci) et cette API (api.ramci.ci) partagent le même domaine
+// racine ramci.ci — le cookie est donc "same-site", pas bloqué par les
+// navigateurs (contrairement à 'none' qui était nécessaire quand l'API
+// était sur greencart-y.vercel.app, un domaine complètement différent).
+const COOKIE_OPTIONS = {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    domain: '.ramci.ci',
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 jours, comme la durée de vie du JWT
+};
+
 const setTokenCookie = (res, token) => {
-    res.cookie('token', token, {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'none',
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 jours, comme la durée de vie du JWT
-    });
+    res.cookie('token', token, COOKIE_OPTIONS);
 };
 
 const getFullName = (firstName, lastName) => {
@@ -81,8 +85,7 @@ export const register = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 phone: user.phone || ''
-            },
-            token
+            }
         });
     } catch (error) {
         console.log(error.message);
@@ -132,8 +135,7 @@ export const login = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 phone: user.phone || ''
-            },
-            token
+            }
         });
     } catch (error) {
         console.log(error.message);
@@ -170,11 +172,7 @@ export const isAuth = async (req, res) => {
 
 export const logout = async (req, res) => {
     try {
-        res.clearCookie('token', {
-            httpOnly: true,
-            secure: true,
-            sameSite: 'none'
-        });
+        res.clearCookie('token', COOKIE_OPTIONS);
         return res.json({ success: true, message: "Déconnexion réussie" });
     } catch (error) {
         console.log(error.message);
@@ -301,8 +299,7 @@ export const googleAuth = async (req, res) => {
                 email: user.email,
                 phone: user.phone || '',
                 avatar: user.avatar || ''
-            },
-            token
+            }
         });
     } catch (error) {
         console.log('Google auth error:', error.message);

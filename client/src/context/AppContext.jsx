@@ -3,28 +3,19 @@ import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import axios from "axios";
 
-axios.defaults.withCredentials = false;
+// [MIGRATION cookie httpOnly] withCredentials: true = le navigateur envoie
+// automatiquement le cookie httpOnly (posé par le serveur) sur chaque
+// requête vers l'API, sans que le JS ait jamais besoin de le lire ou de
+// le manipuler lui-même. Fonctionne maintenant que client (www.ramci.ci)
+// et API (api.ramci.ci) partagent le même domaine racine ramci.ci.
+axios.defaults.withCredentials = true;
 axios.defaults.baseURL = import.meta.env.VITE_BACKEND_URL;
 
-const getToken = () => localStorage.getItem('token');
 const getIsSeller = () => localStorage.getItem('isSeller') === 'true';
 const getSellerData = () => {
     const sellerData = localStorage.getItem('sellerData');
     return sellerData ? JSON.parse(sellerData) : null;
 };
-
-const setAuthToken = (token) => {
-    if (token) {
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    } else {
-        delete axios.defaults.headers.common['Authorization'];
-    }
-};
-
-const initialToken = getToken();
-if (initialToken) {
-    setAuthToken(initialToken);
-}
 
 const RECENTLY_VIEWED_KEY = 'greencart_recently_viewed';
 const CART_KEY = 'greencart_cart';
@@ -50,7 +41,6 @@ export const AppContextProvider = ({ children }) => {
     const navigate = useNavigate();
 
     const [user, setUser] = useState(null);
-    const [token, setToken] = useState(getToken());
     const [isSeller, setIsSeller] = useState(getIsSeller);
     const [showUserLogin, setShowUserLogin] = useState(false);
     const [products, setProducts] = useState([]);
@@ -116,16 +106,8 @@ export const AppContextProvider = ({ children }) => {
     };
 
     const fetchSeller = async () => {
-        const token = getToken();
-        if (!token) {
-            setIsSeller(false);
-            return;
-        }
-        
         try {
-            const { data } = await axios.get('/api/seller/is-auth', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const { data } = await axios.get('/api/seller/is-auth');
             if (data.success) {
                 setIsSeller(true);
                 localStorage.setItem('isSeller', 'true');
@@ -145,18 +127,13 @@ export const AppContextProvider = ({ children }) => {
         }
     };
 
-    const fetchUser = async () => {
-        const token = getToken();
-        if (!token) return;
-        
+    const fetchUser = async (silent = false) => {
         if (window.location.pathname.includes('/seller')) {
             return;
         }
-        
+
         try {
-            const { data } = await axios.get('/api/user/is-auth', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const { data } = await axios.get('/api/user/is-auth');
             if (data.success) {
                 setUser(data.user);
                 const localCart = loadCartFromLocalStorage();
@@ -168,7 +145,12 @@ export const AppContextProvider = ({ children }) => {
                 setUser(null);
             }
         } catch (error) {
-            if (!window.location.pathname.includes('/seller')) {
+            // silent = true lors du chargement initial de la page : un 401
+            // à ce moment-là signifie simplement "visiteur non connecté",
+            // ce n'est pas une session expirée à signaler. On ne montre la
+            // popup de reconnexion que pour les appels explicites (après une
+            // action utilisateur), pas au chargement silencieux de la page.
+            if (!silent && !window.location.pathname.includes('/seller')) {
                 if (error.response?.data?.redirectToLogin) {
                     setShowUserLogin(true);
                 }
@@ -327,10 +309,6 @@ export const AppContextProvider = ({ children }) => {
         try {
             const { data } = await axios.post('/api/user/login', { email, password });
             if (data.success) {
-                localStorage.setItem('token', data.token);
-                setToken(data.token);
-                setAuthToken(data.token);
-                
                 const localCart = loadCartFromLocalStorage();
                 setUser(data.user);
                 const serverCart = data.user.cartItems || {};
@@ -357,10 +335,6 @@ export const AppContextProvider = ({ children }) => {
                 password
             });
             if (data.success) {
-                localStorage.setItem('token', data.token);
-                setToken(data.token);
-                setAuthToken(data.token);
-                
                 const localCart = loadCartFromLocalStorage();
                 setUser(data.user);
                 setCartItems(localCart);
@@ -382,11 +356,8 @@ export const AppContextProvider = ({ children }) => {
             }
             
             await axios.post('/api/user/logout');
-            localStorage.removeItem('token');
             localStorage.removeItem('isSeller');
             localStorage.removeItem('sellerData');
-            setToken(null);
-            setAuthToken(null);
             setUser(null);
             setIsSeller(false);
             
@@ -404,13 +375,10 @@ export const AppContextProvider = ({ children }) => {
         try {
             const { data } = await axios.post('/api/seller/login', { email, password });
             if (data.success) {
-                localStorage.setItem('token', data.token);
-                setToken(data.token);
                 localStorage.setItem('isSeller', 'true');
                 if (data.seller) {
                     localStorage.setItem('sellerData', JSON.stringify(data.seller));
                 }
-                setAuthToken(data.token);
                 setIsSeller(true);
                 setUser(data.seller);
                 toast.success("Connexion vendeur réussie");
@@ -424,11 +392,8 @@ export const AppContextProvider = ({ children }) => {
     };
 
     const logoutSeller = () => {
-        localStorage.removeItem('token');
         localStorage.removeItem('isSeller');
         localStorage.removeItem('sellerData');
-        setToken(null);
-        setAuthToken(null);
         setIsSeller(false);
         setUser(null);
         toast.success("Déconnexion vendeur réussie");
@@ -557,21 +522,13 @@ export const AppContextProvider = ({ children }) => {
     }, [user]);
 
     useEffect(() => {
-        const token = getToken();
         const isOnSellerPage = window.location.pathname.includes('/seller');
-        
-        if (token) {
-            if (isOnSellerPage) {
-                fetchSeller();
-            } else {
-                fetchUser();
-                fetchSeller();
-            }
+
+        if (isOnSellerPage) {
+            fetchSeller();
         } else {
-            setCartItems(loadCartFromLocalStorage());
-            if (!isOnSellerPage) {
-                setIsSeller(false);
-            }
+            fetchUser(true); // silent = true : pas de popup de connexion si visiteur anonyme
+            fetchSeller();
         }
         fetchProducts();
         loadRecentlyViewed();
@@ -601,7 +558,7 @@ export const AppContextProvider = ({ children }) => {
     }, [cartItems]);
 
     const value = {
-        navigate, user, setUser, token, setToken,
+        navigate, user, setUser,
         setIsSeller, isSeller,
         showUserLogin, setShowUserLogin, products, currency,
         addToCart, addToCartWithQuantity, updateCartItem, removeFromCart, cartItems,
@@ -613,8 +570,7 @@ export const AppContextProvider = ({ children }) => {
         recentlyViewed, addToRecentlyViewed,
         orders,
         canInstallPWA, isPWAInstalled, installPWA,
-        subscribeToPushNotifications,
-        setAuthToken
+        subscribeToPushNotifications
     };
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
