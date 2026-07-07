@@ -33,6 +33,9 @@ const ProductDetails = () => {
   const [showReturnPolicy, setShowReturnPolicy] = useState(false);
   const [returnPolicy, setReturnPolicy] = useState('');
   const [reviewsKey, setReviewsKey] = useState(0);
+  
+  // ✅ État pour la vidéo
+  const [showVideo, setShowVideo] = useState(false);
 
   const scrollContainerRef = useRef(null);
   const thumbnailRefs = useRef([]);
@@ -347,6 +350,11 @@ const ProductDetails = () => {
     ? Math.round(((currentPrice - currentOfferPrice) / currentPrice) * 100)
     : null;
 
+  // ✅ Déterminer si c'est un lien YouTube
+  const isYouTube = product.video?.includes('youtube.com') || product.video?.includes('youtu.be');
+  const isVimeo = product.video?.includes('vimeo.com');
+  const isDirectVideo = product.video && !isYouTube && !isVimeo;
+
   return (
     <>
       <SEO
@@ -408,6 +416,66 @@ const ProductDetails = () => {
                     <img src={img} alt="" />
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* ✅ AFFICHAGE DE LA VIDÉO */}
+            {product.video && (
+              <div className="pd-video-wrapper">
+                {!showVideo ? (
+                  <div 
+                    className="pd-video-thumbnail"
+                    onClick={() => setShowVideo(true)}
+                  >
+                    <img 
+                      src={allImages[0] || '/placeholder.jpg'} 
+                      alt={`Vidéo ${product.name}`}
+                      className="pd-video-thumb-img"
+                    />
+                    <div className="pd-video-play-btn">
+                      <svg className="pd-video-play-icon" viewBox="0 0 24 24" fill="currentColor">
+                        <polygon points="5,3 19,12 5,21"/>
+                      </svg>
+                    </div>
+                    <span className="pd-video-label">▶ Regarder la vidéo</span>
+                  </div>
+                ) : (
+                  <div className="pd-video-container">
+                    {isYouTube ? (
+                      <iframe
+                        src={product.video.replace('watch?v=', 'embed/').split('&')[0]}
+                        className="pd-video-iframe"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        title={`Vidéo ${product.name}`}
+                        loading="lazy"
+                      />
+                    ) : isVimeo ? (
+                      <iframe
+                        src={product.video.replace('vimeo.com/', 'player.vimeo.com/video/')}
+                        className="pd-video-iframe"
+                        allow="autoplay; fullscreen; picture-in-picture"
+                        allowFullScreen
+                        title={`Vidéo ${product.name}`}
+                        loading="lazy"
+                      />
+                    ) : isDirectVideo ? (
+                      <video
+                        src={product.video}
+                        className="pd-video-player"
+                        controls
+                        poster={allImages[0]}
+                        preload="none"
+                      />
+                    ) : null}
+                    <button
+                      onClick={() => setShowVideo(false)}
+                      className="pd-video-close"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -500,7 +568,6 @@ const ProductDetails = () => {
               )}
             </div>
 
-            {/* ✅ NOUVEAU : Politique de retour */}
             {returnPolicy && (
               <div className="pd-return-policy">
                 <button
@@ -740,6 +807,144 @@ const ProductDetails = () => {
             min-width: 38px;
             max-width: 38px;
             height: 38px;
+          }
+        }
+
+        /* ✅ VIDÉO - STYLES */
+        .pd-video-wrapper {
+          margin-top: 10px;
+          border-radius: 0;
+          overflow: hidden;
+          background: #0a0a0a;
+          width: 100%;
+        }
+
+        .pd-video-thumbnail {
+          position: relative;
+          cursor: pointer;
+          aspect-ratio: 16/9;
+          overflow: hidden;
+          background: #1a1a1a;
+        }
+
+        .pd-video-thumb-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          opacity: 0.8;
+          transition: opacity 0.3s ease;
+        }
+
+        .pd-video-thumbnail:hover .pd-video-thumb-img {
+          opacity: 1;
+        }
+
+        .pd-video-play-btn {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: 64px;
+          height: 64px;
+          border-radius: 50%;
+          background: rgba(229, 57, 53, 0.9);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.3s ease;
+          box-shadow: 0 4px 20px rgba(229, 57, 53, 0.4);
+        }
+
+        .pd-video-thumbnail:hover .pd-video-play-btn {
+          transform: translate(-50%, -50%) scale(1.1);
+          background: rgba(229, 57, 53, 1);
+        }
+
+        .pd-video-play-icon {
+          width: 28px;
+          height: 28px;
+          color: white;
+          margin-left: 4px;
+        }
+
+        .pd-video-label {
+          position: absolute;
+          bottom: 16px;
+          left: 50%;
+          transform: translateX(-50%);
+          color: white;
+          font-size: 12px;
+          font-weight: 600;
+          background: rgba(0,0,0,0.6);
+          padding: 4px 16px;
+          border-radius: 20px;
+          backdrop-filter: blur(4px);
+          letter-spacing: 0.5px;
+        }
+
+        .pd-video-container {
+          position: relative;
+          aspect-ratio: 16/9;
+          background: #0a0a0a;
+        }
+
+        .pd-video-iframe {
+          width: 100%;
+          height: 100%;
+          border: none;
+        }
+
+        .pd-video-player {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          background: #0a0a0a;
+        }
+
+        .pd-video-close {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: rgba(0,0,0,0.7);
+          color: white;
+          border: none;
+          font-size: 16px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s ease;
+          backdrop-filter: blur(4px);
+          z-index: 5;
+        }
+
+        .pd-video-close:hover {
+          background: rgba(0,0,0,0.9);
+          transform: scale(1.05);
+        }
+
+        @media (max-width: 480px) {
+          .pd-video-play-btn {
+            width: 48px;
+            height: 48px;
+          }
+          .pd-video-play-icon {
+            width: 20px;
+            height: 20px;
+          }
+          .pd-video-label {
+            font-size: 10px;
+            padding: 3px 12px;
+          }
+          .pd-video-close {
+            width: 28px;
+            height: 28px;
+            font-size: 13px;
+            top: 6px;
+            right: 6px;
           }
         }
 
@@ -1044,9 +1249,6 @@ const ProductDetails = () => {
           height: auto;
         }
 
-        /* ============================================
-           POLITIQUE DE RETOUR - NOUVEAU
-           ============================================ */
         .pd-return-policy {
           margin-top: 12px;
           border-top: 1px solid #f0ede8;

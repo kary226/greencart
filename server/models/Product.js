@@ -22,7 +22,18 @@ const productSchema = new mongoose.Schema({
     
     // Stock pour les produits SIMPLES (sans variantes)
     stock: { type: Number, default: 0 },
-    size: { type: String, default: null }  // Taille optionnelle pour produit simple
+    size: { type: String, default: null },  // Taille optionnelle pour produit simple
+    
+    // ✅ VIDEO DU PRODUIT (optionnel)
+    video: { 
+        type: String, 
+        default: null 
+    },
+    // ✅ Public ID pour la suppression de la vidéo sur Cloudinary
+    videoPublicId: { 
+        type: String, 
+        default: null 
+    }
     
 }, { timestamps: true });
 

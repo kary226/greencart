@@ -1,12 +1,14 @@
 import { v2 as cloudinary } from "cloudinary"
 import Product from "../models/Product.js"
 
-// Add Product : /api/product/add
+// ✅ Add Product - AVEC VIDÉO
 export const addProduct = async (req, res) => {
     try {
         let productData = JSON.parse(req.body.productData)
-        const images = req.files
+        const images = req.files?.images || []
+        const videoFile = req.files?.video ? req.files.video[0] : null
 
+        // Upload des images
         let imagesUrl = await Promise.all(
             images.map(async (item) => {
                 let result = await new Promise((resolve, reject) => {
@@ -22,6 +24,34 @@ export const addProduct = async (req, res) => {
                 return result.secure_url;
             })
         )
+
+        // ✅ Upload de la vidéo si présente
+        let videoUrl = null
+        let videoPublicId = null
+        if (videoFile) {
+            try {
+                const result = await new Promise((resolve, reject) => {
+                    const uploadStream = cloudinary.uploader.upload_stream(
+                        { 
+                            resource_type: 'video',
+                            folder: 'products/videos',
+                            chunk_size: 6000000 // 6MB chunks pour les gros fichiers
+                        },
+                        (error, result) => {
+                            if (error) reject(error);
+                            else resolve(result);
+                        }
+                    );
+                    uploadStream.end(videoFile.buffer);
+                });
+                videoUrl = result.secure_url;
+                videoPublicId = result.public_id;
+                console.log('📹 Vidéo uploadée:', videoUrl);
+            } catch (videoError) {
+                console.error('❌ Erreur upload vidéo:', videoError);
+                // On continue sans vidéo en cas d'erreur
+            }
+        }
 
         const processedVariants = (productData.variants || []).map(variant => ({
             color: variant.color,
@@ -53,6 +83,8 @@ export const addProduct = async (req, res) => {
             stock: hasVariants ? totalStock : (productData.stock || 0),
             size: hasVariants ? null : (productData.size || null),
             inStock: hasVariants ? processedVariants.some(v => v.stock > 0) : (productData.stock > 0),
+            video: videoUrl,           // ✅ AJOUTÉ
+            videoPublicId: videoPublicId // ✅ AJOUTÉ
         })
 
         res.json({ success: true, message: "Product Added" })
@@ -163,12 +195,13 @@ export const changeStock = async (req, res) => {
     }
 }
 
-// ✅ UPDATE PRODUCT - CORRIGÉ
+// ✅ UPDATE PRODUCT - AVEC VIDÉO
 export const updateProduct = async (req, res) => {
     try {
-        const { id, name, description, categories, price, offerPrice, variants, stock, size } = req.body
+        const { id, name, description, categories, price, offerPrice, variants, stock, size, videoUrl, videoPublicId } = req.body
+        const videoFile = req.file // Si une nouvelle vidéo est uploadée
 
-        console.log('📥 Données reçues du frontend:', { id, name, size, stock, hasVariants: variants?.length > 0 })
+        console.log('📥 Données reçues:', { id, name, size, stock, hasVariants: variants?.length > 0 })
 
         const hasVariants = variants && variants.length > 0
         
@@ -194,10 +227,8 @@ export const updateProduct = async (req, res) => {
             ? processedVariants.some(v => v.stock > 0) 
             : totalStock > 0
 
-        // ✅ Gestion correcte de la description
         let descriptionToSave = description
         if (typeof description === 'string') {
-            // Si c'est une chaîne HTML (ReactQuill), on la garde telle quelle
             descriptionToSave = description
         } else if (Array.isArray(description)) {
             descriptionToSave = description.join('\n')
@@ -214,11 +245,55 @@ export const updateProduct = async (req, res) => {
             inStock,
         }
 
-        // ✅ Ajouter size UNIQUEMENT si c'est un produit simple (sans variantes)
         if (!hasVariants) {
             updateData.size = size || null
         } else {
             updateData.size = null
+        }
+
+        // ✅ Gestion de la vidéo
+        // Si une nouvelle vidéo est uploadée
+        if (videoFile) {
+            // Supprimer l'ancienne vidéo si elle existe
+            const existingProduct = await Product.findById(id);
+            if (existingProduct?.videoPublicId) {
+                try {
+                    await cloudinary.uploader.destroy(existingProduct.videoPublicId, {
+                        resource_type: 'video'
+                    });
+                    console.log('🗑️ Ancienne vidéo supprimée:', existingProduct.videoPublicId);
+                } catch (error) {
+                    console.error('❌ Erreur suppression vidéo:', error);
+                }
+            }
+
+            // Uploader la nouvelle vidéo
+            try {
+                const result = await new Promise((resolve, reject) => {
+                    const uploadStream = cloudinary.uploader.upload_stream(
+                        { 
+                            resource_type: 'video',
+                            folder: 'products/videos',
+                            chunk_size: 6000000
+                        },
+                        (error, result) => {
+                            if (error) reject(error);
+                            else resolve(result);
+                        }
+                    );
+                    uploadStream.end(videoFile.buffer);
+                });
+                updateData.video = result.secure_url;
+                updateData.videoPublicId = result.public_id;
+                console.log('📹 Nouvelle vidéo uploadée:', result.secure_url);
+            } catch (videoError) {
+                console.error('❌ Erreur upload vidéo:', videoError);
+            }
+        } 
+        // Si une URL vidéo est fournie (lien YouTube/Vimeo)
+        else if (videoUrl) {
+            updateData.video = videoUrl;
+            updateData.videoPublicId = null;
         }
 
         console.log('📤 Données à enregistrer:', updateData)
@@ -232,10 +307,29 @@ export const updateProduct = async (req, res) => {
     }
 }
 
-// Delete Product : /api/product/delete
+// ✅ Delete Product - AVEC SUPPRESSION VIDÉO
 export const deleteProduct = async (req, res) => {
     try {
         const { id } = req.body
+        const product = await Product.findById(id)
+        
+        if (product) {
+            // Supprimer la vidéo si elle existe
+            if (product.videoPublicId) {
+                try {
+                    await cloudinary.uploader.destroy(product.videoPublicId, {
+                        resource_type: 'video'
+                    });
+                    console.log('🗑️ Vidéo supprimée:', product.videoPublicId);
+                } catch (error) {
+                    console.error('❌ Erreur suppression vidéo:', error);
+                }
+            }
+            
+            // Supprimer les images (optionnel)
+            // Les images sont déjà gérées ailleurs
+        }
+        
         await Product.findByIdAndDelete(id)
         res.json({ success: true, message: "Product Deleted" })
     } catch (error) {

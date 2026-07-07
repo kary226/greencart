@@ -9,6 +9,8 @@ import { resizeAndConvertToWebP } from '../../utils/resizeImage';
 const AddProduct = () => {
 
     const [files, setFiles] = useState([]);
+    const [videoFile, setVideoFile] = useState(null); // ✅ NOUVEAU
+    const [videoPreview, setVideoPreview] = useState(''); // ✅ NOUVEAU
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [selectedCategories, setSelectedCategories] = useState([]);
@@ -277,6 +279,31 @@ const AddProduct = () => {
         }
     };
 
+    // ✅ Gestion de la vidéo
+    const handleVideoSelect = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            // Vérifier que c'est une vidéo
+            if (!file.type.startsWith('video/')) {
+                toast.error('Veuillez sélectionner une vidéo');
+                return;
+            }
+            // Vérifier la taille (max 100MB)
+            if (file.size > 100 * 1024 * 1024) {
+                toast.error('La vidéo ne doit pas dépasser 100MB');
+                return;
+            }
+            setVideoFile(file);
+            setVideoPreview(URL.createObjectURL(file));
+            toast.success('Vidéo sélectionnée ✓');
+        }
+    };
+
+    const removeVideo = () => {
+        setVideoFile(null);
+        setVideoPreview('');
+    };
+
     const handleCropComplete = async (croppedFile) => {
         setIsConverting(true);
         try {
@@ -302,7 +329,6 @@ const AddProduct = () => {
             return;
         }
 
-        // ✅ Vérification minimale : au moins un nom
         if (!name.trim()) {
             toast.error('Veuillez entrer un nom de produit');
             return;
@@ -335,7 +361,6 @@ const AddProduct = () => {
             variants,
         };
 
-        // ✅ Stock et taille seulement pour le mode simple
         if (productMode === 'simple') {
             if (simpleStock) {
                 productData.stock = Number(simpleStock);
@@ -350,8 +375,15 @@ const AddProduct = () => {
         const formData = new FormData();
         formData.append('productData', JSON.stringify(productData));
 
+        // ✅ Ajout des images
         for (let i = 0; i < files.length; i++) {
             formData.append('images', files[i])
+        }
+
+        // ✅ Ajout de la vidéo si présente
+        if (videoFile) {
+            formData.append('video', videoFile);
+            console.log('📹 Vidéo ajoutée:', videoFile.name);
         }
 
         try {
@@ -365,6 +397,8 @@ const AddProduct = () => {
                 setPrice('');
                 setOfferPrice('');
                 setFiles([]);
+                setVideoFile(null);
+                setVideoPreview('');
                 setSimpleStock('');
                 setSimpleSize('');
                 setSizesList([]);
@@ -412,6 +446,37 @@ const AddProduct = () => {
                     <p className="text-xs text-gray-400 mt-2">
                         💡 Les images sont automatiquement optimisées en WebP (qualité identique, poids réduit de 70%)
                         {isConverting && <span className="text-blue-500 ml-2">⏳ Conversion en cours...</span>}
+                    </p>
+                </div>
+
+                {/* ✅ AJOUT : Vidéo du produit */}
+                <div className="flex flex-col gap-1 max-w-md">
+                    <label className="text-base font-medium">Vidéo du produit (optionnel)</label>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <label className="px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-primary transition">
+                            <input onChange={handleVideoSelect} type="file" accept="video/*" className="hidden" />
+                            <span className="text-sm text-gray-500">📹 Choisir une vidéo</span>
+                        </label>
+                        {videoPreview && (
+                            <div className="relative">
+                                <video 
+                                    src={videoPreview} 
+                                    className="w-20 h-20 object-cover rounded-lg border border-gray-200"
+                                    controls
+                                    muted
+                                />
+                                <button 
+                                    type="button" 
+                                    onClick={removeVideo}
+                                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">
+                        💡 Vidéo au format MP4, WebM ou MOV (max 100MB). La vidéo s'affichera sur la page produit.
                     </p>
                 </div>
 
