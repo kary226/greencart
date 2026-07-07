@@ -22,23 +22,25 @@ const ProductCardSkeleton = () => (
 );
 
 const Home = () => {
-  const { axios, orders } = useAppContext();
+  const { axios } = useAppContext();
   const [categories, setCategories] = useState([]);
   const [activeSection, setActiveSection] = useState("trends");
   
-  const [allProducts, setAllProducts] = useState([]);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  
+  // ✅ États pour les différentes sections (données GLOBALES du serveur)
   const [trendProducts, setTrendProducts] = useState([]);
   const [newProducts, setNewProducts] = useState([]);
   const [dealProducts, setDealProducts] = useState([]);
   
+  // ✅ États pour la pagination
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  
   const observerRef = useRef(null);
   const navigate = useNavigate();
 
+  // ✅ FETCH : Catégories
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -47,116 +49,79 @@ const Home = () => {
       } catch (e) {}
     };
     fetchCategories();
-  }, []);
+  }, [axios]);
 
-  const fetchProducts = async (pageNum = 1, isInitial = false) => {
-    if (isInitial) {
-      setLoading(true);
-    } else {
-      setLoadingMore(true);
-    }
-    
+  // ✅ FETCH : Produits avec tri (GLOBAL)
+  const fetchProductsBySort = async (sort, limit = 12) => {
     try {
-      const { data } = await axios.get(`/api/product/list?page=${pageNum}&limit=12`);
+      const { data } = await axios.get(`/api/product/list?page=1&limit=${limit}&sort=${sort}`);
       if (data.success) {
-        const newProductsList = data.products;
-        
-        if (isInitial) {
-          setAllProducts(newProductsList);
-        } else {
-          setAllProducts(prev => [...prev, ...newProductsList]);
-        }
-        
+        return data.products;
+      }
+      return [];
+    } catch (error) {
+      console.error(`Erreur chargement produits (${sort}):`, error);
+      return [];
+    }
+  };
+
+  // ✅ FETCH : Chargement initial des 3 sections
+  useEffect(() => {
+    const loadAllSections = async () => {
+      setLoading(true);
+      try {
+        // ✅ Charger les 3 sections en parallèle
+        const [trends, news, deals] = await Promise.all([
+          fetchProductsBySort('salesCount', 12),  // ✅ Tendances : plus vendus
+          fetchProductsBySort('createdAt', 12),   // ✅ Nouveautés : plus récents
+          fetchProductsBySort('discount', 12)     // ✅ Promotions : meilleures offres
+        ]);
+
+        setTrendProducts(trends);
+        setNewProducts(news);
+        setDealProducts(deals);
+      } catch (error) {
+        console.error('Erreur chargement des sections:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAllSections();
+  }, [axios]);
+
+  // ✅ FETCH : Chargement pour la pagination (uniquement pour les tendances)
+  const fetchMoreProducts = async (pageNum = 1) => {
+    if (loadingMore || !hasMore) return;
+    
+    setLoadingMore(true);
+    try {
+      const { data } = await axios.get(`/api/product/list?page=${pageNum}&limit=12&sort=salesCount`);
+      if (data.success) {
+        setTrendProducts(prev => [...prev, ...data.products]);
         setHasMore(data.pagination.hasMore);
         setPage(pageNum);
       }
     } catch (error) {
-      console.error("Erreur chargement produits:", error);
+      console.error("Erreur chargement plus de produits:", error);
     } finally {
-      if (isInitial) {
-        setLoading(false);
-      } else {
-        setLoadingMore(false);
-      }
+      setLoadingMore(false);
     }
   };
 
-  useEffect(() => {
-    fetchProducts(1, true);
-  }, []);
-
+  // ✅ Infinite Scroll pour les tendances
   const lastProductRef = useCallback((node) => {
-    if (loadingMore) return;
+    if (loadingMore || activeSection !== 'trends') return;
     if (observerRef.current) observerRef.current.disconnect();
     
     observerRef.current = new IntersectionObserver(entries => {
       if (entries[0].isIntersecting && hasMore && !loadingMore) {
-        fetchProducts(page + 1, false);
+        fetchMoreProducts(page + 1);
       }
     });
     
     if (node) observerRef.current.observe(node);
-  }, [loadingMore, hasMore, page]);
-
-  useEffect(() => {
-    if (allProducts.length > 0) {
-      setTrendProducts(getTrendingProducts());
-      setNewProducts(getNewProducts());
-      setDealProducts(getDealProducts());
-    }
-  }, [allProducts, orders]);
-
-  const getTrendingProducts = () => {
-    if (!allProducts.length) return [];
-    const productSales = {};
-    if (orders && orders.length > 0) {
-      orders.forEach(order => {
-        if (order.items && order.items.length > 0) {
-          order.items.forEach(item => {
-            const productId = item.productId || item._id;
-            const quantity = item.quantity || 1;
-            if (productId) {
-              productSales[productId] = (productSales[productId] || 0) + quantity;
-            }
-          });
-        }
-      });
-    }
-    const productsWithSales = allProducts.map(product => ({
-      ...product,
-      salesCount: productSales[product._id] || 0
-    }));
-    productsWithSales.sort((a, b) => b.salesCount - a.salesCount);
-    return productsWithSales;
-  };
-
-  const getNewProducts = () => {
-    if (!allProducts.length) return [];
-    const sorted = [...allProducts].sort((a, b) => {
-      const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
-      const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
-      return dateB - dateA;
-    });
-    return sorted;
-  };
-
-  const getDealProducts = () => {
-    if (!allProducts.length) return [];
-    const productsWithOffer = allProducts.filter(p => p.offerPrice && p.offerPrice < p.price);
-    const productsWithScore = productsWithOffer.map(product => {
-      const discountPercent = ((product.price - product.offerPrice) / product.price) * 100;
-      const amountSaved = product.price - product.offerPrice;
-      const score = (discountPercent * 0.7) + ((amountSaved / 1000) * 0.3);
-      return {
-        ...product,
-        discountPercent: Math.round(discountPercent),
-        amountSaved: amountSaved,
-        promotionScore: score
-      };
-    });
-    productsWithScore.sort((a, b) => b.promotionScore - a.promotionScore);
-    return productsWithScore;
-  };
+  }, [loadingMore, hasMore, page, activeSection]);
 
   const getSectionProducts = () => {
     switch (activeSection) {
@@ -169,9 +134,8 @@ const Home = () => {
   const sectionProducts = getSectionProducts();
   const activeCategories = categories.filter(c => c.active !== false);
 
-  const bestSellers = trendProducts
-    .filter(p => p.salesCount > 0)
-    .slice(0, BESTSELLERS_COUNT);
+  // ✅ Best-sellers : Top 10 des plus vendus (global)
+  const bestSellers = trendProducts.slice(0, BESTSELLERS_COUNT);
 
   if (loading) {
     return (
@@ -289,6 +253,7 @@ const Home = () => {
             <>
               <div className="ramci-grid">
                 {sectionProducts.map((p, index) => {
+                  // ✅ Seulement pour les tendances (infinite scroll)
                   const isLastItem = index === sectionProducts.length - 1 && activeSection === "trends";
                   return (
                     <div key={p._id} ref={isLastItem ? lastProductRef : null}>
@@ -298,7 +263,7 @@ const Home = () => {
                 })}
               </div>
               
-              {loadingMore && (
+              {loadingMore && activeSection === "trends" && (
                 <div className="ramci-grid ramci-grid-loading-more">
                   {Array.from({ length: 2 }).map((_, i) => (
                     <ProductCardSkeleton key={`more-${i}`} />
@@ -306,9 +271,9 @@ const Home = () => {
                 </div>
               )}
               
-              {!hasMore && sectionProducts.length > 0 && (
+              {!hasMore && activeSection === "trends" && sectionProducts.length > 0 && (
                 <p className="text-center text-gray-400 text-sm mt-6 py-4">
-                  Vous avez vu tous les produits
+                  Vous avez vu tous les produits tendances
                 </p>
               )}
             </>
@@ -337,7 +302,6 @@ const SHARED_STYLES = `
           overflow: hidden;
         }
 
-        /* ✅ BANNIÈRE RESPONSIVE - CORRIGÉ */
         .ramci-hero .banner-carousel,
         .ramci-hero .banner-slide,
         .ramci-hero .banner-image {
@@ -353,7 +317,6 @@ const SHARED_STYLES = `
           display: block;
         }
 
-        /* ✅ SUR MOBILE - BANNIÈRE ADAPTÉE */
         @media (max-width: 768px) {
           .ramci-hero .banner-slide img,
           .ramci-hero .banner-image img {

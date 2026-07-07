@@ -33,9 +33,19 @@ const productSchema = new mongoose.Schema({
     videoPublicId: { 
         type: String, 
         default: null 
+    },
+    
+    // ✅ AJOUT : Compteur de ventes pour les tendances GLOBALES
+    salesCount: {
+        type: Number,
+        default: 0,
+        index: true  // Pour trier rapidement
     }
     
 }, { timestamps: true });
+
+// ✅ AJOUT : Index pour les requêtes "top ventes"
+productSchema.index({ salesCount: -1 });
 
 const Product = mongoose.models.product || mongoose.model('product', productSchema);
 export default Product;

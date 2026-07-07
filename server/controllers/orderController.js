@@ -10,7 +10,6 @@ import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../confi
 import { sendPushToUser } from './pushController.js';
 
 // Messages affichés dans la notification push selon le nouveau statut de la commande.
-// 'Order Placed' n'est pas ici : ce statut initial est déjà couvert par l'email de confirmation.
 const orderStatusPushMessages = {
     'Confirmed': { title: 'Commande confirmée ✅', body: 'Votre commande a été confirmée et est en cours de préparation.' },
     'Shipped': { title: 'Commande expédiée 📦', body: 'Votre commande vient d\'être expédiée.' },
@@ -45,9 +44,17 @@ const calculateEstimatedDeliveryDates = (orderDate) => {
     return { deliveryStart, deliveryEnd };
 };
 
+// ✅ MODIFIÉ : Réduire le stock ET incrémenter les ventes
 const reduceVariantStock = async (items) => {
     for (const item of items) {
-        const product = await Product.findById(item.product)
+        const product = await Product.findById(item.product);
+        if (!product) continue;
+        
+        // ✅ Incrémenter les ventes GLOBALES
+        await Product.findByIdAndUpdate(item.product, {
+            $inc: { salesCount: item.quantity }
+        });
+        
         if (product && product.variants?.length > 0) {
             const variant = product.variants.find(v => 
                 (item.color ? v.color === item.color : !v.color) &&
@@ -173,6 +180,7 @@ export const placeOrderCOD = async (req, res)=>{
             estimatedDeliveryEnd: deliveryEnd
         });
 
+        // ✅ ICI : Réduire le stock ET incrémenter salesCount
         await reduceVariantStock(itemsWithPrice);
         await User.findByIdAndUpdate(userId, {cartItems: {}});
 
@@ -210,8 +218,6 @@ export const updateOrderStatus = async (req, res)=>{
         
         const order = await Order.findByIdAndUpdate(orderId, updateData);
 
-        // 🔔 Notification push : envoyée en arrière-plan (pas de "await"),
-        // pour ne jamais faire attendre la réponse au vendeur/admin.
         const pushContent = orderStatusPushMessages[status];
         if (order && pushContent) {
             sendPushToUser(order.userId, {

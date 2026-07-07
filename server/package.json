@@ -6,7 +6,10 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "server": "nodemon server.js"
+    "server": "nodemon server.js",
+    "migrate-sales": "node scripts/migrateSalesCount.js",
+    "init-sales": "node scripts/initSalesCount.js",
+    "migrate-all": "npm run migrate-sales && npm run init-sales"
   },
   "keywords": [],
   "author": "",
