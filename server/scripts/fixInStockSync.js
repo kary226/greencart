@@ -14,8 +14,16 @@
 // déjà corrects ne sont pas modifiés.
 
 import 'dotenv/config';
+import dns from 'dns';
 import mongoose from 'mongoose';
 import Product from '../models/Product.js';
+
+// [FIX] Erreur "querySrv ETIMEOUT" : le DNS par défaut de Windows (souvent
+// celui de la box/FAI) échoue parfois à résoudre l'enregistrement SRV requis
+// par les URI "mongodb+srv://" de MongoDB Atlas. On force ici la résolution
+// via le DNS public de Google, ce qui contourne le problème dans la grande
+// majorité des cas. Ça n'affecte que ce script, pas le reste de l'app.
+dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 const run = async () => {
     console.log('🔌 Connexion à MongoDB...');

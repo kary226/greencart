@@ -6,6 +6,7 @@ import ProductReviews from "../components/ProductReviews";
 import toast from "react-hot-toast";
 import SEO from "../components/SEO";
 import RecentlyViewed from "../components/RecentlyViewed";
+import DOMPurify from "dompurify";
 
 const ProductDetails = () => {
 
@@ -493,7 +494,7 @@ const ProductDetails = () => {
                 <div className="pd-details-content">
                   <div 
                     className="pd-description-html"
-                    dangerouslySetInnerHTML={{ __html: product.description || '' }}
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(product.description || '') }}
                   />
                 </div>
               )}
@@ -516,7 +517,7 @@ const ProductDetails = () => {
                   <div className="pd-return-policy-content">
                     <div 
                       className="pd-return-policy-html"
-                      dangerouslySetInnerHTML={{ __html: returnPolicy }}
+                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(returnPolicy) }}
                     />
                   </div>
                 )}
