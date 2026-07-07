@@ -1,8 +1,61 @@
 import { assets, footerLinks } from "../assets/assets";
 import { Mail, MapPin, Phone } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const Footer = () => {
     const currentYear = new Date().getFullYear();
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    // ✅ Fonction pour ouvrir Tawk.to
+    const openTawkTo = (e) => {
+        e.preventDefault();
+        if (window.Tawk_API) {
+            window.Tawk_API.showWidget();
+            window.Tawk_API.maximize();
+        } else {
+            const script = document.createElement('script');
+            script.async = true;
+            script.src = 'https://embed.tawk.to/6a26a25d683c831c304cb5ea/1jqjekfae';
+            script.charset = 'UTF-8';
+            script.setAttribute('crossorigin', '*');
+            document.body.appendChild(script);
+            setTimeout(() => {
+                if (window.Tawk_API) {
+                    window.Tawk_API.showWidget();
+                    window.Tawk_API.maximize();
+                }
+            }, 1000);
+        }
+    };
+
+    // ✅ Gestionnaire de clic sur les liens
+    const handleLinkClick = (e, url) => {
+        // Si c'est "Contactez-nous" → ouvrir Tawk.to
+        if (url === '#contact' || url === 'contact') {
+            openTawkTo(e);
+            return;
+        }
+
+        // Si c'est un lien externe
+        if (url.startsWith('http')) {
+            window.open(url, '_blank');
+            return;
+        }
+
+        // Si c'est un lien interne
+        e.preventDefault();
+        
+        // Si on est déjà sur la même page → scroll en haut
+        if (location.pathname === url) {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
+        }
+
+        // Navigation vers une autre page + scroll en haut
+        window.scrollTo({ top: 0 });
+        navigate(url);
+    };
 
     const socialLinks = [
         {
@@ -77,7 +130,8 @@ const Footer = () => {
                                             <li key={i}>
                                                 <a
                                                     href={link.url}
-                                                    className="text-sm text-gray-500 hover:text-red-500 transition-colors duration-200"
+                                                    onClick={(e) => handleLinkClick(e, link.url)}
+                                                    className="text-sm text-gray-500 hover:text-red-500 transition-colors duration-200 cursor-pointer"
                                                     target={link.url.startsWith('http') ? '_blank' : '_self'}
                                                     rel={link.url.startsWith('http') ? 'noopener noreferrer' : ''}
                                                 >
