@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import { authenticator } from 'otplib';
 
 // [FIX M3] Comparaison en temps constant pour éviter les attaques par
 // mesure de temps (timing attack). Une comparaison '===' classique sur
@@ -36,21 +37,35 @@ const setSellerTokenCookie = (res, token) => {
 // Login Seller : /api/seller/login
 export const sellerLogin = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { email, password, totpCode } = req.body;
 
-        // [FIX injection NoSQL] email/password doivent être des chaînes.
-        if (typeof email !== 'string' || typeof password !== 'string') {
+        // [FIX injection NoSQL] email/password/totpCode doivent être des chaînes.
+        if (typeof email !== 'string' || typeof password !== 'string' || typeof totpCode !== 'string') {
             return res.json({ success: false, message: "Invalid Credentials" });
         }
 
-        if (safeEqual(email, process.env.SELLER_EMAIL) && safeEqual(password, process.env.SELLER_PASSWORD)) {
-            const token = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: '7d' });
-            setSellerTokenCookie(res, token);
-
-            return res.json({ success: true, message: "Logged In" });
-        } else {
+        if (!safeEqual(email, process.env.SELLER_EMAIL) || !safeEqual(password, process.env.SELLER_PASSWORD)) {
             return res.json({ success: false, message: "Invalid Credentials" });
         }
+
+        // [FIX 2FA] Deuxième facteur obligatoire : code à 6 chiffres généré
+        // par l'app d'authentification (Google Authenticator / Authy), à
+        // partir du secret SELLER_TOTP_SECRET configuré une seule fois.
+        // Même si le mot de passe est volé ou deviné, l'accès admin reste
+        // protégé sans ce code, qui change toutes les 30 secondes.
+        const isValidCode = authenticator.verify({
+            token: totpCode,
+            secret: process.env.SELLER_TOTP_SECRET
+        });
+
+        if (!isValidCode) {
+            return res.json({ success: false, message: "Code d'authentification invalide" });
+        }
+
+        const token = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        setSellerTokenCookie(res, token);
+
+        return res.json({ success: true, message: "Logged In" });
     } catch (error) {
         console.log(error.message);
         res.json({ success: false, message: error.message });

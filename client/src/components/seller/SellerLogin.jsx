@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react'
 import { useAppContext } from '../../context/AppContext'
 import toast from 'react-hot-toast';
-import { Mail, Lock, LogIn, Store, AlertCircle } from 'lucide-react';
+import { Mail, Lock, LogIn, Store, AlertCircle, ShieldCheck } from 'lucide-react';
 
 const SellerLogin = () => {
     const { isSeller, setIsSeller, navigate, axios } = useAppContext()
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [totpCode, setTotpCode] = useState("");
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
 
@@ -15,7 +16,7 @@ const SellerLogin = () => {
         setLoading(true);
         
         try {
-            const { data } = await axios.post('/api/seller/login', { email, password })
+            const { data } = await axios.post('/api/seller/login', { email, password, totpCode })
             if (data.success) {
                 setIsSeller(true);
                 toast.success("Connexion admin réussie");
@@ -103,6 +104,24 @@ const SellerLogin = () => {
                                 )}
                             </button>
                         </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Code d'authentification (2FA)</label>
+                        <div className="relative">
+                            <ShieldCheck size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input 
+                                onChange={(e) => setTotpCode(e.target.value)} 
+                                value={totpCode}
+                                type="text" 
+                                inputMode="numeric"
+                                maxLength={6}
+                                placeholder="123456" 
+                                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition text-sm tracking-widest" 
+                                required 
+                            />
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1">Code à 6 chiffres généré par ton app d'authentification</p>
                     </div>
 
                     <button 
