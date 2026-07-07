@@ -2,6 +2,9 @@ import PushSubscription from "../models/PushSubscription.js";
 import webpush from "../configs/webpush.js";
 
 // Enregistre (ou met à jour) l'abonnement push d'un utilisateur pour cet appareil/navigateur.
+// [FIX] userId vient désormais du middleware authUser (token vérifié),
+// jamais du body envoyé par le client — avant, n'importe qui pouvait
+// associer un abonnement à un userId arbitraire.
 export const subscribePush = async (req, res) => {
     try {
         const { userId, subscription } = req.body;
@@ -28,13 +31,16 @@ export const subscribePush = async (req, res) => {
 };
 
 // Supprime un abonnement (ex: l'utilisateur désactive les notifications depuis cet appareil).
+// [FIX] On ne supprime que les abonnements appartenant à l'utilisateur
+// authentifié — avant, n'importe qui pouvait désabonner n'importe quel
+// endpoint deviné, même celui de quelqu'un d'autre.
 export const unsubscribePush = async (req, res) => {
     try {
-        const { endpoint } = req.body;
+        const { userId, endpoint } = req.body;
         if (!endpoint) {
             return res.json({ success: false, message: "Endpoint manquant" });
         }
-        await PushSubscription.deleteOne({ endpoint });
+        await PushSubscription.deleteOne({ endpoint, userId });
         res.json({ success: true, message: "Désabonnement effectué" });
     } catch (error) {
         res.json({ success: false, message: error.message });

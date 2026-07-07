@@ -2,6 +2,7 @@ import cookieParser from 'cookie-parser';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import mongoSanitize from 'express-mongo-sanitize';
 import connectDB from './configs/db.js';
 import 'dotenv/config';
 import userRouter from './routes/userRoute.js';
@@ -40,7 +41,6 @@ const allowedOrigins = [
     'https://greencart-five-ochre.vercel.app',
     'https://greencart-y.vercel.app',
     'https://ramci.vercel.app',
-    'https://api.ramci.ci',
     'https://ramci.ci',
     'https://www.ramci.ci'
 ];
@@ -70,6 +70,14 @@ app.use(helmet({
 // Middleware standard
 app.use(express.json());
 app.use(cookieParser());
+
+// [FIX défense en profondeur] Nettoie automatiquement req.body/req.query/
+// req.params de toute clé commençant par '$' ou contenant '.' — ce sont
+// les caractères utilisés par MongoDB pour interpréter une valeur comme un
+// opérateur de requête ($ne, $gt, etc.) plutôt que comme une simple donnée.
+// Ça bloque ce type d'injection NoSQL partout sur le site en une seule
+// ligne, y compris sur du code ajouté plus tard sans y repenser.
+app.use(mongoSanitize());
 
 // Route de test
 app.get('/', (req, res) => res.send("API is Working"));
