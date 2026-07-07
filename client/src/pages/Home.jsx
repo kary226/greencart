@@ -11,8 +11,6 @@ const SECTIONS = [
   { id: "deals",  label: "Promotions" },
 ];
 
-const BESTSELLERS_COUNT = 10;
-
 const ProductCardSkeleton = () => (
   <div className="ramci-skeleton-card">
     <div className="ramci-skeleton-img" />
@@ -134,9 +132,6 @@ const Home = () => {
   const sectionProducts = getSectionProducts();
   const activeCategories = categories.filter(c => c.active !== false);
 
-  // ✅ Best-sellers : Top 10 des plus vendus (global)
-  const bestSellers = trendProducts.slice(0, BESTSELLERS_COUNT);
-
   if (loading) {
     return (
       <>
@@ -203,24 +198,6 @@ const Home = () => {
                 <span className="ramci-cat-label">{cat.name}</span>
               </Link>
             ))}
-          </section>
-        )}
-
-        {bestSellers.length > 0 && (
-          <section className="ramci-bestsellers-section">
-            <div className="ramci-section-header">
-              <h2 className="ramci-section-title ramci-bestsellers-title">
-                <span className="ramci-bestsellers-badge">🔥</span>
-                Les plus vendus
-              </h2>
-            </div>
-            <div className="ramci-bestsellers-scroll">
-              {bestSellers.map((p) => (
-                <div key={p._id} className="ramci-bestsellers-item">
-                  <ProductCard product={p} />
-                </div>
-              ))}
-            </div>
           </section>
         )}
 
@@ -487,42 +464,6 @@ const SHARED_STYLES = `
           color: #bbb;
           font-family: 'DM Sans', sans-serif;
           font-size: 14px;
-        }
-
-        .ramci-bestsellers-section {
-          background: #fff;
-          padding: 20px 0 24px;
-        }
-
-        .ramci-bestsellers-section .ramci-section-header {
-          padding: 0 16px;
-        }
-
-        .ramci-bestsellers-title {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-
-        .ramci-bestsellers-badge {
-          font-size: 17px;
-          line-height: 1;
-        }
-
-        .ramci-bestsellers-scroll {
-          display: flex;
-          gap: 12px;
-          overflow-x: auto;
-          scroll-snap-type: x proximity;
-          scrollbar-width: none;
-          padding: 4px 16px 8px;
-        }
-        .ramci-bestsellers-scroll::-webkit-scrollbar { display: none; }
-
-        .ramci-bestsellers-item {
-          flex: 0 0 auto;
-          width: 152px;
-          scroll-snap-align: start;
         }
 
         @keyframes ramci-shimmer {
