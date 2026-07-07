@@ -1,12 +1,14 @@
 import { v2 as cloudinary } from "cloudinary"
 import Product from "../models/Product.js"
 
-// ✅ Add Product - AVEC VIDÉO
+// ✅ Add Product - AVEC VIDÉO (CORRIGÉ)
 export const addProduct = async (req, res) => {
     try {
         let productData = JSON.parse(req.body.productData)
-        const images = req.files?.images || []
-        const videoFile = req.files?.video ? req.files.video[0] : null
+        
+        // ✅ Récupérer les fichiers (images et vidéo)
+        const images = req.files.images || [];
+        const videoFile = req.files.video ? req.files.video[0] : null;
 
         // Upload des images
         let imagesUrl = await Promise.all(
@@ -35,7 +37,7 @@ export const addProduct = async (req, res) => {
                         { 
                             resource_type: 'video',
                             folder: 'products/videos',
-                            chunk_size: 6000000 // 6MB chunks pour les gros fichiers
+                            chunk_size: 6000000
                         },
                         (error, result) => {
                             if (error) reject(error);
@@ -49,7 +51,6 @@ export const addProduct = async (req, res) => {
                 console.log('📹 Vidéo uploadée:', videoUrl);
             } catch (videoError) {
                 console.error('❌ Erreur upload vidéo:', videoError);
-                // On continue sans vidéo en cas d'erreur
             }
         }
 
@@ -199,7 +200,7 @@ export const changeStock = async (req, res) => {
 export const updateProduct = async (req, res) => {
     try {
         const { id, name, description, categories, price, offerPrice, variants, stock, size, videoUrl, videoPublicId } = req.body
-        const videoFile = req.file // Si une nouvelle vidéo est uploadée
+        const videoFile = req.file
 
         console.log('📥 Données reçues:', { id, name, size, stock, hasVariants: variants?.length > 0 })
 
@@ -254,7 +255,6 @@ export const updateProduct = async (req, res) => {
         // ✅ Gestion de la vidéo
         // Si une nouvelle vidéo est uploadée
         if (videoFile) {
-            // Supprimer l'ancienne vidéo si elle existe
             const existingProduct = await Product.findById(id);
             if (existingProduct?.videoPublicId) {
                 try {
@@ -267,7 +267,6 @@ export const updateProduct = async (req, res) => {
                 }
             }
 
-            // Uploader la nouvelle vidéo
             try {
                 const result = await new Promise((resolve, reject) => {
                     const uploadStream = cloudinary.uploader.upload_stream(
@@ -325,9 +324,6 @@ export const deleteProduct = async (req, res) => {
                     console.error('❌ Erreur suppression vidéo:', error);
                 }
             }
-            
-            // Supprimer les images (optionnel)
-            // Les images sont déjà gérées ailleurs
         }
         
         await Product.findByIdAndDelete(id)

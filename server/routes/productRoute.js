@@ -5,7 +5,12 @@ import { addProduct, addProductImages, changeStock, productList, productById, up
 
 const productRouter = express.Router();
 
-productRouter.post('/add', authSeller, upload.array("images"), addProduct);
+// ✅ MODIFIÉ : Utiliser fields pour accepter images ET video
+productRouter.post('/add', authSeller, upload.fields([
+    { name: 'images', maxCount: 10 },
+    { name: 'video', maxCount: 1 }
+]), addProduct);
+
 productRouter.post('/add-images', authSeller, upload.array("images", 10), addProductImages);
 productRouter.get('/list', productList);
 productRouter.get('/id', productById);

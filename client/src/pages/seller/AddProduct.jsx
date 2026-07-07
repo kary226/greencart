@@ -9,8 +9,8 @@ import { resizeAndConvertToWebP } from '../../utils/resizeImage';
 const AddProduct = () => {
 
     const [files, setFiles] = useState([]);
-    const [videoFile, setVideoFile] = useState(null); // ✅ NOUVEAU
-    const [videoPreview, setVideoPreview] = useState(''); // ✅ NOUVEAU
+    const [videoFile, setVideoFile] = useState(null);
+    const [videoPreview, setVideoPreview] = useState('');
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [selectedCategories, setSelectedCategories] = useState([]);
@@ -283,12 +283,10 @@ const AddProduct = () => {
     const handleVideoSelect = (e) => {
         const file = e.target.files[0];
         if (file) {
-            // Vérifier que c'est une vidéo
             if (!file.type.startsWith('video/')) {
                 toast.error('Veuillez sélectionner une vidéo');
                 return;
             }
-            // Vérifier la taille (max 100MB)
             if (file.size > 100 * 1024 * 1024) {
                 toast.error('La vidéo ne doit pas dépasser 100MB');
                 return;
