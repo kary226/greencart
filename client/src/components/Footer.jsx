@@ -74,10 +74,7 @@ const Footer = () => {
                                 <Mail size={16} className="text-red-500 flex-shrink-0" />
                                 <span>contact@ramci.com</span>
                             </div>
-                            <div className="flex items-center gap-2 text-sm text-gray-500">
-                                <Clock size={16} className="text-red-500 flex-shrink-0" />
-                                <span>Lun - Sam: 8h - 20h</span>
-                            </div>
+                            
                         </div>
                     </div>
 
