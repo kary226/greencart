@@ -38,6 +38,15 @@ export const register = async (req, res) => {
             return res.json({ success: false, message: 'Tous les champs sont requis' });
         }
 
+        // [FIX injection NoSQL] email/password doivent être des chaînes de
+        // caractères. Sans cette vérification, un attaquant pourrait envoyer
+        // { "email": { "$ne": null } } et transformer la requête MongoDB
+        // findOne({ email }) en une recherche par opérateur au lieu d'une
+        // simple égalité.
+        if (typeof email !== 'string' || typeof password !== 'string') {
+            return res.json({ success: false, message: 'Format de données invalide' });
+        }
+
         // M5 : Vérification de robustesse du mot de passe (minimum 8 caractères)
         if (password.length < 8) {
             return res.json({ success: false, message: 'Le mot de passe doit contenir au moins 8 caractères' });
@@ -87,6 +96,12 @@ export const login = async (req, res) => {
 
         if (!email || !password) {
             return res.json({ success: false, message: 'Email et mot de passe requis' });
+        }
+
+        // [FIX injection NoSQL] Même protection que register : email/password
+        // doivent être des chaînes, jamais des objets.
+        if (typeof email !== 'string' || typeof password !== 'string') {
+            return res.json({ success: false, message: 'Format de données invalide' });
         }
 
         const user = await User.findOne({ email });
@@ -361,6 +376,11 @@ export const forgotPassword = async (req, res) => {
     try {
         const { email } = req.body;
 
+        // [FIX injection NoSQL] email doit être une chaîne de caractères.
+        if (typeof email !== 'string') {
+            return res.json({ success: true, message: "Si un compte existe, un lien de réinitialisation a été envoyé." });
+        }
+
         const user = await User.findOne({ email });
 
         // Traiter uniquement si l'utilisateur a un mot de passe (pas un compte Google)
@@ -387,6 +407,18 @@ export const forgotPassword = async (req, res) => {
 export const resetPassword = async (req, res) => {
     try {
         const { token, newPassword } = req.body;
+
+        // [FIX CRITIQUE injection NoSQL] 'token' doit être une chaîne de
+        // caractères. Sans cette vérification, un attaquant pouvait envoyer
+        // { "token": { "$ne": null } } : MongoDB interprète alors ceci comme
+        // l'opérateur "différent de null" au lieu d'une valeur à comparer,
+        // et la requête matche N'IMPORTE QUEL utilisateur ayant actuellement
+        // un token de reset valide et non expiré — permettant de voler le
+        // compte de n'importe quel client ayant demandé une réinitialisation
+        // récemment, sans connaître le vrai token reçu par email.
+        if (typeof token !== 'string') {
+            return res.json({ success: false, message: "Lien invalide ou expiré" });
+        }
 
         // M5 : Vérifier la robustesse du nouveau mot de passe
         if (!newPassword || newPassword.length < 8) {
