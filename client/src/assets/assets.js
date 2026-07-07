@@ -152,7 +152,7 @@ export const footerLinks = [
       { text: "Accueil", url: "/" },
       { text: "Articles populaires", url: "/products" },
       { text: "Offres et promotions", url: "/products?sort=discount" },
-      { text: "Contactez-nous", url: "/contact" },
+      { text: "Contactez-nous", url: "/#max-widget" },
     ]
   },
   {
