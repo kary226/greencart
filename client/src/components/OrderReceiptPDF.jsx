@@ -454,7 +454,7 @@ const OrderReceiptPDF = ({ order, currency }) => {
                 {/* FOOTER */}
                 <View style={styles.footer}>
                     <Text style={styles.footerText}>Merci de votre confiance</Text>
-                    <Text style={styles.footerText}>www.ramci.com | contact@ramci.com</Text>
+                    <Text style={styles.footerText}>www.ramci.com | contactramci@gmail.com</Text>
                     <Text style={styles.footerText}>Ce document fait office de facture</Text>
                 </View>
 
