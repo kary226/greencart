@@ -206,6 +206,15 @@ const ProductDetails = () => {
     setTouchEnd(0);
   };
 
+  // ✅ Navigation avec les flèches
+  const goToPrevMedia = () => {
+    setCurrentMediaIndex(prev => prev === 0 ? totalMedia - 1 : prev - 1);
+  };
+
+  const goToNextMedia = () => {
+    setCurrentMediaIndex(prev => prev === totalMedia - 1 ? 0 : prev + 1);
+  };
+
   const getProductCategory = () => {
     if (product?.categories && product.categories.length > 0) {
       return product.categories[0];
@@ -444,9 +453,17 @@ const ProductDetails = () => {
               {totalMedia > 1 && (
                 <span className="pd-counter">{currentMediaIndex + 1}/{totalMedia}</span>
               )}
+              
+              {/* ✅ FLÈCHES DE NAVIGATION (UNIQUEMENT SUR DESKTOP) */}
+              {totalMedia > 1 && !isMobile && (
+                <>
+                  <button className="pd-nav pd-nav-prev" onClick={goToPrevMedia}>‹</button>
+                  <button className="pd-nav pd-nav-next" onClick={goToNextMedia}>›</button>
+                </>
+              )}
             </div>
 
-            {/* ✅ DOTS (points) - comme avant */}
+            {/* ✅ DOTS (points) */}
             {totalMedia > 1 && (
               <div className="pd-dots">
                 {mediaItems.map((_, i) => (
@@ -459,7 +476,7 @@ const ProductDetails = () => {
               </div>
             )}
 
-            {/* ✅ MINIATURES - comme avant, sans flèches */}
+            {/* ✅ MINIATURES */}
             {totalMedia > 1 && (
               <div className="pd-thumbs" ref={scrollContainerRef}>
                 {mediaItems.map((media, i) => (
@@ -745,6 +762,42 @@ const ProductDetails = () => {
           padding: 2px 8px;
           border-radius: 10px;
           z-index: 3;
+        }
+
+        /* ✅ FLÈCHES DE NAVIGATION (Desktop seulement) */
+        .pd-nav {
+          position: absolute;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          background: rgba(0,0,0,0.4);
+          color: white;
+          border: none;
+          font-size: 20px;
+          cursor: pointer;
+          transition: all 0.2s;
+          z-index: 2;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .pd-nav:hover {
+          background: rgba(0,0,0,0.7);
+          transform: translateY(-50%) scale(1.05);
+        }
+        .pd-nav-prev {
+          left: 12px;
+        }
+        .pd-nav-next {
+          right: 12px;
+        }
+
+        @media (max-width: 768px) {
+          .pd-nav {
+            display: none !important;
+          }
         }
 
         .pd-dots {
