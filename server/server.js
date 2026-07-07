@@ -67,16 +67,17 @@ app.use(helmet({
     crossOriginResourcePolicy: false,
 }));
 
-// Middleware standard
-app.use(express.json());
+// ✅ AJOUT : Middleware standard avec LIMITES AUGMENTÉES
+app.use(express.json({ 
+    limit: '150mb'  // Pour les gros JSON (productData)
+}));
+app.use(express.urlencoded({ 
+    limit: '150mb', 
+    extended: true 
+}));
 app.use(cookieParser());
 
 // [FIX défense en profondeur] Nettoie automatiquement req.body/req.query/
-// req.params de toute clé commençant par '$' ou contenant '.' — ce sont
-// les caractères utilisés par MongoDB pour interpréter une valeur comme un
-// opérateur de requête ($ne, $gt, etc.) plutôt que comme une simple donnée.
-// Ça bloque ce type d'injection NoSQL partout sur le site en une seule
-// ligne, y compris sur du code ajouté plus tard sans y repenser.
 app.use(mongoSanitize());
 
 // Route de test
@@ -96,20 +97,43 @@ app.use('/api/wishlist', wishlistRouter);
 app.use('/api/coupon', couponRouter);
 app.use('/api/location', locationRouter);
 app.use('/api/delivery', deliveryRouter);
-app.use('/api/setting', settingRouter); // ✅ AJOUTÉ
-app.use('/api/push', pushRouter); // 🔔 Notifications push
+app.use('/api/setting', settingRouter);
+app.use('/api/push', pushRouter);
+
+// ✅ AJOUT : Gestionnaire d'erreur global pour les uploads
+app.use((err, req, res, next) => {
+    // Erreur CORS
+    if (err && err.message === 'Origine non autorisée par CORS') {
+        return res.status(403).json({ success: false, message: 'Origine non autorisée' });
+    }
+    
+    // Erreur de taille de payload
+    if (err.type === 'entity.too.large') {
+        return res.status(413).json({ 
+            success: false, 
+            message: 'Les données sont trop volumineuses. Taille max: 150MB' 
+        });
+    }
+    
+    // Erreur Multer déjà gérée dans productRoute.js
+    if (err.code === 'LIMIT_FILE_SIZE' || err.code === 'LIMIT_FILE_COUNT') {
+        return res.status(400).json({ 
+            success: false, 
+            message: err.message 
+        });
+    }
+    
+    // Erreur inattendue
+    console.error('❌ Erreur serveur non gérée:', err);
+    res.status(500).json({ 
+        success: false, 
+        message: 'Erreur interne du serveur' 
+    });
+});
 
 // Démarrage du serveur
 app.listen(port, ()=>{
     console.log(`Server is running on http://localhost:${port}`);
-});
-
-// Gestionnaire d'erreur CORS
-app.use((err, req, res, next) => {
-    if (err && err.message === 'Origine non autorisée par CORS') {
-        return res.status(403).json({ success: false, message: 'Origine non autorisée' });
-    }
-    next(err);
 });
 
 // EXPORT POUR VERCEL (SERVERLESS FUNCTIONS)

@@ -1,22 +1,30 @@
 import multer from "multer";
 
-// [FIX H1] memoryStorage : compatible avec addProduct (productController.js)
-// qui utilise déjà item.buffer pour uploader vers Cloudinary via
-// upload_stream — pas de fichier écrit sur disque, ce qui convient aussi
-// mieux à un environnement serverless (Vercel) sans disque persistant.
-// fileFilter + limits.fileSize empêchent l'upload de fichiers arbitraires
-// ou surdimensionnés.
+// ✅ FILTRE : Accepter images ET vidéos
 const fileFilter = (req, file, cb) => {
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
-    if (allowedTypes.includes(file.mimetype)) {
+    // ✅ Accepter les images
+    if (file.fieldname === 'images' && 
+        (file.mimetype.startsWith('image/'))) {
         cb(null, true);
-    } else {
-        cb(new Error("Type de fichier non autorisé. Seuls JPEG, PNG et WEBP sont acceptés."));
+    }
+    // ✅ Accepter les vidéos
+    else if (file.fieldname === 'video' && 
+             (file.mimetype.startsWith('video/'))) {
+        cb(null, true);
+    }
+    // ❌ Rejeter les autres
+    else {
+        cb(new Error(`Format non autorisé pour le champ "${file.fieldname}". Seuls les images et vidéos sont acceptés.`));
     }
 };
 
+// ✅ CONFIGURATION AVEC LIMITES AUGMENTÉES
 export const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5 Mo par fichier
+    limits: {
+        fileSize: 150 * 1024 * 1024, // 150 MB par fichier (pour les vidéos)
+        files: 15, // 10 images + 1 vidéo + marge
+        fieldSize: 50 * 1024 * 1024, // 50 MB pour les champs texte (productData JSON)
+    },
     fileFilter: fileFilter,
 });

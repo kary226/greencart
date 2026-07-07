@@ -1,56 +1,108 @@
 import { v2 as cloudinary } from "cloudinary"
 import Product from "../models/Product.js"
 
-// ✅ Add Product - AVEC VIDÉO (CORRIGÉ)
+// ✅ Add Product - AVEC VIDÉO (OPTIMISÉ)
 export const addProduct = async (req, res) => {
     try {
+        console.log('📥 Début addProduct');
+        console.log('📦 req.files:', req.files ? 'Présent' : 'Absent');
+        console.log('📦 req.body.productData:', req.body.productData ? 'Présent' : 'Absent');
+        
         let productData = JSON.parse(req.body.productData)
         
-        // ✅ Récupérer les fichiers (images et vidéo)
-        const images = req.files.images || [];
-        const videoFile = req.files.video ? req.files.video[0] : null;
+        // ✅ Récupérer les fichiers avec sécurité
+        const images = req.files?.images || [];
+        const videoFile = req.files?.video ? req.files.video[0] : null;
+
+        console.log(`📸 Images: ${images.length} fichier(s)`);
+        console.log(`📹 Vidéo: ${videoFile ? videoFile.originalname + ' (' + (videoFile.size / 1024 / 1024).toFixed(2) + 'MB)' : 'Aucune'}`);
 
         // Upload des images
-        let imagesUrl = await Promise.all(
-            images.map(async (item) => {
-                let result = await new Promise((resolve, reject) => {
-                    const uploadStream = cloudinary.uploader.upload_stream(
-                        { resource_type: 'image' },
-                        (error, result) => {
-                            if (error) reject(error);
-                            else resolve(result);
-                        }
-                    );
-                    uploadStream.end(item.buffer);
-                });
-                return result.secure_url;
-            })
-        )
+        let imagesUrl = []
+        if (images.length > 0) {
+            console.log('⏳ Upload des images...');
+            imagesUrl = await Promise.all(
+                images.map(async (item, index) => {
+                    try {
+                        console.log(`  📸 Image ${index + 1}/${images.length}...`);
+                        let result = await new Promise((resolve, reject) => {
+                            const uploadStream = cloudinary.uploader.upload_stream(
+                                { 
+                                    resource_type: 'image',
+                                    folder: 'products/images'
+                                },
+                                (error, result) => {
+                                    if (error) reject(error);
+                                    else resolve(result);
+                                }
+                            );
+                            uploadStream.end(item.buffer);
+                        });
+                        console.log(`  ✅ Image ${index + 1} uploadée: ${result.secure_url}`);
+                        return result.secure_url;
+                    } catch (error) {
+                        console.error(`  ❌ Erreur image ${index + 1}:`, error.message);
+                        throw error;
+                    }
+                })
+            );
+        }
 
         // ✅ Upload de la vidéo si présente
         let videoUrl = null
         let videoPublicId = null
         if (videoFile) {
+            console.log('⏳ Upload de la vidéo...');
+            console.log(`📹 Taille: ${(videoFile.size / 1024 / 1024).toFixed(2)}MB`);
+            console.log(`📹 Type: ${videoFile.mimetype}`);
+            
             try {
                 const result = await new Promise((resolve, reject) => {
                     const uploadStream = cloudinary.uploader.upload_stream(
                         { 
                             resource_type: 'video',
                             folder: 'products/videos',
-                            chunk_size: 6000000
+                            chunk_size: 6000000, // 6MB chunks
+                            timeout: 180000, // 3 minutes timeout
+                            eager: [
+                                { 
+                                    format: 'mp4',
+                                    quality: 'auto',
+                                    fetch_format: 'auto'
+                                }
+                            ]
                         },
                         (error, result) => {
-                            if (error) reject(error);
-                            else resolve(result);
+                            if (error) {
+                                console.error('❌ Erreur Cloudinary:', error);
+                                reject(error);
+                            } else {
+                                resolve(result);
+                            }
                         }
                     );
-                    uploadStream.end(videoFile.buffer);
+                    
+                    // ✅ Envoyer le buffer par chunks pour les gros fichiers
+                    const buffer = videoFile.buffer;
+                    const CHUNK_SIZE = 1024 * 1024; // 1MB
+                    let offset = 0;
+                    
+                    while (offset < buffer.length) {
+                        const chunk = buffer.slice(offset, offset + CHUNK_SIZE);
+                        uploadStream.write(chunk);
+                        offset += CHUNK_SIZE;
+                    }
+                    uploadStream.end();
                 });
+                
                 videoUrl = result.secure_url;
                 videoPublicId = result.public_id;
-                console.log('📹 Vidéo uploadée:', videoUrl);
+                console.log('📹 Vidéo uploadée avec succès:', videoUrl);
+                console.log('📹 Public ID:', videoPublicId);
             } catch (videoError) {
-                console.error('❌ Erreur upload vidéo:', videoError);
+                console.error('❌ Erreur upload vidéo:', videoError.message);
+                // ✅ On continue sans vidéo en cas d'erreur
+                // pour ne pas bloquer l'ajout du produit
             }
         }
 
@@ -73,7 +125,9 @@ export const addProduct = async (req, res) => {
             totalStock = productData.stock || 0
         }
 
-        await Product.create({
+        console.log('📝 Création du produit...');
+
+        const product = await Product.create({
             name: productData.name,
             description: productData.description,
             categories: productData.categories,
@@ -84,15 +138,29 @@ export const addProduct = async (req, res) => {
             stock: hasVariants ? totalStock : (productData.stock || 0),
             size: hasVariants ? null : (productData.size || null),
             inStock: hasVariants ? processedVariants.some(v => v.stock > 0) : (productData.stock > 0),
-            video: videoUrl,           // ✅ AJOUTÉ
-            videoPublicId: videoPublicId // ✅ AJOUTÉ
+            video: videoUrl,
+            videoPublicId: videoPublicId
+        });
+
+        console.log('✅ Produit créé avec succès:', product._id);
+        console.log(`📹 Vidéo: ${videoUrl ? 'Présente' : 'Absente'}`);
+
+        res.json({ 
+            success: true, 
+            message: "Product Added",
+            product: {
+                id: product._id,
+                video: videoUrl
+            }
         })
 
-        res.json({ success: true, message: "Product Added" })
-
     } catch (error) {
-        console.log(error.message);
-        res.json({ success: false, message: error.message })
+        console.error('❌ Erreur addProduct:', error.message);
+        console.error('📚 Stack:', error.stack);
+        res.json({ 
+            success: false, 
+            message: error.message 
+        })
     }
 }
 
@@ -196,7 +264,7 @@ export const changeStock = async (req, res) => {
     }
 }
 
-// ✅ UPDATE PRODUCT - AVEC VIDÉO
+// ✅ UPDATE PRODUCT - AVEC VIDÉO (OPTIMISÉ)
 export const updateProduct = async (req, res) => {
     try {
         const { id, name, description, categories, price, offerPrice, variants, stock, size, videoUrl, videoPublicId } = req.body
