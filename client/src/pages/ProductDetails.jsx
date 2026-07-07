@@ -14,7 +14,7 @@ const ProductDetails = () => {
   const { id } = useParams();
   
   const [relatedProducts, setRelatedProducts] = useState([]);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const [selectedColor, setSelectedColor] = useState(null);
   const [selectedSize, setSelectedSize] = useState(null);
   const [variantData, setVariantData] = useState(null);
@@ -33,9 +33,6 @@ const ProductDetails = () => {
   const [showReturnPolicy, setShowReturnPolicy] = useState(false);
   const [returnPolicy, setReturnPolicy] = useState('');
   const [reviewsKey, setReviewsKey] = useState(0);
-  
-  // ✅ État pour la vidéo
-  const [showVideo, setShowVideo] = useState(false);
 
   const scrollContainerRef = useRef(null);
   const thumbnailRefs = useRef([]);
@@ -44,6 +41,42 @@ const ProductDetails = () => {
   const relatedCarouselRef = useRef(null);
 
   const product = products.find((item) => item._id === id);
+
+  // ✅ Fonction pour obtenir tous les médias (images + vidéo)
+  const getAllMedia = () => {
+    const media = [];
+    
+    // Ajouter les images
+    if (product?.image && product.image.length > 0) {
+      product.image.forEach(img => {
+        media.push({ type: 'image', url: img });
+      });
+    }
+    
+    // ✅ Ajouter la vidéo si elle existe
+    if (product?.video) {
+      media.push({ 
+        type: 'video', 
+        url: product.video,
+        poster: product.image?.[0] || null
+      });
+    }
+    
+    return media;
+  };
+
+  const mediaItems = product ? getAllMedia() : [];
+  const totalMedia = mediaItems.length;
+  const currentMedia = mediaItems[currentMediaIndex] || null;
+  const allImages = product?.image || [];
+
+  // ✅ Vérifier si l'élément actuel est une vidéo
+  const isCurrentVideo = currentMedia?.type === 'video';
+
+  // ✅ Déterminer le type de vidéo
+  const isYouTube = (url) => url?.includes('youtube.com') || url?.includes('youtu.be');
+  const isVimeo = (url) => url?.includes('vimeo.com');
+  const isDirectVideo = (url) => url && !isYouTube(url) && !isVimeo(url);
 
   // ✅ Récupérer la politique de retour
   useEffect(() => {
@@ -70,24 +103,24 @@ const ProductDetails = () => {
   }, []);
 
   useEffect(() => {
-    if (scrollContainerRef.current && thumbnailRefs.current[currentImageIndex]) {
-      thumbnailRefs.current[currentImageIndex].scrollIntoView({
+    if (scrollContainerRef.current && thumbnailRefs.current[currentMediaIndex]) {
+      thumbnailRefs.current[currentMediaIndex].scrollIntoView({
         behavior: 'smooth',
         block: 'nearest',
         inline: 'center'
       });
     }
-  }, [currentImageIndex]);
+  }, [currentMediaIndex]);
 
   useEffect(() => {
     if (product && product.variants && product.variants.length > 0) {
       const defaultVariant = product.variants[0];
       setSelectedColor(defaultVariant.color);
       setVariantData(defaultVariant);
-      setCurrentImageIndex(defaultVariant.startImageIndex || 0);
+      setCurrentMediaIndex(defaultVariant.startImageIndex || 0);
     } else {
       setVariantData(null);
-      setCurrentImageIndex(0);
+      setCurrentMediaIndex(0);
     }
   }, [product]);
 
@@ -96,7 +129,7 @@ const ProductDetails = () => {
       const variant = product.variants.find(v => v.color === selectedColor);
       if (variant) {
         setVariantData(variant);
-        setCurrentImageIndex(variant.startImageIndex || 0);
+        setCurrentMediaIndex(variant.startImageIndex || 0);
         setColorError('');
         setHighlightColor(false);
       }
@@ -163,22 +196,14 @@ const ProductDetails = () => {
     const diff = touchStart - touchEnd;
     const threshold = 50;
     if (Math.abs(diff) > threshold) {
-      if (diff > 0 && currentImageIndex < allImages.length - 1) {
-        setCurrentImageIndex(currentImageIndex + 1);
-      } else if (diff < 0 && currentImageIndex > 0) {
-        setCurrentImageIndex(currentImageIndex - 1);
+      if (diff > 0 && currentMediaIndex < totalMedia - 1) {
+        setCurrentMediaIndex(currentMediaIndex + 1);
+      } else if (diff < 0 && currentMediaIndex > 0) {
+        setCurrentMediaIndex(currentMediaIndex - 1);
       }
     }
     setTouchStart(0);
     setTouchEnd(0);
-  };
-
-  const goToPrevImage = () => {
-    setCurrentImageIndex(prev => prev === 0 ? allImages.length - 1 : prev - 1);
-  };
-
-  const goToNextImage = () => {
-    setCurrentImageIndex(prev => prev === allImages.length - 1 ? 0 : prev + 1);
   };
 
   const getProductCategory = () => {
@@ -198,7 +223,6 @@ const ProductDetails = () => {
 
   const uniqueColors = product && product.variants ? [...new Set(product.variants.map(v => v.color).filter(Boolean))] : [];
   const uniqueSizes = product && product.variants ? [...new Set(product.variants.map(v => v.size).filter(Boolean))] : [];
-  const allImages = product?.image || [];
 
   const currentPrice = variantData?.price || product?.price;
   const currentOfferPrice = variantData?.offerPrice || product?.offerPrice;
@@ -333,7 +357,7 @@ const ProductDetails = () => {
     }
     setSelectedColor(null);
     setSelectedSize(null);
-    setCurrentImageIndex(0);
+    setCurrentMediaIndex(0);
     setAverageRating(4);
     setTotalReviews(0);
     setVariantData(null);
@@ -349,11 +373,6 @@ const ProductDetails = () => {
   const discount = currentOfferPrice && currentOfferPrice < currentPrice
     ? Math.round(((currentPrice - currentOfferPrice) / currentPrice) * 100)
     : null;
-
-  // ✅ Déterminer si c'est un lien YouTube
-  const isYouTube = product.video?.includes('youtube.com') || product.video?.includes('youtu.be');
-  const isVimeo = product.video?.includes('vimeo.com');
-  const isDirectVideo = product.video && !isYouTube && !isVimeo;
 
   return (
     <>
@@ -380,102 +399,86 @@ const ProductDetails = () => {
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
             >
-              <img src={allImages[currentImageIndex]} alt={product.name} />
-              {allImages.length > 1 && !isMobile && (
-                <>
-                  <button className="pd-nav pd-nav-prev" onClick={goToPrevImage}>‹</button>
-                  <button className="pd-nav pd-nav-next" onClick={goToNextImage}>›</button>
-                </>
+              {/* ✅ AFFICHAGE : IMAGE ou VIDÉO */}
+              {!isCurrentVideo ? (
+                <img src={currentMedia?.url} alt={product.name} />
+              ) : (
+                <div className="pd-video-slide">
+                  {isYouTube(currentMedia?.url) ? (
+                    <iframe
+                      src={currentMedia.url.replace('watch?v=', 'embed/').split('&')[0] + '?autoplay=1'}
+                      className="pd-video-iframe"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      title={`Vidéo ${product.name}`}
+                      loading="lazy"
+                    />
+                  ) : isVimeo(currentMedia?.url) ? (
+                    <iframe
+                      src={currentMedia.url.replace('vimeo.com/', 'player.vimeo.com/video/') + '?autoplay=1'}
+                      className="pd-video-iframe"
+                      allow="autoplay; fullscreen; picture-in-picture"
+                      allowFullScreen
+                      title={`Vidéo ${product.name}`}
+                      loading="lazy"
+                    />
+                  ) : (
+                    <video
+                      src={currentMedia?.url}
+                      className="pd-video-player"
+                      controls
+                      poster={currentMedia?.poster}
+                      autoPlay
+                      playsInline
+                    />
+                  )}
+                </div>
               )}
-              {allImages.length > 1 && (
-                <span className="pd-counter">{currentImageIndex + 1}/{allImages.length}</span>
+              
+              {/* ✅ Indicateur "VIDÉO" sur le slide */}
+              {isCurrentVideo && (
+                <span className="pd-video-badge">▶ VIDÉO</span>
+              )}
+              
+              {/* ✅ Compteur (X/Y) */}
+              {totalMedia > 1 && (
+                <span className="pd-counter">{currentMediaIndex + 1}/{totalMedia}</span>
               )}
             </div>
 
-            {allImages.length > 1 && (
+            {/* ✅ DOTS (points) - comme avant */}
+            {totalMedia > 1 && (
               <div className="pd-dots">
-                {allImages.map((_, i) => (
+                {mediaItems.map((_, i) => (
                   <span
                     key={i}
-                    className={`pd-dot ${currentImageIndex === i ? 'active' : ''}`}
-                    onClick={() => setCurrentImageIndex(i)}
+                    className={`pd-dot ${currentMediaIndex === i ? 'active' : ''}`}
+                    onClick={() => setCurrentMediaIndex(i)}
                   />
                 ))}
               </div>
             )}
 
-            {allImages.length > 1 && (
+            {/* ✅ MINIATURES - comme avant, sans flèches */}
+            {totalMedia > 1 && (
               <div className="pd-thumbs" ref={scrollContainerRef}>
-                {allImages.map((img, i) => (
+                {mediaItems.map((media, i) => (
                   <div
                     key={i}
                     ref={el => thumbnailRefs.current[i] = el}
-                    className={`pd-thumb ${currentImageIndex === i ? 'active' : ''}`}
-                    onClick={() => setCurrentImageIndex(i)}
+                    className={`pd-thumb ${currentMediaIndex === i ? 'active' : ''}`}
+                    onClick={() => setCurrentMediaIndex(i)}
                   >
-                    <img src={img} alt="" />
+                    {media.type === 'image' ? (
+                      <img src={media.url} alt="" />
+                    ) : (
+                      <div className="pd-thumb-video">
+                        <img src={media.poster || allImages[0] || '/placeholder.jpg'} alt="Vidéo" />
+                        <div className="pd-thumb-play-icon">▶</div>
+                      </div>
+                    )}
                   </div>
                 ))}
-              </div>
-            )}
-
-            {/* ✅ AFFICHAGE DE LA VIDÉO */}
-            {product.video && (
-              <div className="pd-video-wrapper">
-                {!showVideo ? (
-                  <div 
-                    className="pd-video-thumbnail"
-                    onClick={() => setShowVideo(true)}
-                  >
-                    <img 
-                      src={allImages[0] || '/placeholder.jpg'} 
-                      alt={`Vidéo ${product.name}`}
-                      className="pd-video-thumb-img"
-                    />
-                    <div className="pd-video-play-btn">
-                      <svg className="pd-video-play-icon" viewBox="0 0 24 24" fill="currentColor">
-                        <polygon points="5,3 19,12 5,21"/>
-                      </svg>
-                    </div>
-                    <span className="pd-video-label">▶ Regarder la vidéo</span>
-                  </div>
-                ) : (
-                  <div className="pd-video-container">
-                    {isYouTube ? (
-                      <iframe
-                        src={product.video.replace('watch?v=', 'embed/').split('&')[0]}
-                        className="pd-video-iframe"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                        title={`Vidéo ${product.name}`}
-                        loading="lazy"
-                      />
-                    ) : isVimeo ? (
-                      <iframe
-                        src={product.video.replace('vimeo.com/', 'player.vimeo.com/video/')}
-                        className="pd-video-iframe"
-                        allow="autoplay; fullscreen; picture-in-picture"
-                        allowFullScreen
-                        title={`Vidéo ${product.name}`}
-                        loading="lazy"
-                      />
-                    ) : isDirectVideo ? (
-                      <video
-                        src={product.video}
-                        className="pd-video-player"
-                        controls
-                        poster={allImages[0]}
-                        preload="none"
-                      />
-                    ) : null}
-                    <button
-                      onClick={() => setShowVideo(false)}
-                      className="pd-video-close"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                )}
               </div>
             )}
           </div>
@@ -694,24 +697,43 @@ const ProductDetails = () => {
           object-fit: cover;
         }
 
-        .pd-nav {
-          position: absolute;
-          top: 50%;
-          transform: translateY(-50%);
-          width: 32px;
-          height: 32px;
-          border-radius: 50%;
-          background: rgba(0,0,0,0.4);
-          color: white;
-          border: none;
-          font-size: 18px;
-          cursor: pointer;
-          transition: background 0.2s;
-          z-index: 2;
+        /* ✅ VIDÉO DANS LA GALERIE */
+        .pd-video-slide {
+          width: 100%;
+          height: 100%;
+          background: #0a0a0a;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
-        .pd-nav:hover { background: rgba(0,0,0,0.6); }
-        .pd-nav-prev { left: 8px; }
-        .pd-nav-next { right: 8px; }
+
+        .pd-video-iframe {
+          width: 100%;
+          height: 100%;
+          border: none;
+        }
+
+        .pd-video-player {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          background: #0a0a0a;
+        }
+
+        .pd-video-badge {
+          position: absolute;
+          top: 12px;
+          left: 12px;
+          background: rgba(229, 57, 53, 0.9);
+          color: white;
+          font-size: 10px;
+          font-weight: 700;
+          padding: 4px 12px;
+          border-radius: 4px;
+          letter-spacing: 0.5px;
+          z-index: 3;
+          backdrop-filter: blur(4px);
+        }
 
         .pd-counter {
           position: absolute;
@@ -722,6 +744,7 @@ const ProductDetails = () => {
           font-size: 10px;
           padding: 2px 8px;
           border-radius: 10px;
+          z-index: 3;
         }
 
         .pd-dots {
@@ -774,6 +797,7 @@ const ProductDetails = () => {
           opacity: 0.5;
           transition: all 0.2s;
           flex-shrink: 0;
+          position: relative;
         }
 
         .pd-thumb.active {
@@ -786,6 +810,36 @@ const ProductDetails = () => {
           height: 100%;
           object-fit: cover;
           display: block;
+        }
+
+        /* ✅ Miniature vidéo */
+        .pd-thumb-video {
+          position: relative;
+          width: 100%;
+          height: 100%;
+        }
+
+        .pd-thumb-video img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .pd-thumb-play-icon {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          color: white;
+          font-size: 12px;
+          background: rgba(229, 57, 53, 0.8);
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding-left: 2px;
         }
 
         @media (max-width: 480px) {
@@ -807,144 +861,6 @@ const ProductDetails = () => {
             min-width: 38px;
             max-width: 38px;
             height: 38px;
-          }
-        }
-
-        /* ✅ VIDÉO - STYLES */
-        .pd-video-wrapper {
-          margin-top: 10px;
-          border-radius: 0;
-          overflow: hidden;
-          background: #0a0a0a;
-          width: 100%;
-        }
-
-        .pd-video-thumbnail {
-          position: relative;
-          cursor: pointer;
-          aspect-ratio: 16/9;
-          overflow: hidden;
-          background: #1a1a1a;
-        }
-
-        .pd-video-thumb-img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          opacity: 0.8;
-          transition: opacity 0.3s ease;
-        }
-
-        .pd-video-thumbnail:hover .pd-video-thumb-img {
-          opacity: 1;
-        }
-
-        .pd-video-play-btn {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          width: 64px;
-          height: 64px;
-          border-radius: 50%;
-          background: rgba(229, 57, 53, 0.9);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: all 0.3s ease;
-          box-shadow: 0 4px 20px rgba(229, 57, 53, 0.4);
-        }
-
-        .pd-video-thumbnail:hover .pd-video-play-btn {
-          transform: translate(-50%, -50%) scale(1.1);
-          background: rgba(229, 57, 53, 1);
-        }
-
-        .pd-video-play-icon {
-          width: 28px;
-          height: 28px;
-          color: white;
-          margin-left: 4px;
-        }
-
-        .pd-video-label {
-          position: absolute;
-          bottom: 16px;
-          left: 50%;
-          transform: translateX(-50%);
-          color: white;
-          font-size: 12px;
-          font-weight: 600;
-          background: rgba(0,0,0,0.6);
-          padding: 4px 16px;
-          border-radius: 20px;
-          backdrop-filter: blur(4px);
-          letter-spacing: 0.5px;
-        }
-
-        .pd-video-container {
-          position: relative;
-          aspect-ratio: 16/9;
-          background: #0a0a0a;
-        }
-
-        .pd-video-iframe {
-          width: 100%;
-          height: 100%;
-          border: none;
-        }
-
-        .pd-video-player {
-          width: 100%;
-          height: 100%;
-          object-fit: contain;
-          background: #0a0a0a;
-        }
-
-        .pd-video-close {
-          position: absolute;
-          top: 10px;
-          right: 10px;
-          width: 32px;
-          height: 32px;
-          border-radius: 50%;
-          background: rgba(0,0,0,0.7);
-          color: white;
-          border: none;
-          font-size: 16px;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: all 0.2s ease;
-          backdrop-filter: blur(4px);
-          z-index: 5;
-        }
-
-        .pd-video-close:hover {
-          background: rgba(0,0,0,0.9);
-          transform: scale(1.05);
-        }
-
-        @media (max-width: 480px) {
-          .pd-video-play-btn {
-            width: 48px;
-            height: 48px;
-          }
-          .pd-video-play-icon {
-            width: 20px;
-            height: 20px;
-          }
-          .pd-video-label {
-            font-size: 10px;
-            padding: 3px 12px;
-          }
-          .pd-video-close {
-            width: 28px;
-            height: 28px;
-            font-size: 13px;
-            top: 6px;
-            right: 6px;
           }
         }
 
