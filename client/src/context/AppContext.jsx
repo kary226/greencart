@@ -613,7 +613,8 @@ export const AppContextProvider = ({ children }) => {
         recentlyViewed, addToRecentlyViewed,
         orders,
         canInstallPWA, isPWAInstalled, installPWA,
-        subscribeToPushNotifications
+        subscribeToPushNotifications,
+        setAuthToken
     };
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
