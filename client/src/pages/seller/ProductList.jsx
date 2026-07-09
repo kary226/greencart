@@ -9,16 +9,39 @@ const ProductList = () => {
     const { products, currency, axios, fetchProducts } = useAppContext()
     const [searchParams] = useSearchParams()
     const [editProduct, setEditProduct] = useState(null)
-    const [colorInput, setColorInput] = useState('')
-    const [colorCodeInput, setColorCodeInput] = useState('#000000')
+    
+    // États pour la gestion des variantes (alignés avec AddProduct)
+    const [productMode, setProductMode] = useState('simple') // 'simple' | 'multi-sizes' | 'variants'
+    
+    // États pour le mode multi-sizes
+    const [sizesList, setSizesList] = useState([])
     const [sizeInput, setSizeInput] = useState('')
     const [stockInput, setStockInput] = useState('')
+    const [sizePriceInput, setSizePriceInput] = useState('')
+    const [sizeOfferPriceInput, setSizeOfferPriceInput] = useState('')
+    const [editingSizeIndex, setEditingSizeIndex] = useState(null)
+    const [openSizesPanel, setOpenSizesPanel] = useState(true)
+    
+    // États pour le mode variants (couleurs + tailles)
+    const [colors, setColors] = useState([])
+    const [colorInput, setColorInput] = useState('')
+    const [colorCodeInput, setColorCodeInput] = useState('#000000')
+    const [startImageIndexInput, setStartImageIndexInput] = useState(0)
+    const [editingColorIndex, setEditingColorIndex] = useState(null)
+    const [openColorIndex, setOpenColorIndex] = useState(null)
+    const [showColorForm, setShowColorForm] = useState(false)
+    
+    // États pour les tailles dans les couleurs
+    const [variantSizeInput, setVariantSizeInput] = useState('')
+    const [variantStockInput, setVariantStockInput] = useState('')
     const [variantPriceInput, setVariantPriceInput] = useState('')
     const [variantOfferPriceInput, setVariantOfferPriceInput] = useState('')
-    const [startImageIndexInput, setStartImageIndexInput] = useState(0)
+    const [editingSizeIndexInColor, setEditingSizeIndexInColor] = useState(null)
+    const [editingColorForSize, setEditingColorForSize] = useState(null)
+    
+    // États existants
     const [categoriesList, setCategoriesList] = useState([])
     const [selectedCategories, setSelectedCategories] = useState([])
-    const [editingVariantIndex, setEditingVariantIndex] = useState(null)
 
     const [searchTerm, setSearchTerm] = useState('')
     const [stockFilter, setStockFilter] = useState('all')
@@ -58,6 +81,259 @@ const ProductList = () => {
         }
     }, []);
 
+    // ============ FONCTIONS DE CONVERSION (alignées avec AddProduct) ============
+    
+    const convertSizesToVariants = () => {
+        return sizesList.map(size => ({
+            color: null,
+            colorCode: null,
+            size: size.size,
+            stock: size.stock,
+            price: size.price,
+            offerPrice: size.offerPrice,
+            startImageIndex: 0
+        }));
+    };
+
+    const convertVariantsToApi = () => {
+        const variants = [];
+        colors.forEach(color => {
+            color.sizes.forEach(size => {
+                variants.push({
+                    color: color.color !== 'Sans couleur' ? color.color : null,
+                    colorCode: color.colorCode || null,
+                    size: size.size,
+                    stock: size.stock,
+                    price: size.price,
+                    offerPrice: size.offerPrice,
+                    startImageIndex: color.startImageIndex || 0
+                });
+            });
+        });
+        return variants;
+    };
+
+    const convertVariantsToSizes = (variants) => {
+        return variants.map(v => ({
+            size: v.size,
+            stock: v.stock,
+            price: v.price,
+            offerPrice: v.offerPrice
+        }));
+    };
+
+    const convertVariantsToColors = (variants) => {
+        const colorMap = {};
+        variants.forEach(v => {
+            const colorKey = v.color || 'Sans couleur';
+            if (!colorMap[colorKey]) {
+                colorMap[colorKey] = {
+                    color: colorKey,
+                    colorCode: v.colorCode || '#000000',
+                    startImageIndex: v.startImageIndex || 0,
+                    sizes: []
+                };
+            }
+            colorMap[colorKey].sizes.push({
+                size: v.size,
+                stock: v.stock,
+                price: v.price,
+                offerPrice: v.offerPrice
+            });
+        });
+        return Object.values(colorMap);
+    };
+
+    const detectProductMode = (variants) => {
+        if (!variants || variants.length === 0) return 'simple';
+        const hasColors = variants.some(v => v.color !== null && v.color !== '');
+        const hasSizes = variants.some(v => v.size !== null && v.size !== '');
+        
+        if (hasColors) return 'variants';
+        if (hasSizes) return 'multi-sizes';
+        return 'simple';
+    };
+
+    // ============ FONCTIONS DE GESTION DES TAILLES (alignées avec AddProduct) ============
+    
+    const resetSizeForm = () => {
+        setSizeInput('');
+        setStockInput('');
+        setSizePriceInput('');
+        setSizeOfferPriceInput('');
+        setEditingSizeIndex(null);
+    };
+
+    const addSize = () => {
+        if (!sizeInput.trim()) {
+            toast.error('Entrez une taille');
+            return;
+        }
+        if (!stockInput || Number(stockInput) < 0) {
+            toast.error('Entrez un stock valide');
+            return;
+        }
+
+        const newSize = {
+            size: sizeInput.trim().toUpperCase(),
+            stock: Number(stockInput),
+            price: sizePriceInput !== '' ? Number(sizePriceInput) : null,
+            offerPrice: sizeOfferPriceInput !== '' ? Number(sizeOfferPriceInput) : null
+        };
+
+        if (editingSizeIndex !== null) {
+            const updatedSizes = [...sizesList];
+            updatedSizes[editingSizeIndex] = newSize;
+            setSizesList(updatedSizes);
+            setEditingSizeIndex(null);
+        } else {
+            setSizesList([...sizesList, newSize]);
+        }
+        resetSizeForm();
+    };
+
+    const editSize = (index) => {
+        const size = sizesList[index];
+        setSizeInput(size.size);
+        setStockInput(size.stock.toString());
+        setSizePriceInput(size.price !== null ? size.price.toString() : '');
+        setSizeOfferPriceInput(size.offerPrice !== null ? size.offerPrice.toString() : '');
+        setEditingSizeIndex(index);
+    };
+
+    const removeSize = (index) => {
+        setSizesList(sizesList.filter((_, i) => i !== index));
+        if (editingSizeIndex === index) {
+            resetSizeForm();
+        }
+    };
+
+    // ============ FONCTIONS DE GESTION DES COULEURS (alignées avec AddProduct) ============
+    
+    const resetColorForm = () => {
+        setColorInput('');
+        setColorCodeInput('#000000');
+        setStartImageIndexInput(0);
+        setEditingColorIndex(null);
+    };
+
+    const resetVariantSizeForm = () => {
+        setVariantSizeInput('');
+        setVariantStockInput('');
+        setVariantPriceInput('');
+        setVariantOfferPriceInput('');
+        setEditingSizeIndexInColor(null);
+        setEditingColorForSize(null);
+    };
+
+    const addColor = () => {
+        const colorName = colorInput.trim() || 'Sans couleur';
+        
+        if (colorInput.trim()) {
+            const existingColor = colors.find(c => c.color.toLowerCase() === colorInput.trim().toLowerCase());
+            if (existingColor) {
+                toast.error('Cette couleur existe déjà');
+                return;
+            }
+        }
+
+        const newColor = {
+            color: colorName,
+            colorCode: colorCodeInput,
+            startImageIndex: Number(startImageIndexInput) || 0,
+            sizes: []
+        };
+
+        if (editingColorIndex !== null) {
+            const updatedColors = [...colors];
+            updatedColors[editingColorIndex] = { ...updatedColors[editingColorIndex], ...newColor, sizes: updatedColors[editingColorIndex].sizes };
+            setColors(updatedColors);
+        } else {
+            setColors([...colors, newColor]);
+        }
+
+        resetColorForm();
+        setShowColorForm(false);
+    };
+
+    const addSizeToColor = (colorIndex) => {
+        if (!variantStockInput || Number(variantStockInput) < 0) {
+            toast.error('Entrez un stock valide');
+            return;
+        }
+
+        const newSize = {
+            size: variantSizeInput.trim().toUpperCase() || null,
+            stock: Number(variantStockInput),
+            price: variantPriceInput !== '' ? Number(variantPriceInput) : null,
+            offerPrice: variantOfferPriceInput !== '' ? Number(variantOfferPriceInput) : null
+        };
+
+        const updatedColors = [...colors];
+        if (editingSizeIndexInColor !== null && editingColorForSize === colorIndex) {
+            updatedColors[colorIndex].sizes[editingSizeIndexInColor] = newSize;
+        } else {
+            updatedColors[colorIndex].sizes.push(newSize);
+        }
+        setColors(updatedColors);
+        resetVariantSizeForm();
+    };
+
+    const editSizeInColor = (colorIndex, sizeIndex) => {
+        const size = colors[colorIndex].sizes[sizeIndex];
+        setVariantSizeInput(size.size || '');
+        setVariantStockInput(size.stock.toString());
+        setVariantPriceInput(size.price !== null ? size.price.toString() : '');
+        setVariantOfferPriceInput(size.offerPrice !== null ? size.offerPrice.toString() : '');
+        setEditingSizeIndexInColor(sizeIndex);
+        setEditingColorForSize(colorIndex);
+    };
+
+    const removeSizeFromColor = (colorIndex, sizeIndex) => {
+        const updatedColors = [...colors];
+        updatedColors[colorIndex].sizes = updatedColors[colorIndex].sizes.filter((_, i) => i !== sizeIndex);
+        setColors(updatedColors);
+        if (editingSizeIndexInColor === sizeIndex && editingColorForSize === colorIndex) {
+            resetVariantSizeForm();
+        }
+    };
+
+    const removeColor = (index) => {
+        setColors(colors.filter((_, i) => i !== index));
+        if (editingColorIndex === index) {
+            resetColorForm();
+            setShowColorForm(false);
+        }
+        if (openColorIndex === index) {
+            setOpenColorIndex(null);
+        }
+    };
+
+    const editColor = (index) => {
+        const color = colors[index];
+        setColorInput(color.color !== 'Sans couleur' ? color.color : '');
+        setColorCodeInput(color.colorCode || '#000000');
+        setStartImageIndexInput(color.startImageIndex || 0);
+        setEditingColorIndex(index);
+        setShowColorForm(true);
+        setOpenColorIndex(null);
+    };
+
+    const cancelColorForm = () => {
+        resetColorForm();
+        setShowColorForm(false);
+    };
+
+    const handleCategoryToggle = (categorySlug) => {
+        if (selectedCategories.includes(categorySlug)) {
+            setSelectedCategories(selectedCategories.filter(c => c !== categorySlug));
+        } else {
+            setSelectedCategories([...selectedCategories, categorySlug]);
+        }
+    };
+
+    // ============ FILTRES ET PAGINATION (inchangés) ============
+    
     const filteredProducts = useMemo(() => {
         let filtered = [...products]
 
@@ -211,68 +487,114 @@ const ProductList = () => {
         }
     }
 
+    // ============ HANDLE EDIT MODIFIÉ ============
     const handleEdit = (product) => {
+        const variants = product.variants || [];
+        const mode = detectProductMode(variants);
+        
+        setProductMode(mode);
         setEditProduct({
             ...product,
             description: Array.isArray(product.description)
                 ? product.description.join('\n')
                 : (product.description || ''),
-            variants: product.variants || [],
+            variants: variants,
             categories: product.categories || [],
             size: product.size || null,
             stock: product.stock || 0
-        })
-        setSelectedCategories(product.categories || [])
-        setColorInput('')
-        setColorCodeInput('#000000')
-        setSizeInput('')
-        setStockInput('')
-        setVariantPriceInput('')
-        setVariantOfferPriceInput('')
-        setStartImageIndexInput(0)
-        setEditingVariantIndex(null)
-        setNewImages([])
-        setShowImageUpload(false)
-    }
-
-    const handleCategoryToggle = (categorySlug) => {
-        if (selectedCategories.includes(categorySlug)) {
-            setSelectedCategories(selectedCategories.filter(c => c !== categorySlug));
-        } else {
-            setSelectedCategories([...selectedCategories, categorySlug]);
+        });
+        setSelectedCategories(product.categories || []);
+        
+        // Réinitialiser les états
+        setSizesList([]);
+        setColors([]);
+        setColorInput('');
+        setColorCodeInput('#000000');
+        setSizeInput('');
+        setStockInput('');
+        setVariantSizeInput('');
+        setVariantStockInput('');
+        setVariantPriceInput('');
+        setVariantOfferPriceInput('');
+        setStartImageIndexInput(0);
+        setEditingSizeIndex(null);
+        setEditingColorIndex(null);
+        setEditingSizeIndexInColor(null);
+        setEditingColorForSize(null);
+        setOpenColorIndex(null);
+        setShowColorForm(false);
+        setNewImages([]);
+        setShowImageUpload(false);
+        
+        // Initialiser selon le mode
+        if (mode === 'multi-sizes') {
+            setSizesList(convertVariantsToSizes(variants));
+        } else if (mode === 'variants') {
+            setColors(convertVariantsToColors(variants));
         }
     };
 
+    // ============ HANDLE UPDATE MODIFIÉ (aligné avec AddProduct) ============
     const handleUpdate = async () => {
         try {
-            const productData = {
+            let productData = {
                 id: editProduct._id,
                 name: editProduct.name,
                 description: editProduct.description,
                 categories: selectedCategories,
-                price: editProduct.price,
-                offerPrice: editProduct.offerPrice,
-                variants: editProduct.variants || [],
-                stock: editProduct.stock || 0,
-                size: editProduct.size || null,
+                price: editProduct.price ? Number(editProduct.price) : 0,
+                offerPrice: editProduct.offerPrice ? Number(editProduct.offerPrice) : 0,
+            };
+
+            // Logique alignée avec AddProduct
+            if (productMode === 'simple') {
+                productData.variants = [];
+                productData.stock = editProduct.stock ? Number(editProduct.stock) : 0;
+                productData.size = editProduct.size || null;
+            } else if (productMode === 'multi-sizes') {
+                if (sizesList.length === 0) {
+                    toast.error('Ajoutez au moins une taille');
+                    return;
+                }
+                productData.variants = convertSizesToVariants();
+                productData.stock = 0;
+                productData.size = null;
+            } else if (productMode === 'variants') {
+                if (colors.length === 0) {
+                    toast.error('Ajoutez au moins une couleur');
+                    return;
+                }
+                let hasStock = false;
+                colors.forEach(color => {
+                    color.sizes.forEach(size => {
+                        if (size.stock > 0) hasStock = true;
+                    });
+                });
+                if (!hasStock) {
+                    toast.error('Ajoutez au moins un stock pour une variante');
+                    return;
+                }
+                productData.variants = convertVariantsToApi();
+                productData.stock = 0;
+                productData.size = null;
             }
 
-            console.log('📤 Envoi des données :', productData)
+            console.log('📤 Envoi des données :', productData);
 
-            const { data } = await axios.post('/api/product/update', productData)
+            const { data } = await axios.post('/api/product/update', productData);
             
             if (data.success) {
-                toast.success(data.message)
-                await fetchProducts()
-                setEditProduct(null)
+                toast.success(data.message);
+                await fetchProducts();
+                setEditProduct(null);
             } else {
-                toast.error(data.message)
+                toast.error(data.message);
             }
         } catch (error) {
-            console.error('❌ Erreur :', error)
-            toast.error(error.response?.data?.message || error.message)
+            console.error('❌ Erreur :', error);
+            toast.error(error.response?.data?.message || error.message);
         }
-    }
+    };
 
     const handleDelete = async (id) => {
         if (!window.confirm('Supprimer ce produit ?')) return
@@ -322,94 +644,10 @@ const ProductList = () => {
         }
     }
 
-    // ✅ FONCTION addVariant MODIFIÉE - Couleur optionnelle
-    const addVariant = () => {
-        if (!stockInput || Number(stockInput) < 0) {
-            toast.error('Entrez un stock valide')
-            return
-        }
-
-        const newVariant = {
-            color: colorInput.trim() || null,
-            colorCode: colorCodeInput,
-            size: sizeInput.trim().toUpperCase() || null,
-            stock: Number(stockInput),
-            price: variantPriceInput ? Number(variantPriceInput) : 0,
-            offerPrice: variantOfferPriceInput ? Number(variantOfferPriceInput) : 0,
-            startImageIndex: Number(startImageIndexInput)
-        }
-
-        if (editingVariantIndex !== null) {
-            const updatedVariants = [...editProduct.variants]
-            updatedVariants[editingVariantIndex] = newVariant
-            setEditProduct({ ...editProduct, variants: updatedVariants })
-            setEditingVariantIndex(null)
-        } else {
-            setEditProduct({ ...editProduct, variants: [...editProduct.variants, newVariant] })
-        }
-
-        setColorInput('')
-        setColorCodeInput('#000000')
-        setSizeInput('')
-        setStockInput('')
-        setVariantPriceInput('')
-        setVariantOfferPriceInput('')
-        setStartImageIndexInput(0)
-    }
-
-    // ✅ FONCTION editVariant MODIFIÉE - Gère le cas où color est null
-    const editVariant = (index) => {
-        const variant = editProduct.variants[index]
-        setColorInput(variant.color || '')
-        setColorCodeInput(variant.colorCode || '#000000')
-        setSizeInput(variant.size || '')
-        setStockInput(variant.stock.toString())
-        setVariantPriceInput(variant.price?.toString() || '')
-        setVariantOfferPriceInput(variant.offerPrice?.toString() || '')
-        setStartImageIndexInput(variant.startImageIndex || 0)
-        setEditingVariantIndex(index)
-    }
-
-    const removeVariant = (index) => {
-        const updatedVariants = editProduct.variants.filter((_, i) => i !== index)
-        setEditProduct({ ...editProduct, variants: updatedVariants })
-        if (editingVariantIndex === index) {
-            setEditingVariantIndex(null)
-            setColorInput('')
-            setColorCodeInput('#000000')
-            setSizeInput('')
-            setStockInput('')
-            setVariantPriceInput('')
-            setVariantOfferPriceInput('')
-            setStartImageIndexInput(0)
-        }
-    }
-
-    const updateVariantStock = (index, stock) => {
-        const updated = [...editProduct.variants]
-        updated[index].stock = Number(stock)
-        setEditProduct({ ...editProduct, variants: updated })
-    }
-
-    const updateVariantPrice = (index, price, isOfferPrice = false) => {
-        const updated = [...editProduct.variants]
-        if (isOfferPrice) {
-            updated[index].offerPrice = Number(price)
-        } else {
-            updated[index].price = Number(price)
-        }
-        setEditProduct({ ...editProduct, variants: updated })
-    }
-
-    const updateVariantStartIndex = (index, startIndex) => {
-        const updated = [...editProduct.variants]
-        updated[index].startImageIndex = Number(startIndex)
-        setEditProduct({ ...editProduct, variants: updated })
-    }
-
     return (
         <div className="bg-gray-50 min-h-screen">
             <div className="p-6">
+                {/* Statistiques et filtres - inchangés */}
                 <div className="mb-6">
                     <h1 className="text-2xl font-bold text-gray-900">Liste des produits</h1>
                     <p className="text-sm text-gray-500 mt-1">Gérez tous vos produits</p>
@@ -438,6 +676,7 @@ const ProductList = () => {
                     </div>
                 </div>
 
+                {/* Filtres - inchangés */}
                 <div className="bg-white rounded-xl border border-gray-100 p-4 mb-6 shadow-sm">
                     <div className="flex flex-col md:flex-row gap-4">
                         <div className="flex-1">
@@ -517,6 +756,7 @@ const ProductList = () => {
                     </div>
                 </div>
 
+                {/* Tableau des produits - inchangé */}
                 {products.length === 0 ? (
                     <div className="text-center py-16 bg-white rounded-xl border border-gray-100">
                         <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -738,7 +978,7 @@ const ProductList = () => {
                 )}
             </div>
 
-            {/* Modal confirmation suppression multiple */}
+            {/* Modal confirmation suppression multiple - inchangé */}
             {showDeleteConfirm && (
                 <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
@@ -785,7 +1025,7 @@ const ProductList = () => {
                 </div>
             )}
 
-            {/* Modal édition produit */}
+            {/* Modal édition produit MODIFIÉE avec les 3 modes */}
             {editProduct && (
                 <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setEditProduct(null)}>
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
@@ -803,6 +1043,7 @@ const ProductList = () => {
                         </div>
 
                         <div className="p-5 space-y-4 overflow-y-auto max-h-[calc(90vh-140px)]">
+                            {/* Images - inchangé */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Images ({editProduct.image?.length || 0})
@@ -865,6 +1106,7 @@ const ProductList = () => {
                                 )}
                             </div>
 
+                            {/* Nom - inchangé */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Nom</label>
                                 <input
@@ -874,6 +1116,7 @@ const ProductList = () => {
                                 />
                             </div>
 
+                            {/* Description - inchangé */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                                 <ReactQuill
@@ -885,6 +1128,7 @@ const ProductList = () => {
                                 />
                             </div>
 
+                            {/* Catégories - inchangé */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Catégories</label>
                                 <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 border border-gray-200 rounded-xl bg-gray-50">
@@ -908,6 +1152,7 @@ const ProductList = () => {
                                 </p>
                             </div>
 
+                            {/* Prix - inchangé */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Prix original</label>
@@ -929,21 +1174,78 @@ const ProductList = () => {
                                 </div>
                             </div>
 
-                            {editProduct.variants?.length === 0 && (
-                                <>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Taille (optionnel)</label>
+                            {/* ============ NOUVEAU : SÉLECTEUR DE MODE ============ */}
+                            <div className="border-t pt-4">
+                                <label className="text-base font-medium block mb-2">Type de produit</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    <button 
+                                        type="button" 
+                                        onClick={() => {
+                                            setProductMode('simple');
+                                            setSizesList([]);
+                                            setColors([]);
+                                            setEditProduct({ ...editProduct, variants: [], size: editProduct.size || null, stock: editProduct.stock || 0 });
+                                        }} 
+                                        className={`py-2.5 px-3 rounded-lg text-sm font-medium border transition ${productMode === 'simple' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'}`}
+                                    >
+                                        Produit simple
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => {
+                                            setProductMode('multi-sizes');
+                                            setColors([]);
+                                            if (editProduct.variants?.length > 0 && detectProductMode(editProduct.variants) === 'multi-sizes') {
+                                                setSizesList(convertVariantsToSizes(editProduct.variants));
+                                            } else {
+                                                setSizesList([]);
+                                            }
+                                            setEditProduct({ ...editProduct, variants: [], size: null, stock: 0 });
+                                        }} 
+                                        className={`py-2.5 px-3 rounded-lg text-sm font-medium border transition ${productMode === 'multi-sizes' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'}`}
+                                    >
+                                        Multi-tailles
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => {
+                                            setProductMode('variants');
+                                            setSizesList([]);
+                                            if (editProduct.variants?.length > 0 && detectProductMode(editProduct.variants) === 'variants') {
+                                                setColors(convertVariantsToColors(editProduct.variants));
+                                            } else {
+                                                setColors([]);
+                                            }
+                                            setEditProduct({ ...editProduct, variants: [], size: null, stock: 0 });
+                                        }} 
+                                        className={`py-2.5 px-3 rounded-lg text-sm font-medium border transition ${productMode === 'variants' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'}`}
+                                    >
+                                        Couleurs + Tailles
+                                    </button>
+                                </div>
+                                <p className="text-xs text-gray-400 mt-2">
+                                    {productMode === 'simple' && "Un seul prix, un seul stock, une taille optionnelle."}
+                                    {productMode === 'multi-sizes' && "Plusieurs tailles (S, M, L...), chacune avec son propre stock, sans couleurs."}
+                                    {productMode === 'variants' && "Plusieurs couleurs (optionnel), chaque couleur peut avoir plusieurs tailles (optionnel) avec leurs stocks."}
+                                </p>
+                            </div>
+
+                            {/* ============ MODE SIMPLE ============ */}
+                            {productMode === 'simple' && (
+                                <div className="flex flex-col gap-3 max-w-md">
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-base font-medium">Taille (optionnel)</label>
                                         <input
                                             type="text"
                                             value={editProduct.size || ''}
                                             onChange={e => setEditProduct({ ...editProduct, size: e.target.value || null })}
                                             className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
-                                            placeholder="Ex: S, M, L, XL"
+                                            placeholder="Ex: S, M, L, XL, ou laissez vide"
                                         />
-                                        <p className="text-xs text-gray-400 mt-1">💡 Laissez vide si ce produit n'a pas de taille</p>
+                                        <p className="text-xs text-gray-400">💡 Laissez vide si ce produit n'a pas de taille spécifique</p>
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Stock</label>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-base font-medium">Stock</label>
                                         <input
                                             type="number"
                                             value={editProduct.stock || 0}
@@ -952,167 +1254,236 @@ const ProductList = () => {
                                             min="0"
                                         />
                                     </div>
-                                </>
+                                </div>
                             )}
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Variantes</label>
-                                <p className="text-xs text-gray-400 mb-2">💡 Laissez "Couleur" vide pour ajouter une taille seule</p>
-                                <div className="bg-gray-50 p-3 rounded-xl space-y-3 mb-3">
-                                    <div className="flex gap-2 items-center">
-                                        <input
-                                            value={colorInput}
-                                            onChange={e => setColorInput(e.target.value)}
-                                            type="text"
-                                            placeholder="Couleur (optionnel)"
-                                            className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
-                                        />
-                                        <input
-                                            value={colorCodeInput}
-                                            onChange={e => setColorCodeInput(e.target.value)}
-                                            type="color"
-                                            className="w-12 h-10 rounded-xl border border-gray-200 cursor-pointer"
-                                        />
+                            {/* ============ MODE MULTI-TAILLES (aligné avec AddProduct) ============ */}
+                            {productMode === 'multi-sizes' && (
+                                <div className="flex flex-col gap-3 max-w-md">
+                                    <div className="border border-gray-200 rounded-lg overflow-hidden">
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setOpenSizesPanel(!openSizesPanel)} 
+                                            className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 hover:bg-gray-100 transition"
+                                        >
+                                            <span className="font-medium text-gray-900">📏 Tailles disponibles ({sizesList.length})</span>
+                                            <svg className={`w-4 h-4 text-gray-400 transition-transform ${openSizesPanel ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                        </button>
+                                        {openSizesPanel && (
+                                            <div className="px-3 py-3 border-t border-gray-200">
+                                                {sizesList.length > 0 && (
+                                                    <div className="space-y-2 mb-3">
+                                                        {sizesList.map((size, idx) => (
+                                                            <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                                                                <div>
+                                                                    <span className="font-medium text-gray-800">{size.size}</span>
+                                                                    <span className="text-xs text-green-600 ml-2">Stock: {size.stock}</span>
+                                                                    {size.price && <span className="text-xs text-gray-400 ml-2">{size.price} FCFA</span>}
+                                                                </div>
+                                                                <div className="flex gap-1">
+                                                                    <button type="button" onClick={() => editSize(idx)} className="text-blue-400 hover:text-blue-600 text-xs px-2 py-1">✏️</button>
+                                                                    <button type="button" onClick={() => removeSize(idx)} className="text-red-400 hover:text-red-600 text-xs px-2 py-1">✕</button>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                <div className="flex gap-2 mb-2">
+                                                    <input 
+                                                        value={sizeInput} 
+                                                        onChange={e => setSizeInput(e.target.value)} 
+                                                        type="text" 
+                                                        placeholder="Taille (S, M, L...)" 
+                                                        className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm" 
+                                                    />
+                                                    <input 
+                                                        value={stockInput} 
+                                                        onChange={e => setStockInput(e.target.value)} 
+                                                        type="number" 
+                                                        placeholder="Stock" 
+                                                        className="w-20 border border-gray-200 rounded-lg px-3 py-1.5 text-sm" 
+                                                    />
+                                                </div>
+                                                <div className="flex gap-2 mb-2">
+                                                    <input 
+                                                        value={sizePriceInput} 
+                                                        onChange={e => setSizePriceInput(e.target.value)} 
+                                                        type="number" 
+                                                        placeholder="Prix (optionnel)" 
+                                                        className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm" 
+                                                    />
+                                                    <input 
+                                                        value={sizeOfferPriceInput} 
+                                                        onChange={e => setSizeOfferPriceInput(e.target.value)} 
+                                                        type="number" 
+                                                        placeholder="Promo (optionnel)" 
+                                                        className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm" 
+                                                    />
+                                                </div>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={addSize} 
+                                                    className="w-full py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition"
+                                                >
+                                                    {editingSizeIndex !== null ? 'Mettre à jour la taille' : '+ Ajouter une taille'}
+                                                </button>
+                                                {editingSizeIndex !== null && (
+                                                    <button type="button" onClick={resetSizeForm} className="w-full mt-1 py-1 text-xs text-gray-400 hover:text-gray-600">Annuler</button>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
-                                    <div className="flex gap-2">
-                                        <input
-                                            value={sizeInput}
-                                            onChange={e => setSizeInput(e.target.value)}
-                                            type="text"
-                                            placeholder="Taille (optionnel)"
-                                            className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
-                                        />
-                                        <input
-                                            value={stockInput}
-                                            onChange={e => setStockInput(e.target.value)}
-                                            type="number"
-                                            placeholder="Stock"
-                                            className="w-24 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
-                                        />
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <input
-                                            value={variantPriceInput}
-                                            onChange={e => setVariantPriceInput(e.target.value)}
-                                            type="number"
-                                            placeholder="Prix (optionnel)"
-                                            className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
-                                        />
-                                        <input
-                                            value={variantOfferPriceInput}
-                                            onChange={e => setVariantOfferPriceInput(e.target.value)}
-                                            type="number"
-                                            placeholder="Prix promo (optionnel)"
-                                            className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-gray-600 mb-1 block">Position de départ (0 = première photo)</label>
-                                        <input
-                                            value={startImageIndexInput}
-                                            onChange={e => setStartImageIndexInput(Number(e.target.value))}
-                                            type="number"
-                                            min="0"
-                                            placeholder="Ex: 0 pour Rouge, 3 pour Bleu"
-                                            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
-                                        />
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={addVariant}
-                                        className="w-full py-2 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 transition"
-                                    >
-                                        {editingVariantIndex !== null ? 'Mettre à jour la variante' : '+ Ajouter une variante'}
-                                    </button>
                                 </div>
+                            )}
 
-                                {editProduct.variants.length > 0 && (
-                                    <div className="border border-gray-200 rounded-xl overflow-hidden">
-                                        <table className="w-full text-sm">
-                                            <thead className="bg-gray-50">
-                                                <tr>
-                                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Couleur</th>
-                                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Taille</th>
-                                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Prix</th>
-                                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Stock</th>
-                                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Départ</th>
-                                                    <th className="px-3 py-2 w-20"></th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-gray-100">
-                                                {editProduct.variants.map((v, i) => (
-                                                    <tr key={i}>
-                                                        <td className="px-3 py-2">
+                            {/* ============ MODE VARIANTS (Couleurs + Tailles) aligné avec AddProduct ============ */}
+                            {productMode === 'variants' && (
+                                <div className="flex flex-col gap-3 max-w-md">
+                                    {colors.length > 0 && (
+                                        <div className="flex flex-col gap-2">
+                                            {colors.map((color, colorIndex) => {
+                                                const isOpen = openColorIndex === colorIndex;
+                                                const totalStock = color.sizes.reduce((sum, s) => sum + s.stock, 0);
+                                                return (
+                                                    <div key={colorIndex} className="border border-gray-200 rounded-lg overflow-hidden">
+                                                        <button 
+                                                            type="button" 
+                                                            onClick={() => setOpenColorIndex(isOpen ? null : colorIndex)} 
+                                                            className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 hover:bg-gray-100 transition"
+                                                        >
                                                             <div className="flex items-center gap-2">
-                                                                <div className="w-4 h-4 rounded-full" style={{ backgroundColor: v.colorCode || '#000' }}></div>
-                                                                <span className="text-sm text-gray-600">{v.color || '—'}</span>
+                                                                {color.color !== 'Sans couleur' && (
+                                                                    <div className="w-4 h-4 rounded-full border border-gray-300" style={{ backgroundColor: color.colorCode }}></div>
+                                                                )}
+                                                                <span className="font-medium text-gray-900">{color.color}</span>
+                                                                <span className="text-xs text-gray-400">({color.sizes.length} taille(s))</span>
+                                                                <span className="text-xs text-green-600 ml-1">Stock total: {totalStock}</span>
                                                             </div>
-                                                        </td>
-                                                        <td className="px-3 py-2 text-sm text-gray-600">{v.size || '—'}</td>
-                                                        <td className="px-3 py-2">
-                                                            <div className="flex gap-1">
-                                                                <input
-                                                                    type="number"
-                                                                    value={v.price || ''}
-                                                                    onChange={e => updateVariantPrice(i, e.target.value, false)}
-                                                                    placeholder="Prix"
-                                                                    className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:border-red-500 outline-none"
-                                                                />
-                                                                <input
-                                                                    type="number"
-                                                                    value={v.offerPrice || ''}
-                                                                    onChange={e => updateVariantPrice(i, e.target.value, true)}
-                                                                    placeholder="Promo"
-                                                                    className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:border-red-500 outline-none"
-                                                                />
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-3 py-2">
-                                                            <input
-                                                                type="number"
-                                                                value={v.stock}
-                                                                onChange={e => updateVariantStock(i, e.target.value)}
-                                                                className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:border-red-500 outline-none"
-                                                            />
-                                                        </td>
-                                                        <td className="px-3 py-2">
-                                                            <input
-                                                                type="number"
-                                                                value={v.startImageIndex || 0}
-                                                                onChange={e => updateVariantStartIndex(i, e.target.value)}
-                                                                className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:border-red-500 outline-none"
-                                                            />
-                                                        </td>
-                                                        <td className="px-3 py-2">
-                                                            <div className="flex gap-1">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => editVariant(i)}
-                                                                    className="text-blue-400 hover:text-blue-600 transition"
+                                                            <svg className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                                                            </svg>
+                                                        </button>
+                                                        {isOpen && (
+                                                            <div className="px-3 py-3 border-t border-gray-200 bg-white">
+                                                                {color.sizes.length > 0 && (
+                                                                    <div className="space-y-2 mb-3">
+                                                                        {color.sizes.map((size, sizeIndex) => (
+                                                                            <div key={sizeIndex} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                                                                                <div>
+                                                                                    <span className="font-medium text-gray-800">{size.size || 'Sans taille'}</span>
+                                                                                    <span className="text-xs text-green-600 ml-2">Stock: {size.stock}</span>
+                                                                                    {size.price && <span className="text-xs text-gray-400 ml-2">{size.price} FCFA</span>}
+                                                                                </div>
+                                                                                <div className="flex gap-1">
+                                                                                    <button type="button" onClick={() => editSizeInColor(colorIndex, sizeIndex)} className="text-blue-400 hover:text-blue-600 text-xs px-2 py-1">✏️</button>
+                                                                                    <button type="button" onClick={() => removeSizeFromColor(colorIndex, sizeIndex)} className="text-red-400 hover:text-red-600 text-xs px-2 py-1">✕</button>
+                                                                                </div>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                                <div className="flex gap-2 mb-2">
+                                                                    <input 
+                                                                        value={variantSizeInput} 
+                                                                        onChange={e => setVariantSizeInput(e.target.value)} 
+                                                                        type="text" 
+                                                                        placeholder="Taille (optionnel)" 
+                                                                        className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm" 
+                                                                    />
+                                                                    <input 
+                                                                        value={variantStockInput} 
+                                                                        onChange={e => setVariantStockInput(e.target.value)} 
+                                                                        type="number" 
+                                                                        placeholder="Stock *" 
+                                                                        className="w-20 border border-gray-200 rounded-lg px-3 py-1.5 text-sm" 
+                                                                    />
+                                                                </div>
+                                                                <div className="flex gap-2 mb-2">
+                                                                    <input 
+                                                                        value={variantPriceInput} 
+                                                                        onChange={e => setVariantPriceInput(e.target.value)} 
+                                                                        type="number" 
+                                                                        placeholder="Prix (optionnel)" 
+                                                                        className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm" 
+                                                                    />
+                                                                    <input 
+                                                                        value={variantOfferPriceInput} 
+                                                                        onChange={e => setVariantOfferPriceInput(e.target.value)} 
+                                                                        type="number" 
+                                                                        placeholder="Promo (optionnel)" 
+                                                                        className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm" 
+                                                                    />
+                                                                </div>
+                                                                <button 
+                                                                    type="button" 
+                                                                    onClick={() => addSizeToColor(colorIndex)} 
+                                                                    className="w-full py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition"
                                                                 >
-                                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                                        <path d="M17 3l4 4-7 7H10v-4l7-7z"/>
-                                                                    </svg>
+                                                                    {editingSizeIndexInColor !== null && editingColorForSize === colorIndex ? 'Mettre à jour la taille' : '+ Ajouter une taille'}
                                                                 </button>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => removeVariant(i)}
-                                                                    className="text-red-400 hover:text-red-600 transition"
-                                                                >
-                                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                                        <line x1="18" y1="6" x2="6" y2="18"/>
-                                                                        <line x1="6" y1="6" x2="18" y2="18"/>
-                                                                    </svg>
-                                                                </button>
+                                                                {editingSizeIndexInColor !== null && editingColorForSize === colorIndex && (
+                                                                    <button type="button" onClick={resetVariantSizeForm} className="w-full mt-1 py-1 text-xs text-gray-400 hover:text-gray-600">Annuler</button>
+                                                                )}
+                                                                <div className="flex gap-2 mt-3 pt-2 border-t border-gray-100">
+                                                                    <button type="button" onClick={() => editColor(colorIndex)} className="flex-1 py-1.5 text-blue-600 bg-blue-50 rounded-lg text-xs hover:bg-blue-100 transition">Modifier la couleur</button>
+                                                                    <button type="button" onClick={() => removeColor(colorIndex)} className="flex-1 py-1.5 text-red-600 bg-red-50 rounded-lg text-xs hover:bg-red-100 transition">Supprimer la couleur</button>
+                                                                </div>
                                                             </div>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                )}
-                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                    {!showColorForm && (
+                                        <button type="button" onClick={() => setShowColorForm(true)} className="w-full py-2.5 border-2 border-dashed border-gray-300 rounded-lg text-sm font-medium text-gray-500 hover:border-primary hover:text-primary transition">
+                                            + Ajouter une couleur (optionnel)
+                                        </button>
+                                    )}
+                                    {showColorForm && (
+                                        <div className="bg-gray-50 p-3 rounded-lg space-y-3 border border-gray-200">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-sm font-medium text-primary">
+                                                    {editingColorIndex !== null ? 'Modifier la couleur' : 'Nouvelle couleur (optionnel)'}
+                                                </span>
+                                                <button type="button" onClick={cancelColorForm} className="text-xs text-gray-400 hover:text-gray-600">Annuler</button>
+                                            </div>
+                                            <div className="flex gap-2 items-center">
+                                                <input 
+                                                    value={colorInput} 
+                                                    onChange={e => setColorInput(e.target.value)} 
+                                                    type="text" 
+                                                    placeholder="Couleur (optionnel)" 
+                                                    className="flex-1 outline-none py-2 px-3 rounded border border-gray-300 text-sm" 
+                                                />
+                                                <input 
+                                                    value={colorCodeInput} 
+                                                    onChange={e => setColorCodeInput(e.target.value)} 
+                                                    type="color" 
+                                                    className="w-12 h-10 rounded border border-gray-300 cursor-pointer" 
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-gray-600 mb-1 block">Position de départ dans les photos (0 = première photo)</label>
+                                                <input 
+                                                    value={startImageIndexInput} 
+                                                    onChange={e => setStartImageIndexInput(Number(e.target.value))} 
+                                                    type="number" 
+                                                    min="0" 
+                                                    placeholder="Ex: 0 pour Rouge, 3 pour Bleu" 
+                                                    className="w-full outline-none py-2 px-3 rounded border border-gray-300 text-sm" 
+                                                />
+                                                <p className="text-xs text-gray-400 mt-1">💡 Permet d'afficher d'abord les photos correspondant à cette couleur.</p>
+                                            </div>
+                                            <button type="button" onClick={addColor} className="w-full py-2 bg-primary text-white rounded text-sm font-medium">
+                                                {editingColorIndex !== null ? 'Mettre à jour la couleur' : 'Ajouter cette couleur'}
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         <div className="p-5 border-t border-gray-100 flex gap-3 bg-gray-50">
