@@ -10,14 +10,12 @@ export const addProduct = async (req, res) => {
         
         let productData = JSON.parse(req.body.productData)
         
-        // ✅ Récupérer les fichiers avec sécurité
         const images = req.files?.images || [];
         const videoFile = req.files?.video ? req.files.video[0] : null;
 
         console.log(`📸 Images: ${images.length} fichier(s)`);
         console.log(`📹 Vidéo: ${videoFile ? videoFile.originalname + ' (' + (videoFile.size / 1024 / 1024).toFixed(2) + 'MB)' : 'Aucune'}`);
 
-        // Upload des images
         let imagesUrl = []
         if (images.length > 0) {
             console.log('⏳ Upload des images...');
@@ -48,14 +46,10 @@ export const addProduct = async (req, res) => {
             );
         }
 
-        // ✅ Upload de la vidéo si présente
         let videoUrl = null
         let videoPublicId = null
         if (videoFile) {
             console.log('⏳ Upload de la vidéo...');
-            console.log(`📹 Taille: ${(videoFile.size / 1024 / 1024).toFixed(2)}MB`);
-            console.log(`📹 Type: ${videoFile.mimetype}`);
-            
             try {
                 const result = await new Promise((resolve, reject) => {
                     const uploadStream = cloudinary.uploader.upload_stream(
@@ -63,14 +57,7 @@ export const addProduct = async (req, res) => {
                             resource_type: 'video',
                             folder: 'products/videos',
                             chunk_size: 6000000,
-                            timeout: 180000,
-                            eager: [
-                                { 
-                                    format: 'mp4',
-                                    quality: 'auto',
-                                    fetch_format: 'auto'
-                                }
-                            ]
+                            timeout: 180000
                         },
                         (error, result) => {
                             if (error) {
@@ -97,7 +84,6 @@ export const addProduct = async (req, res) => {
                 videoUrl = result.secure_url;
                 videoPublicId = result.public_id;
                 console.log('📹 Vidéo uploadée avec succès:', videoUrl);
-                console.log('📹 Public ID:', videoPublicId);
             } catch (videoError) {
                 console.error('❌ Erreur upload vidéo:', videoError.message);
             }
@@ -137,11 +123,9 @@ export const addProduct = async (req, res) => {
             inStock: hasVariants ? processedVariants.some(v => v.stock > 0) : (productData.stock > 0),
             video: videoUrl,
             videoPublicId: videoPublicId,
-            // ✅ salesCount est ajouté automatiquement avec default: 0
         });
 
         console.log('✅ Produit créé avec succès:', product._id);
-        console.log(`📹 Vidéo: ${videoUrl ? 'Présente' : 'Absente'}`);
 
         res.json({ 
             success: true, 
@@ -154,7 +138,6 @@ export const addProduct = async (req, res) => {
 
     } catch (error) {
         console.error('❌ Erreur addProduct:', error.message);
-        console.error('📚 Stack:', error.stack);
         res.json({ 
             success: false, 
             message: error.message 
@@ -162,18 +145,18 @@ export const addProduct = async (req, res) => {
     }
 }
 
-// Ajouter des images à un produit existant
-export const addProductImages = async (req, res) => {
+// ✅ Add Images to Product : /api/product/add-images
+export const addImages = async (req, res) => {
     try {
         const { productId } = req.body;
-        const images = req.files;
+        const images = req.files?.images || [];
 
         if (!productId) {
             return res.json({ success: false, message: "ID produit requis" });
         }
 
-        if (!images || images.length === 0) {
-            return res.json({ success: false, message: "Aucune image fournie" });
+        if (images.length === 0) {
+            return res.json({ success: false, message: "Aucune image sélectionnée" });
         }
 
         const product = await Product.findById(productId);
@@ -185,7 +168,10 @@ export const addProductImages = async (req, res) => {
             images.map(async (item) => {
                 let result = await new Promise((resolve, reject) => {
                     const uploadStream = cloudinary.uploader.upload_stream(
-                        { resource_type: 'image' },
+                        { 
+                            resource_type: 'image',
+                            folder: 'products/images'
+                        },
                         (error, result) => {
                             if (error) reject(error);
                             else resolve(result);
@@ -200,34 +186,151 @@ export const addProductImages = async (req, res) => {
         product.image = [...(product.image || []), ...imagesUrl];
         await product.save();
 
-        res.json({ success: true, message: `${imagesUrl.length} image(s) ajoutée(s)`, product });
+        res.json({ 
+            success: true, 
+            message: `${imagesUrl.length} image(s) ajoutée(s)`, 
+            product 
+        });
     } catch (error) {
-        console.log(error.message);
+        console.log('❌ Erreur addImages:', error.message);
         res.json({ success: false, message: error.message });
     }
 };
 
-// ✅ Get Product : /api/product/list - AVEC TRI PAR salesCount
+// ✅ Add Video to Product : /api/product/add-video
+export const addVideo = async (req, res) => {
+    try {
+        const { productId } = req.body;
+        const videoFile = req.files?.video ? req.files.video[0] : null;
+
+        if (!productId) {
+            return res.json({ success: false, message: "ID produit requis" });
+        }
+
+        if (!videoFile) {
+            return res.json({ success: false, message: "Aucune vidéo sélectionnée" });
+        }
+
+        if (videoFile.size > 100 * 1024 * 1024) {
+            return res.json({ success: false, message: "La vidéo ne doit pas dépasser 100MB" });
+        }
+
+        const product = await Product.findById(productId);
+        if (!product) {
+            return res.json({ success: false, message: "Produit non trouvé" });
+        }
+
+        // Supprimer l'ancienne vidéo si elle existe
+        if (product.videoPublicId) {
+            try {
+                await cloudinary.uploader.destroy(product.videoPublicId, { 
+                    resource_type: 'video' 
+                });
+                console.log('🗑️ Ancienne vidéo supprimée:', product.videoPublicId);
+            } catch (error) {
+                console.error('❌ Erreur suppression ancienne vidéo:', error);
+            }
+        }
+
+        let result = await new Promise((resolve, reject) => {
+            const uploadStream = cloudinary.uploader.upload_stream(
+                { 
+                    resource_type: 'video',
+                    folder: 'products/videos',
+                    chunk_size: 6000000,
+                    timeout: 180000
+                },
+                (error, result) => {
+                    if (error) reject(error);
+                    else resolve(result);
+                }
+            );
+            
+            const buffer = videoFile.buffer;
+            const CHUNK_SIZE = 1024 * 1024;
+            let offset = 0;
+            
+            while (offset < buffer.length) {
+                const chunk = buffer.slice(offset, offset + CHUNK_SIZE);
+                uploadStream.write(chunk);
+                offset += CHUNK_SIZE;
+            }
+            uploadStream.end();
+        });
+
+        product.video = result.secure_url;
+        product.videoPublicId = result.public_id;
+        await product.save();
+
+        res.json({ 
+            success: true, 
+            message: "Vidéo ajoutée avec succès", 
+            product 
+        });
+    } catch (error) {
+        console.error('❌ Erreur addVideo:', error.message);
+        res.json({ success: false, message: error.message });
+    }
+};
+
+// ✅ Delete Video from Product : /api/product/delete-video
+export const deleteVideo = async (req, res) => {
+    try {
+        const { productId } = req.body;
+
+        if (!productId) {
+            return res.json({ success: false, message: "ID produit requis" });
+        }
+
+        const product = await Product.findById(productId);
+        if (!product) {
+            return res.json({ success: false, message: "Produit non trouvé" });
+        }
+
+        if (product.videoPublicId) {
+            try {
+                await cloudinary.uploader.destroy(product.videoPublicId, { 
+                    resource_type: 'video' 
+                });
+                console.log('🗑️ Vidéo supprimée:', product.videoPublicId);
+            } catch (error) {
+                console.error('❌ Erreur suppression vidéo:', error);
+            }
+        }
+
+        product.video = null;
+        product.videoPublicId = null;
+        await product.save();
+
+        res.json({ 
+            success: true, 
+            message: "Vidéo supprimée avec succès",
+            product 
+        });
+    } catch (error) {
+        console.error('❌ Erreur deleteVideo:', error.message);
+        res.json({ success: false, message: error.message });
+    }
+};
+
+// Get Product : /api/product/list - AVEC TRI PAR salesCount
 export const productList = async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 12;
-        const sort = req.query.sort || 'createdAt'; // ✅ AJOUTÉ
+        const sort = req.query.sort || 'createdAt';
         const skip = (page - 1) * limit;
 
-        // ✅ Construire l'objet de tri
         let sortOption = { createdAt: -1 };
         if (sort === 'salesCount') {
-            sortOption = { salesCount: -1 }; // ✅ Les plus vendus en premier
+            sortOption = { salesCount: -1 };
         } else if (sort === 'createdAt') {
-            sortOption = { createdAt: -1 }; // ✅ Les plus récents en premier
+            sortOption = { createdAt: -1 };
         } else if (sort === 'price') {
-            sortOption = { price: 1 }; // ✅ Les moins chers en premier
+            sortOption = { price: 1 };
         } else if (sort === 'price-desc') {
-            sortOption = { price: -1 }; // ✅ Les plus chers en premier
+            sortOption = { price: -1 };
         }
-
-        console.log(`📊 Tri par: ${sort}`);
 
         const products = await Product.find({})
             .sort(sortOption)
@@ -277,7 +380,7 @@ export const changeStock = async (req, res) => {
     }
 }
 
-// ✅ UPDATE PRODUCT - AVEC VIDÉO (OPTIMISÉ)
+// Update Product - AVEC VIDÉO
 export const updateProduct = async (req, res) => {
     try {
         const { id, name, description, categories, price, offerPrice, variants, stock, size, videoUrl, videoPublicId } = req.body
@@ -333,7 +436,7 @@ export const updateProduct = async (req, res) => {
             updateData.size = null
         }
 
-        // ✅ Gestion de la vidéo
+        // Gestion de la vidéo
         if (videoFile) {
             const existingProduct = await Product.findById(id);
             if (existingProduct?.videoPublicId) {
@@ -360,7 +463,17 @@ export const updateProduct = async (req, res) => {
                             else resolve(result);
                         }
                     );
-                    uploadStream.end(videoFile.buffer);
+                    
+                    const buffer = videoFile.buffer;
+                    const CHUNK_SIZE = 1024 * 1024;
+                    let offset = 0;
+                    
+                    while (offset < buffer.length) {
+                        const chunk = buffer.slice(offset, offset + CHUNK_SIZE);
+                        uploadStream.write(chunk);
+                        offset += CHUNK_SIZE;
+                    }
+                    uploadStream.end();
                 });
                 updateData.video = result.secure_url;
                 updateData.videoPublicId = result.public_id;
@@ -385,22 +498,20 @@ export const updateProduct = async (req, res) => {
     }
 }
 
-// ✅ Delete Product - AVEC SUPPRESSION VIDÉO
+// Delete Product - AVEC SUPPRESSION VIDÉO
 export const deleteProduct = async (req, res) => {
     try {
         const { id } = req.body
         const product = await Product.findById(id)
         
-        if (product) {
-            if (product.videoPublicId) {
-                try {
-                    await cloudinary.uploader.destroy(product.videoPublicId, {
-                        resource_type: 'video'
-                    });
-                    console.log('🗑️ Vidéo supprimée:', product.videoPublicId);
-                } catch (error) {
-                    console.error('❌ Erreur suppression vidéo:', error);
-                }
+        if (product && product.videoPublicId) {
+            try {
+                await cloudinary.uploader.destroy(product.videoPublicId, {
+                    resource_type: 'video'
+                });
+                console.log('🗑️ Vidéo supprimée:', product.videoPublicId);
+            } catch (error) {
+                console.error('❌ Erreur suppression vidéo:', error);
             }
         }
         
