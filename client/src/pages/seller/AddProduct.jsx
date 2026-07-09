@@ -148,16 +148,24 @@ const AddProduct = () => {
         setEditingColorForSize(null);
     };
 
+    // ✅ MODIFICATION : Couleur optionnelle
     const addColor = () => {
-        if (!colorInput.trim()) {
-            toast.error('Entrez une couleur');
-            return;
+        // Si pas de couleur, on utilise "Sans couleur" comme libellé
+        const colorName = colorInput.trim() || 'Sans couleur';
+        
+        // Si une couleur est fournie, on vérifie qu'elle n'existe pas déjà
+        if (colorInput.trim()) {
+            const existingColor = colors.find(c => c.color.toLowerCase() === colorInput.trim().toLowerCase());
+            if (existingColor) {
+                toast.error('Cette couleur existe déjà');
+                return;
+            }
         }
 
         const newColor = {
-            color: colorInput.trim(),
+            color: colorName,
             colorCode: colorCodeInput,
-            startImageIndex: Number(startImageIndexInput),
+            startImageIndex: Number(startImageIndexInput) || 0,
             sizes: []
         };
 
@@ -173,18 +181,15 @@ const AddProduct = () => {
         setShowColorForm(false);
     };
 
+    // ✅ MODIFICATION : Taille optionnelle
     const addSizeToColor = (colorIndex) => {
-        if (!variantSizeInput.trim()) {
-            toast.error('Entrez une taille');
-            return;
-        }
         if (!variantStockInput || Number(variantStockInput) < 0) {
             toast.error('Entrez un stock valide');
             return;
         }
 
         const newSize = {
-            size: variantSizeInput.trim().toUpperCase(),
+            size: variantSizeInput.trim().toUpperCase() || null, // Taille optionnelle
             stock: Number(variantStockInput),
             price: variantPriceInput !== '' ? Number(variantPriceInput) : null,
             offerPrice: variantOfferPriceInput !== '' ? Number(variantOfferPriceInput) : null
@@ -202,7 +207,7 @@ const AddProduct = () => {
 
     const editSizeInColor = (colorIndex, sizeIndex) => {
         const size = colors[colorIndex].sizes[sizeIndex];
-        setVariantSizeInput(size.size);
+        setVariantSizeInput(size.size || '');
         setVariantStockInput(size.stock.toString());
         setVariantPriceInput(size.price !== null ? size.price.toString() : '');
         setVariantOfferPriceInput(size.offerPrice !== null ? size.offerPrice.toString() : '');
@@ -232,9 +237,9 @@ const AddProduct = () => {
 
     const editColor = (index) => {
         const color = colors[index];
-        setColorInput(color.color);
-        setColorCodeInput(color.colorCode);
-        setStartImageIndexInput(color.startImageIndex);
+        setColorInput(color.color !== 'Sans couleur' ? color.color : '');
+        setColorCodeInput(color.colorCode || '#000000');
+        setStartImageIndexInput(color.startImageIndex || 0);
         setEditingColorIndex(index);
         setShowColorForm(true);
         setOpenColorIndex(null);
@@ -250,13 +255,13 @@ const AddProduct = () => {
         colors.forEach(color => {
             color.sizes.forEach(size => {
                 variants.push({
-                    color: color.color,
-                    colorCode: color.colorCode,
+                    color: color.color !== 'Sans couleur' ? color.color : null,
+                    colorCode: color.colorCode || null,
                     size: size.size,
                     stock: size.stock,
                     price: size.price,
                     offerPrice: size.offerPrice,
-                    startImageIndex: color.startImageIndex
+                    startImageIndex: color.startImageIndex || 0
                 });
             });
         });
@@ -279,7 +284,6 @@ const AddProduct = () => {
         }
     };
 
-    // ✅ Gestion de la vidéo
     const handleVideoSelect = (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -344,7 +348,18 @@ const AddProduct = () => {
             variants = convertSizesToVariants();
         } else if (productMode === 'variants') {
             if (colors.length === 0) {
-                toast.error('Ajoutez au moins une couleur');
+                toast.error('Ajoutez au moins une couleur (ou laissez vide pour "Sans couleur")');
+                return;
+            }
+            // Vérifier que chaque couleur a au moins une taille avec un stock
+            let hasStock = false;
+            colors.forEach(color => {
+                color.sizes.forEach(size => {
+                    if (size.stock > 0) hasStock = true;
+                });
+            });
+            if (!hasStock) {
+                toast.error('Ajoutez au moins un stock pour une variante');
                 return;
             }
             variants = convertVariantsToApi();
@@ -368,20 +383,15 @@ const AddProduct = () => {
             }
         }
 
-        console.log('📤 Envoi du produit :', productData);
-
         const formData = new FormData();
         formData.append('productData', JSON.stringify(productData));
 
-        // ✅ Ajout des images
         for (let i = 0; i < files.length; i++) {
             formData.append('images', files[i])
         }
 
-        // ✅ Ajout de la vidéo si présente
         if (videoFile) {
             formData.append('video', videoFile);
-            console.log('📹 Vidéo ajoutée:', videoFile.name);
         }
 
         try {
@@ -419,6 +429,7 @@ const AddProduct = () => {
         <div className="no-scrollbar flex-1 h-[95vh] overflow-y-scroll flex flex-col justify-between">
             <form onSubmit={onSubmitHandler} className="md:p-10 p-4 space-y-5 max-w-lg">
 
+                {/* Images */}
                 <div>
                     <p className="text-base font-medium">Images du produit (dans l'ordre)</p>
                     <div className="mt-2 mb-3 flex flex-wrap gap-3 items-center">
@@ -447,7 +458,7 @@ const AddProduct = () => {
                     </p>
                 </div>
 
-                {/* ✅ AJOUT : Vidéo du produit */}
+                {/* Vidéo */}
                 <div className="flex flex-col gap-1 max-w-md">
                     <label className="text-base font-medium">Vidéo du produit (optionnel)</label>
                     <div className="flex flex-wrap items-center gap-3">
@@ -478,11 +489,13 @@ const AddProduct = () => {
                     </p>
                 </div>
 
+                {/* Nom */}
                 <div className="flex flex-col gap-1 max-w-md">
                     <label className="text-base font-medium">Nom du produit</label>
                     <input onChange={(e) => setName(e.target.value)} value={name} type="text" placeholder="Type here" className="outline-none md:py-2.5 py-2 px-3 rounded border border-gray-500/40" required />
                 </div>
 
+                {/* Description */}
                 <div className="flex flex-col gap-1 max-w-md">
                     <label className="text-base font-medium">Description</label>
                     <ReactQuill
@@ -495,6 +508,7 @@ const AddProduct = () => {
                     />
                 </div>
 
+                {/* Catégories */}
                 <div className="w-full flex flex-col gap-2">
                     <label className="text-base font-medium">Catégories</label>
                     <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 border border-gray-500/40 rounded">
@@ -504,6 +518,7 @@ const AddProduct = () => {
                     </div>
                 </div>
 
+                {/* Prix */}
                 <div className="flex items-center gap-5 flex-wrap">
                     <div className="flex-1 flex flex-col gap-1">
                         <label className="text-base font-medium">Prix par défaut</label>
@@ -516,6 +531,7 @@ const AddProduct = () => {
                 </div>
                 <p className="text-xs text-gray-400 -mt-3">💡 Ces prix s'appliquent par défaut. Une variante peut avoir son propre prix, sinon elle utilise ceux-ci.</p>
 
+                {/* Mode produit */}
                 <div className="border-t pt-4">
                     <label className="text-base font-medium block mb-2">Type de produit</label>
                     <div className="grid grid-cols-3 gap-2">
@@ -526,10 +542,11 @@ const AddProduct = () => {
                     <p className="text-xs text-gray-400 mt-2">
                         {productMode === 'simple' && "Un seul prix, un seul stock, une taille optionnelle."}
                         {productMode === 'multi-sizes' && "Plusieurs tailles (S, M, L...), chacune avec son propre stock, sans couleurs."}
-                        {productMode === 'variants' && "Plusieurs couleurs, chaque couleur peut avoir plusieurs tailles avec leurs stocks."}
+                        {productMode === 'variants' && "Plusieurs couleurs (optionnel), chaque couleur peut avoir plusieurs tailles (optionnel) avec leurs stocks."}
                     </p>
                 </div>
 
+                {/* Mode SIMPLE */}
                 {productMode === 'simple' && (
                     <div className="flex flex-col gap-3 max-w-md">
                         <div className="flex flex-col gap-1">
@@ -545,6 +562,7 @@ const AddProduct = () => {
                     </div>
                 )}
 
+                {/* Mode MULTI-TAILLES */}
                 {productMode === 'multi-sizes' && (
                     <div className="flex flex-col gap-3 max-w-md">
                         <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -574,6 +592,7 @@ const AddProduct = () => {
                     </div>
                 )}
 
+                {/* Mode VARIANTS (Couleurs + Tailles) - TOUT OPTIONNEL SAUF LE STOCK */}
                 {productMode === 'variants' && (
                     <div className="flex flex-col gap-3 max-w-md">
                         {colors.length > 0 && (
@@ -584,17 +603,82 @@ const AddProduct = () => {
                                     return (
                                         <div key={colorIndex} className="border border-gray-200 rounded-lg overflow-hidden">
                                             <button type="button" onClick={() => setOpenColorIndex(isOpen ? null : colorIndex)} className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 hover:bg-gray-100 transition">
-                                                <div className="flex items-center gap-2"><div className="w-4 h-4 rounded-full border border-gray-300" style={{ backgroundColor: color.colorCode }}></div><span className="font-medium text-gray-900">{color.color}</span><span className="text-xs text-gray-400">({color.sizes.length} taille(s))</span><span className="text-xs text-green-600 ml-1">Stock total: {totalStock}</span></div>
+                                                <div className="flex items-center gap-2">
+                                                    {color.color !== 'Sans couleur' && (
+                                                        <div className="w-4 h-4 rounded-full border border-gray-300" style={{ backgroundColor: color.colorCode }}></div>
+                                                    )}
+                                                    <span className="font-medium text-gray-900">{color.color}</span>
+                                                    <span className="text-xs text-gray-400">({color.sizes.length} taille(s))</span>
+                                                    <span className="text-xs text-green-600 ml-1">Stock total: {totalStock}</span>
+                                                </div>
                                                 <svg className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
                                             </button>
                                             {isOpen && (
                                                 <div className="px-3 py-3 border-t border-gray-200 bg-white">
-                                                    {color.sizes.length > 0 && (<div className="space-y-2 mb-3">{color.sizes.map((size, sizeIndex) => (<div key={sizeIndex} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg"><div><span className="font-medium text-gray-800">{size.size}</span><span className="text-xs text-green-600 ml-2">Stock: {size.stock}</span>{size.price && <span className="text-xs text-gray-400 ml-2">{size.price} FCFA</span>}</div><div className="flex gap-1"><button type="button" onClick={() => editSizeInColor(colorIndex, sizeIndex)} className="text-blue-400 hover:text-blue-600 text-xs px-2 py-1">✏️</button><button type="button" onClick={() => removeSizeFromColor(colorIndex, sizeIndex)} className="text-red-400 hover:text-red-600 text-xs px-2 py-1">✕</button></div></div>))}</div>)}
-                                                    <div className="flex gap-2 mb-2"><input value={variantSizeInput} onChange={e => setVariantSizeInput(e.target.value)} type="text" placeholder="Taille" className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm" /><input value={variantStockInput} onChange={e => setVariantStockInput(e.target.value)} type="number" placeholder="Stock" className="w-20 border border-gray-200 rounded-lg px-3 py-1.5 text-sm" /></div>
-                                                    <div className="flex gap-2 mb-2"><input value={variantPriceInput} onChange={e => setVariantPriceInput(e.target.value)} type="number" placeholder="Prix (optionnel)" className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm" /><input value={variantOfferPriceInput} onChange={e => setVariantOfferPriceInput(e.target.value)} type="number" placeholder="Promo (optionnel)" className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm" /></div>
-                                                    <button type="button" onClick={() => addSizeToColor(colorIndex)} className="w-full py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition">{editingSizeIndexInColor !== null && editingColorForSize === colorIndex ? 'Mettre à jour la taille' : '+ Ajouter une taille'}</button>
-                                                    {editingSizeIndexInColor !== null && editingColorForSize === colorIndex && <button type="button" onClick={resetVariantSizeForm} className="w-full mt-1 py-1 text-xs text-gray-400 hover:text-gray-600">Annuler</button>}
-                                                    <div className="flex gap-2 mt-3 pt-2 border-t border-gray-100"><button type="button" onClick={() => editColor(colorIndex)} className="flex-1 py-1.5 text-blue-600 bg-blue-50 rounded-lg text-xs hover:bg-blue-100 transition">Modifier la couleur</button><button type="button" onClick={() => removeColor(colorIndex)} className="flex-1 py-1.5 text-red-600 bg-red-50 rounded-lg text-xs hover:bg-red-100 transition">Supprimer la couleur</button></div>
+                                                    {color.sizes.length > 0 && (
+                                                        <div className="space-y-2 mb-3">
+                                                            {color.sizes.map((size, sizeIndex) => (
+                                                                <div key={sizeIndex} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                                                                    <div>
+                                                                        <span className="font-medium text-gray-800">{size.size || 'Sans taille'}</span>
+                                                                        <span className="text-xs text-green-600 ml-2">Stock: {size.stock}</span>
+                                                                        {size.price && <span className="text-xs text-gray-400 ml-2">{size.price} FCFA</span>}
+                                                                    </div>
+                                                                    <div className="flex gap-1">
+                                                                        <button type="button" onClick={() => editSizeInColor(colorIndex, sizeIndex)} className="text-blue-400 hover:text-blue-600 text-xs px-2 py-1">✏️</button>
+                                                                        <button type="button" onClick={() => removeSizeFromColor(colorIndex, sizeIndex)} className="text-red-400 hover:text-red-600 text-xs px-2 py-1">✕</button>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    <div className="flex gap-2 mb-2">
+                                                        <input 
+                                                            value={variantSizeInput} 
+                                                            onChange={e => setVariantSizeInput(e.target.value)} 
+                                                            type="text" 
+                                                            placeholder="Taille (optionnel)" 
+                                                            className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm" 
+                                                        />
+                                                        <input 
+                                                            value={variantStockInput} 
+                                                            onChange={e => setVariantStockInput(e.target.value)} 
+                                                            type="number" 
+                                                            placeholder="Stock *" 
+                                                            className="w-20 border border-gray-200 rounded-lg px-3 py-1.5 text-sm" 
+                                                            required 
+                                                        />
+                                                    </div>
+                                                    <div className="flex gap-2 mb-2">
+                                                        <input 
+                                                            value={variantPriceInput} 
+                                                            onChange={e => setVariantPriceInput(e.target.value)} 
+                                                            type="number" 
+                                                            placeholder="Prix (optionnel)" 
+                                                            className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm" 
+                                                        />
+                                                        <input 
+                                                            value={variantOfferPriceInput} 
+                                                            onChange={e => setVariantOfferPriceInput(e.target.value)} 
+                                                            type="number" 
+                                                            placeholder="Promo (optionnel)" 
+                                                            className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm" 
+                                                        />
+                                                    </div>
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={() => addSizeToColor(colorIndex)} 
+                                                        className="w-full py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition"
+                                                    >
+                                                        {editingSizeIndexInColor !== null && editingColorForSize === colorIndex ? 'Mettre à jour la taille' : '+ Ajouter une taille'}
+                                                    </button>
+                                                    {editingSizeIndexInColor !== null && editingColorForSize === colorIndex && (
+                                                        <button type="button" onClick={resetVariantSizeForm} className="w-full mt-1 py-1 text-xs text-gray-400 hover:text-gray-600">Annuler</button>
+                                                    )}
+                                                    <div className="flex gap-2 mt-3 pt-2 border-t border-gray-100">
+                                                        <button type="button" onClick={() => editColor(colorIndex)} className="flex-1 py-1.5 text-blue-600 bg-blue-50 rounded-lg text-xs hover:bg-blue-100 transition">Modifier la couleur</button>
+                                                        <button type="button" onClick={() => removeColor(colorIndex)} className="flex-1 py-1.5 text-red-600 bg-red-50 rounded-lg text-xs hover:bg-red-100 transition">Supprimer la couleur</button>
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>
@@ -602,13 +686,49 @@ const AddProduct = () => {
                                 })}
                             </div>
                         )}
-                        {!showColorForm && (<button type="button" onClick={() => setShowColorForm(true)} className="w-full py-2.5 border-2 border-dashed border-gray-300 rounded-lg text-sm font-medium text-gray-500 hover:border-primary hover:text-primary transition">+ Ajouter une couleur</button>)}
+                        {!showColorForm && (
+                            <button type="button" onClick={() => setShowColorForm(true)} className="w-full py-2.5 border-2 border-dashed border-gray-300 rounded-lg text-sm font-medium text-gray-500 hover:border-primary hover:text-primary transition">
+                                + Ajouter une couleur (optionnel)
+                            </button>
+                        )}
                         {showColorForm && (
                             <div className="bg-gray-50 p-3 rounded-lg space-y-3 border border-gray-200">
-                                <div className="flex items-center justify-between"><span className="text-sm font-medium text-primary">{editingColorIndex !== null ? 'Modifier la couleur' : 'Nouvelle couleur'}</span><button type="button" onClick={cancelColorForm} className="text-xs text-gray-400 hover:text-gray-600">Annuler</button></div>
-                                <div className="flex gap-2 items-center"><input value={colorInput} onChange={e => setColorInput(e.target.value)} type="text" placeholder="Couleur (ex: Rouge)" className="flex-1 outline-none py-2 px-3 rounded border border-gray-300 text-sm" /><input value={colorCodeInput} onChange={e => setColorCodeInput(e.target.value)} type="color" className="w-12 h-10 rounded border border-gray-300 cursor-pointer" /></div>
-                                <div><label className="text-xs text-gray-600 mb-1 block">Position de départ dans les photos (0 = première photo)</label><input value={startImageIndexInput} onChange={e => setStartImageIndexInput(Number(e.target.value))} type="number" min="0" placeholder="Ex: 0 pour Rouge, 3 pour Bleu" className="w-full outline-none py-2 px-3 rounded border border-gray-300 text-sm" /><p className="text-xs text-gray-400 mt-1">💡 Permet d'afficher d'abord les photos correspondant à cette couleur.</p></div>
-                                <button type="button" onClick={addColor} className="w-full py-2 bg-primary text-white rounded text-sm font-medium">{editingColorIndex !== null ? 'Mettre à jour la couleur' : 'Ajouter cette couleur'}</button>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm font-medium text-primary">
+                                        {editingColorIndex !== null ? 'Modifier la couleur' : 'Nouvelle couleur (optionnel)'}
+                                    </span>
+                                    <button type="button" onClick={cancelColorForm} className="text-xs text-gray-400 hover:text-gray-600">Annuler</button>
+                                </div>
+                                <div className="flex gap-2 items-center">
+                                    <input 
+                                        value={colorInput} 
+                                        onChange={e => setColorInput(e.target.value)} 
+                                        type="text" 
+                                        placeholder="Couleur (optionnel)" 
+                                        className="flex-1 outline-none py-2 px-3 rounded border border-gray-300 text-sm" 
+                                    />
+                                    <input 
+                                        value={colorCodeInput} 
+                                        onChange={e => setColorCodeInput(e.target.value)} 
+                                        type="color" 
+                                        className="w-12 h-10 rounded border border-gray-300 cursor-pointer" 
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-600 mb-1 block">Position de départ dans les photos (0 = première photo)</label>
+                                    <input 
+                                        value={startImageIndexInput} 
+                                        onChange={e => setStartImageIndexInput(Number(e.target.value))} 
+                                        type="number" 
+                                        min="0" 
+                                        placeholder="Ex: 0 pour Rouge, 3 pour Bleu" 
+                                        className="w-full outline-none py-2 px-3 rounded border border-gray-300 text-sm" 
+                                    />
+                                    <p className="text-xs text-gray-400 mt-1">💡 Permet d'afficher d'abord les photos correspondant à cette couleur.</p>
+                                </div>
+                                <button type="button" onClick={addColor} className="w-full py-2 bg-primary text-white rounded text-sm font-medium">
+                                    {editingColorIndex !== null ? 'Mettre à jour la couleur' : 'Ajouter cette couleur'}
+                                </button>
                             </div>
                         )}
                     </div>
