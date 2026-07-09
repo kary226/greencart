@@ -3,10 +3,7 @@ import { upload } from '../configs/multer.js';
 import authSeller from '../middlewares/authSeller.js';
 import { 
     addProduct, 
-    addProductImages,
-    addImages,
-    addVideo,
-    deleteVideo,
+    addProductImages, 
     changeStock, 
     productList, 
     productById, 
@@ -53,9 +50,7 @@ const handleMulterError = (err, req, res, next) => {
     next(err);
 };
 
-// ==================== ROUTES PRINCIPALES ====================
-
-// ✅ Ajouter un produit (avec images et vidéo)
+// ✅ ROUTE AVEC GESTION D'ERREUR
 productRouter.post('/add', authSeller, (req, res, next) => {
     upload.fields([
         { name: 'images', maxCount: 10 },
@@ -68,52 +63,20 @@ productRouter.post('/add', authSeller, (req, res, next) => {
     });
 }, addProduct);
 
-// ==================== GESTION DES IMAGES ====================
+productRouter.post('/add-images', authSeller, upload.array("images", 10), addProductImages);
 
-// ✅ Ajouter des images à un produit existant
-productRouter.post('/add-images', authSeller, upload.array("images", 10), addImages);
-
-// ==================== GESTION DE LA VIDÉO ====================
-
-// ✅ Ajouter une vidéo à un produit existant
-productRouter.post('/add-video', authSeller, (req, res, next) => {
-    upload.fields([
-        { name: 'video', maxCount: 1 }
-    ])(req, res, (err) => {
-        if (err) {
-            return handleMulterError(err, req, res, next);
-        }
-        next();
-    });
-}, addVideo);
-
-// ✅ Supprimer la vidéo d'un produit
-productRouter.post('/delete-video', authSeller, deleteVideo);
-
-// ==================== ROUTES DE LISTE ET RECHERCHE ====================
-
-// ✅ Liste des produits (avec pagination et tri)
+// ✅ ROUTE DE LISTE AVEC TRI PAR salesCount
 // Utilisation: /api/product/list?sort=salesCount&page=1&limit=12
 productRouter.get('/list', productList);
 
-// ✅ Best-sellers (utile pour la page d'accueil)
+// ✅ ROUTE POUR LES BEST-SELLERS (utile pour la page d'accueil)
 productRouter.get('/bestsellers', getBestSellers);
 
-// ==================== ROUTES CRUD ====================
-
-// ✅ Récupérer un produit par son ID
+// ✅ ROUTES SUPPLEMENTAIRES
 productRouter.get('/id', productById);
-
-// ✅ Modifier le stock d'un produit
 productRouter.post('/stock', authSeller, changeStock);
-
-// ✅ Mettre à jour un produit
 productRouter.post('/update', authSeller, updateProduct);
-
-// ✅ Supprimer un produit (avec suppression de la vidéo)
 productRouter.post('/delete', authSeller, deleteProduct);
-
-// ✅ Récupérer les détails d'une variante
 productRouter.post('/variant', getVariantDetails);
 
 export default productRouter;

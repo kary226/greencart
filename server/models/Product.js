@@ -24,27 +24,27 @@ const productSchema = new mongoose.Schema({
     stock: { type: Number, default: 0 },
     size: { type: String, default: null },  // Taille optionnelle pour produit simple
     
-    // VIDEO DU PRODUIT (optionnel)
+    // ✅ VIDEO DU PRODUIT (optionnel)
     video: { 
         type: String, 
         default: null 
     },
-    // Public ID pour la suppression de la vidéo sur Cloudinary
+    // ✅ Public ID pour la suppression de la vidéo sur Cloudinary
     videoPublicId: { 
         type: String, 
         default: null 
     },
     
-    // Compteur de ventes pour les tendances
+    // ✅ AJOUT : Compteur de ventes pour les tendances GLOBALES
     salesCount: {
         type: Number,
         default: 0,
-        index: true
+        index: true  // Pour trier rapidement
     }
     
 }, { timestamps: true });
 
-// Index pour les requêtes "top ventes"
+// ✅ AJOUT : Index pour les requêtes "top ventes"
 productSchema.index({ salesCount: -1 });
 
 const Product = mongoose.models.product || mongoose.model('product', productSchema);
