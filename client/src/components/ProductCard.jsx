@@ -16,14 +16,22 @@ const ProductCard = ({ product }) => {
   const images = image || [];
   const mainImg = images[imgIdx] || images[0];
 
-  // ✅ Extraire les couleurs uniques des variants
+  // ✅ Extraire les couleurs et tailles uniques
   const uniqueColors = variants?.length > 0 
       ? [...new Set(variants.map(v => v.color).filter(Boolean))] 
+      : [];
+
+  const uniqueSizes = variants?.length > 0 
+      ? [...new Set(variants.map(v => v.size).filter(Boolean))] 
       : [];
 
   // Limiter à 3 couleurs affichées
   const displayColors = uniqueColors.slice(0, 3);
   const hasMoreColors = uniqueColors.length > 3;
+
+  // Limiter à 3 tailles affichées
+  const displaySizes = uniqueSizes.slice(0, 3);
+  const hasMoreSizes = uniqueSizes.length > 3;
 
   // Calculs optimisés
   const { displayPrice, discount, totalStock, isOutOfStock, isLowStock } = useMemo(() => {
@@ -45,6 +53,10 @@ const ProductCard = ({ product }) => {
   }, [price, offerPrice, variants, product.inStock]);
 
   const categorySlug = category?.slug || product.categorySlug || "all";
+
+  // ✅ Déterminer quoi afficher
+  const hasColors = uniqueColors.length > 0;
+  const hasSizes = uniqueSizes.length > 0;
 
   return (
     <div className={`sc-card${isOutOfStock ? ' sc-card-out' : ''}`}>
@@ -76,9 +88,7 @@ const ProductCard = ({ product }) => {
           <span className="sc-badge sc-low">+ que {totalStock}</span>
         )}
 
-        {/* [FIX] Rupture de stock : avant, un simple petit badge en coin
-            (facile à manquer). Maintenant : image assombrie/grisée +
-            bandeau centré bien visible, comme sur les gros sites e-commerce. */}
+        {/* Rupture de stock */}
         {isOutOfStock && (
           <div className="sc-out-overlay">
             <span className="sc-out-ribbon">Épuisé</span>
@@ -119,39 +129,62 @@ const ProductCard = ({ product }) => {
           )}
         </div>
 
-        {/* ✅ AFFICHAGE MODERNE DES COULEURS */}
-        {displayColors.length > 0 && !isOutOfStock && (
-          <div className="sc-colors">
-            <div className="sc-colors-dots">
-              {displayColors.map((color, idx) => {
-                const variant = product.variants.find(v => v.color === color);
-                const colorCode = variant?.colorCode || '#ccc';
-                return (
-                  <span 
-                    key={idx} 
-                    className="sc-color-dot"
-                    style={{ backgroundColor: colorCode }}
-                    title={color}
-                  />
-                );
-              })}
-            </div>
-            {hasMoreColors && (
-              <span className="sc-color-count">+{uniqueColors.length - 3}</span>
+        {/* ✅ AFFICHAGE DES COULEURS OU TAILLES */}
+        {!isOutOfStock && (
+          <div className="sc-variants-info">
+            {/* Cas 1 : Couleurs disponibles */}
+            {hasColors && (
+              <div className="sc-colors">
+                <div className="sc-colors-dots">
+                  {displayColors.map((color, idx) => {
+                    const variant = product.variants.find(v => v.color === color);
+                    const colorCode = variant?.colorCode || '#ccc';
+                    return (
+                      <span 
+                        key={idx} 
+                        className="sc-color-dot"
+                        style={{ backgroundColor: colorCode }}
+                        title={color}
+                      />
+                    );
+                  })}
+                </div>
+                {hasMoreColors && (
+                  <span className="sc-variant-count">+{uniqueColors.length - 3}</span>
+                )}
+              </div>
+            )}
+
+            {/* Cas 2 : Pas de couleurs mais des tailles */}
+            {!hasColors && hasSizes && (
+              <div className="sc-sizes">
+                {displaySizes.map((size, idx) => (
+                  <span key={idx} className="sc-size-tag">{size}</span>
+                ))}
+                {hasMoreSizes && (
+                  <span className="sc-variant-count">+{uniqueSizes.length - 3}</span>
+                )}
+              </div>
             )}
           </div>
         )}
       </Link>
 
       <style>{`
-        /* ✅ STYLES MODERNES POUR LES COULEURS */
-        .sc-colors {
+        /* ✅ STYLES MODERNES POUR LES VARIANTES */
+        .sc-variants-info {
           display: flex;
           align-items: center;
-          gap: 8px;
           margin-top: 6px;
           padding-top: 4px;
           border-top: 1px solid rgba(0,0,0,0.04);
+        }
+
+        /* Couleurs */
+        .sc-colors {
+          display: flex;
+          align-items: center;
+          gap: 6px;
         }
 
         .sc-colors-dots {
@@ -169,7 +202,6 @@ const ProductCard = ({ product }) => {
           flex-shrink: 0;
           transition: all 0.2s ease;
           cursor: default;
-          position: relative;
         }
 
         .sc-color-dot:hover {
@@ -182,24 +214,54 @@ const ProductCard = ({ product }) => {
           margin-left: -2px;
         }
 
-        .sc-color-count {
+        /* Tailles */
+        .sc-sizes {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          flex-wrap: wrap;
+        }
+
+        .sc-size-tag {
+          font-size: 10px;
+          font-weight: 600;
+          color: #555;
+          background: #f0f0f0;
+          padding: 1px 6px;
+          border-radius: 3px;
+          letter-spacing: 0.3px;
+          transition: all 0.2s;
+        }
+
+        .sc-size-tag:hover {
+          background: #e0e0e0;
+          color: #111;
+        }
+
+        /* Compteur "+X" */
+        .sc-variant-count {
           font-size: 10px;
           font-weight: 500;
           color: #888;
-          padding: 0 4px;
           background: #f5f5f5;
           border-radius: 10px;
           padding: 1px 8px;
           transition: all 0.2s;
+          margin-left: 2px;
         }
 
-        .sc-color-count:hover {
+        .sc-variant-count:hover {
           background: #eee;
           color: #555;
         }
 
-        .sc-card-out .sc-colors {
+        .sc-card-out .sc-variants-info {
           opacity: 0.4;
+        }
+
+        .sc-card-out .sc-size-tag {
+          background: #e8e8e8;
+          color: #aaa;
         }
       `}</style>
 
