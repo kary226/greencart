@@ -46,14 +46,12 @@ const ProductDetails = () => {
   const getAllMedia = () => {
     const media = [];
     
-    // Ajouter les images
     if (product?.image && product.image.length > 0) {
       product.image.forEach(img => {
         media.push({ type: 'image', url: img });
       });
     }
     
-    // ✅ Ajouter la vidéo si elle existe
     if (product?.video) {
       media.push({ 
         type: 'video', 
@@ -70,15 +68,12 @@ const ProductDetails = () => {
   const currentMedia = mediaItems[currentMediaIndex] || null;
   const allImages = product?.image || [];
 
-  // ✅ Vérifier si l'élément actuel est une vidéo
   const isCurrentVideo = currentMedia?.type === 'video';
 
-  // ✅ Déterminer le type de vidéo
   const isYouTube = (url) => url?.includes('youtube.com') || url?.includes('youtu.be');
   const isVimeo = (url) => url?.includes('vimeo.com');
   const isDirectVideo = (url) => url && !isYouTube(url) && !isVimeo(url);
 
-  // ✅ Récupérer la politique de retour
   useEffect(() => {
     const fetchReturnPolicy = async () => {
       try {
@@ -206,7 +201,6 @@ const ProductDetails = () => {
     setTouchEnd(0);
   };
 
-  // ✅ Navigation avec les flèches
   const goToPrevMedia = () => {
     setCurrentMediaIndex(prev => prev === 0 ? totalMedia - 1 : prev - 1);
   };
@@ -252,6 +246,18 @@ const ProductDetails = () => {
     }
     const variant = product.variants.find(v => v.color === selectedColor && v.size === size);
     return variant ? variant.stock > 0 : false;
+  };
+
+  // ✅ Fonction pour obtenir le stock d'une taille spécifique
+  const getStockForSize = (size) => {
+    if (selectedColor) {
+      const variant = product.variants.find(v => 
+        v.color === selectedColor && v.size === size
+      );
+      return variant ? variant.stock : 0;
+    }
+    const variantsWithSize = product.variants.filter(v => v.size === size);
+    return variantsWithSize.reduce((sum, v) => sum + v.stock, 0);
   };
 
   const variantStock = getVariantStock();
@@ -408,7 +414,6 @@ const ProductDetails = () => {
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
             >
-              {/* ✅ AFFICHAGE : IMAGE ou VIDÉO */}
               {!isCurrentVideo ? (
                 <img src={currentMedia?.url} alt={product.name} />
               ) : (
@@ -444,17 +449,14 @@ const ProductDetails = () => {
                 </div>
               )}
               
-              {/* ✅ Indicateur "VIDÉO" sur le slide */}
               {isCurrentVideo && (
                 <span className="pd-video-badge">▶ VIDÉO</span>
               )}
               
-              {/* ✅ Compteur (X/Y) */}
               {totalMedia > 1 && (
                 <span className="pd-counter">{currentMediaIndex + 1}/{totalMedia}</span>
               )}
               
-              {/* ✅ FLÈCHES DE NAVIGATION (UNIQUEMENT SUR DESKTOP) */}
               {totalMedia > 1 && !isMobile && (
                 <>
                   <button className="pd-nav pd-nav-prev" onClick={goToPrevMedia}>‹</button>
@@ -463,7 +465,6 @@ const ProductDetails = () => {
               )}
             </div>
 
-            {/* ✅ DOTS (points) */}
             {totalMedia > 1 && (
               <div className="pd-dots">
                 {mediaItems.map((_, i) => (
@@ -476,7 +477,6 @@ const ProductDetails = () => {
               </div>
             )}
 
-            {/* ✅ MINIATURES */}
             {totalMedia > 1 && (
               <div className="pd-thumbs" ref={scrollContainerRef}>
                 {mediaItems.map((media, i) => (
@@ -544,20 +544,37 @@ const ProductDetails = () => {
               </div>
             )}
 
+            {/* ✅ SECTION TAILLES MODIFIÉE AVEC STOCKS */}
             {uniqueSizes.length > 0 && (
               <div ref={sizeSectionRef} className={`pd-option ${highlightSize ? 'error' : ''}`}>
-                <p className="pd-option-label">Taille {selectedSize && <span>— {selectedSize}</span>}</p>
+                <p className="pd-option-label">
+                  Taille {selectedSize && <span>— {selectedSize}</span>}
+                  {selectedSize && (
+                    <span className="pd-size-stock-label">
+                      {(() => {
+                        const stock = getStockForSize(selectedSize);
+                        return stock > 0 ? ` (${stock} disponible${stock > 1 ? 's' : ''})` : ' (Rupture)';
+                      })()}
+                    </span>
+                  )}
+                </p>
                 <div className="pd-sizes">
-                  {uniqueSizes.map((size, i) => (
-                    <button
-                      key={i}
-                      className={`pd-size ${selectedSize === size ? 'active' : ''} ${!isSizeAvailable(size) ? 'disabled' : ''}`}
-                      onClick={() => setSelectedSize(selectedSize === size ? null : size)}
-                      disabled={!isSizeAvailable(size)}
-                    >
-                      {size}
-                    </button>
-                  ))}
+                  {uniqueSizes.map((size, i) => {
+                    const stock = getStockForSize(size);
+                    const available = stock > 0;
+                    
+                    return (
+                      <button
+                        key={i}
+                        className={`pd-size ${selectedSize === size ? 'active' : ''} ${!available ? 'disabled' : ''}`}
+                        onClick={() => setSelectedSize(selectedSize === size ? null : size)}
+                        disabled={!available}
+                      >
+                        <span className="pd-size-label">{size}</span>
+                        <span className="pd-size-stock">{stock}</span>
+                      </button>
+                    );
+                  })}
                 </div>
                 {sizeError && <p className="pd-error">{sizeError}</p>}
               </div>
@@ -714,7 +731,6 @@ const ProductDetails = () => {
           object-fit: cover;
         }
 
-        /* ✅ VIDÉO DANS LA GALERIE */
         .pd-video-slide {
           width: 100%;
           height: 100%;
@@ -764,7 +780,6 @@ const ProductDetails = () => {
           z-index: 3;
         }
 
-        /* ✅ FLÈCHES DE NAVIGATION (Desktop seulement) */
         .pd-nav {
           position: absolute;
           top: 50%;
@@ -865,7 +880,6 @@ const ProductDetails = () => {
           display: block;
         }
 
-        /* ✅ Miniature vidéo */
         .pd-thumb-video {
           position: relative;
           width: 100%;
@@ -1060,31 +1074,82 @@ const ProductDetails = () => {
         .pd-sizes {
           display: flex;
           flex-wrap: wrap;
-          gap: 6px;
+          gap: 8px;
         }
 
+        /* ✅ STYLES MODIFIÉS POUR AFFICHER LE STOCK */
         .pd-size {
-          min-width: 36px;
-          height: 36px;
-          padding: 0 10px;
-          border-radius: 4px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          min-width: 50px;
+          height: 56px;
+          padding: 4px 10px;
+          border-radius: 6px;
           border: 1.5px solid #e8e3dc;
           background: white;
-          font-size: 12px;
-          font-weight: 500;
           cursor: pointer;
           transition: all 0.2s;
+          gap: 1px;
         }
+
+        .pd-size-label {
+          font-size: 13px;
+          font-weight: 600;
+          color: #111;
+        }
+
+        .pd-size-stock {
+          font-size: 9px;
+          font-weight: 500;
+          color: #999;
+          background: #f5f5f5;
+          padding: 0 6px;
+          border-radius: 8px;
+          min-width: 18px;
+          text-align: center;
+        }
+
         .pd-size.active {
           background: #111;
           border-color: #111;
+        }
+
+        .pd-size.active .pd-size-label {
           color: white;
         }
+
+        .pd-size.active .pd-size-stock {
+          color: rgba(255,255,255,0.8);
+          background: rgba(255,255,255,0.2);
+        }
+
         .pd-size.disabled {
-          color: #ccc;
-          border-color: #eee;
-          text-decoration: line-through;
+          opacity: 0.5;
           cursor: not-allowed;
+          background: #fafafa;
+        }
+
+        .pd-size.disabled .pd-size-label {
+          color: #ccc;
+          text-decoration: line-through;
+        }
+
+        .pd-size.disabled .pd-size-stock {
+          color: #ccc;
+          background: #eee;
+        }
+
+        .pd-size:hover:not(.disabled):not(.active) {
+          border-color: #111;
+          background: #fafafa;
+        }
+
+        .pd-size-stock-label {
+          font-size: 12px;
+          color: #666;
+          font-weight: normal;
         }
 
         .pd-error {
