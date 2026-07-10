@@ -6,7 +6,7 @@ import CouponInput from "../components/CouponInput";
 import { ShoppingBag, Trash2, ArrowRight, MapPin, Truck, CreditCard, Plus } from "lucide-react";
 
 const Cart = () => {
-    const { products, currency, cartItems, removeFromCart, getCartCount, updateCartItem, navigate, getCartAmount, axios, user, setCartItems, getProductIdFromKey } = useAppContext()
+    const { products, currency, cartItems, removeFromCart, getCartCount, updateCartItem, navigate, getCartAmount, axios, user, setCartItems, getProductIdFromKey, getCartKey } = useAppContext()
     const [cartArray, setCartArray] = useState([])
     const [addresses, setAddresses] = useState([])
     const [showAddress, setShowAddress] = useState(false)
@@ -43,26 +43,44 @@ const Cart = () => {
         }
     };
 
-    // ✅ getCart avec recherche EXACTE de la variante
+    // ✅ FIX : on ne devine plus couleur/taille par position dans le split
+    // (parts[1] = couleur, parts[2] = taille) car cette hypothèse est fausse
+    // dès qu'un produit n'a QUE une taille (pas de couleur) : la clé devient
+    // `productId_TAILLE` et l'ancien code lisait alors la taille comme une
+    // couleur, ne trouvait aucune variante correspondante, et retombait sur
+    // un stock max codé en dur de 10 → on pouvait dépasser le vrai stock.
+    //
+    // Ici on reconstruit la clé attendue pour CHAQUE variante du produit via
+    // getCartKey() et on cherche celle qui correspond exactement à la clé
+    // stockée dans le panier. Ça fonctionne peu importe la combinaison
+    // (couleur seule, taille seule, les deux, ou aucune des deux).
     const getCart = ()=>{
         let tempArray = []
         for(const key in cartItems){
             const productId = getProductIdFromKey(key)
             const product = products.find((item)=>item._id === productId)
             if(product){
-                const parts = key.split('_')
-                const color = parts[1] || null
-                const size = parts[2] || null
+                let color = null
+                let size = null
+                let variant = null
 
-                // ✅ Recherche EXACTE de la variante
-                let variant = null;
-                if (product.variants && product.variants.length > 0) {
-                    variant = product.variants.find(v => {
-                        const colorMatch = color ? v.color === color : (v.color === null || v.color === '');
-                        const sizeMatch = size ? v.size === size : (v.size === null || v.size === '');
-                        return colorMatch && sizeMatch;
-                    });
+                const hasVariants = product.variants && product.variants.length > 0
+
+                if (hasVariants) {
+                    variant = product.variants.find(v => getCartKey(productId, v.color, v.size) === key)
+                    if (variant) {
+                        color = variant.color
+                        size = variant.size
+                    }
                 }
+
+                // Produit avec variantes : stock de la variante exacte (0 si la
+                // variante n'existe plus, ex. supprimée par le vendeur, pour ne
+                // jamais autoriser d'incrémenter un article devenu indisponible).
+                // Produit simple (sans variantes) : on utilise son stock propre.
+                const variantStock = hasVariants
+                    ? (variant ? variant.stock : 0)
+                    : (product.stock ?? null)
 
                 tempArray.push({
                     ...product,
@@ -70,7 +88,7 @@ const Cart = () => {
                     quantity: cartItems[key],
                     selectedColor: color,
                     selectedSize: size,
-                    variantStock: variant ? variant.stock : null
+                    variantStock
                 })
             }
         }
