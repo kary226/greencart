@@ -562,19 +562,11 @@ const ProductDetails = () => {
               </div>
             )}
 
-            {/* ✅ SECTION TAILLES - Stock affiché uniquement dans le label quand sélectionné */}
+            {/* ✅ SECTION TAILLES */}
             {uniqueSizes.length > 0 && (
               <div ref={sizeSectionRef} className={`pd-option ${highlightSize ? 'error' : ''}`}>
                 <p className="pd-option-label">
                   Taille {selectedSize && <span>— {selectedSize}</span>}
-                  {selectedSize && (
-                    <span className="pd-size-stock-label">
-                      {(() => {
-                        const stock = getStockForSize(selectedSize);
-                        return stock > 0 ? ` (${stock} disponible${stock > 1 ? 's' : ''})` : ' (Rupture)';
-                      })()}
-                    </span>
-                  )}
                 </p>
                 <div className="pd-sizes">
                   {uniqueSizes.map((size, i) => {
@@ -1116,12 +1108,6 @@ const ProductDetails = () => {
           border-color: #eee;
           text-decoration: line-through;
           cursor: not-allowed;
-        }
-
-        .pd-size-stock-label {
-          font-size: 12px;
-          color: #666;
-          font-weight: normal;
         }
 
         .pd-error {
