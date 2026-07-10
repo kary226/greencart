@@ -565,7 +565,9 @@ const ProductDetails = () => {
             {/* ✅ SECTION TAILLES - Stock affiché uniquement dans le label quand sélectionné */}
             {uniqueSizes.length > 0 && (
               <div ref={sizeSectionRef} className={`pd-option ${highlightSize ? 'error' : ''}`}>
-                
+                <p className="pd-option-label">
+                  Taille {selectedSize && <span>— {selectedSize}</span>}
+                </p>
                 <div className="pd-sizes">
                   {uniqueSizes.map((size, i) => {
                     const stock = getStockForSize(size);
