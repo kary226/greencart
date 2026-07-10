@@ -567,6 +567,14 @@ const ProductDetails = () => {
               <div ref={sizeSectionRef} className={`pd-option ${highlightSize ? 'error' : ''}`}>
                 <p className="pd-option-label">
                   Taille {selectedSize && <span>— {selectedSize}</span>}
+                  {selectedSize && (
+                    <span className="pd-size-stock-label">
+                      {(() => {
+                        const stock = getStockForSize(selectedSize);
+                        return stock > 0 ? ` (${stock} disponible${stock > 1 ? 's' : ''})` : ' (Rupture)';
+                      })()}
+                    </span>
+                  )}
                 </p>
                 <div className="pd-sizes">
                   {uniqueSizes.map((size, i) => {
