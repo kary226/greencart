@@ -16,6 +16,15 @@ const ProductCard = ({ product }) => {
   const images = image || [];
   const mainImg = images[imgIdx] || images[0];
 
+  // ✅ Extraire les couleurs uniques des variants
+  const uniqueColors = variants?.length > 0 
+      ? [...new Set(variants.map(v => v.color).filter(Boolean))] 
+      : [];
+
+  // Limiter à 3 couleurs affichées
+  const displayColors = uniqueColors.slice(0, 3);
+  const hasMoreColors = uniqueColors.length > 3;
+
   // Calculs optimisés
   const { displayPrice, discount, totalStock, isOutOfStock, isLowStock } = useMemo(() => {
     const disc = offerPrice && price ? Math.round(((price - offerPrice) / price) * 100) : null;
@@ -109,7 +118,267 @@ const ProductCard = ({ product }) => {
             </span>
           )}
         </div>
+
+        {/* ✅ AFFICHAGE MODERNE DES COULEURS */}
+        {displayColors.length > 0 && !isOutOfStock && (
+          <div className="sc-colors">
+            <div className="sc-colors-dots">
+              {displayColors.map((color, idx) => {
+                const variant = product.variants.find(v => v.color === color);
+                const colorCode = variant?.colorCode || '#ccc';
+                return (
+                  <span 
+                    key={idx} 
+                    className="sc-color-dot"
+                    style={{ backgroundColor: colorCode }}
+                    title={color}
+                  />
+                );
+              })}
+            </div>
+            {hasMoreColors && (
+              <span className="sc-color-count">+{uniqueColors.length - 3}</span>
+            )}
+          </div>
+        )}
       </Link>
+
+      <style>{`
+        /* ✅ STYLES MODERNES POUR LES COULEURS */
+        .sc-colors {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-top: 6px;
+          padding-top: 4px;
+          border-top: 1px solid rgba(0,0,0,0.04);
+        }
+
+        .sc-colors-dots {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+
+        .sc-color-dot {
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          border: 1.5px solid rgba(0,0,0,0.06);
+          display: inline-block;
+          flex-shrink: 0;
+          transition: all 0.2s ease;
+          cursor: default;
+          position: relative;
+        }
+
+        .sc-color-dot:hover {
+          transform: scale(1.15);
+          border-color: rgba(0,0,0,0.2);
+          z-index: 2;
+        }
+
+        .sc-color-dot:not(:first-child) {
+          margin-left: -2px;
+        }
+
+        .sc-color-count {
+          font-size: 10px;
+          font-weight: 500;
+          color: #888;
+          padding: 0 4px;
+          background: #f5f5f5;
+          border-radius: 10px;
+          padding: 1px 8px;
+          transition: all 0.2s;
+        }
+
+        .sc-color-count:hover {
+          background: #eee;
+          color: #555;
+        }
+
+        .sc-card-out .sc-colors {
+          opacity: 0.4;
+        }
+      `}</style>
+
+      {/* Vos styles existants - inchangés */}
+      <style>{`
+        .sc-card {
+          position: relative;
+          background: white;
+          border-radius: 8px;
+          overflow: hidden;
+          transition: all 0.2s;
+        }
+
+        .sc-card:hover {
+          box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        .sc-card-img-wrap {
+          position: relative;
+          display: block;
+          aspect-ratio: 1/1;
+          overflow: hidden;
+          background: #f5f5f5;
+        }
+
+        .sc-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          transition: opacity 0.3s;
+          opacity: 0;
+        }
+
+        .sc-img.loaded {
+          opacity: 1;
+        }
+
+        .sc-skeleton {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.5s infinite;
+        }
+
+        @keyframes shimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+
+        .sc-badge {
+          position: absolute;
+          top: 8px;
+          left: 8px;
+          padding: 2px 8px;
+          border-radius: 4px;
+          font-size: 10px;
+          font-weight: 600;
+          z-index: 2;
+        }
+
+        .sc-promo {
+          background: #e53935;
+          color: white;
+        }
+
+        .sc-low {
+          background: #ff9800;
+          color: white;
+        }
+
+        .sc-wishlist {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: rgba(255,255,255,0.9);
+          border: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          z-index: 2;
+          transition: all 0.2s;
+          backdrop-filter: blur(4px);
+        }
+
+        .sc-wishlist:hover {
+          background: white;
+          transform: scale(1.05);
+        }
+
+        .sc-wishlist.active {
+          background: #fff0f0;
+        }
+
+        .sc-out-overlay {
+          position: absolute;
+          inset: 0;
+          background: rgba(0,0,0,0.3);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 3;
+        }
+
+        .sc-out-ribbon {
+          background: rgba(0,0,0,0.7);
+          color: white;
+          padding: 4px 16px;
+          font-size: 12px;
+          font-weight: 600;
+          border-radius: 4px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .sc-info {
+          display: block;
+          padding: 8px 6px;
+          text-decoration: none;
+          color: inherit;
+        }
+
+        .sc-name {
+          font-size: 13px;
+          font-weight: 500;
+          color: #111;
+          margin: 0 0 2px;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+
+        .sc-prices {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+
+        .sc-price {
+          font-size: 14px;
+          font-weight: 700;
+          color: #111;
+        }
+
+        .sc-old {
+          font-size: 12px;
+          color: #bbb;
+          text-decoration: line-through;
+        }
+
+        .sc-card-out .sc-name {
+          color: #999;
+        }
+
+        .sc-card-out .sc-price {
+          color: #999;
+        }
+
+        .sc-card-out .sc-old {
+          color: #ccc;
+        }
+
+        .sc-no-img {
+          width: 100%;
+          height: 100%;
+          background: #f5f5f5;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #ccc;
+          font-size: 12px;
+        }
+      `}</style>
     </div>
   );
 };
