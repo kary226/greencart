@@ -16,75 +16,26 @@ const ProductCard = ({ product }) => {
   const images = image || [];
   const mainImg = images[imgIdx] || images[0];
 
-  // ✅ NOUVEAU : Récupérer les tailles disponibles avec leurs stocks
-  const { displayPrice, discount, isOutOfStock, hasVariants, sizeInfo } = useMemo(() => {
+  // Calculs optimisés
+  const { displayPrice, discount, totalStock, isOutOfStock, isLowStock } = useMemo(() => {
     const disc = offerPrice && price ? Math.round(((price - offerPrice) / price) * 100) : null;
-    
-    // ✅ Calcul du stock total (pour le badge "low stock" seulement)
-    const totalStock = variants?.length > 0
+    const total = variants?.length > 0
       ? variants.reduce((acc, v) => acc + (v.stock || 0), 0)
       : (product.inStock ? 1 : 0);
-    
-    const outOfStock = totalStock === 0;
+    const outOfStock = total === 0;
     const hasRealStock = variants?.length > 0;
-    
-    // ✅ Récupérer les tailles disponibles avec stock > 0
-    const sizesWithStock = variants?.length > 0
-      ? variants
-          .filter(v => v.size && v.stock > 0)
-          .map(v => ({ size: v.size, stock: v.stock }))
-      : [];
-    
-    // ✅ Regrouper par taille (si plusieurs variantes ont la même taille)
-    const sizeMap = new Map();
-    sizesWithStock.forEach(({ size, stock }) => {
-      if (sizeMap.has(size)) {
-        sizeMap.set(size, sizeMap.get(size) + stock);
-      } else {
-        sizeMap.set(size, stock);
-      }
-    });
-    
-    // Convertir en tableau trié
-    const sortedSizes = Array.from(sizeMap.entries())
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([size, stock]) => ({ size, stock }));
+    const lowStock = hasRealStock && !outOfStock && total <= LOW_STOCK_THRESHOLD;
 
     return {
       displayPrice: offerPrice || price,
       discount: disc,
+      totalStock: total,
       isOutOfStock: outOfStock,
-      hasVariants: hasRealStock && variants.length > 0,
-      sizeInfo: sortedSizes,
-      totalStock,
+      isLowStock: lowStock,
     };
   }, [price, offerPrice, variants, product.inStock]);
 
   const categorySlug = category?.slug || product.categorySlug || "all";
-
-  // ✅ Afficher le libellé de stock
-  const renderStockLabel = () => {
-    if (isOutOfStock) return null;
-    
-    if (sizeInfo.length > 0) {
-      // ✅ Affichage des tailles avec leurs stocks
-      return (
-        <div className="sc-sizes">
-          {sizeInfo.map(({ size, stock }) => (
-            <span 
-              key={size} 
-              className={`sc-size ${stock > 0 ? 'in-stock' : 'out-of-stock'}`}
-            >
-              {size} {stock > 0 && `(${stock})`}
-            </span>
-          ))}
-        </div>
-      );
-    }
-    
-    // ✅ Si pas de variants, afficher simplement "En stock"
-    return <span className="sc-stock-label">En stock</span>;
-  };
 
   return (
     <div className={`sc-card${isOutOfStock ? ' sc-card-out' : ''}`}>
@@ -112,12 +63,13 @@ const ProductCard = ({ product }) => {
         {discount && !isOutOfStock && (
           <span className="sc-badge sc-promo">-{discount}%</span>
         )}
-        
-        {!isOutOfStock && sizeInfo.length > 0 && (
-          <span className="sc-badge sc-multi">{sizeInfo.length} tailles</span>
+        {isLowStock && !discount && (
+          <span className="sc-badge sc-low">+ que {totalStock}</span>
         )}
 
-        {/* Rupture de stock */}
+        {/* [FIX] Rupture de stock : avant, un simple petit badge en coin
+            (facile à manquer). Maintenant : image assombrie/grisée +
+            bandeau centré bien visible, comme sur les gros sites e-commerce. */}
         {isOutOfStock && (
           <div className="sc-out-overlay">
             <span className="sc-out-ribbon">Épuisé</span>
@@ -157,66 +109,7 @@ const ProductCard = ({ product }) => {
             </span>
           )}
         </div>
-        
-        {/* ✅ AFFICHAGE DES TAILLES AVEC STOCKS */}
-        {!isOutOfStock && (
-          <div className="sc-stock-info">
-            {renderStockLabel()}
-          </div>
-        )}
       </Link>
-
-      {/* ✅ STYLES CSS pour l'affichage des tailles */}
-      <style>{`
-        .sc-stock-info {
-          margin-top: 4px;
-        }
-        
-        .sc-sizes {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 4px;
-          margin-top: 2px;
-        }
-        
-        .sc-size {
-          font-size: 10px;
-          padding: 1px 6px;
-          border-radius: 3px;
-          font-weight: 500;
-          background: #f0f0f0;
-          color: #666;
-        }
-        
-        .sc-size.in-stock {
-          background: #e8f5e9;
-          color: #2e7d32;
-        }
-        
-        .sc-size.out-of-stock {
-          background: #fce4ec;
-          color: #c62828;
-          text-decoration: line-through;
-        }
-        
-        .sc-stock-label {
-          font-size: 11px;
-          color: #2e7d32;
-          font-weight: 500;
-        }
-        
-        .sc-badge.sc-multi {
-          background: #1565c0;
-          color: white;
-          font-size: 9px;
-          padding: 2px 6px;
-          border-radius: 3px;
-        }
-        
-        .sc-card-out .sc-info {
-          opacity: 0.6;
-        }
-      `}</style>
     </div>
   );
 };
