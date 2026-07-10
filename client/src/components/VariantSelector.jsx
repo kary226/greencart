@@ -28,6 +28,10 @@ const VariantSelector = ({ product, onClose }) => {
         );
     }
 
+    // ✅ Récupérer le type de libellé (Taille ou Variante)
+    const labelType = product.labelType || 'size';
+    const labelText = labelType === 'variant' ? 'Variante' : 'Taille';
+
     // Couleurs et tailles uniques disponibles
     const colors = [...new Set(product.variants.map(v => v.color).filter(Boolean))];
     const sizes = [...new Set(product.variants.map(v => v.size).filter(Boolean))];
@@ -137,11 +141,11 @@ const VariantSelector = ({ product, onClose }) => {
                     </div>
                 )}
 
-                {/* ✅ TAILLES - Stock affiché uniquement dans le label quand sélectionné */}
+                {/* ✅ TAILLES / VARIANTES - avec labelType */}
                 {hasSizes && (
                     <div className="mb-4">
                         <p className="text-sm font-medium mb-2">
-                            Taille {selectedSize && <span>— {selectedSize}</span>}
+                            {labelText} {selectedSize && <span>— {selectedSize}</span>}
                             {selectedSize && (
                                 <span className="text-sm font-normal text-gray-500 ml-1">
                                     {(() => {

@@ -13,6 +13,9 @@ const ProductList = () => {
     // États pour la gestion des variantes (alignés avec AddProduct)
     const [productMode, setProductMode] = useState('simple') // 'simple' | 'multi-sizes' | 'variants'
     
+    // ✅ NOUVEAU : Type de libellé pour le mode multi-tailles
+    const [labelType, setLabelType] = useState('size')
+    
     // États pour le mode multi-sizes
     const [sizesList, setSizesList] = useState([])
     const [sizeInput, setSizeInput] = useState('')
@@ -493,6 +496,7 @@ const ProductList = () => {
         const mode = detectProductMode(variants);
         
         setProductMode(mode);
+        setLabelType(product.labelType || 'size'); // ✅ Initialisation de labelType
         setEditProduct({
             ...product,
             description: Array.isArray(product.description)
@@ -544,6 +548,7 @@ const ProductList = () => {
                 categories: selectedCategories,
                 price: editProduct.price ? Number(editProduct.price) : 0,
                 offerPrice: editProduct.offerPrice ? Number(editProduct.offerPrice) : 0,
+                labelType: labelType, // ✅ NOUVEAU
             };
 
             // Logique alignée avec AddProduct
@@ -1174,7 +1179,7 @@ const ProductList = () => {
                                 </div>
                             </div>
 
-                            {/* ============ NOUVEAU : SÉLECTEUR DE MODE ============ */}
+                            {/* ============ SÉLECTEUR DE MODE ============ */}
                             <div className="border-t pt-4">
                                 <label className="text-base font-medium block mb-2">Type de produit</label>
                                 <div className="grid grid-cols-3 gap-2">
@@ -1230,6 +1235,43 @@ const ProductList = () => {
                                 </p>
                             </div>
 
+                            {/* ✅ NOUVEAU : Type de libellé pour le mode multi-tailles */}
+                            {productMode === 'multi-sizes' && (
+                                <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                                    <label className="text-sm font-medium block mb-2">Type de libellé</label>
+                                    <p className="text-xs text-gray-400 mb-2">💡 Détermine le texte affiché pour chaque option.</p>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setLabelType('size')}
+                                            className={`py-2 px-3 rounded-lg text-sm font-medium border transition ${
+                                                labelType === 'size' 
+                                                    ? 'bg-primary text-white border-primary' 
+                                                    : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
+                                            }`}
+                                        >
+                                            📏 Taille
+                                        </button>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setLabelType('variant')}
+                                            className={`py-2 px-3 rounded-lg text-sm font-medium border transition ${
+                                                labelType === 'variant' 
+                                                    ? 'bg-primary text-white border-primary' 
+                                                    : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
+                                            }`}
+                                        >
+                                            📦 Variante
+                                        </button>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-2">
+                                        {labelType === 'size' 
+                                            ? '📏 Affiche "Taille" (S, M, L...)' 
+                                            : '📦 Affiche "Variante" (Pastèque, Orange, ALOE VERA...)'}
+                                    </p>
+                                </div>
+                            )}
+
                             {/* ============ MODE SIMPLE ============ */}
                             {productMode === 'simple' && (
                                 <div className="flex flex-col gap-3 max-w-md">
@@ -1257,7 +1299,7 @@ const ProductList = () => {
                                 </div>
                             )}
 
-                            {/* ============ MODE MULTI-TAILLES (aligné avec AddProduct) ============ */}
+                            {/* ============ MODE MULTI-TAILLES (avec labelType) ============ */}
                             {productMode === 'multi-sizes' && (
                                 <div className="flex flex-col gap-3 max-w-md">
                                     <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -1266,7 +1308,9 @@ const ProductList = () => {
                                             onClick={() => setOpenSizesPanel(!openSizesPanel)} 
                                             className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 hover:bg-gray-100 transition"
                                         >
-                                            <span className="font-medium text-gray-900">📏 Tailles disponibles ({sizesList.length})</span>
+                                            <span className="font-medium text-gray-900">
+                                                {labelType === 'size' ? '📏' : '📦'} {labelType === 'size' ? 'Tailles' : 'Variantes'} disponibles ({sizesList.length})
+                                            </span>
                                             <svg className={`w-4 h-4 text-gray-400 transition-transform ${openSizesPanel ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                                             </svg>
@@ -1295,7 +1339,7 @@ const ProductList = () => {
                                                         value={sizeInput} 
                                                         onChange={e => setSizeInput(e.target.value)} 
                                                         type="text" 
-                                                        placeholder="Taille (S, M, L...)" 
+                                                        placeholder={labelType === 'size' ? "Taille (S, M, L...)" : "Variante (Pastèque, Orange...)"}
                                                         className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm" 
                                                     />
                                                     <input 
@@ -1327,7 +1371,7 @@ const ProductList = () => {
                                                     onClick={addSize} 
                                                     className="w-full py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition"
                                                 >
-                                                    {editingSizeIndex !== null ? 'Mettre à jour la taille' : '+ Ajouter une taille'}
+                                                    {editingSizeIndex !== null ? 'Mettre à jour' : '+ Ajouter'}
                                                 </button>
                                                 {editingSizeIndex !== null && (
                                                     <button type="button" onClick={resetSizeForm} className="w-full mt-1 py-1 text-xs text-gray-400 hover:text-gray-600">Annuler</button>

@@ -40,6 +40,15 @@ const productSchema = new mongoose.Schema({
         type: Number,
         default: 0,
         index: true  // Pour trier rapidement
+    },
+
+    // ✅ NOUVEAU : Type de libellé pour le mode multi-tailles
+    // 'size' → affiche "Taille" (S, M, L...)
+    // 'variant' → affiche "Variante" (Pastèque, Orange, ALOE VERA...)
+    labelType: {
+        type: String,
+        enum: ['size', 'variant'],
+        default: 'size'
     }
     
 }, { timestamps: true });
