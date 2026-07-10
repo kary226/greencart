@@ -282,6 +282,52 @@ const Cart = () => {
         }
     }
 
+    // ✅ Fonction pour générer les options de quantité
+    const renderQuantityOptions = (product) => {
+        const maxStock = product.variantStock !== null && product.variantStock !== undefined 
+            ? product.variantStock 
+            : 10;
+        
+        // Si le stock est 0, on ne propose que 0 (mais normalement on n'affiche pas)
+        if (maxStock === 0) {
+            return <option value="0">0</option>;
+        }
+        
+        const options = [];
+        const displayLimit = Math.min(maxStock, 20);
+        
+        for (let i = 1; i <= displayLimit; i++) {
+            options.push(
+                <option key={i} value={i}>{i}</option>
+            );
+        }
+        
+        // Si le stock est plus grand que 20, on ajoute des options supplémentaires
+        if (maxStock > 20) {
+            // Ajouter "..." pour indiquer qu'il y a plus
+            options.push(
+                <option key="separator" value="separator" disabled>──</option>
+            );
+            // Ajouter 25, 50, 75, 100 si disponibles
+            const extraValues = [25, 50, 75, 100];
+            extraValues.forEach(val => {
+                if (val <= maxStock && !options.some(opt => opt.value === val)) {
+                    options.push(
+                        <option key={val} value={val}>{val}</option>
+                    );
+                }
+            });
+            // Ajouter le stock maximum
+            if (maxStock > 100 && !options.some(opt => opt.value === maxStock)) {
+                options.push(
+                    <option key="max" value={maxStock}>{maxStock}</option>
+                );
+            }
+        }
+        
+        return options;
+    };
+
     if (cartArray.length === 0) {
         return (
             <div className="min-h-screen bg-white pt-20 pb-16 px-4">
@@ -366,13 +412,11 @@ const Cart = () => {
                                                     value={product.quantity}
                                                     className="border border-gray-200 rounded-lg px-2 py-1 text-xs focus:border-red-500"
                                                 >
-                                                    {Array(Math.min(product.variantStock || 10, 10)).fill('').map((_, i) => (
-                                                        <option key={i} value={i + 1}>{i + 1}</option>
-                                                    ))}
+                                                    {renderQuantityOptions(product)}
                                                 </select>
                                                 {product.variantStock !== null && (
                                                     <span className={`text-[10px] ${product.variantStock === 0 ? 'text-red-500' : product.variantStock <= 5 ? 'text-orange-500' : 'text-green-600'}`}>
-                                                        ({product.variantStock})
+                                                        (Stock: {product.variantStock})
                                                     </span>
                                                 )}
                                             </div>
@@ -392,7 +436,7 @@ const Cart = () => {
                         </button>
                     </div>
 
-                    {/* Colonne droite - Récapitulatif (mobile : en bas, desktop : sticky) */}
+                    {/* Colonne droite - Récapitulatif */}
                     <div className="lg:w-96 mt-6 lg:mt-0">
                         <div className="bg-gray-50 rounded-xl p-5 sticky top-20">
                             <h2 className="text-lg font-bold text-gray-900 mb-4">Récapitulatif</h2>
