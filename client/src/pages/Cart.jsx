@@ -43,6 +43,7 @@ const Cart = () => {
         }
     };
 
+    // ✅ getCart avec recherche EXACTE de la variante
     const getCart = ()=>{
         let tempArray = []
         for(const key in cartItems){
@@ -53,13 +54,15 @@ const Cart = () => {
                 const color = parts[1] || null
                 const size = parts[2] || null
 
-                const variant = product.variants?.find(v =>
-                    (color ? v.color === color : !v.color) &&
-                    (size ? v.size === size : !v.size)
-                ) || product.variants?.find(v =>
-                    (color ? v.color === color : true) &&
-                    (size ? v.size === size : true)
-                )
+                // ✅ Recherche EXACTE de la variante
+                let variant = null;
+                if (product.variants && product.variants.length > 0) {
+                    variant = product.variants.find(v => {
+                        const colorMatch = color ? v.color === color : (v.color === null || v.color === '');
+                        const sizeMatch = size ? v.size === size : (v.size === null || v.size === '');
+                        return colorMatch && sizeMatch;
+                    });
+                }
 
                 tempArray.push({
                     ...product,
