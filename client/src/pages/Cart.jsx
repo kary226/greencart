@@ -282,52 +282,6 @@ const Cart = () => {
         }
     }
 
-    // ✅ Fonction pour générer les options de quantité
-    const renderQuantityOptions = (product) => {
-        const maxStock = product.variantStock !== null && product.variantStock !== undefined 
-            ? product.variantStock 
-            : 10;
-        
-        // Si le stock est 0, on ne propose que 0 (mais normalement on n'affiche pas)
-        if (maxStock === 0) {
-            return <option value="0">0</option>;
-        }
-        
-        const options = [];
-        const displayLimit = Math.min(maxStock, 20);
-        
-        for (let i = 1; i <= displayLimit; i++) {
-            options.push(
-                <option key={i} value={i}>{i}</option>
-            );
-        }
-        
-        // Si le stock est plus grand que 20, on ajoute des options supplémentaires
-        if (maxStock > 20) {
-            // Ajouter "..." pour indiquer qu'il y a plus
-            options.push(
-                <option key="separator" value="separator" disabled>──</option>
-            );
-            // Ajouter 25, 50, 75, 100 si disponibles
-            const extraValues = [25, 50, 75, 100];
-            extraValues.forEach(val => {
-                if (val <= maxStock && !options.some(opt => opt.value === val)) {
-                    options.push(
-                        <option key={val} value={val}>{val}</option>
-                    );
-                }
-            });
-            // Ajouter le stock maximum
-            if (maxStock > 100 && !options.some(opt => opt.value === maxStock)) {
-                options.push(
-                    <option key="max" value={maxStock}>{maxStock}</option>
-                );
-            }
-        }
-        
-        return options;
-    };
-
     if (cartArray.length === 0) {
         return (
             <div className="min-h-screen bg-white pt-20 pb-16 px-4">
@@ -398,22 +352,48 @@ const Cart = () => {
                                             </button>
                                         </div>
                                         <div className="flex flex-wrap justify-between items-end mt-3 gap-2">
+                                            {/* ✅ SECTION QUANTITÉ AVEC BOUTONS + ET - */}
                                             <div className="flex items-center gap-2">
                                                 <span className="text-xs text-gray-500">Qté :</span>
-                                                <select 
-                                                    onChange={e => {
-                                                        const newQty = Number(e.target.value)
-                                                        if (product.variantStock !== null && newQty > product.variantStock) {
-                                                            toast.error(`Stock limité à ${product.variantStock} unités !`)
-                                                            return
-                                                        }
-                                                        updateCartItem(product.cartKey, newQty)
-                                                    }} 
-                                                    value={product.quantity}
-                                                    className="border border-gray-200 rounded-lg px-2 py-1 text-xs focus:border-red-500"
-                                                >
-                                                    {renderQuantityOptions(product)}
-                                                </select>
+                                                <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
+                                                    <button 
+                                                        onClick={() => {
+                                                            if (product.quantity > 1) {
+                                                                updateCartItem(product.cartKey, product.quantity - 1);
+                                                            }
+                                                        }}
+                                                        className="w-8 h-8 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        disabled={product.quantity <= 1}
+                                                    >
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                            <line x1="5" y1="12" x2="19" y2="12"/>
+                                                        </svg>
+                                                    </button>
+                                                    
+                                                    <span className="w-10 text-center text-sm font-medium text-gray-900">
+                                                        {product.quantity}
+                                                    </span>
+                                                    
+                                                    <button 
+                                                        onClick={() => {
+                                                            const maxStock = product.variantStock !== null && product.variantStock !== undefined 
+                                                                ? product.variantStock 
+                                                                : 10;
+                                                            if (product.quantity < maxStock) {
+                                                                updateCartItem(product.cartKey, product.quantity + 1);
+                                                            } else {
+                                                                toast.error(`Stock limité à ${maxStock} unités !`);
+                                                            }
+                                                        }}
+                                                        className="w-8 h-8 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        disabled={product.variantStock !== null && product.quantity >= product.variantStock}
+                                                    >
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                            <line x1="12" y1="5" x2="12" y2="19"/>
+                                                            <line x1="5" y1="12" x2="19" y2="12"/>
+                                                        </svg>
+                                                    </button>
+                                                </div>
                                                 {product.variantStock !== null && (
                                                     <span className={`text-[10px] ${product.variantStock === 0 ? 'text-red-500' : product.variantStock <= 5 ? 'text-orange-500' : 'text-green-600'}`}>
                                                         (Stock: {product.variantStock})
