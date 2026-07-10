@@ -28,9 +28,17 @@ const VariantSelector = ({ product, onClose }) => {
         );
     }
 
-    // Couleurs et tailles uniques disponibles
-    const colors = [...new Set(product.variants.map(v => v.color).filter(Boolean))];
-    const sizes = [...new Set(product.variants.map(v => v.size).filter(Boolean))];
+    // ✅ Récupérer le type de produit
+    const productType = product.productType || 'both';
+
+    // ✅ Couleurs et tailles uniques disponibles - filtrées selon productType
+    const colors = productType !== 'size' 
+        ? [...new Set(product.variants.map(v => v.color).filter(Boolean))]
+        : [];
+    
+    const sizes = productType !== 'variant'
+        ? [...new Set(product.variants.map(v => v.size).filter(Boolean))]
+        : [];
 
     const hasColors = colors.length > 0;
     const hasSizes = sizes.length > 0;
@@ -109,8 +117,8 @@ const VariantSelector = ({ product, onClose }) => {
             <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4" onClick={(e) => e.stopPropagation()}>
                 <h3 className="text-lg font-semibold mb-4">{product.name}</h3>
 
-                {/* Couleurs */}
-                {hasColors && (
+                {/* ✅ Couleurs - affichées uniquement si productType !== 'size' */}
+                {productType !== 'size' && hasColors && (
                     <div className="mb-4">
                         <p className="text-sm font-medium mb-2">Couleur</p>
                         <div className="flex flex-wrap gap-2">
@@ -137,8 +145,8 @@ const VariantSelector = ({ product, onClose }) => {
                     </div>
                 )}
 
-                {/* ✅ TAILLES - Stock affiché uniquement dans le label quand sélectionné */}
-                {hasSizes && (
+                {/* ✅ TAILLES - affichées uniquement si productType !== 'variant' */}
+                {productType !== 'variant' && hasSizes && (
                     <div className="mb-4">
                         <p className="text-sm font-medium mb-2">
                             Taille {selectedSize && <span>— {selectedSize}</span>}

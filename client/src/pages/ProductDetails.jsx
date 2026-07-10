@@ -42,6 +42,9 @@ const ProductDetails = () => {
 
   const product = products.find((item) => item._id === id);
 
+  // ✅ Récupérer le type de produit
+  const productType = product?.productType || 'both';
+
   const getAllMedia = () => {
     const media = [];
     if (product?.image && product.image.length > 0) {
@@ -307,16 +310,21 @@ const ProductDetails = () => {
 
   const validateAndProceed = (action) => {
     let hasError = false;
-    if (uniqueColors.length > 0 && !selectedColor) {
+    
+    // ✅ Vérification des couleurs uniquement si productType !== 'size'
+    if (productType !== 'size' && uniqueColors.length > 0 && !selectedColor) {
       setColorError('Choisissez une couleur');
       scrollToElement(colorSectionRef, setHighlightColor);
       hasError = true;
     }
-    if (!hasError && uniqueSizes.length > 0 && !selectedSize) {
+    
+    // ✅ Vérification des tailles uniquement si productType !== 'variant'
+    if (!hasError && productType !== 'variant' && uniqueSizes.length > 0 && !selectedSize) {
       setSizeError('Choisissez une taille');
       scrollToElement(sizeSectionRef, setHighlightSize);
       hasError = true;
     }
+    
     if (hasError) return false;
     if (variantStock !== null && variantStock === 0) {
       toast.error('Épuisé');
@@ -538,7 +546,8 @@ const ProductDetails = () => {
               </p>
             )}
 
-            {uniqueColors.length > 0 && (
+            {/* ✅ AFFICHAGE DES COULEURS UNIQUEMENT SI productType !== 'size' */}
+            {productType !== 'size' && uniqueColors.length > 0 && (
               <div ref={colorSectionRef} className={`pd-option ${highlightColor ? 'error' : ''}`}>
                 <p className="pd-option-label">Couleur {selectedColor && <span>— {selectedColor}</span>}</p>
                 <div className="pd-colors">
@@ -562,11 +571,19 @@ const ProductDetails = () => {
               </div>
             )}
 
-            {/* ✅ SECTION TAILLES */}
-            {uniqueSizes.length > 0 && (
+            {/* ✅ AFFICHAGE DES TAILLES UNIQUEMENT SI productType !== 'variant' */}
+            {productType !== 'variant' && uniqueSizes.length > 0 && (
               <div ref={sizeSectionRef} className={`pd-option ${highlightSize ? 'error' : ''}`}>
                 <p className="pd-option-label">
                   Taille {selectedSize && <span>— {selectedSize}</span>}
+                  {selectedSize && (
+                    <span className="pd-size-stock-label">
+                      {(() => {
+                        const stock = getStockForSize(selectedSize);
+                        return stock > 0 ? ` (${stock} disponible${stock > 1 ? 's' : ''})` : ' (Rupture)';
+                      })()}
+                    </span>
+                  )}
                 </p>
                 <div className="pd-sizes">
                   {uniqueSizes.map((size, i) => {
@@ -1108,6 +1125,12 @@ const ProductDetails = () => {
           border-color: #eee;
           text-decoration: line-through;
           cursor: not-allowed;
+        }
+
+        .pd-size-stock-label {
+          font-size: 12px;
+          color: #666;
+          font-weight: normal;
         }
 
         .pd-error {

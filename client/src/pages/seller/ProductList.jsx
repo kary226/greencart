@@ -13,6 +13,9 @@ const ProductList = () => {
     // États pour la gestion des variantes (alignés avec AddProduct)
     const [productMode, setProductMode] = useState('simple') // 'simple' | 'multi-sizes' | 'variants'
     
+    // ✅ NOUVEAU : Type de produit pour l'affichage
+    const [productType, setProductType] = useState('both')
+    
     // États pour le mode multi-sizes
     const [sizesList, setSizesList] = useState([])
     const [sizeInput, setSizeInput] = useState('')
@@ -493,6 +496,7 @@ const ProductList = () => {
         const mode = detectProductMode(variants);
         
         setProductMode(mode);
+        setProductType(product.productType || 'both'); // ✅ Initialisation de productType
         setEditProduct({
             ...product,
             description: Array.isArray(product.description)
@@ -544,6 +548,7 @@ const ProductList = () => {
                 categories: selectedCategories,
                 price: editProduct.price ? Number(editProduct.price) : 0,
                 offerPrice: editProduct.offerPrice ? Number(editProduct.offerPrice) : 0,
+                productType: productType, // ✅ NOUVEAU
             };
 
             // Logique alignée avec AddProduct
@@ -1025,7 +1030,7 @@ const ProductList = () => {
                 </div>
             )}
 
-            {/* Modal édition produit MODIFIÉE avec les 3 modes */}
+            {/* Modal édition produit MODIFIÉE avec les 3 modes et productType */}
             {editProduct && (
                 <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setEditProduct(null)}>
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
@@ -1174,9 +1179,9 @@ const ProductList = () => {
                                 </div>
                             </div>
 
-                            {/* ============ NOUVEAU : SÉLECTEUR DE MODE ============ */}
+                            {/* ============ SÉLECTEUR DE MODE ============ */}
                             <div className="border-t pt-4">
-                                <label className="text-base font-medium block mb-2">Type de produit</label>
+                                <label className="text-base font-medium block mb-2">Type de configuration</label>
                                 <div className="grid grid-cols-3 gap-2">
                                     <button 
                                         type="button" 
@@ -1230,6 +1235,40 @@ const ProductList = () => {
                                 </p>
                             </div>
 
+                            {/* ✅ NOUVEAU : Type d'affichage du produit */}
+                            <div className="border-t pt-4">
+                                <label className="text-base font-medium block mb-2">Type d'affichage dans la boutique</label>
+                                <p className="text-xs text-gray-400 mb-2">💡 Détermine comment les options sont présentées sur la page produit.</p>
+                                <div className="grid grid-cols-3 gap-2">
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setProductType('size')} 
+                                        className={`py-2.5 px-3 rounded-lg text-sm font-medium border transition ${productType === 'size' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'}`}
+                                    >
+                                        📏 Taille uniquement
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setProductType('variant')} 
+                                        className={`py-2.5 px-3 rounded-lg text-sm font-medium border transition ${productType === 'variant' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'}`}
+                                    >
+                                        🎨 Variante (Couleur + Taille)
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setProductType('both')} 
+                                        className={`py-2.5 px-3 rounded-lg text-sm font-medium border transition ${productType === 'both' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'}`}
+                                    >
+                                        🔄 Les deux
+                                    </button>
+                                </div>
+                                <p className="text-xs text-gray-400 mt-2">
+                                    {productType === 'size' && "📏 Affiche uniquement les tailles (S, M, L...)"}
+                                    {productType === 'variant' && "🎨 Affiche les couleurs + leurs tailles respectives"}
+                                    {productType === 'both' && "🔄 Affiche les deux options (comportement actuel)"}
+                                </p>
+                            </div>
+
                             {/* ============ MODE SIMPLE ============ */}
                             {productMode === 'simple' && (
                                 <div className="flex flex-col gap-3 max-w-md">
@@ -1257,7 +1296,7 @@ const ProductList = () => {
                                 </div>
                             )}
 
-                            {/* ============ MODE MULTI-TAILLES (aligné avec AddProduct) ============ */}
+                            {/* ============ MODE MULTI-TAILLES ============ */}
                             {productMode === 'multi-sizes' && (
                                 <div className="flex flex-col gap-3 max-w-md">
                                     <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -1338,7 +1377,7 @@ const ProductList = () => {
                                 </div>
                             )}
 
-                            {/* ============ MODE VARIANTS (Couleurs + Tailles) aligné avec AddProduct ============ */}
+                            {/* ============ MODE VARIANTS (Couleurs + Tailles) ============ */}
                             {productMode === 'variants' && (
                                 <div className="flex flex-col gap-3 max-w-md">
                                     {colors.length > 0 && (
