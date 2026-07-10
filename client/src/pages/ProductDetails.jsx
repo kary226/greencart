@@ -570,7 +570,8 @@ const ProductDetails = () => {
                   {selectedSize && (
                     <span className="pd-size-stock-label">
                       {(() => {
-                        
+                        const stock = getStockForSize(selectedSize);
+                        return stock > 0 ? ` (${stock} disponible${stock > 1 ? 's' : ''})` : ' (Rupture)';
                       })()}
                     </span>
                   )}
