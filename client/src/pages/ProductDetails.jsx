@@ -102,6 +102,7 @@ const ProductDetails = () => {
     }
   }, [currentMediaIndex]);
 
+  // Variante par défaut affichée à l'arrivée sur la fiche produit.
   useEffect(() => {
     if (product && product.variants && product.variants.length > 0) {
       const defaultVariant = product.variants[0];
@@ -114,27 +115,49 @@ const ProductDetails = () => {
     }
   }, [product]);
 
+  // ✅ FIX : un seul effet recalcule la variante affichée (stock, prix,
+  // photo de départ) à chaque changement de couleur ET/OU de taille.
+  //
+  // Avant, deux effets séparés exigeaient `selectedColor` pour se déclencher.
+  // Pour un produit qui n'a QUE des tailles (pas de couleur), selectedColor
+  // reste `null` en permanence : ces effets ne se déclenchaient donc jamais
+  // quand on changeait de taille, et `variantData` restait figé sur la 1ère
+  // variante du produit → le stock affiché en haut de la fiche ("En stock (18)")
+  // ne bougeait plus une fois qu'on changeait de taille.
+  //
+  // Ici, `null`/'' est traité comme "pas de couleur" / "pas de taille", ce qui
+  // permet de matcher aussi les variantes taille-seule ou couleur-seule.
   useEffect(() => {
-    if (product && product.variants && selectedColor) {
-      const variant = product.variants.find(v => v.color === selectedColor);
-      if (variant) {
-        setVariantData(variant);
-        setCurrentMediaIndex(variant.startImageIndex || 0);
+    if (!product || !product.variants || product.variants.length === 0) return;
+
+    // Variante correspondant exactement à la sélection actuelle.
+    const exactVariant = product.variants.find(v => {
+      const colorMatch = selectedColor ? v.color === selectedColor : !v.color;
+      const sizeMatch = selectedSize ? v.size === selectedSize : !v.size;
+      return colorMatch && sizeMatch;
+    });
+
+    if (exactVariant) {
+      setVariantData(exactVariant);
+      setCurrentMediaIndex(exactVariant.startImageIndex || 0);
+      if (selectedColor) {
         setColorError('');
         setHighlightColor(false);
       }
+      return;
     }
-  }, [selectedColor, product]);
 
-  useEffect(() => {
-    if (product && product.variants && selectedColor && selectedSize) {
-      const exactVariant = product.variants.find(v =>
-        v.color === selectedColor && v.size === selectedSize
-      );
-      if (exactVariant) setVariantData(exactVariant);
-    } else if (product && product.variants && selectedColor) {
+    // Pas de variante exacte (ex: couleur choisie mais taille pas encore
+    // choisie) → aperçu avec la 1ère variante de cette couleur, en attendant
+    // que le choix soit complet.
+    if (selectedColor) {
       const colorVariant = product.variants.find(v => v.color === selectedColor);
-      if (colorVariant) setVariantData(colorVariant);
+      if (colorVariant) {
+        setVariantData(colorVariant);
+        setCurrentMediaIndex(colorVariant.startImageIndex || 0);
+        setColorError('');
+        setHighlightColor(false);
+      }
     }
   }, [selectedColor, selectedSize, product]);
 
