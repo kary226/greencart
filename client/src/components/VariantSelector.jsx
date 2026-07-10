@@ -35,6 +35,18 @@ const VariantSelector = ({ product, onClose }) => {
     const hasColors = colors.length > 0;
     const hasSizes = sizes.length > 0;
 
+    // ✅ Fonction pour obtenir le stock d'une taille spécifique
+    const getStockForSize = (size) => {
+        if (selectedColor) {
+            const variant = product.variants.find(v => 
+                v.color === selectedColor && v.size === size
+            );
+            return variant ? variant.stock : 0;
+        }
+        const variantsWithSize = product.variants.filter(v => v.size === size);
+        return variantsWithSize.reduce((sum, v) => sum + v.stock, 0);
+    };
+
     // Trouver le stock de la variante sélectionnée
     const getCurrentStock = () => {
         // Cas 1 : ni couleur ni taille
@@ -88,7 +100,6 @@ const VariantSelector = ({ product, onClose }) => {
             return;
         }
         
-        // Ajouter au panier avec la quantité choisie
         addToCartWithQuantity(product._id, quantity, selectedColor, selectedSize);
         onClose();
     };
@@ -126,19 +137,31 @@ const VariantSelector = ({ product, onClose }) => {
                     </div>
                 )}
 
-                {/* Tailles */}
+                {/* ✅ TAILLES - Stock affiché uniquement dans le label quand sélectionné */}
                 {hasSizes && (
                     <div className="mb-4">
-                        <p className="text-sm font-medium mb-2">Taille</p>
+                        <p className="text-sm font-medium mb-2">
+                            Taille {selectedSize && <span>— {selectedSize}</span>}
+                            {selectedSize && (
+                                <span className="text-sm font-normal text-gray-500 ml-1">
+                                    {(() => {
+                                        const stock = getStockForSize(selectedSize);
+                                        return stock > 0 ? `(${stock} disponible${stock > 1 ? 's' : ''})` : '(Rupture)';
+                                    })()}
+                                </span>
+                            )}
+                        </p>
                         <div className="flex flex-wrap gap-2">
                             {sizes.map(size => {
-                                const hasStock = product.variants.some(v => v.size === size && v.stock > 0);
+                                const stock = getStockForSize(size);
+                                const hasStock = stock > 0;
+                                
                                 return (
                                     <button
                                         key={size}
                                         onClick={() => setSelectedSize(size)}
                                         disabled={!hasStock}
-                                        className={`w-12 h-12 rounded border text-sm transition ${
+                                        className={`px-3 py-1.5 rounded border text-sm transition ${
                                             selectedSize === size
                                                 ? 'border-primary bg-primary text-white'
                                                 : !hasStock

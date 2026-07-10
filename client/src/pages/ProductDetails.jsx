@@ -42,16 +42,13 @@ const ProductDetails = () => {
 
   const product = products.find((item) => item._id === id);
 
-  // ✅ Fonction pour obtenir tous les médias (images + vidéo)
   const getAllMedia = () => {
     const media = [];
-    
     if (product?.image && product.image.length > 0) {
       product.image.forEach(img => {
         media.push({ type: 'image', url: img });
       });
     }
-    
     if (product?.video) {
       media.push({ 
         type: 'video', 
@@ -59,7 +56,6 @@ const ProductDetails = () => {
         poster: product.image?.[0] || null
       });
     }
-    
     return media;
   };
 
@@ -72,7 +68,6 @@ const ProductDetails = () => {
 
   const isYouTube = (url) => url?.includes('youtube.com') || url?.includes('youtu.be');
   const isVimeo = (url) => url?.includes('vimeo.com');
-  const isDirectVideo = (url) => url && !isYouTube(url) && !isVimeo(url);
 
   useEffect(() => {
     const fetchReturnPolicy = async () => {
@@ -544,7 +539,7 @@ const ProductDetails = () => {
               </div>
             )}
 
-            {/* ✅ SECTION TAILLES MODIFIÉE AVEC STOCKS */}
+            {/* ✅ SECTION TAILLES - Stock affiché uniquement dans le label quand sélectionné */}
             {uniqueSizes.length > 0 && (
               <div ref={sizeSectionRef} className={`pd-option ${highlightSize ? 'error' : ''}`}>
                 <p className="pd-option-label">
@@ -570,8 +565,7 @@ const ProductDetails = () => {
                         onClick={() => setSelectedSize(selectedSize === size ? null : size)}
                         disabled={!available}
                       >
-                        <span className="pd-size-label">{size}</span>
-                        <span className="pd-size-stock">{stock}</span>
+                        {size}
                       </button>
                     );
                   })}
@@ -1074,76 +1068,31 @@ const ProductDetails = () => {
         .pd-sizes {
           display: flex;
           flex-wrap: wrap;
-          gap: 8px;
+          gap: 6px;
         }
 
-        /* ✅ STYLES MODIFIÉS POUR AFFICHER LE STOCK */
         .pd-size {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          min-width: 50px;
-          height: 56px;
-          padding: 4px 10px;
-          border-radius: 6px;
+          min-width: 36px;
+          height: 36px;
+          padding: 0 10px;
+          border-radius: 4px;
           border: 1.5px solid #e8e3dc;
           background: white;
+          font-size: 12px;
+          font-weight: 500;
           cursor: pointer;
           transition: all 0.2s;
-          gap: 1px;
         }
-
-        .pd-size-label {
-          font-size: 13px;
-          font-weight: 600;
-          color: #111;
-        }
-
-        .pd-size-stock {
-          font-size: 9px;
-          font-weight: 500;
-          color: #999;
-          background: #f5f5f5;
-          padding: 0 6px;
-          border-radius: 8px;
-          min-width: 18px;
-          text-align: center;
-        }
-
         .pd-size.active {
           background: #111;
           border-color: #111;
-        }
-
-        .pd-size.active .pd-size-label {
           color: white;
         }
-
-        .pd-size.active .pd-size-stock {
-          color: rgba(255,255,255,0.8);
-          background: rgba(255,255,255,0.2);
-        }
-
         .pd-size.disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-          background: #fafafa;
-        }
-
-        .pd-size.disabled .pd-size-label {
           color: #ccc;
+          border-color: #eee;
           text-decoration: line-through;
-        }
-
-        .pd-size.disabled .pd-size-stock {
-          color: #ccc;
-          background: #eee;
-        }
-
-        .pd-size:hover:not(.disabled):not(.active) {
-          border-color: #111;
-          background: #fafafa;
+          cursor: not-allowed;
         }
 
         .pd-size-stock-label {
