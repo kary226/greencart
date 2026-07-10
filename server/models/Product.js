@@ -40,14 +40,6 @@ const productSchema = new mongoose.Schema({
         type: Number,
         default: 0,
         index: true  // Pour trier rapidement
-    },
-
-    // ✅ NOUVEAU : Type de produit pour l'affichage
-    productType: {
-        type: String,
-        enum: ['size', 'variant', 'both'],
-        default: 'both',
-        description: 'size = seulement tailles, variant = couleurs+tailles, both = les deux'
     }
     
 }, { timestamps: true });

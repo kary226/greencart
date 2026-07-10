@@ -124,9 +124,6 @@ export const addProduct = async (req, res) => {
 
         console.log('📝 Création du produit...');
 
-        // ✅ AJOUT : productType avec valeur par défaut 'both'
-        const productType = productData.productType || 'both';
-
         const product = await Product.create({
             name: productData.name,
             description: productData.description,
@@ -140,13 +137,11 @@ export const addProduct = async (req, res) => {
             inStock: hasVariants ? processedVariants.some(v => v.stock > 0) : (productData.stock > 0),
             video: videoUrl,
             videoPublicId: videoPublicId,
-            productType: productType, // ✅ NOUVEAU
             // ✅ salesCount est ajouté automatiquement avec default: 0
         });
 
         console.log('✅ Produit créé avec succès:', product._id);
         console.log(`📹 Vidéo: ${videoUrl ? 'Présente' : 'Absente'}`);
-        console.log(`📋 Type: ${productType}`);
 
         res.json({ 
             success: true, 
@@ -217,18 +212,19 @@ export const productList = async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 12;
-        const sort = req.query.sort || 'createdAt';
+        const sort = req.query.sort || 'createdAt'; // ✅ AJOUTÉ
         const skip = (page - 1) * limit;
 
+        // ✅ Construire l'objet de tri
         let sortOption = { createdAt: -1 };
         if (sort === 'salesCount') {
-            sortOption = { salesCount: -1 };
+            sortOption = { salesCount: -1 }; // ✅ Les plus vendus en premier
         } else if (sort === 'createdAt') {
-            sortOption = { createdAt: -1 };
+            sortOption = { createdAt: -1 }; // ✅ Les plus récents en premier
         } else if (sort === 'price') {
-            sortOption = { price: 1 };
+            sortOption = { price: 1 }; // ✅ Les moins chers en premier
         } else if (sort === 'price-desc') {
-            sortOption = { price: -1 };
+            sortOption = { price: -1 }; // ✅ Les plus chers en premier
         }
 
         console.log(`📊 Tri par: ${sort}`);
@@ -284,10 +280,10 @@ export const changeStock = async (req, res) => {
 // ✅ UPDATE PRODUCT - AVEC VIDÉO (OPTIMISÉ)
 export const updateProduct = async (req, res) => {
     try {
-        const { id, name, description, categories, price, offerPrice, variants, stock, size, videoUrl, videoPublicId, productType } = req.body
+        const { id, name, description, categories, price, offerPrice, variants, stock, size, videoUrl, videoPublicId } = req.body
         const videoFile = req.file
 
-        console.log('📥 Données reçues:', { id, name, size, stock, productType, hasVariants: variants?.length > 0 })
+        console.log('📥 Données reçues:', { id, name, size, stock, hasVariants: variants?.length > 0 })
 
         const hasVariants = variants && variants.length > 0
         
@@ -329,8 +325,6 @@ export const updateProduct = async (req, res) => {
             variants: hasVariants ? processedVariants : [],
             stock: totalStock,
             inStock,
-            // ✅ NOUVEAU : productType
-            productType: productType || 'both'
         }
 
         if (!hasVariants) {

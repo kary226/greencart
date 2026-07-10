@@ -52,9 +52,6 @@ const AddProduct = () => {
     const [cropShape, setCropShape] = useState('rect');
     const [isConverting, setIsConverting] = useState(false);
 
-    // ✅ NOUVEAU : Type de produit pour l'affichage
-    const [productType, setProductType] = useState('both');
-
     const { axios } = useAppContext()
 
     const fetchCategories = async () => {
@@ -151,9 +148,12 @@ const AddProduct = () => {
         setEditingColorForSize(null);
     };
 
+    // ✅ MODIFICATION : Couleur optionnelle
     const addColor = () => {
+        // Si pas de couleur, on utilise "Sans couleur" comme libellé
         const colorName = colorInput.trim() || 'Sans couleur';
         
+        // Si une couleur est fournie, on vérifie qu'elle n'existe pas déjà
         if (colorInput.trim()) {
             const existingColor = colors.find(c => c.color.toLowerCase() === colorInput.trim().toLowerCase());
             if (existingColor) {
@@ -181,6 +181,7 @@ const AddProduct = () => {
         setShowColorForm(false);
     };
 
+    // ✅ MODIFICATION : Taille optionnelle
     const addSizeToColor = (colorIndex) => {
         if (!variantStockInput || Number(variantStockInput) < 0) {
             toast.error('Entrez un stock valide');
@@ -188,7 +189,7 @@ const AddProduct = () => {
         }
 
         const newSize = {
-            size: variantSizeInput.trim().toUpperCase() || null,
+            size: variantSizeInput.trim().toUpperCase() || null, // Taille optionnelle
             stock: Number(variantStockInput),
             price: variantPriceInput !== '' ? Number(variantPriceInput) : null,
             offerPrice: variantOfferPriceInput !== '' ? Number(variantOfferPriceInput) : null
@@ -350,6 +351,7 @@ const AddProduct = () => {
                 toast.error('Ajoutez au moins une couleur (ou laissez vide pour "Sans couleur")');
                 return;
             }
+            // Vérifier que chaque couleur a au moins une taille avec un stock
             let hasStock = false;
             colors.forEach(color => {
                 color.sizes.forEach(size => {
@@ -370,7 +372,6 @@ const AddProduct = () => {
             price: price ? Number(price) : 0,
             offerPrice: offerPrice ? Number(offerPrice) : 0,
             variants,
-            productType: productType, // ✅ NOUVEAU
         };
 
         if (productMode === 'simple') {
@@ -411,7 +412,6 @@ const AddProduct = () => {
                 setSizesList([]);
                 setColors([]);
                 setProductMode('simple');
-                setProductType('both'); // ✅ Réinitialisation
                 resetSizeForm();
                 resetColorForm();
                 resetVariantSizeForm();
@@ -533,7 +533,7 @@ const AddProduct = () => {
 
                 {/* Mode produit */}
                 <div className="border-t pt-4">
-                    <label className="text-base font-medium block mb-2">Type de configuration</label>
+                    <label className="text-base font-medium block mb-2">Type de produit</label>
                     <div className="grid grid-cols-3 gap-2">
                         <button type="button" onClick={() => setProductMode('simple')} className={`py-2.5 px-3 rounded-lg text-sm font-medium border transition ${productMode === 'simple' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'}`}>Produit simple</button>
                         <button type="button" onClick={() => setProductMode('multi-sizes')} className={`py-2.5 px-3 rounded-lg text-sm font-medium border transition ${productMode === 'multi-sizes' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'}`}>Multi-tailles</button>
@@ -543,40 +543,6 @@ const AddProduct = () => {
                         {productMode === 'simple' && "Un seul prix, un seul stock, une taille optionnelle."}
                         {productMode === 'multi-sizes' && "Plusieurs tailles (S, M, L...), chacune avec son propre stock, sans couleurs."}
                         {productMode === 'variants' && "Plusieurs couleurs (optionnel), chaque couleur peut avoir plusieurs tailles (optionnel) avec leurs stocks."}
-                    </p>
-                </div>
-
-                {/* ✅ NOUVEAU : Type d'affichage du produit */}
-                <div className="border-t pt-4">
-                    <label className="text-base font-medium block mb-2">Type d'affichage dans la boutique</label>
-                    <p className="text-xs text-gray-400 mb-2">💡 Détermine comment les options sont présentées sur la page produit.</p>
-                    <div className="grid grid-cols-3 gap-2">
-                        <button 
-                            type="button" 
-                            onClick={() => setProductType('size')} 
-                            className={`py-2.5 px-3 rounded-lg text-sm font-medium border transition ${productType === 'size' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'}`}
-                        >
-                            📏 Taille uniquement
-                        </button>
-                        <button 
-                            type="button" 
-                            onClick={() => setProductType('variant')} 
-                            className={`py-2.5 px-3 rounded-lg text-sm font-medium border transition ${productType === 'variant' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'}`}
-                        >
-                            🎨 Variante (Couleur + Taille)
-                        </button>
-                        <button 
-                            type="button" 
-                            onClick={() => setProductType('both')} 
-                            className={`py-2.5 px-3 rounded-lg text-sm font-medium border transition ${productType === 'both' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'}`}
-                        >
-                            🔄 Les deux
-                        </button>
-                    </div>
-                    <p className="text-xs text-gray-400 mt-2">
-                        {productType === 'size' && "📏 Affiche uniquement les tailles (S, M, L...)"}
-                        {productType === 'variant' && "🎨 Affiche les couleurs + leurs tailles respectives"}
-                        {productType === 'both' && "🔄 Affiche les deux options (comportement actuel)"}
                     </p>
                 </div>
 
@@ -626,7 +592,7 @@ const AddProduct = () => {
                     </div>
                 )}
 
-                {/* Mode VARIANTS (Couleurs + Tailles) */}
+                {/* Mode VARIANTS (Couleurs + Tailles) - TOUT OPTIONNEL SAUF LE STOCK */}
                 {productMode === 'variants' && (
                     <div className="flex flex-col gap-3 max-w-md">
                         {colors.length > 0 && (
