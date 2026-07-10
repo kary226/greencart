@@ -4,18 +4,145 @@ import { useAppContext } from '../../context/AppContext'
 import toast from 'react-hot-toast'
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
+import {
+    Search,
+    Pencil,
+    Trash2,
+    X,
+    Plus,
+    ImagePlus,
+    Upload,
+    ChevronDown,
+    ChevronsLeft,
+    ChevronLeft,
+    ChevronRight,
+    ChevronsRight,
+    Loader2,
+    Info,
+    Box,
+    Ruler,
+    Palette,
+    AlertTriangle,
+    CheckCircle2,
+    XCircle,
+    Tag,
+    ArrowUp,
+    ArrowDown,
+    Package,
+} from 'lucide-react';
+
+// ---------------------------------------------------------------------------
+// Petits composants de mise en page réutilisés dans la page (mêmes conventions
+// visuelles que AddProduct.jsx : cartes, segmented control, pas d'emoji)
+// ---------------------------------------------------------------------------
+
+const Section = ({ icon: Icon, title, subtitle, children }) => (
+    <div className="border border-gray-200 rounded-2xl p-4">
+        <div className="flex items-start gap-3 mb-4">
+            <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                <Icon size={16} className="text-gray-700" />
+            </div>
+            <div>
+                <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
+                {subtitle && <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>}
+            </div>
+        </div>
+        {children}
+    </div>
+);
+
+const Hint = ({ children }) => (
+    <p className="flex items-start gap-1.5 text-xs text-gray-400 mt-2">
+        <Info size={13} className="mt-[1px] shrink-0" />
+        <span>{children}</span>
+    </p>
+);
+
+const Field = ({ label, children, hint }) => (
+    <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-gray-800">{label}</label>
+        {children}
+        {hint && <Hint>{hint}</Hint>}
+    </div>
+);
+
+const inputClass =
+    "outline-none py-2.5 px-3 rounded-lg border border-gray-200 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-400 transition w-full";
+
+const SegmentedControl = ({ options, value, onChange, columns = options.length }) => (
+    <div
+        className="grid gap-1.5 p-1 bg-gray-100 rounded-xl"
+        style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+    >
+        {options.map((opt) => {
+            const active = value === opt.value;
+            const OptIcon = opt.icon;
+            return (
+                <button
+                    key={opt.value}
+                    type="button"
+                    onClick={opt.onClick}
+                    className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-sm font-medium transition ${
+                        active ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                >
+                    {OptIcon && <OptIcon size={15} />}
+                    {opt.label}
+                </button>
+            );
+        })}
+    </div>
+);
+
+const IconButton = ({ onClick, variant = 'default', children, className = '' }) => {
+    const variants = {
+        default: 'text-gray-400 hover:text-gray-700 hover:bg-gray-100',
+        danger: 'text-gray-400 hover:text-red-600 hover:bg-red-50',
+    };
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className={`w-7 h-7 rounded-lg flex items-center justify-center transition ${variants[variant]} ${className}`}
+        >
+            {children}
+        </button>
+    );
+};
+
+const StatCard = ({ icon: Icon, label, value, tone = 'default' }) => {
+    const tones = {
+        default: 'text-gray-900',
+        green: 'text-green-600',
+        red: 'text-red-500',
+        orange: 'text-orange-500',
+    };
+    return (
+        <div className="bg-white rounded-xl p-3.5 border border-gray-200 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                <Icon size={16} className="text-gray-500" />
+            </div>
+            <div>
+                <p className="text-xs text-gray-400">{label}</p>
+                <p className={`text-lg font-bold ${tones[tone]}`}>{value}</p>
+            </div>
+        </div>
+    );
+};
+
+// ---------------------------------------------------------------------------
 
 const ProductList = () => {
     const { products, currency, axios, fetchProducts } = useAppContext()
     const [searchParams] = useSearchParams()
     const [editProduct, setEditProduct] = useState(null)
-    
+
     // États pour la gestion des variantes (alignés avec AddProduct)
     const [productMode, setProductMode] = useState('simple') // 'simple' | 'multi-sizes' | 'variants'
-    
-    // ✅ NOUVEAU : Type de libellé pour le mode multi-tailles
+
+    // Type de libellé pour le mode multi-tailles
     const [labelType, setLabelType] = useState('size')
-    
+
     // États pour le mode multi-sizes
     const [sizesList, setSizesList] = useState([])
     const [sizeInput, setSizeInput] = useState('')
@@ -24,7 +151,7 @@ const ProductList = () => {
     const [sizeOfferPriceInput, setSizeOfferPriceInput] = useState('')
     const [editingSizeIndex, setEditingSizeIndex] = useState(null)
     const [openSizesPanel, setOpenSizesPanel] = useState(true)
-    
+
     // États pour le mode variants (couleurs + tailles)
     const [colors, setColors] = useState([])
     const [colorInput, setColorInput] = useState('')
@@ -33,7 +160,7 @@ const ProductList = () => {
     const [editingColorIndex, setEditingColorIndex] = useState(null)
     const [openColorIndex, setOpenColorIndex] = useState(null)
     const [showColorForm, setShowColorForm] = useState(false)
-    
+
     // États pour les tailles dans les couleurs
     const [variantSizeInput, setVariantSizeInput] = useState('')
     const [variantStockInput, setVariantStockInput] = useState('')
@@ -41,7 +168,7 @@ const ProductList = () => {
     const [variantOfferPriceInput, setVariantOfferPriceInput] = useState('')
     const [editingSizeIndexInColor, setEditingSizeIndexInColor] = useState(null)
     const [editingColorForSize, setEditingColorForSize] = useState(null)
-    
+
     // États existants
     const [categoriesList, setCategoriesList] = useState([])
     const [selectedCategories, setSelectedCategories] = useState([])
@@ -85,7 +212,7 @@ const ProductList = () => {
     }, []);
 
     // ============ FONCTIONS DE CONVERSION (alignées avec AddProduct) ============
-    
+
     const convertSizesToVariants = () => {
         return sizesList.map(size => ({
             color: null,
@@ -151,14 +278,14 @@ const ProductList = () => {
         if (!variants || variants.length === 0) return 'simple';
         const hasColors = variants.some(v => v.color !== null && v.color !== '');
         const hasSizes = variants.some(v => v.size !== null && v.size !== '');
-        
+
         if (hasColors) return 'variants';
         if (hasSizes) return 'multi-sizes';
         return 'simple';
     };
 
     // ============ FONCTIONS DE GESTION DES TAILLES (alignées avec AddProduct) ============
-    
+
     const resetSizeForm = () => {
         setSizeInput('');
         setStockInput('');
@@ -212,7 +339,7 @@ const ProductList = () => {
     };
 
     // ============ FONCTIONS DE GESTION DES COULEURS (alignées avec AddProduct) ============
-    
+
     const resetColorForm = () => {
         setColorInput('');
         setColorCodeInput('#000000');
@@ -231,7 +358,7 @@ const ProductList = () => {
 
     const addColor = () => {
         const colorName = colorInput.trim() || 'Sans couleur';
-        
+
         if (colorInput.trim()) {
             const existingColor = colors.find(c => c.color.toLowerCase() === colorInput.trim().toLowerCase());
             if (existingColor) {
@@ -336,7 +463,7 @@ const ProductList = () => {
     };
 
     // ============ FILTRES ET PAGINATION (inchangés) ============
-    
+
     const filteredProducts = useMemo(() => {
         let filtered = [...products]
 
@@ -490,13 +617,13 @@ const ProductList = () => {
         }
     }
 
-    // ============ HANDLE EDIT MODIFIÉ ============
+    // ============ HANDLE EDIT ============
     const handleEdit = (product) => {
         const variants = product.variants || [];
         const mode = detectProductMode(variants);
-        
+
         setProductMode(mode);
-        setLabelType(product.labelType || 'size'); // ✅ Initialisation de labelType
+        setLabelType(product.labelType || 'size');
         setEditProduct({
             ...product,
             description: Array.isArray(product.description)
@@ -508,7 +635,7 @@ const ProductList = () => {
             stock: product.stock || 0
         });
         setSelectedCategories(product.categories || []);
-        
+
         // Réinitialiser les états
         setSizesList([]);
         setColors([]);
@@ -529,7 +656,7 @@ const ProductList = () => {
         setShowColorForm(false);
         setNewImages([]);
         setShowImageUpload(false);
-        
+
         // Initialiser selon le mode
         if (mode === 'multi-sizes') {
             setSizesList(convertVariantsToSizes(variants));
@@ -538,7 +665,7 @@ const ProductList = () => {
         }
     };
 
-    // ============ HANDLE UPDATE MODIFIÉ (aligné avec AddProduct) ============
+    // ============ HANDLE UPDATE (aligné avec AddProduct) ============
     const handleUpdate = async () => {
         try {
             let productData = {
@@ -548,7 +675,7 @@ const ProductList = () => {
                 categories: selectedCategories,
                 price: editProduct.price ? Number(editProduct.price) : 0,
                 offerPrice: editProduct.offerPrice ? Number(editProduct.offerPrice) : 0,
-                labelType: labelType, // ✅ NOUVEAU
+                labelType: labelType,
             };
 
             // Logique alignée avec AddProduct
@@ -584,10 +711,8 @@ const ProductList = () => {
                 productData.size = null;
             }
 
-            console.log('📤 Envoi des données :', productData);
-
             const { data } = await axios.post('/api/product/update', productData);
-            
+
             if (data.success) {
                 toast.success(data.message);
                 await fetchProducts();
@@ -596,7 +721,7 @@ const ProductList = () => {
                 toast.error(data.message);
             }
         } catch (error) {
-            console.error('❌ Erreur :', error);
+            console.error('Erreur :', error);
             toast.error(error.response?.data?.message || error.message);
         }
     };
@@ -651,58 +776,41 @@ const ProductList = () => {
 
     return (
         <div className="bg-gray-50 min-h-screen">
-            <div className="p-6">
-                {/* Statistiques et filtres - inchangés */}
-                <div className="mb-6">
-                    <h1 className="text-2xl font-bold text-gray-900">Liste des produits</h1>
-                    <p className="text-sm text-gray-500 mt-1">Gérez tous vos produits</p>
+            <div className="p-4 md:p-6 max-w-7xl mx-auto">
 
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4">
-                        <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
-                            <p className="text-xs text-gray-500">Total</p>
-                            <p className="text-xl font-bold text-gray-900">{stats.total}</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
-                            <p className="text-xs text-gray-500">En stock</p>
-                            <p className="text-xl font-bold text-green-600">{stats.inStock}</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
-                            <p className="text-xs text-gray-500">Rupture</p>
-                            <p className="text-xl font-bold text-red-500">{stats.outOfStock}</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
-                            <p className="text-xs text-gray-500">Stock faible</p>
-                            <p className="text-xl font-bold text-orange-500">{stats.lowStock}</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
-                            <p className="text-xs text-gray-500">En promo</p>
-                            <p className="text-xl font-bold text-red-500">{stats.onSale}</p>
-                        </div>
-                    </div>
+                {/* En-tête */}
+                <div className="mb-5">
+                    <h1 className="text-xl font-semibold text-gray-900">Liste des produits</h1>
+                    <p className="text-sm text-gray-400 mt-0.5">Gérez tous vos produits</p>
                 </div>
 
-                {/* Filtres - inchangés */}
-                <div className="bg-white rounded-xl border border-gray-100 p-4 mb-6 shadow-sm">
-                    <div className="flex flex-col md:flex-row gap-4">
-                        <div className="flex-1">
-                            <div className="relative">
-                                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                </svg>
-                                <input
-                                    type="text"
-                                    placeholder="Rechercher un produit..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none text-sm"
-                                />
-                            </div>
+                {/* Statistiques */}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+                    <StatCard icon={Package} label="Total" value={stats.total} />
+                    <StatCard icon={CheckCircle2} label="En stock" value={stats.inStock} tone="green" />
+                    <StatCard icon={XCircle} label="Rupture" value={stats.outOfStock} tone="red" />
+                    <StatCard icon={AlertTriangle} label="Stock faible" value={stats.lowStock} tone="orange" />
+                    <StatCard icon={Tag} label="En promo" value={stats.onSale} tone="red" />
+                </div>
+
+                {/* Filtres */}
+                <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-5">
+                    <div className="flex flex-col md:flex-row gap-3">
+                        <div className="flex-1 relative">
+                            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Rechercher un produit…"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl focus:border-gray-400 outline-none text-sm"
+                            />
                         </div>
 
                         <select
                             value={selectedCategoryFilter}
                             onChange={(e) => setSelectedCategoryFilter(e.target.value)}
-                            className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-red-500 outline-none bg-white"
+                            className="px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-gray-400 outline-none bg-white"
                         >
                             <option value="all">Toutes les catégories</option>
                             {categoriesList.map(cat => (
@@ -713,7 +821,7 @@ const ProductList = () => {
                         <select
                             value={stockFilter}
                             onChange={(e) => setStockFilter(e.target.value)}
-                            className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-red-500 outline-none bg-white"
+                            className="px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-gray-400 outline-none bg-white"
                         >
                             <option value="all">Tous les stocks</option>
                             <option value="inStock">En stock</option>
@@ -725,7 +833,7 @@ const ProductList = () => {
                         <select
                             value={sortBy}
                             onChange={(e) => setSortBy(e.target.value)}
-                            className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-red-500 outline-none bg-white"
+                            className="px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-gray-400 outline-none bg-white"
                         >
                             <option value="name">Trier par nom</option>
                             <option value="price">Trier par prix</option>
@@ -735,90 +843,83 @@ const ProductList = () => {
 
                         <button
                             onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                            className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm hover:bg-gray-50 transition flex items-center gap-2"
+                            className="px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm hover:bg-gray-50 transition flex items-center gap-1.5 text-gray-600"
                         >
-                            {sortOrder === 'asc' ? '↑ Croissant' : '↓ Décroissant'}
+                            {sortOrder === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
+                            {sortOrder === 'asc' ? 'Croissant' : 'Décroissant'}
                         </button>
                     </div>
 
                     <div className="mt-3 flex items-center justify-between">
-                        <span className="text-xs text-gray-500">{totalProducts} produit(s) trouvé(s)</span>
+                        <span className="text-xs text-gray-400">{totalProducts} produit(s) trouvé(s)</span>
 
                         {selectedIds.length > 0 && (
                             <button
                                 onClick={() => setShowDeleteConfirm(true)}
-                                className="inline-flex items-center gap-2 px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-xl hover:bg-red-600 transition"
+                                className="inline-flex items-center gap-2 px-3.5 py-2 bg-red-500 text-white text-xs font-medium rounded-xl hover:bg-red-600 transition"
                             >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <polyline points="3 6 5 6 21 6"/>
-                                    <path d="M19 6l-1 14H6L5 6"/>
-                                    <path d="M10 11v6M14 11v6"/>
-                                    <path d="M9 6V4h6v2"/>
-                                </svg>
+                                <Trash2 size={13} />
                                 Supprimer {selectedIds.length} produit(s)
                             </button>
                         )}
                     </div>
                 </div>
 
-                {/* Tableau des produits - inchangé */}
+                {/* Tableau des produits */}
                 {products.length === 0 ? (
-                    <div className="text-center py-16 bg-white rounded-xl border border-gray-100">
-                        <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
-                            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-                        </svg>
-                        <p className="text-gray-500">Aucun produit trouvé</p>
+                    <div className="text-center py-16 bg-white rounded-2xl border border-gray-200">
+                        <Package className="w-12 h-12 mx-auto text-gray-300 mb-3" strokeWidth={1.5} />
+                        <p className="text-gray-400 text-sm">Aucun produit trouvé</p>
                     </div>
                 ) : (
                     <>
-                        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
+                        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                             <div className="overflow-x-auto">
                                 <table className="w-full">
                                     <thead>
-                                        <tr className="bg-gray-50 border-b border-gray-100">
-                                            <th className="px-4 py-4 w-10">
+                                        <tr className="bg-gray-50 border-b border-gray-200">
+                                            <th className="px-4 py-3.5 w-10">
                                                 <input
                                                     type="checkbox"
                                                     checked={allPageSelected}
                                                     ref={el => { if (el) el.indeterminate = somePageSelected && !allPageSelected }}
                                                     onChange={toggleSelectAll}
-                                                    className="w-4 h-4 accent-red-500 cursor-pointer"
+                                                    className="w-4 h-4 accent-gray-900 cursor-pointer"
                                                 />
                                             </th>
-                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Produit</th>
-                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Catégorie(s)</th>
-                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Prix</th>
-                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Taille</th>
-                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Stock</th>
-                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Variantes</th>
-                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">En vente</th>
-                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                                            <th className="px-4 py-3.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Produit</th>
+                                            <th className="px-4 py-3.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Catégorie(s)</th>
+                                            <th className="px-4 py-3.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Prix</th>
+                                            <th className="px-4 py-3.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Taille</th>
+                                            <th className="px-4 py-3.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Stock</th>
+                                            <th className="px-4 py-3.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Variantes</th>
+                                            <th className="px-4 py-3.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">En vente</th>
+                                            <th className="px-4 py-3.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
                                         {paginatedProducts.map((product) => (
                                             <tr
                                                 key={product._id}
-                                                className={`hover:bg-gray-50 transition ${selectedIds.includes(product._id) ? 'bg-red-50' : ''}`}
+                                                className={`hover:bg-gray-50 transition ${selectedIds.includes(product._id) ? 'bg-gray-50' : ''}`}
                                             >
-                                                <td className="px-4 py-4">
+                                                <td className="px-4 py-3.5">
                                                     <input
                                                         type="checkbox"
                                                         checked={selectedIds.includes(product._id)}
                                                         onChange={() => toggleSelectOne(product._id)}
-                                                        className="w-4 h-4 accent-red-500 cursor-pointer"
+                                                        className="w-4 h-4 accent-gray-900 cursor-pointer"
                                                     />
                                                 </td>
-                                                <td className="px-6 py-4">
+                                                <td className="px-4 py-3.5">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                                                        <div className="w-11 h-11 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
                                                             <img src={product.image?.[0]} alt={product.name} className="w-full h-full object-cover" />
                                                         </div>
-                                                        <span className="font-medium text-gray-900">{product.name}</span>
+                                                        <span className="font-medium text-sm text-gray-900">{product.name}</span>
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4">
+                                                <td className="px-4 py-3.5">
                                                     <div className="flex flex-wrap gap-1">
                                                         {product.categories?.length > 0 ? (
                                                             product.categories.map((cat, idx) => (
@@ -827,26 +928,26 @@ const ProductList = () => {
                                                                 </span>
                                                             ))
                                                         ) : (
-                                                            <span className="text-gray-400">—</span>
+                                                            <span className="text-gray-300 text-sm">—</span>
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4 font-medium text-gray-900">
+                                                <td className="px-4 py-3.5 text-sm font-medium text-gray-900">
                                                     {product.offerPrice || product.price} {currency}
                                                     {product.offerPrice && product.offerPrice < product.price && (
-                                                        <span className="ml-1 text-xs text-red-500 line-through">
+                                                        <span className="ml-1 text-xs text-gray-400 line-through">
                                                             {product.price}
                                                         </span>
                                                     )}
                                                 </td>
-                                                <td className="px-6 py-4">
+                                                <td className="px-4 py-3.5 text-sm">
                                                     {product.variants?.length === 0 ? (
                                                         <span className="text-gray-700">{product.size || '—'}</span>
                                                     ) : (
-                                                        <span className="text-gray-400 text-sm">via variantes</span>
+                                                        <span className="text-gray-300">via variantes</span>
                                                     )}
                                                 </td>
-                                                <td className="px-6 py-4">
+                                                <td className="px-4 py-3.5 text-sm">
                                                     {product.variants?.length === 0 ? (
                                                         <span className={`font-medium ${
                                                             product.stock === 0 ? 'text-red-500' :
@@ -856,16 +957,16 @@ const ProductList = () => {
                                                             {product.stock === 0 ? 'Épuisé' : `${product.stock} en stock`}
                                                         </span>
                                                     ) : (
-                                                        <span className="text-gray-400 text-sm">via variantes</span>
+                                                        <span className="text-gray-300">via variantes</span>
                                                     )}
                                                 </td>
-                                                <td className="px-6 py-4">
+                                                <td className="px-4 py-3.5">
                                                     {product.variants?.length > 0 ? (
                                                         <div className="space-y-1 max-h-24 overflow-y-auto">
                                                             {product.variants.slice(0, 3).map((v, i) => (
                                                                 <div key={i} className="flex items-center gap-2 text-xs">
-                                                                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: v.colorCode || '#000' }}></div>
-                                                                    <span className="font-medium">{v.color}</span>
+                                                                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: v.colorCode || '#000' }}></span>
+                                                                    <span className="font-medium text-gray-700">{v.color}</span>
                                                                     {v.size && <span className="text-gray-400">/{v.size}</span>}
                                                                     <span className={`font-medium ${
                                                                         v.stock === 0 ? 'text-red-500' :
@@ -881,10 +982,10 @@ const ProductList = () => {
                                                             )}
                                                         </div>
                                                     ) : (
-                                                        <span className="text-gray-400">—</span>
+                                                        <span className="text-gray-300 text-sm">—</span>
                                                     )}
                                                 </td>
-                                                <td className="px-6 py-4">
+                                                <td className="px-4 py-3.5">
                                                     <label className="relative inline-flex items-center cursor-pointer">
                                                         <input
                                                             onClick={() => toggleStock(product._id, !product.inStock)}
@@ -893,30 +994,24 @@ const ProductList = () => {
                                                             className="sr-only peer"
                                                             readOnly
                                                         />
-                                                        <div className="w-10 h-5 bg-gray-300 rounded-full peer peer-checked:bg-red-500 transition-colors duration-200"></div>
+                                                        <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:bg-gray-900 transition-colors duration-200"></div>
                                                         <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform duration-200 peer-checked:translate-x-5"></div>
                                                     </label>
                                                 </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="flex gap-2">
+                                                <td className="px-4 py-3.5">
+                                                    <div className="flex gap-1.5">
                                                         <button
                                                             onClick={() => handleEdit(product)}
-                                                            className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition"
+                                                            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
                                                         >
-                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                                <path d="M17 3l4 4-7 7H10v-4l7-7z"/>
-                                                                <path d="M4 20h16"/>
-                                                            </svg>
+                                                            <Pencil size={12} />
                                                             Modifier
                                                         </button>
                                                         <button
                                                             onClick={() => handleDelete(product._id)}
-                                                            className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition"
+                                                            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition"
                                                         >
-                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                                <line x1="18" y1="6" x2="6" y2="18"/>
-                                                                <line x1="6" y1="6" x2="18" y2="18"/>
-                                                            </svg>
+                                                            <Trash2 size={12} />
                                                             Supprimer
                                                         </button>
                                                     </div>
@@ -929,13 +1024,13 @@ const ProductList = () => {
                         </div>
 
                         {totalPages > 1 && (
-                            <div className="flex justify-between items-center mt-6">
+                            <div className="flex justify-between items-center mt-5">
                                 <div className="flex items-center gap-2">
-                                    <span className="text-sm text-gray-500">Lignes par page :</span>
+                                    <span className="text-sm text-gray-400">Lignes par page :</span>
                                     <select
                                         value={itemsPerPage}
                                         onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                                        className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:border-red-500 outline-none"
+                                        className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:border-gray-400 outline-none"
                                     >
                                         <option value={10}>10</option>
                                         <option value={25}>25</option>
@@ -944,38 +1039,22 @@ const ProductList = () => {
                                     </select>
                                 </div>
 
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => setCurrentPage(1)}
-                                        disabled={currentPage === 1}
-                                        className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
-                                    >
-                                        «
-                                    </button>
-                                    <button
-                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                        disabled={currentPage === 1}
-                                        className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
-                                    >
-                                        ‹
-                                    </button>
-                                    <span className="px-4 py-1.5 text-sm text-gray-600">
+                                <div className="flex gap-1.5">
+                                    <IconButton onClick={() => setCurrentPage(1)} className={currentPage === 1 ? 'opacity-30 pointer-events-none' : ''}>
+                                        <ChevronsLeft size={15} />
+                                    </IconButton>
+                                    <IconButton onClick={() => setCurrentPage(p => Math.max(1, p - 1))} className={currentPage === 1 ? 'opacity-30 pointer-events-none' : ''}>
+                                        <ChevronLeft size={15} />
+                                    </IconButton>
+                                    <span className="px-3 py-1.5 text-sm text-gray-600">
                                         Page {currentPage} / {totalPages}
                                     </span>
-                                    <button
-                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                        disabled={currentPage === totalPages}
-                                        className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
-                                    >
-                                        ›
-                                    </button>
-                                    <button
-                                        onClick={() => setCurrentPage(totalPages)}
-                                        disabled={currentPage === totalPages}
-                                        className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
-                                    >
-                                        »
-                                    </button>
+                                    <IconButton onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} className={currentPage === totalPages ? 'opacity-30 pointer-events-none' : ''}>
+                                        <ChevronRight size={15} />
+                                    </IconButton>
+                                    <IconButton onClick={() => setCurrentPage(totalPages)} className={currentPage === totalPages ? 'opacity-30 pointer-events-none' : ''}>
+                                        <ChevronsRight size={15} />
+                                    </IconButton>
                                 </div>
                             </div>
                         )}
@@ -983,22 +1062,17 @@ const ProductList = () => {
                 )}
             </div>
 
-            {/* Modal confirmation suppression multiple - inchangé */}
+            {/* Modal confirmation suppression multiple */}
             {showDeleteConfirm && (
                 <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
                         <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2">
-                                    <polyline points="3 6 5 6 21 6"/>
-                                    <path d="M19 6l-1 14H6L5 6"/>
-                                    <path d="M10 11v6M14 11v6"/>
-                                    <path d="M9 6V4h6v2"/>
-                                </svg>
+                            <div className="w-10 h-10 bg-red-50 rounded-full flex items-center justify-center flex-shrink-0">
+                                <Trash2 size={18} className="text-red-500" />
                             </div>
                             <div>
                                 <h3 className="text-base font-semibold text-gray-900">Confirmer la suppression</h3>
-                                <p className="text-sm text-gray-500 mt-0.5">
+                                <p className="text-sm text-gray-400 mt-0.5">
                                     {selectedIds.length} produit(s) seront définitivement supprimés.
                                 </p>
                             </div>
@@ -1018,10 +1092,8 @@ const ProductList = () => {
                             >
                                 {deletingMultiple ? (
                                     <>
-                                        <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                            <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-                                        </svg>
-                                        Suppression...
+                                        <Loader2 size={15} className="animate-spin" />
+                                        Suppression…
                                     </>
                                 ) : 'Supprimer'}
                             </button>
@@ -1030,32 +1102,24 @@ const ProductList = () => {
                 </div>
             )}
 
-            {/* Modal édition produit MODIFIÉE avec les 3 modes */}
+            {/* Modal édition produit */}
             {editProduct && (
                 <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setEditProduct(null)}>
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
-                        <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-white">
-                            <h3 className="text-lg font-semibold text-gray-900">Modifier le produit</h3>
-                            <button
-                                onClick={() => setEditProduct(null)}
-                                className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition"
-                            >
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <line x1="18" y1="6" x2="6" y2="18"/>
-                                    <line x1="6" y1="6" x2="18" y2="18"/>
-                                </svg>
-                            </button>
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+                        <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-white shrink-0">
+                            <h3 className="text-base font-semibold text-gray-900">Modifier le produit</h3>
+                            <IconButton onClick={() => setEditProduct(null)}>
+                                <X size={17} />
+                            </IconButton>
                         </div>
 
-                        <div className="p-5 space-y-4 overflow-y-auto max-h-[calc(90vh-140px)]">
-                            {/* Images - inchangé */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Images ({editProduct.image?.length || 0})
-                                </label>
+                        <div className="p-5 space-y-4 overflow-y-auto">
+
+                            {/* Images */}
+                            <Section icon={ImagePlus} title={`Images (${editProduct.image?.length || 0})`}>
                                 <div className="flex flex-wrap gap-2 mb-3">
                                     {editProduct.image?.map((img, idx) => (
-                                        <img key={idx} src={img} alt="" className="w-16 h-16 object-cover rounded-lg border" />
+                                        <img key={idx} src={img} alt="" className="w-14 h-14 object-cover rounded-lg border border-gray-200" />
                                     ))}
                                 </div>
 
@@ -1063,12 +1127,12 @@ const ProductList = () => {
                                     <button
                                         type="button"
                                         onClick={() => setShowImageUpload(true)}
-                                        className="text-xs px-3 py-1.5 text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 transition"
+                                        className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
                                     >
-                                        + Ajouter des images
+                                        <Plus size={13} /> Ajouter des images
                                     </button>
                                 ) : (
-                                    <div className="border border-purple-200 rounded-xl p-3 bg-purple-50 space-y-2">
+                                    <div className="border border-gray-200 rounded-xl p-3 bg-gray-50 space-y-2">
                                         <input
                                             type="file"
                                             accept="image/*"
@@ -1084,8 +1148,10 @@ const ProductList = () => {
                                                         <button
                                                             type="button"
                                                             onClick={() => setNewImages(newImages.filter((_, i) => i !== idx))}
-                                                            className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 text-[10px] flex items-center justify-center"
-                                                        >✕</button>
+                                                            className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-500 hover:text-red-600"
+                                                        >
+                                                            <X size={10} />
+                                                        </button>
                                                     </div>
                                                 ))}
                                             </div>
@@ -1095,442 +1161,390 @@ const ProductList = () => {
                                                 type="button"
                                                 onClick={handleAddImages}
                                                 disabled={uploadingImages}
-                                                className="text-xs px-3 py-1.5 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition disabled:opacity-50"
+                                                className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-gray-900 text-white rounded-lg hover:opacity-90 transition disabled:opacity-50"
                                             >
-                                                {uploadingImages ? 'Upload...' : `Uploader (${newImages.length})`}
+                                                {uploadingImages ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
+                                                {uploadingImages ? 'Envoi…' : `Envoyer (${newImages.length})`}
                                             </button>
                                             <button
                                                 type="button"
                                                 onClick={() => { setShowImageUpload(false); setNewImages([]); }}
-                                                className="text-xs px-3 py-1.5 text-gray-500 hover:text-gray-700"
+                                                className="text-xs px-3 py-1.5 text-gray-400 hover:text-gray-600"
                                             >
                                                 Annuler
                                             </button>
                                         </div>
                                     </div>
                                 )}
-                            </div>
+                            </Section>
 
-                            {/* Nom - inchangé */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Nom</label>
-                                <input
-                                    value={editProduct.name}
-                                    onChange={e => setEditProduct({ ...editProduct, name: e.target.value })}
-                                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
-                                />
-                            </div>
-
-                            {/* Description - inchangé */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                                <ReactQuill
-                                    value={editProduct.description}
-                                    onChange={(value) => setEditProduct({ ...editProduct, description: value })}
-                                    theme="snow"
-                                    className="bg-white rounded-lg"
-                                    style={{ minHeight: '150px' }}
-                                />
-                            </div>
-
-                            {/* Catégories - inchangé */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Catégories</label>
-                                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 border border-gray-200 rounded-xl bg-gray-50">
-                                    {categoriesList.map((cat) => (
-                                        <button
-                                            key={cat._id}
-                                            type="button"
-                                            onClick={() => handleCategoryToggle(cat.slug)}
-                                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-                                                selectedCategories.includes(cat.slug)
-                                                    ? 'bg-red-500 text-white'
-                                                    : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
-                                            }`}
-                                        >
-                                            {cat.name}
-                                        </button>
-                                    ))}
-                                </div>
-                                <p className="text-xs text-gray-400 mt-1">
-                                    {selectedCategories.length} catégorie(s) sélectionnée(s)
-                                </p>
-                            </div>
-
-                            {/* Prix - inchangé */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Prix original</label>
-                                    <input
-                                        type="number"
-                                        value={editProduct.price}
-                                        onChange={e => setEditProduct({ ...editProduct, price: e.target.value })}
-                                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Prix promo</label>
-                                    <input
-                                        type="number"
-                                        value={editProduct.offerPrice}
-                                        onChange={e => setEditProduct({ ...editProduct, offerPrice: e.target.value })}
-                                        className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* ============ SÉLECTEUR DE MODE ============ */}
-                            <div className="border-t pt-4">
-                                <label className="text-base font-medium block mb-2">Type de produit</label>
-                                <div className="grid grid-cols-3 gap-2">
-                                    <button 
-                                        type="button" 
-                                        onClick={() => {
-                                            setProductMode('simple');
-                                            setSizesList([]);
-                                            setColors([]);
-                                            setEditProduct({ ...editProduct, variants: [], size: editProduct.size || null, stock: editProduct.stock || 0 });
-                                        }} 
-                                        className={`py-2.5 px-3 rounded-lg text-sm font-medium border transition ${productMode === 'simple' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'}`}
-                                    >
-                                        Produit simple
-                                    </button>
-                                    <button 
-                                        type="button" 
-                                        onClick={() => {
-                                            setProductMode('multi-sizes');
-                                            setColors([]);
-                                            if (editProduct.variants?.length > 0 && detectProductMode(editProduct.variants) === 'multi-sizes') {
-                                                setSizesList(convertVariantsToSizes(editProduct.variants));
-                                            } else {
-                                                setSizesList([]);
-                                            }
-                                            setEditProduct({ ...editProduct, variants: [], size: null, stock: 0 });
-                                        }} 
-                                        className={`py-2.5 px-3 rounded-lg text-sm font-medium border transition ${productMode === 'multi-sizes' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'}`}
-                                    >
-                                        Multi-tailles
-                                    </button>
-                                    <button 
-                                        type="button" 
-                                        onClick={() => {
-                                            setProductMode('variants');
-                                            setSizesList([]);
-                                            if (editProduct.variants?.length > 0 && detectProductMode(editProduct.variants) === 'variants') {
-                                                setColors(convertVariantsToColors(editProduct.variants));
-                                            } else {
-                                                setColors([]);
-                                            }
-                                            setEditProduct({ ...editProduct, variants: [], size: null, stock: 0 });
-                                        }} 
-                                        className={`py-2.5 px-3 rounded-lg text-sm font-medium border transition ${productMode === 'variants' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'}`}
-                                    >
-                                        Couleurs + Tailles
-                                    </button>
-                                </div>
-                                <p className="text-xs text-gray-400 mt-2">
-                                    {productMode === 'simple' && "Un seul prix, un seul stock, une taille optionnelle."}
-                                    {productMode === 'multi-sizes' && "Plusieurs tailles (S, M, L...), chacune avec son propre stock, sans couleurs."}
-                                    {productMode === 'variants' && "Plusieurs couleurs (optionnel), chaque couleur peut avoir plusieurs tailles (optionnel) avec leurs stocks."}
-                                </p>
-                            </div>
-
-                            {/* ✅ NOUVEAU : Type de libellé pour le mode multi-tailles */}
-                            {productMode === 'multi-sizes' && (
-                                <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
-                                    <label className="text-sm font-medium block mb-2">Type de libellé</label>
-                                    <p className="text-xs text-gray-400 mb-2">💡 Détermine le texte affiché pour chaque option.</p>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <button 
-                                            type="button" 
-                                            onClick={() => setLabelType('size')}
-                                            className={`py-2 px-3 rounded-lg text-sm font-medium border transition ${
-                                                labelType === 'size' 
-                                                    ? 'bg-primary text-white border-primary' 
-                                                    : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
-                                            }`}
-                                        >
-                                            📏 Taille
-                                        </button>
-                                        <button 
-                                            type="button" 
-                                            onClick={() => setLabelType('variant')}
-                                            className={`py-2 px-3 rounded-lg text-sm font-medium border transition ${
-                                                labelType === 'variant' 
-                                                    ? 'bg-primary text-white border-primary' 
-                                                    : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
-                                            }`}
-                                        >
-                                            📦 Variante
-                                        </button>
-                                    </div>
-                                    <p className="text-xs text-gray-500 mt-2">
-                                        {labelType === 'size' 
-                                            ? '📏 Affiche "Taille" (S, M, L...)' 
-                                            : '📦 Affiche "Variante" (Pastèque, Orange, ALOE VERA...)'}
-                                    </p>
-                                </div>
-                            )}
-
-                            {/* ============ MODE SIMPLE ============ */}
-                            {productMode === 'simple' && (
-                                <div className="flex flex-col gap-3 max-w-md">
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-base font-medium">Taille (optionnel)</label>
+                            {/* Informations générales */}
+                            <Section icon={Box} title="Informations générales">
+                                <div className="space-y-4">
+                                    <Field label="Nom">
                                         <input
-                                            type="text"
-                                            value={editProduct.size || ''}
-                                            onChange={e => setEditProduct({ ...editProduct, size: e.target.value || null })}
-                                            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
-                                            placeholder="Ex: S, M, L, XL, ou laissez vide"
+                                            value={editProduct.name}
+                                            onChange={e => setEditProduct({ ...editProduct, name: e.target.value })}
+                                            className={inputClass}
                                         />
-                                        <p className="text-xs text-gray-400">💡 Laissez vide si ce produit n'a pas de taille spécifique</p>
-                                    </div>
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-base font-medium">Stock</label>
-                                        <input
-                                            type="number"
-                                            value={editProduct.stock || 0}
-                                            onChange={e => setEditProduct({ ...editProduct, stock: parseInt(e.target.value) || 0 })}
-                                            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
-                                            min="0"
-                                        />
-                                    </div>
-                                </div>
-                            )}
+                                    </Field>
 
-                            {/* ============ MODE MULTI-TAILLES (avec labelType) ============ */}
-                            {productMode === 'multi-sizes' && (
-                                <div className="flex flex-col gap-3 max-w-md">
-                                    <div className="border border-gray-200 rounded-lg overflow-hidden">
-                                        <button 
-                                            type="button" 
-                                            onClick={() => setOpenSizesPanel(!openSizesPanel)} 
-                                            className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 hover:bg-gray-100 transition"
-                                        >
-                                            <span className="font-medium text-gray-900">
-                                                {labelType === 'size' ? '📏' : '📦'} {labelType === 'size' ? 'Tailles' : 'Variantes'} disponibles ({sizesList.length})
-                                            </span>
-                                            <svg className={`w-4 h-4 text-gray-400 transition-transform ${openSizesPanel ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                                            </svg>
-                                        </button>
-                                        {openSizesPanel && (
-                                            <div className="px-3 py-3 border-t border-gray-200">
-                                                {sizesList.length > 0 && (
-                                                    <div className="space-y-2 mb-3">
-                                                        {sizesList.map((size, idx) => (
-                                                            <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                                                                <div>
-                                                                    <span className="font-medium text-gray-800">{size.size}</span>
-                                                                    <span className="text-xs text-green-600 ml-2">Stock: {size.stock}</span>
-                                                                    {size.price && <span className="text-xs text-gray-400 ml-2">{size.price} FCFA</span>}
-                                                                </div>
-                                                                <div className="flex gap-1">
-                                                                    <button type="button" onClick={() => editSize(idx)} className="text-blue-400 hover:text-blue-600 text-xs px-2 py-1">✏️</button>
-                                                                    <button type="button" onClick={() => removeSize(idx)} className="text-red-400 hover:text-red-600 text-xs px-2 py-1">✕</button>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                                <div className="flex gap-2 mb-2">
-                                                    <input 
-                                                        value={sizeInput} 
-                                                        onChange={e => setSizeInput(e.target.value)} 
-                                                        type="text" 
-                                                        placeholder={labelType === 'size' ? "Taille (S, M, L...)" : "Variante (Pastèque, Orange...)"}
-                                                        className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm" 
-                                                    />
-                                                    <input 
-                                                        value={stockInput} 
-                                                        onChange={e => setStockInput(e.target.value)} 
-                                                        type="number" 
-                                                        placeholder="Stock" 
-                                                        className="w-20 border border-gray-200 rounded-lg px-3 py-1.5 text-sm" 
-                                                    />
-                                                </div>
-                                                <div className="flex gap-2 mb-2">
-                                                    <input 
-                                                        value={sizePriceInput} 
-                                                        onChange={e => setSizePriceInput(e.target.value)} 
-                                                        type="number" 
-                                                        placeholder="Prix (optionnel)" 
-                                                        className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm" 
-                                                    />
-                                                    <input 
-                                                        value={sizeOfferPriceInput} 
-                                                        onChange={e => setSizeOfferPriceInput(e.target.value)} 
-                                                        type="number" 
-                                                        placeholder="Promo (optionnel)" 
-                                                        className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm" 
-                                                    />
-                                                </div>
-                                                <button 
-                                                    type="button" 
-                                                    onClick={addSize} 
-                                                    className="w-full py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition"
+                                    <Field label="Description">
+                                        <ReactQuill
+                                            value={editProduct.description}
+                                            onChange={(value) => setEditProduct({ ...editProduct, description: value })}
+                                            theme="snow"
+                                            className="bg-white rounded-lg"
+                                            style={{ minHeight: '150px' }}
+                                        />
+                                    </Field>
+
+                                    <Field label="Catégories" hint={`${selectedCategories.length} catégorie(s) sélectionnée(s)`}>
+                                        <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 border border-gray-200 rounded-xl bg-gray-50">
+                                            {categoriesList.map((cat) => (
+                                                <button
+                                                    key={cat._id}
+                                                    type="button"
+                                                    onClick={() => handleCategoryToggle(cat.slug)}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                                                        selectedCategories.includes(cat.slug)
+                                                            ? 'bg-gray-900 text-white'
+                                                            : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
+                                                    }`}
                                                 >
-                                                    {editingSizeIndex !== null ? 'Mettre à jour' : '+ Ajouter'}
+                                                    {cat.name}
                                                 </button>
-                                                {editingSizeIndex !== null && (
-                                                    <button type="button" onClick={resetSizeForm} className="w-full mt-1 py-1 text-xs text-gray-400 hover:text-gray-600">Annuler</button>
-                                                )}
+                                            ))}
+                                        </div>
+                                    </Field>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <Field label="Prix original">
+                                            <input
+                                                type="number"
+                                                value={editProduct.price}
+                                                onChange={e => setEditProduct({ ...editProduct, price: e.target.value })}
+                                                className={inputClass}
+                                            />
+                                        </Field>
+                                        <Field label="Prix promo">
+                                            <input
+                                                type="number"
+                                                value={editProduct.offerPrice}
+                                                onChange={e => setEditProduct({ ...editProduct, offerPrice: e.target.value })}
+                                                className={inputClass}
+                                            />
+                                        </Field>
+                                    </div>
+                                </div>
+                            </Section>
+
+                            {/* Stock & variantes */}
+                            <Section icon={Ruler} title="Stock & variantes">
+                                <SegmentedControl
+                                    value={productMode}
+                                    options={[
+                                        {
+                                            value: 'simple', label: 'Simple', icon: Box,
+                                            onClick: () => {
+                                                setProductMode('simple');
+                                                setSizesList([]);
+                                                setColors([]);
+                                                setEditProduct({ ...editProduct, variants: [], size: editProduct.size || null, stock: editProduct.stock || 0 });
+                                            }
+                                        },
+                                        {
+                                            value: 'multi-sizes', label: 'Tailles', icon: Ruler,
+                                            onClick: () => {
+                                                setProductMode('multi-sizes');
+                                                setColors([]);
+                                                if (editProduct.variants?.length > 0 && detectProductMode(editProduct.variants) === 'multi-sizes') {
+                                                    setSizesList(convertVariantsToSizes(editProduct.variants));
+                                                } else {
+                                                    setSizesList([]);
+                                                }
+                                                setEditProduct({ ...editProduct, variants: [], size: null, stock: 0 });
+                                            }
+                                        },
+                                        {
+                                            value: 'variants', label: 'Couleurs + tailles', icon: Palette,
+                                            onClick: () => {
+                                                setProductMode('variants');
+                                                setSizesList([]);
+                                                if (editProduct.variants?.length > 0 && detectProductMode(editProduct.variants) === 'variants') {
+                                                    setColors(convertVariantsToColors(editProduct.variants));
+                                                } else {
+                                                    setColors([]);
+                                                }
+                                                setEditProduct({ ...editProduct, variants: [], size: null, stock: 0 });
+                                            }
+                                        },
+                                    ]}
+                                />
+                                <p className="text-xs text-gray-400 mt-2.5">
+                                    {productMode === 'simple' && "Un seul prix, un seul stock, une taille optionnelle."}
+                                    {productMode === 'multi-sizes' && "Plusieurs tailles, chacune avec son propre stock, sans couleurs."}
+                                    {productMode === 'variants' && "Plusieurs couleurs (optionnel), chacune avec ses propres tailles et stocks."}
+                                </p>
+
+                                {/* Type de libellé (mode multi-tailles) */}
+                                {productMode === 'multi-sizes' && (
+                                    <div className="border border-gray-200 rounded-xl p-3.5 bg-gray-50 mt-4">
+                                        <p className="text-sm font-medium text-gray-800 mb-1">Type de libellé</p>
+                                        <p className="text-xs text-gray-400 mb-2.5">Détermine le texte affiché pour chaque option côté client.</p>
+                                        <SegmentedControl
+                                            value={labelType}
+                                            options={[
+                                                { value: 'size', label: 'Taille', icon: Ruler, onClick: () => setLabelType('size') },
+                                                { value: 'variant', label: 'Variante', icon: Box, onClick: () => setLabelType('variant') },
+                                            ]}
+                                        />
+                                        <p className="text-xs text-gray-400 mt-2">
+                                            {labelType === 'size'
+                                                ? 'Affiche « Taille » (S, M, L…)'
+                                                : 'Affiche « Variante » (Pastèque, Orange, Aloe vera…)'}
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* Mode SIMPLE */}
+                                {productMode === 'simple' && (
+                                    <div className="grid grid-cols-2 gap-4 mt-4">
+                                        <Field label="Taille (optionnel)" hint="Laissez vide si ce produit n'a pas de taille spécifique.">
+                                            <input
+                                                type="text"
+                                                value={editProduct.size || ''}
+                                                onChange={e => setEditProduct({ ...editProduct, size: e.target.value || null })}
+                                                className={inputClass}
+                                                placeholder="S, M, L, XL…"
+                                            />
+                                        </Field>
+                                        <Field label="Stock">
+                                            <input
+                                                type="number"
+                                                value={editProduct.stock || 0}
+                                                onChange={e => setEditProduct({ ...editProduct, stock: parseInt(e.target.value) || 0 })}
+                                                className={inputClass}
+                                                min="0"
+                                            />
+                                        </Field>
+                                    </div>
+                                )}
+
+                                {/* Mode MULTI-TAILLES */}
+                                {productMode === 'multi-sizes' && (
+                                    <div className="flex flex-col gap-4 mt-4">
+                                        <div className="border border-gray-200 rounded-xl overflow-hidden">
+                                            <button
+                                                type="button"
+                                                onClick={() => setOpenSizesPanel(!openSizesPanel)}
+                                                className="w-full flex items-center justify-between px-3.5 py-3 bg-gray-50 hover:bg-gray-100 transition"
+                                            >
+                                                <span className="font-medium text-sm text-gray-900">
+                                                    {labelType === 'size' ? 'Tailles' : 'Variantes'} disponibles ({sizesList.length})
+                                                </span>
+                                                <ChevronDown size={16} className={`text-gray-400 transition-transform ${openSizesPanel ? 'rotate-180' : ''}`} />
+                                            </button>
+                                            {openSizesPanel && (
+                                                <div className="px-3.5 py-3.5 border-t border-gray-200 space-y-3">
+                                                    {sizesList.length > 0 && (
+                                                        <div className="space-y-2">
+                                                            {sizesList.map((size, idx) => (
+                                                                <div key={idx} className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg">
+                                                                    <div className="text-sm">
+                                                                        <span className="font-medium text-gray-800">{size.size}</span>
+                                                                        <span className="text-xs text-gray-500 ml-2">Stock : {size.stock}</span>
+                                                                        {size.price && <span className="text-xs text-gray-400 ml-2">{size.price} FCFA</span>}
+                                                                    </div>
+                                                                    <div className="flex gap-0.5">
+                                                                        <IconButton onClick={() => editSize(idx)}><Pencil size={13} /></IconButton>
+                                                                        <IconButton variant="danger" onClick={() => removeSize(idx)}><X size={14} /></IconButton>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    <div className="grid grid-cols-3 gap-2">
+                                                        <input value={sizeInput} onChange={e => setSizeInput(e.target.value)} type="text" placeholder={labelType === 'size' ? "Taille" : "Variante"} className={`${inputClass} col-span-2`} />
+                                                        <input value={stockInput} onChange={e => setStockInput(e.target.value)} type="number" placeholder="Stock" className={inputClass} />
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <input value={sizePriceInput} onChange={e => setSizePriceInput(e.target.value)} type="number" placeholder="Prix (optionnel)" className={inputClass} />
+                                                        <input value={sizeOfferPriceInput} onChange={e => setSizeOfferPriceInput(e.target.value)} type="number" placeholder="Promo (optionnel)" className={inputClass} />
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <button type="button" onClick={addSize} className="flex-1 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:opacity-90 transition">
+                                                            {editingSizeIndex !== null ? 'Mettre à jour' : 'Ajouter'}
+                                                        </button>
+                                                        {editingSizeIndex !== null && (
+                                                            <button type="button" onClick={resetSizeForm} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">Annuler</button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Mode VARIANTS (Couleurs + Tailles) */}
+                                {productMode === 'variants' && (
+                                    <div className="flex flex-col gap-3 mt-4">
+                                        {colors.length > 0 && (
+                                            <div className="flex flex-col gap-2">
+                                                {colors.map((color, colorIndex) => {
+                                                    const isOpen = openColorIndex === colorIndex;
+                                                    const totalStock = color.sizes.reduce((sum, s) => sum + s.stock, 0);
+                                                    return (
+                                                        <div key={colorIndex} className="border border-gray-200 rounded-xl overflow-hidden">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setOpenColorIndex(isOpen ? null : colorIndex)}
+                                                                className="w-full flex items-center justify-between px-3.5 py-3 bg-gray-50 hover:bg-gray-100 transition"
+                                                            >
+                                                                <div className="flex items-center gap-2">
+                                                                    {color.color !== 'Sans couleur' && (
+                                                                        <span className="w-3.5 h-3.5 rounded-full border border-gray-300" style={{ backgroundColor: color.colorCode }}></span>
+                                                                    )}
+                                                                    <span className="font-medium text-sm text-gray-900">{color.color}</span>
+                                                                    <span className="text-xs text-gray-400">({color.sizes.length})</span>
+                                                                    <span className="text-xs text-gray-500">Stock total : {totalStock}</span>
+                                                                </div>
+                                                                <ChevronDown size={16} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                                                            </button>
+                                                            {isOpen && (
+                                                                <div className="px-3.5 py-3.5 border-t border-gray-200 bg-white space-y-3">
+                                                                    {color.sizes.length > 0 && (
+                                                                        <div className="space-y-2">
+                                                                            {color.sizes.map((size, sizeIndex) => (
+                                                                                <div key={sizeIndex} className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg">
+                                                                                    <div className="text-sm">
+                                                                                        <span className="font-medium text-gray-800">{size.size || 'Sans taille'}</span>
+                                                                                        <span className="text-xs text-gray-500 ml-2">Stock : {size.stock}</span>
+                                                                                        {size.price && <span className="text-xs text-gray-400 ml-2">{size.price} FCFA</span>}
+                                                                                    </div>
+                                                                                    <div className="flex gap-0.5">
+                                                                                        <IconButton onClick={() => editSizeInColor(colorIndex, sizeIndex)}><Pencil size={13} /></IconButton>
+                                                                                        <IconButton variant="danger" onClick={() => removeSizeFromColor(colorIndex, sizeIndex)}><X size={14} /></IconButton>
+                                                                                    </div>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                    <div className="grid grid-cols-3 gap-2">
+                                                                        <input
+                                                                            value={variantSizeInput}
+                                                                            onChange={e => setVariantSizeInput(e.target.value)}
+                                                                            type="text"
+                                                                            placeholder="Taille (optionnel)"
+                                                                            className={`${inputClass} col-span-2`}
+                                                                        />
+                                                                        <input
+                                                                            value={variantStockInput}
+                                                                            onChange={e => setVariantStockInput(e.target.value)}
+                                                                            type="number"
+                                                                            placeholder="Stock *"
+                                                                            className={inputClass}
+                                                                        />
+                                                                    </div>
+                                                                    <div className="grid grid-cols-2 gap-2">
+                                                                        <input
+                                                                            value={variantPriceInput}
+                                                                            onChange={e => setVariantPriceInput(e.target.value)}
+                                                                            type="number"
+                                                                            placeholder="Prix (optionnel)"
+                                                                            className={inputClass}
+                                                                        />
+                                                                        <input
+                                                                            value={variantOfferPriceInput}
+                                                                            onChange={e => setVariantOfferPriceInput(e.target.value)}
+                                                                            type="number"
+                                                                            placeholder="Promo (optionnel)"
+                                                                            className={inputClass}
+                                                                        />
+                                                                    </div>
+                                                                    <div className="flex gap-2">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => addSizeToColor(colorIndex)}
+                                                                            className="flex-1 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:opacity-90 transition"
+                                                                        >
+                                                                            {editingSizeIndexInColor !== null && editingColorForSize === colorIndex ? 'Mettre à jour' : 'Ajouter une taille'}
+                                                                        </button>
+                                                                        {editingSizeIndexInColor !== null && editingColorForSize === colorIndex && (
+                                                                            <button type="button" onClick={resetVariantSizeForm} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">Annuler</button>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="flex gap-2 pt-2 border-t border-gray-100">
+                                                                        <button type="button" onClick={() => editColor(colorIndex)} className="flex-1 py-2 text-gray-700 bg-gray-100 rounded-lg text-xs font-medium hover:bg-gray-200 transition">
+                                                                            Modifier la couleur
+                                                                        </button>
+                                                                        <button type="button" onClick={() => removeColor(colorIndex)} className="flex-1 py-2 text-red-600 bg-red-50 rounded-lg text-xs font-medium hover:bg-red-100 transition">
+                                                                            Supprimer la couleur
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+
+                                        {!showColorForm && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowColorForm(true)}
+                                                className="flex items-center justify-center gap-1.5 w-full py-2.5 border-2 border-dashed border-gray-200 rounded-xl text-sm font-medium text-gray-500 hover:border-gray-400 hover:text-gray-700 transition"
+                                            >
+                                                <Plus size={15} /> Ajouter une couleur (optionnel)
+                                            </button>
+                                        )}
+
+                                        {showColorForm && (
+                                            <div className="bg-gray-50 p-3.5 rounded-xl space-y-3 border border-gray-200">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-sm font-medium text-gray-900">
+                                                        {editingColorIndex !== null ? 'Modifier la couleur' : 'Nouvelle couleur (optionnel)'}
+                                                    </span>
+                                                    <button type="button" onClick={cancelColorForm} className="text-xs text-gray-400 hover:text-gray-600">Annuler</button>
+                                                </div>
+                                                <div className="flex gap-2 items-center">
+                                                    <input
+                                                        value={colorInput}
+                                                        onChange={e => setColorInput(e.target.value)}
+                                                        type="text"
+                                                        placeholder="Nom de la couleur (optionnel)"
+                                                        className={`${inputClass} flex-1`}
+                                                    />
+                                                    <input
+                                                        value={colorCodeInput}
+                                                        onChange={e => setColorCodeInput(e.target.value)}
+                                                        type="color"
+                                                        className="w-11 h-10 rounded-lg border border-gray-200 cursor-pointer"
+                                                    />
+                                                </div>
+                                                <Field label="Position de départ dans les photos">
+                                                    <input
+                                                        value={startImageIndexInput}
+                                                        onChange={e => setStartImageIndexInput(Number(e.target.value))}
+                                                        type="number"
+                                                        min="0"
+                                                        placeholder="Ex : 0 pour la première couleur, 3 pour la suivante…"
+                                                        className={inputClass}
+                                                    />
+                                                </Field>
+                                                <Hint>Permet d'afficher d'abord les photos correspondant à cette couleur.</Hint>
+                                                <button type="button" onClick={addColor} className="w-full py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:opacity-90 transition">
+                                                    {editingColorIndex !== null ? 'Mettre à jour la couleur' : 'Ajouter cette couleur'}
+                                                </button>
                                             </div>
                                         )}
                                     </div>
-                                </div>
-                            )}
-
-                            {/* ============ MODE VARIANTS (Couleurs + Tailles) aligné avec AddProduct ============ */}
-                            {productMode === 'variants' && (
-                                <div className="flex flex-col gap-3 max-w-md">
-                                    {colors.length > 0 && (
-                                        <div className="flex flex-col gap-2">
-                                            {colors.map((color, colorIndex) => {
-                                                const isOpen = openColorIndex === colorIndex;
-                                                const totalStock = color.sizes.reduce((sum, s) => sum + s.stock, 0);
-                                                return (
-                                                    <div key={colorIndex} className="border border-gray-200 rounded-lg overflow-hidden">
-                                                        <button 
-                                                            type="button" 
-                                                            onClick={() => setOpenColorIndex(isOpen ? null : colorIndex)} 
-                                                            className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-50 hover:bg-gray-100 transition"
-                                                        >
-                                                            <div className="flex items-center gap-2">
-                                                                {color.color !== 'Sans couleur' && (
-                                                                    <div className="w-4 h-4 rounded-full border border-gray-300" style={{ backgroundColor: color.colorCode }}></div>
-                                                                )}
-                                                                <span className="font-medium text-gray-900">{color.color}</span>
-                                                                <span className="text-xs text-gray-400">({color.sizes.length} taille(s))</span>
-                                                                <span className="text-xs text-green-600 ml-1">Stock total: {totalStock}</span>
-                                                            </div>
-                                                            <svg className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                                                            </svg>
-                                                        </button>
-                                                        {isOpen && (
-                                                            <div className="px-3 py-3 border-t border-gray-200 bg-white">
-                                                                {color.sizes.length > 0 && (
-                                                                    <div className="space-y-2 mb-3">
-                                                                        {color.sizes.map((size, sizeIndex) => (
-                                                                            <div key={sizeIndex} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                                                                                <div>
-                                                                                    <span className="font-medium text-gray-800">{size.size || 'Sans taille'}</span>
-                                                                                    <span className="text-xs text-green-600 ml-2">Stock: {size.stock}</span>
-                                                                                    {size.price && <span className="text-xs text-gray-400 ml-2">{size.price} FCFA</span>}
-                                                                                </div>
-                                                                                <div className="flex gap-1">
-                                                                                    <button type="button" onClick={() => editSizeInColor(colorIndex, sizeIndex)} className="text-blue-400 hover:text-blue-600 text-xs px-2 py-1">✏️</button>
-                                                                                    <button type="button" onClick={() => removeSizeFromColor(colorIndex, sizeIndex)} className="text-red-400 hover:text-red-600 text-xs px-2 py-1">✕</button>
-                                                                                </div>
-                                                                            </div>
-                                                                        ))}
-                                                                    </div>
-                                                                )}
-                                                                <div className="flex gap-2 mb-2">
-                                                                    <input 
-                                                                        value={variantSizeInput} 
-                                                                        onChange={e => setVariantSizeInput(e.target.value)} 
-                                                                        type="text" 
-                                                                        placeholder="Taille (optionnel)" 
-                                                                        className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm" 
-                                                                    />
-                                                                    <input 
-                                                                        value={variantStockInput} 
-                                                                        onChange={e => setVariantStockInput(e.target.value)} 
-                                                                        type="number" 
-                                                                        placeholder="Stock *" 
-                                                                        className="w-20 border border-gray-200 rounded-lg px-3 py-1.5 text-sm" 
-                                                                    />
-                                                                </div>
-                                                                <div className="flex gap-2 mb-2">
-                                                                    <input 
-                                                                        value={variantPriceInput} 
-                                                                        onChange={e => setVariantPriceInput(e.target.value)} 
-                                                                        type="number" 
-                                                                        placeholder="Prix (optionnel)" 
-                                                                        className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm" 
-                                                                    />
-                                                                    <input 
-                                                                        value={variantOfferPriceInput} 
-                                                                        onChange={e => setVariantOfferPriceInput(e.target.value)} 
-                                                                        type="number" 
-                                                                        placeholder="Promo (optionnel)" 
-                                                                        className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm" 
-                                                                    />
-                                                                </div>
-                                                                <button 
-                                                                    type="button" 
-                                                                    onClick={() => addSizeToColor(colorIndex)} 
-                                                                    className="w-full py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition"
-                                                                >
-                                                                    {editingSizeIndexInColor !== null && editingColorForSize === colorIndex ? 'Mettre à jour la taille' : '+ Ajouter une taille'}
-                                                                </button>
-                                                                {editingSizeIndexInColor !== null && editingColorForSize === colorIndex && (
-                                                                    <button type="button" onClick={resetVariantSizeForm} className="w-full mt-1 py-1 text-xs text-gray-400 hover:text-gray-600">Annuler</button>
-                                                                )}
-                                                                <div className="flex gap-2 mt-3 pt-2 border-t border-gray-100">
-                                                                    <button type="button" onClick={() => editColor(colorIndex)} className="flex-1 py-1.5 text-blue-600 bg-blue-50 rounded-lg text-xs hover:bg-blue-100 transition">Modifier la couleur</button>
-                                                                    <button type="button" onClick={() => removeColor(colorIndex)} className="flex-1 py-1.5 text-red-600 bg-red-50 rounded-lg text-xs hover:bg-red-100 transition">Supprimer la couleur</button>
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                    {!showColorForm && (
-                                        <button type="button" onClick={() => setShowColorForm(true)} className="w-full py-2.5 border-2 border-dashed border-gray-300 rounded-lg text-sm font-medium text-gray-500 hover:border-primary hover:text-primary transition">
-                                            + Ajouter une couleur (optionnel)
-                                        </button>
-                                    )}
-                                    {showColorForm && (
-                                        <div className="bg-gray-50 p-3 rounded-lg space-y-3 border border-gray-200">
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-sm font-medium text-primary">
-                                                    {editingColorIndex !== null ? 'Modifier la couleur' : 'Nouvelle couleur (optionnel)'}
-                                                </span>
-                                                <button type="button" onClick={cancelColorForm} className="text-xs text-gray-400 hover:text-gray-600">Annuler</button>
-                                            </div>
-                                            <div className="flex gap-2 items-center">
-                                                <input 
-                                                    value={colorInput} 
-                                                    onChange={e => setColorInput(e.target.value)} 
-                                                    type="text" 
-                                                    placeholder="Couleur (optionnel)" 
-                                                    className="flex-1 outline-none py-2 px-3 rounded border border-gray-300 text-sm" 
-                                                />
-                                                <input 
-                                                    value={colorCodeInput} 
-                                                    onChange={e => setColorCodeInput(e.target.value)} 
-                                                    type="color" 
-                                                    className="w-12 h-10 rounded border border-gray-300 cursor-pointer" 
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="text-xs text-gray-600 mb-1 block">Position de départ dans les photos (0 = première photo)</label>
-                                                <input 
-                                                    value={startImageIndexInput} 
-                                                    onChange={e => setStartImageIndexInput(Number(e.target.value))} 
-                                                    type="number" 
-                                                    min="0" 
-                                                    placeholder="Ex: 0 pour Rouge, 3 pour Bleu" 
-                                                    className="w-full outline-none py-2 px-3 rounded border border-gray-300 text-sm" 
-                                                />
-                                                <p className="text-xs text-gray-400 mt-1">💡 Permet d'afficher d'abord les photos correspondant à cette couleur.</p>
-                                            </div>
-                                            <button type="button" onClick={addColor} className="w-full py-2 bg-primary text-white rounded text-sm font-medium">
-                                                {editingColorIndex !== null ? 'Mettre à jour la couleur' : 'Ajouter cette couleur'}
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                                )}
+                            </Section>
                         </div>
 
-                        <div className="p-5 border-t border-gray-100 flex gap-3 bg-gray-50">
+                        <div className="p-5 border-t border-gray-100 flex gap-3 bg-gray-50 shrink-0">
                             <button
                                 onClick={() => setEditProduct(null)}
                                 className="flex-1 py-2.5 border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-100 transition"
@@ -1539,7 +1553,7 @@ const ProductList = () => {
                             </button>
                             <button
                                 onClick={handleUpdate}
-                                className="flex-1 py-2.5 bg-red-500 text-white rounded-xl text-sm font-medium hover:bg-red-600 transition"
+                                className="flex-1 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:opacity-90 transition"
                             >
                                 Sauvegarder
                             </button>
