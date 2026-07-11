@@ -1193,11 +1193,21 @@ const ProductDetails = () => {
           margin: 0 0 10px;
         }
 
-        .pd-description-html ul,
-        .pd-description-html ol {
-          padding-left: 20px;
-          margin: 0 0 10px;
-        }
+        .pd-description-html ul {
+  list-style-type: disc;
+  padding-left: 20px;
+  margin: 0 0 10px;
+}
+
+.pd-description-html ol {
+  list-style-type: decimal;
+  padding-left: 20px;
+  margin: 0 0 10px;
+}
+
+.pd-description-html li {
+  display: list-item;
+}
 
         .pd-description-html li {
           margin-bottom: 4px;
