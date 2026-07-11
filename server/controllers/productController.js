@@ -1,5 +1,6 @@
 import { v2 as cloudinary } from "cloudinary"
 import Product from "../models/Product.js"
+import { scrapeProductPreview, fetchImagesAsDataUrls } from "../services/scraper.js"
 
 // ✅ Add Product - AVEC VIDÉO (OPTIMISÉ)
 export const addProduct = async (req, res) => {
@@ -518,5 +519,41 @@ export const getVariantDetails = async (req, res) => {
     } catch (error) {
         console.log(error.message);
         res.json({ success: false, message: error.message })
+    }
+}
+// ✅ Import produit par URL (scraping) — nom, description, images uniquement.
+// Le prix, le stock et les variantes restent saisis manuellement par le vendeur.
+export const scrapeImport = async (req, res) => {
+    try {
+        const { url } = req.body
+
+        if (!url || typeof url !== "string") {
+            return res.json({ success: false, message: "URL manquante" })
+        }
+
+        let parsedUrl
+        try {
+            parsedUrl = new URL(url)
+        } catch {
+            return res.json({ success: false, message: "URL invalide" })
+        }
+        if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+            return res.json({ success: false, message: "URL invalide" })
+        }
+
+        const preview = await scrapeProductPreview(url)
+        const imageDataUrls = await fetchImagesAsDataUrls(preview.images)
+
+        res.json({
+            success: true,
+            preview: {
+                name: preview.name,
+                description: preview.description,
+                images: imageDataUrls
+            }
+        })
+    } catch (error) {
+        console.log(error.message);
+        res.json({ success: false, message: "Impossible de récupérer les informations de cette page : " + error.message })
     }
 }

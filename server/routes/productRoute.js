@@ -10,7 +10,8 @@ import {
     updateProduct, 
     deleteProduct, 
     getBestSellers, 
-    getVariantDetails 
+    getVariantDetails,
+    scrapeImport
 } from '../controllers/productController.js';
 
 const productRouter = express.Router();
@@ -78,5 +79,6 @@ productRouter.post('/stock', authSeller, changeStock);
 productRouter.post('/update', authSeller, updateProduct);
 productRouter.post('/delete', authSeller, deleteProduct);
 productRouter.post('/variant', getVariantDetails);
+productRouter.post('/scrape-import', authSeller, scrapeImport);
 
 export default productRouter;

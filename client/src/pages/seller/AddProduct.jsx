@@ -22,6 +22,8 @@ import {
     Palette,
     Info,
     AlertCircle,
+    Link2,
+    Download,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -152,6 +154,9 @@ const AddProduct = () => {
     const [cropAspectRatio, setCropAspectRatio] = useState(16 / 9);
     const [cropShape, setCropShape] = useState('rect');
     const [isConverting, setIsConverting] = useState(false);
+
+    const [importUrl, setImportUrl] = useState('');
+    const [importing, setImporting] = useState(false);
 
     const [labelType, setLabelType] = useState('size');
 
@@ -422,6 +427,51 @@ const AddProduct = () => {
         }
     };
 
+    const handleImportFromUrl = async () => {
+        const trimmedUrl = importUrl.trim();
+        if (!trimmedUrl) {
+            toast.error('Collez le lien de la page produit');
+            return;
+        }
+
+        setImporting(true);
+        try {
+            const { data } = await axios.post('/api/product/scrape-import', { url: trimmedUrl });
+
+            if (!data.success) {
+                toast.error(data.message || "Import impossible");
+                return;
+            }
+
+            const { preview } = data;
+
+            if (preview.name) setName(preview.name);
+            if (preview.description) setDescription(preview.description);
+
+            if (preview.images?.length) {
+                setIsConverting(true);
+                for (const dataUrl of preview.images) {
+                    try {
+                        const blob = await (await fetch(dataUrl)).blob();
+                        const originalFile = new File([blob], 'import.jpg', { type: blob.type || 'image/jpeg' });
+                        const webpFile = await resizeAndConvertToWebP(originalFile);
+                        setFiles(prevFiles => [...prevFiles, webpFile]);
+                    } catch (imgError) {
+                        console.error('Image importée ignorée :', imgError);
+                    }
+                }
+                setIsConverting(false);
+            }
+
+            toast.success(`Import terminé (${preview.images?.length || 0} image(s)) — vérifiez avant de publier`);
+            setImportUrl('');
+        } catch (error) {
+            toast.error(error.response?.data?.message || error.message);
+        } finally {
+            setImporting(false);
+        }
+    };
+
     const onSubmitHandler = async (event) => {
         event.preventDefault();
 
@@ -539,6 +589,29 @@ const AddProduct = () => {
                     <h1 className="text-xl font-semibold text-gray-900">Nouveau produit</h1>
                     <p className="text-sm text-gray-400 mt-0.5">Renseignez les informations ci-dessous pour publier un article.</p>
                 </div>
+
+                {/* Import depuis une URL */}
+                <Section icon={Link2} title="Importer depuis un lien" subtitle="Pré-remplit nom, description et photos — le prix et le stock restent à saisir">
+                    <div className="flex gap-2">
+                        <input
+                            value={importUrl}
+                            onChange={(e) => setImportUrl(e.target.value)}
+                            type="url"
+                            placeholder="https://exemple.com/produit..."
+                            className={`${inputClass} flex-1`}
+                            disabled={importing}
+                        />
+                        <button
+                            type="button"
+                            onClick={handleImportFromUrl}
+                            disabled={importing}
+                            className="shrink-0 flex items-center gap-1.5 px-4 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:opacity-90 transition disabled:opacity-50"
+                        >
+                            {importing ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+                            {importing ? 'Import…' : 'Importer'}
+                        </button>
+                    </div>
+                </Section>
 
                 {/* Médias */}
                 <Section icon={ImageIcon} title="Médias" subtitle="Photos et vidéo de présentation">
