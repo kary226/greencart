@@ -213,13 +213,61 @@ export const addProductImages = async (req, res) => {
     }
 };
 
-// ✅ Get Product : /api/product/list - AVEC TRI PAR salesCount
+// ✅ Get Product : /api/product/list - AVEC TRI PAR salesCount / discount
 export const productList = async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 12;
         const sort = req.query.sort || 'createdAt';
         const skip = (page - 1) * limit;
+
+        console.log(`📊 Tri par: ${sort}`);
+
+        // ✅ Cas spécial : tri par pourcentage de réduction (champ calculé,
+        // pas stocké en base → nécessite une agrégation).
+        if (sort === 'discount') {
+            const matchStage = {
+                $expr: {
+                    $and: [
+                        { $gt: ["$offerPrice", 0] },
+                        { $lt: ["$offerPrice", "$price"] },
+                        { $gt: ["$price", 0] }
+                    ]
+                }
+            };
+
+            const pipeline = [
+                { $match: matchStage },
+                {
+                    $addFields: {
+                        discountPercent: {
+                            $multiply: [
+                                { $divide: [{ $subtract: ["$price", "$offerPrice"] }, "$price"] },
+                                100
+                            ]
+                        }
+                    }
+                },
+                { $sort: { discountPercent: -1 } },
+                { $skip: skip },
+                { $limit: limit }
+            ];
+
+            const products = await Product.aggregate(pipeline);
+            const totalProducts = await Product.countDocuments(matchStage);
+            const totalPages = Math.ceil(totalProducts / limit);
+
+            return res.json({
+                success: true,
+                products,
+                pagination: {
+                    currentPage: page,
+                    totalPages,
+                    totalProducts,
+                    hasMore: page < totalPages
+                }
+            });
+        }
 
         let sortOption = { createdAt: -1 };
         if (sort === 'salesCount') {
@@ -231,8 +279,6 @@ export const productList = async (req, res) => {
         } else if (sort === 'price-desc') {
             sortOption = { price: -1 };
         }
-
-        console.log(`📊 Tri par: ${sort}`);
 
         const products = await Product.find({})
             .sort(sortOption)
