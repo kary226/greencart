@@ -665,6 +665,14 @@ const ProductList = () => {
         }
     };
 
+    // ============ SUPPRESSION D'UNE IMAGE EXISTANTE ============
+    const handleRemoveExistingImage = (idx) => {
+        setEditProduct(prev => ({
+            ...prev,
+            image: prev.image.filter((_, i) => i !== idx)
+        }));
+    };
+
     // ============ HANDLE UPDATE (aligné avec AddProduct) ============
     const handleUpdate = async () => {
         try {
@@ -676,6 +684,7 @@ const ProductList = () => {
                 price: editProduct.price ? Number(editProduct.price) : 0,
                 offerPrice: editProduct.offerPrice ? Number(editProduct.offerPrice) : 0,
                 labelType: labelType,
+                image: editProduct.image || [],
             };
 
             // Logique alignée avec AddProduct
@@ -1119,7 +1128,16 @@ const ProductList = () => {
                             <Section icon={ImagePlus} title={`Images (${editProduct.image?.length || 0})`}>
                                 <div className="flex flex-wrap gap-2 mb-3">
                                     {editProduct.image?.map((img, idx) => (
-                                        <img key={idx} src={img} alt="" className="w-14 h-14 object-cover rounded-lg border border-gray-200" />
+                                        <div key={idx} className="relative">
+                                            <img src={img} alt="" className="w-14 h-14 object-cover rounded-lg border border-gray-200" />
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveExistingImage(idx)}
+                                                className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-500 hover:text-red-600"
+                                            >
+                                                <X size={10} />
+                                            </button>
+                                        </div>
                                     ))}
                                 </div>
 
