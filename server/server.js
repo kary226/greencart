@@ -84,6 +84,7 @@ app.use(mongoSanitize());
 app.get('/', (req, res) => res.send("API is Working"));
 
 // Routes API
+app.use('/api/shein-cart', sheinCartRouter);
 app.use('/api/user', userRouter);
 app.use('/api/seller', sellerRouter);
 app.use('/api/product', productRouter);

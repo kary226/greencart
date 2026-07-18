@@ -36,6 +36,7 @@ import Loading from './components/Loading';
 import BottomNav from './components/BottomNav';
 import InstallApp from './pages/InstallApp';
 import NotificationPrompt from './components/Notificationprompt';
+import ValiderPanierShein from './pages/ValiderPanierShein';
 
 // 🔝 ScrollToTop intelligent
 const useSmartScroll = () => {
@@ -152,6 +153,7 @@ const App = () => {
             <Route path='locations' element={<LocationManager />} />
             <Route path='delivery' element={<DeliveryManager />} />
             <Route path='settings' element={<SettingsManager />} /> {/* ✅ AJOUTÉ */}
+            <Route path='/valider-panier-shein' element={<ValiderPanierShein />} />
           </Route>
         </Routes>
       </div>
