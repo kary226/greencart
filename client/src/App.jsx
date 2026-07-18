@@ -141,6 +141,7 @@ const App = () => {
           <Route path='/forgot-password' element={<ForgotPassword />} />
           <Route path='/reset-password' element={<ResetPassword />} />
           <Route path='/install' element={<InstallApp />} />
+          <Route path='/valider-panier-shein' element={<ValiderPanierShein />} />
           <Route path='/seller' element={isSeller ? <SellerLayout /> : <SellerLogin />}>
             <Route index element={<Dashboard />} />
             <Route path='add-product' element={<AddProduct />} />
@@ -153,7 +154,7 @@ const App = () => {
             <Route path='locations' element={<LocationManager />} />
             <Route path='delivery' element={<DeliveryManager />} />
             <Route path='settings' element={<SettingsManager />} /> {/* ✅ AJOUTÉ */}
-            <Route path='/valider-panier-shein' element={<ValiderPanierShein />} />
+
           </Route>
         </Routes>
       </div>
