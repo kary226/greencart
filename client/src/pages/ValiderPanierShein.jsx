@@ -14,6 +14,10 @@ const ValiderPanierShein = () => {
     const [captures, setCaptures] = useState([]);
     const [totalAffiche, setTotalAffiche] = useState(null);
 
+    const hasImages = images.length > 0;
+    const hasLink = lienPartage.trim() !== "";
+    const canAnalyze = hasImages && hasLink;
+
     const handleFiles = (fileList) => {
         const files = Array.from(fileList).map((f) => ({
             id: crypto.randomUUID(),
@@ -30,12 +34,13 @@ const ValiderPanierShein = () => {
             setShowUserLogin(true);
             return;
         }
-        if (images.length === 0) return;
+        if (!canAnalyze) return;
 
         setStatus("analyzing");
         try {
             const formData = new FormData();
             images.forEach((img) => formData.append("captures", img.file));
+            formData.append("lienPartage", lienPartage.trim());
 
             const { data } = await axios.post("/api/shein-cart/analyze", formData, {
                 headers: { "Content-Type": "multipart/form-data" },
@@ -76,7 +81,7 @@ const ValiderPanierShein = () => {
         setStatus("submitting");
         try {
             const payload = {
-                lienPartage,
+                lienPartage: lienPartage.trim(),
                 captures,
                 articles: articles.map((a) => ({
                     boutique: a.boutique,
@@ -136,7 +141,7 @@ const ValiderPanierShein = () => {
                             />
                         </label>
 
-                        {images.length > 0 && (
+                        {hasImages && (
                             <div className="vps-thumbs">
                                 {images.map((img) => (
                                     <div key={img.id} className="vps-thumb">
@@ -151,16 +156,24 @@ const ValiderPanierShein = () => {
 
                         <input
                             type="text"
-                            placeholder="Lien de partage SHEIN (optionnel, pour référence)"
+                            placeholder="Lien de partage SHEIN (obligatoire)"
                             value={lienPartage}
                             onChange={(e) => setLienPartage(e.target.value)}
                             className="vps-link-input"
                         />
 
-                        {images.length > 0 && status !== "reviewing" && (
+                        {status !== "reviewing" && (hasImages || hasLink) && !canAnalyze && (
+                            <p className="vps-hint">
+                                {!hasImages
+                                    ? "Ajoute au moins une capture pour continuer"
+                                    : "Ajoute aussi le lien de ton panier pour continuer"}
+                            </p>
+                        )}
+
+                        {status !== "reviewing" && (
                             <button
                                 onClick={analyser}
-                                disabled={status === "analyzing"}
+                                disabled={!canAnalyze || status === "analyzing"}
                                 className="vps-btn-primary"
                             >
                                 {status === "analyzing" ? "Analyse en cours…" : "Analyser mon panier"}
@@ -251,6 +264,7 @@ const ValiderPanierShein = () => {
         .vps-thumb button { position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,.6); color: #fff; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer; }
         .vps-link-input { width: 100%; border: 1px solid #e5e0d8; border-radius: 10px; padding: 10px 12px; font-size: 13px; margin-top: 12px; outline: none; }
         .vps-link-input:focus { border-color: #e53935; }
+        .vps-hint { font-size: 12px; color: #c62828; margin-top: 8px; text-align: center; }
         .vps-btn-primary { width: 100%; background: #111; color: #fff; border: none; border-radius: 40px; padding: 13px 16px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 12px; transition: opacity .15s; }
         .vps-btn-primary:disabled { opacity: .5; cursor: default; }
         .vps-btn-secondary { width: 100%; background: none; border: 1px solid #e5e0d8; color: #111; border-radius: 40px; padding: 12px 16px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 16px; }

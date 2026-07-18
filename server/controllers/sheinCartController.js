@@ -21,14 +21,18 @@ Retourne uniquement ce JSON, sans texte autour, sans balises markdown :
 }`;
 
 // POST /api/shein-cart/analyze
-// Reçoit les captures (multipart, champ "captures"), les upload sur Cloudinary,
-// puis les envoie à l'API vision pour extraction. Ne crée rien en base —
-// le client corrige le résultat avant de soumettre via /submit.
+// Reçoit les captures (multipart, champ "captures") ET le lien de partage (champ "lienPartage") —
+// les deux sont obligatoires ensemble, aucun des deux seul ne suffit à lancer l'analyse.
 export const analyzeCart = async (req, res) => {
     try {
         const files = req.files || [];
+        const lienPartage = (req.body.lienPartage || "").trim();
+
         if (files.length === 0) {
             return res.status(400).json({ success: false, message: "Aucune capture reçue" });
+        }
+        if (!lienPartage) {
+            return res.status(400).json({ success: false, message: "Le lien du panier est requis" });
         }
 
         // Upload Cloudinary (même pattern que productController.addProduct)
@@ -104,11 +108,15 @@ export const analyzeCart = async (req, res) => {
 
 // POST /api/shein-cart/submit
 // Crée le Colis en base à partir des articles corrigés par le client.
-// authUser place userId dans req.body.
+// authUser place userId dans req.body. lienPartage requis (défense en profondeur,
+// même si le frontend ne laisse déjà plus passer sans lui à l'étape analyse).
 export const submitCart = async (req, res) => {
     try {
         const { userId, lienPartage, captures, articles } = req.body;
 
+        if (!lienPartage || !lienPartage.trim()) {
+            return res.status(400).json({ success: false, message: "Le lien du panier est requis" });
+        }
         if (!Array.isArray(articles) || articles.length === 0) {
             return res.status(400).json({ success: false, message: "Aucun article à soumettre" });
         }
@@ -129,7 +137,7 @@ export const submitCart = async (req, res) => {
 
         const colis = await ColisShein.create({
             userId,
-            lienPartage: lienPartage || "",
+            lienPartage: lienPartage.trim(),
             captures: captures || [],
             articlesValides,
             devis: { montantArticles },
