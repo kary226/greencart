@@ -394,6 +394,13 @@ const Navbar = () => {
             </svg>
             Mes commandes
           </Link>
+          <Link to="/valider-panier-shein" className="drawer-item" onClick={() => setMenuOpen(false)}>
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M9 12l2 2 4-4"/>
+              <circle cx="12" cy="12" r="10"/>
+            </svg>
+            Valider le panier SHEIN
+          </Link>
           <Link to="/account" className="drawer-item" onClick={() => setMenuOpen(false)}>
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
