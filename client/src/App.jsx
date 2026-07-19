@@ -39,6 +39,7 @@ import InstallApp from './pages/InstallApp';
 import NotificationPrompt from './components/Notificationprompt';
 import ValiderPanierShein from './pages/ValiderPanierShein';
 import ColisSheinDetail from './pages/ColisSheinDetail';
+import MesColisShein from './pages/MesColisShein';
 
 // 🔝 ScrollToTop intelligent
 const useSmartScroll = () => {
@@ -144,6 +145,7 @@ const App = () => {
           <Route path='/reset-password' element={<ResetPassword />} />
           <Route path='/install' element={<InstallApp />} />
           <Route path='/valider-panier-shein' element={<ValiderPanierShein />} />
+          <Route path='/mes-colis-shein' element={<MesColisShein />} />
           <Route path='/colis-shein/:id' element={<ColisSheinDetail />} />
           <Route path='/seller' element={isSeller ? <SellerLayout /> : <SellerLogin />}>
             <Route index element={<Dashboard />} />
