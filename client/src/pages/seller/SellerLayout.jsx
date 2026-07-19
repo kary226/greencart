@@ -18,7 +18,8 @@ const SellerLayout = () => {
         { name: "Codes promo", path: "/seller/coupons", icon: "coupon" },
         { name: "Localisations", path: "/seller/locations", icon: "location" },
         { name: "Livraisons", path: "/seller/delivery", icon: "delivery" },
-        { name: "Paramètres", path: "/seller/settings", icon: "settings" }, // ✅ AJOUTÉ
+        { name: "Paramètres", path: "/seller/settings", icon: "settings" },
+        { name: "Colis SHEIN", path: "/seller/colis-shein", icon: "shein" }, // ✅ AJOUTÉ
     ];
 
     const getIcon = (iconName) => {
@@ -97,6 +98,14 @@ const SellerLayout = () => {
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                         <path d="M12 2a10 10 0 0 0-10 10c0 8 10 14 10 14s10-6 10-14a10 10 0 0 0-10-10z"/>
                         <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                );
+            case "shein":
+                return (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                        <path d="M6 2l1.5 5M18 2l-1.5 5"/>
+                        <path d="M3 8h18l-1.5 12a2 2 0 0 1-2 2H6.5a2 2 0 0 1-2-2L3 8z"/>
+                        <path d="M9 12a3 3 0 0 0 6 0"/>
                     </svg>
                 );
             case "delivery":
