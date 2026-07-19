@@ -99,7 +99,7 @@ const ValiderPanierShein = () => {
             if (data.success) {
                 toast.success("Panier soumis pour validation");
                 setStatus("submitted");
-                setTimeout(() => navigate(`/colis-shein/${data.colis._id}`), 1200);
+                setTimeout(() => navigate("/mes-colis-shein"), 1200);
             } else {
                 toast.error(data.message || "Soumission impossible");
                 setStatus("reviewing");
@@ -121,8 +121,8 @@ const ValiderPanierShein = () => {
                         Un agent vérifie ton panier. Tu recevras ton devis sous peu.
                     </p>
                     <span className="vps-badge">En attente de vérification par un agent</span>
-                    <button className="vps-btn-secondary" onClick={() => navigate("/my-orders")}>
-                        Voir mes commandes
+                    <button className="vps-btn-secondary" onClick={() => navigate("/mes-colis-shein")}>
+                        Voir mes colis SHEIN
                     </button>
                 </div>
             ) : (

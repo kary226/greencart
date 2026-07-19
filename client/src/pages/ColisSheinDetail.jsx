@@ -69,6 +69,12 @@ const ColisSheinDetail = () => {
     }, [id, user]);
 
     useEffect(() => {
+        if (colis && (colis.statut === "livre" || colis.statut === "annule") && pollRef.current) {
+            clearInterval(pollRef.current);
+        }
+    }, [colis?.statut]);
+
+    useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
 
@@ -95,6 +101,7 @@ const ColisSheinDetail = () => {
     if (!colis) return <div className="csd-loading">Colis introuvable</div>;
 
     const etapeActuelle = STATUT_ORDER.indexOf(colis.statut);
+    const chatFerme = colis.statut === "livre" || colis.statut === "annule";
 
     return (
         <div className="csd-page">
@@ -147,16 +154,22 @@ const ColisSheinDetail = () => {
                     ))}
                     <div ref={messagesEndRef} />
                 </div>
-                <form className="csd-chat-form" onSubmit={envoyerMessage}>
-                    <input
-                        type="text"
-                        placeholder="Écris un message…"
-                        value={texte}
-                        onChange={(e) => setTexte(e.target.value)}
-                        maxLength={2000}
-                    />
-                    <button type="submit" disabled={!texte.trim() || envoi}>Envoyer</button>
-                </form>
+                {chatFerme ? (
+                    <div className="csd-chat-closed">
+                        {colis.statut === "livre" ? "Colis livré — conversation clôturée" : "Colis annulé — conversation clôturée"}
+                    </div>
+                ) : (
+                    <form className="csd-chat-form" onSubmit={envoyerMessage}>
+                        <input
+                            type="text"
+                            placeholder="Écris un message…"
+                            value={texte}
+                            onChange={(e) => setTexte(e.target.value)}
+                            maxLength={2000}
+                        />
+                        <button type="submit" disabled={!texte.trim() || envoi}>Envoyer</button>
+                    </form>
+                )}
             </div>
 
             <style>{`
@@ -189,6 +202,7 @@ const ColisSheinDetail = () => {
         .csd-chat-form input:focus { border-color: #e53935; }
         .csd-chat-form button { background: #111; color: #fff; border: none; border-radius: 40px; padding: 10px 18px; font-size: 13px; font-weight: 600; cursor: pointer; }
         .csd-chat-form button:disabled { opacity: .4; cursor: default; }
+        .csd-chat-closed { text-align: center; font-size: 12.5px; color: #999; background: #f7f5f2; border-radius: 40px; padding: 10px 14px; margin-top: 10px; }
       `}</style>
         </div>
     );

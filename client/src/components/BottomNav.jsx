@@ -3,10 +3,11 @@ import { NavLink, useLocation } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
 
 const BottomNav = () => {
-  const { cartItems, wishlist } = useAppContext();
+  const { cartItems, wishlist, colisShein } = useAppContext();
   const location = useLocation();
   const cartCount = cartItems ? Object.values(cartItems).reduce((a, b) => a + b, 0) : 0;
   const wishlistCount = wishlist?.length || 0;
+  const colisActifsCount = colisShein?.filter(c => c.statut !== "livre" && c.statut !== "annule").length || 0;
 
   const tabs = [
     {
@@ -43,6 +44,18 @@ const BottomNav = () => {
           <circle cx="12" cy="15" r="1"/>
           <circle cx="16" cy="15" r="1"/>
           <circle cx="8" cy="15" r="1"/>
+        </svg>
+      ),
+    },
+    {
+      to: "/mes-colis-shein",
+      label: "Colis",
+      badge: colisActifsCount,
+      icon: (active) => (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? "#e53935" : "#888"} strokeWidth="2">
+          <path d="M21 8l-9-5-9 5 9 5 9-5z"/>
+          <path d="M3 8v8l9 5 9-5V8"/>
+          <path d="M12 13v8"/>
         </svg>
       ),
     },
@@ -150,7 +163,7 @@ const BottomNav = () => {
           padding: 0 3px;
         }
         .bnav-label {
-          font-size: 11px;
+          font-size: 10.5px;
           color: #999;
           font-weight: 500;
           line-height: 1;

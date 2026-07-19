@@ -49,6 +49,7 @@ export const AppContextProvider = ({ children }) => {
     const [wishlist, setWishlist] = useState([]);
     const [recentlyViewed, setRecentlyViewed] = useState([]);
     const [orders, setOrders] = useState([]);
+    const [colisShein, setColisShein] = useState([]);
     const [installPromptEvent, setInstallPromptEvent] = useState(null);
     const [canInstallPWA, setCanInstallPWA] = useState(false);
     const [isPWAInstalled, setIsPWAInstalled] = useState(
@@ -102,6 +103,20 @@ export const AppContextProvider = ({ children }) => {
         } catch (error) {
             console.error("Erreur chargement commandes:", error);
             setOrders([]);
+        }
+    };
+
+    // Même logique que fetchWishlist/fetchOrders — sert à alimenter le badge
+    // "Colis" du BottomNav (nombre de colis SHEIN encore actifs).
+    const fetchColisShein = async () => {
+        if (!user) return;
+        if (window.location.pathname.includes('/seller')) return;
+        try {
+            const { data } = await axios.get('/api/shein-cart/user');
+            if (data.success) setColisShein(data.colis);
+        } catch (error) {
+            console.error("Erreur chargement colis SHEIN:", error);
+            setColisShein([]);
         }
     };
 
@@ -538,6 +553,7 @@ export const AppContextProvider = ({ children }) => {
         if (user) {
             fetchWishlist();
             fetchOrders();
+            fetchColisShein();
         }
     }, [user]);
 
@@ -569,6 +585,7 @@ export const AppContextProvider = ({ children }) => {
         loginSeller, logoutSeller,
         recentlyViewed, addToRecentlyViewed,
         orders,
+        colisShein, fetchColisShein,
         canInstallPWA, isPWAInstalled, installPWA,
         subscribeToPushNotifications
     };
