@@ -8,12 +8,14 @@ Règles :
 - La quantité est le chiffre affiché dans le sélecteur à droite de chaque article (ex. "4", "1", "3").
 - Le nom peut être tronqué ("..."), c'est normal, garde-le tel quel.
 - Si un article n'a pas de prix barré, ne mets pas le champ prix_original (null).
-- Si le total en bas de l'écran affiche $0.00, indique total_affiche: null (aucun article n'est coché).
+- Si le total en bas de l'écran affiche 0 (quel que soit le symbole), indique total_affiche: null (aucun article n'est coché).
+- Détecte la devise à partir du symbole visible devant les prix : "$" → "USD", "€" → "EUR". Si les deux symboles apparaissent ou qu'aucun n'est visible, mets devise: null plutôt que de deviner.
 - Si plusieurs images sont fournies, elles peuvent se chevaucher (même article visible sur deux captures) : déduplique par nom + variante.
 - Si un champ est illisible, mets-le à null plutôt que de deviner.
 
 Retourne uniquement ce JSON, sans texte autour, sans balises markdown :
 {
+  "devise": null,
   "articles": [
     { "boutique": "", "nom": "", "variante": "", "prix_unitaire": 0, "prix_original": null, "quantite": 0 }
   ],
@@ -99,6 +101,7 @@ export const analyzeCart = async (req, res) => {
             captures: captureUrls,
             articles: extraction.articles || [],
             totalAffiche: extraction.total_affiche ?? null,
+            devise: extraction.devise ?? null,
         });
     } catch (error) {
         console.error("Erreur analyzeCart:", error);
@@ -112,7 +115,7 @@ export const analyzeCart = async (req, res) => {
 // même si le frontend ne laisse déjà plus passer sans lui à l'étape analyse).
 export const submitCart = async (req, res) => {
     try {
-        const { userId, lienPartage, captures, articles } = req.body;
+        const { userId, lienPartage, captures, articles, devise } = req.body;
 
         if (!lienPartage || !lienPartage.trim()) {
             return res.status(400).json({ success: false, message: "Le lien du panier est requis" });
@@ -139,6 +142,7 @@ export const submitCart = async (req, res) => {
             userId,
             lienPartage: lienPartage.trim(),
             captures: captures || [],
+            devise: devise === "USD" || devise === "EUR" ? devise : null,
             articlesValides,
             devis: { montantArticles },
             statut: "soumis",
@@ -148,6 +152,21 @@ export const submitCart = async (req, res) => {
         res.json({ success: true, colis });
     } catch (error) {
         console.error("Erreur submitCart:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// GET /api/shein-cart/:id — détail d'un colis, pour la page de suivi client.
+// Vérifie que le colis appartient bien au user connecté (même logique IDOR que orderRoute.js).
+export const getColisById = async (req, res) => {
+    try {
+        const colis = await ColisShein.findOne({ _id: req.params.id, userId: req.body.userId });
+        if (!colis) {
+            return res.status(404).json({ success: false, message: "Colis introuvable" });
+        }
+        res.json({ success: true, colis });
+    } catch (error) {
+        console.error("Erreur getColisById:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 };

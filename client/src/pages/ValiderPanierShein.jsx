@@ -13,6 +13,7 @@ const ValiderPanierShein = () => {
     const [articles, setArticles] = useState([]);
     const [captures, setCaptures] = useState([]);
     const [totalAffiche, setTotalAffiche] = useState(null);
+    const [devise, setDevise] = useState(null);
 
     const hasImages = images.length > 0;
     const hasLink = lienPartage.trim() !== "";
@@ -52,6 +53,7 @@ const ValiderPanierShein = () => {
                 );
                 setCaptures(data.captures);
                 setTotalAffiche(data.totalAffiche);
+                setDevise(data.devise ?? null);
                 setStatus("reviewing");
             } else {
                 toast.error(data.message || "Extraction impossible");
@@ -83,6 +85,7 @@ const ValiderPanierShein = () => {
             const payload = {
                 lienPartage: lienPartage.trim(),
                 captures,
+                devise,
                 articles: articles.map((a) => ({
                     boutique: a.boutique,
                     nom: a.nom,
@@ -96,6 +99,7 @@ const ValiderPanierShein = () => {
             if (data.success) {
                 toast.success("Panier soumis pour validation");
                 setStatus("submitted");
+                setTimeout(() => navigate(`/colis-shein/${data.colis._id}`), 1200);
             } else {
                 toast.error(data.message || "Soumission impossible");
                 setStatus("reviewing");

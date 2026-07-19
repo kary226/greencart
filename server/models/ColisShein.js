@@ -19,6 +19,12 @@ const HistoriqueSchema = new mongoose.Schema({
 const colisSheinSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "user", required: true },
 
+    numeroSuivi: { type: String, unique: true, sparse: true }, // ex. SHEIN-2607-001, généré à la création
+
+    // Devise détectée sur les captures ($ ou €) — jamais devinée côté client,
+    // toujours renvoyée par l'extraction vision. Sert à choisir le bon taux FCFA.
+    devise: { type: String, enum: ["USD", "EUR", null], default: null },
+
     statut: {
         type: String,
         enum: [
@@ -51,7 +57,9 @@ const colisSheinSchema = new mongoose.Schema({
     articlesValides: [ArticleSheinSchema],
 
     devis: {
-        montantArticles: { type: Number, default: 0 },
+        montantArticles: { type: Number, default: 0 },        // dans la devise d'origine ($ ou €)
+        tauxApplique: { type: Number, default: null },          // FCFA par unité, figé au moment de la validation agent
+        montantArticlesFCFA: { type: Number, default: null },   // montantArticles × tauxApplique, calculé côté serveur
         fraisLivraisonEstime: { type: Number, default: 0 },
         montantInitial: { type: Number, default: 0 },
         tauxParKilo: { type: Number, default: 0 },
@@ -73,6 +81,18 @@ const colisSheinSchema = new mongoose.Schema({
     historique: [HistoriqueSchema],
 
 }, { timestamps: true, minimize: false });
+
+// Génère un numéro lisible du type SHEIN-2607-014 (mois+année + compteur du jour)
+// au premier enregistrement seulement — jamais régénéré ensuite.
+colisSheinSchema.pre("save", async function (next) {
+    if (this.numeroSuivi) return next();
+    const prefix = `SHEIN-${new Date().toISOString().slice(2, 7).replace("-", "")}`;
+    const count = await mongoose.models.colisshein.countDocuments({
+        numeroSuivi: { $regex: `^${prefix}` },
+    });
+    this.numeroSuivi = `${prefix}-${String(count + 1).padStart(3, "0")}`;
+    next();
+});
 
 const ColisShein = mongoose.models.colisshein || mongoose.model("colisshein", colisSheinSchema);
 
