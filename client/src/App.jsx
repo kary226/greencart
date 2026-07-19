@@ -28,7 +28,8 @@ import CategoryManager from './pages/seller/CategoryManager';
 import CouponManager from './pages/seller/CouponManager';
 import LocationManager from './pages/seller/LocationManager';
 import DeliveryManager from './pages/seller/DeliveryManager';
-import SettingsManager from './pages/seller/SettingsManager'; // ✅ AJOUTÉ
+import SettingsManager from './pages/seller/SettingsManager';
+import ColisSheinManager from './pages/seller/ColisSheinManager'; // ✅ AJOUTÉ
 import AllCategories from './pages/AllCategories';
 import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentError from './pages/PaymentError';
@@ -157,6 +158,7 @@ const App = () => {
             <Route path='locations' element={<LocationManager />} />
             <Route path='delivery' element={<DeliveryManager />} />
             <Route path='settings' element={<SettingsManager />} /> {/* ✅ AJOUTÉ */}
+            <Route path='colis-shein' element={<ColisSheinManager />} />
 
           </Route>
         </Routes>

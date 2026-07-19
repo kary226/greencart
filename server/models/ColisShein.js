@@ -11,7 +11,7 @@ const ArticleSheinSchema = new mongoose.Schema({
 
 const HistoriqueSchema = new mongoose.Schema({
     action: { type: String, required: true },
-    agent: { type: mongoose.Schema.Types.ObjectId, ref: "seller", default: null },
+    agent: { type: String, default: null }, // email de l'admin (pas d'ObjectId — auth mono-compte, pas de collection Seller)
     date: { type: Date, default: Date.now },
     note: { type: String, default: "" },
 }, { _id: false });
@@ -77,7 +77,6 @@ const colisSheinSchema = new mongoose.Schema({
         methode: { type: String, enum: ["geniuspay", "cash", null], default: null },
     },
 
-    agentAssigne: { type: mongoose.Schema.Types.ObjectId, ref: "seller", default: null },
     historique: [HistoriqueSchema],
 
 }, { timestamps: true, minimize: false });
