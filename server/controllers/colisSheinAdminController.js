@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { v2 as cloudinary } from "cloudinary";
 import ColisShein from "../models/ColisShein.js";
 import MessageColis from "../models/MessageColis.js";
 import Setting from "../models/Setting.js";
@@ -9,7 +10,12 @@ const ArticleSheinInputSchema = ["boutique", "nom", "variante", "prixUnitaire", 
 export const getAllColisAdmin = async (req, res) => {
     try {
         const filtre = req.query.statut ? { statut: req.query.statut } : {};
-        const colis = await ColisShein.find(filtre).populate("userId", "name email").sort({ createdAt: -1 });
+        const colisRaw = await ColisShein.find(filtre).populate("userId", "name email").sort({ updatedAt: -1 });
+        const colis = colisRaw.map((c) => {
+            const obj = c.toObject();
+            obj.nonLu = !!(c.dernierMessageClientAt && (!c.adminDernierLu || c.dernierMessageClientAt > c.adminDernierLu));
+            return obj;
+        });
         res.json({ success: true, colis });
     } catch (error) {
         console.error("Erreur getAllColisAdmin:", error);
@@ -132,9 +138,14 @@ export const updateStatutColis = async (req, res) => {
 };
 
 // GET /api/shein-cart/admin/:id/messages
+// Marque la conversation comme lue par l'agent — fait disparaître le badge "non lu" de la liste.
 export const getMessagesAdmin = async (req, res) => {
     try {
+        const colis = await ColisShein.findById(req.params.id);
+        if (!colis) return res.status(404).json({ success: false, message: "Colis introuvable" });
         const messages = await MessageColis.find({ colisId: req.params.id }).sort({ createdAt: 1 });
+        colis.adminDernierLu = new Date();
+        await colis.save();
         res.json({ success: true, messages });
     } catch (error) {
         console.error("Erreur getMessagesAdmin:", error);
@@ -142,22 +153,41 @@ export const getMessagesAdmin = async (req, res) => {
     }
 };
 
-// POST /api/shein-cart/admin/:id/messages
+// POST /api/shein-cart/admin/:id/messages — texte et/ou image
 export const sendMessageAgent = async (req, res) => {
     try {
         const { texte } = req.body;
-        if (!texte || !texte.trim()) {
-            return res.status(400).json({ success: false, message: "Message vide" });
-        }
         const colis = await ColisShein.findById(req.params.id);
         if (!colis) return res.status(404).json({ success: false, message: "Colis introuvable" });
+
+        if ((!texte || !texte.trim()) && !req.file) {
+            return res.status(400).json({ success: false, message: "Message vide" });
+        }
+
+        let imageUrl = null;
+        if (req.file) {
+            imageUrl = await new Promise((resolve, reject) => {
+                const stream = cloudinary.uploader.upload_stream(
+                    { resource_type: "image", folder: "shein-chat" },
+                    (error, result) => (error ? reject(error) : resolve(result.secure_url))
+                );
+                stream.end(req.file.buffer);
+            });
+        }
 
         const message = await MessageColis.create({
             colisId: req.params.id,
             expediteurRole: "agent",
             expediteurId: process.env.SELLER_EMAIL,
-            texte: texte.trim(),
+            texte: texte?.trim() || "",
+            imageUrl,
         });
+
+        const now = new Date();
+        colis.dernierMessageAgentAt = now;
+        colis.adminDernierLu = now;
+        await colis.save();
+
         res.json({ success: true, message });
     } catch (error) {
         console.error("Erreur sendMessageAgent:", error);

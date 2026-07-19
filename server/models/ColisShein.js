@@ -79,6 +79,13 @@ const colisSheinSchema = new mongoose.Schema({
 
     historique: [HistoriqueSchema],
 
+    // Suivi de lecture du chat — sert uniquement à afficher les badges "nouveau message"
+    // des deux côtés, jamais à bloquer l'accès aux messages.
+    dernierMessageClientAt: { type: Date, default: null },
+    dernierMessageAgentAt: { type: Date, default: null },
+    adminDernierLu: { type: Date, default: null },
+    clientDernierLu: { type: Date, default: null },
+
 }, { timestamps: true, minimize: false });
 
 // Génère un numéro lisible du type SHEIN-2607-014 (mois+année + compteur du jour)

@@ -25,6 +25,17 @@ const upload = multer({
     },
 });
 
+// Chat : une seule image par message (champ "image"), texte et image optionnels
+// individuellement mais pas les deux en même temps — validé côté contrôleur.
+const uploadChatImage = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 8 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith("image/")) cb(null, true);
+        else cb(new Error("Seules les images sont acceptées"));
+    },
+});
+
 // --- Routes client (littérales) ---
 sheinCartRouter.post("/analyze", authUser, upload.array("captures", 10), analyzeCart);
 sheinCartRouter.post("/submit", authUser, submitCart);
@@ -37,11 +48,11 @@ sheinCartRouter.get("/admin/:id", authSeller, getColisAdminById);
 sheinCartRouter.post("/admin/:id/validate", authSeller, validateColis);
 sheinCartRouter.post("/admin/:id/statut", authSeller, updateStatutColis);
 sheinCartRouter.get("/admin/:id/messages", authSeller, getMessagesAdmin);
-sheinCartRouter.post("/admin/:id/messages", authSeller, sendMessageAgent);
+sheinCartRouter.post("/admin/:id/messages", authSeller, uploadChatImage.single("image"), sendMessageAgent);
 
 // --- Routes client génériques (en dernier, elles absorbent tout le reste) ---
 sheinCartRouter.get("/:id", authUser, getColisById);
 sheinCartRouter.get("/:id/messages", authUser, getMessages);
-sheinCartRouter.post("/:id/messages", authUser, sendMessageClient);
+sheinCartRouter.post("/:id/messages", authUser, uploadChatImage.single("image"), sendMessageClient);
 
 export default sheinCartRouter;

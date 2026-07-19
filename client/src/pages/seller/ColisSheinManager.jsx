@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useAppContext } from "../../context/AppContext";
 
@@ -18,8 +18,13 @@ const ColisSheinManager = () => {
     const [loading, setLoading] = useState(false);
     const [messages, setMessages] = useState([]);
     const [texte, setTexte] = useState("");
+    const [imageChoisie, setImageChoisie] = useState(null);
+    const [envoi, setEnvoi] = useState(false);
 
-    // --- Taux de change (Setting "sheinExchangeRates"), géré directement ici ---
+    const messagesContainerRef = useRef(null);
+    const fileInputRef = useRef(null);
+
+    // --- Taux de change (Setting "sheinExchangeRates") ---
     const [taux, setTaux] = useState({ usd: "", eur: "" });
     const [tauxSaved, setTauxSaved] = useState({ usd: "", eur: "" });
     const [savingTaux, setSavingTaux] = useState(false);
@@ -32,7 +37,7 @@ const ColisSheinManager = () => {
                 setTauxSaved({ usd: data.data.usd ?? "", eur: data.data.eur ?? "" });
             }
         } catch (error) {
-            // pas encore configuré — les champs restent vides, normal au premier lancement
+            // pas encore configuré
         }
     };
 
@@ -56,7 +61,6 @@ const ColisSheinManager = () => {
 
     const tauxModifie = taux.usd != tauxSaved.usd || taux.eur != tauxSaved.eur;
 
-    // --- Liste et détail des colis ---
     const fetchListe = async (statut) => {
         setLoading(true);
         try {
@@ -73,6 +77,18 @@ const ColisSheinManager = () => {
     useEffect(() => { fetchTaux(); }, []);
     useEffect(() => { fetchListe(filtreStatut); }, [filtreStatut]);
 
+    // Rafraîchit la liste en arrière-plan pour que les badges "non lu" apparaissent
+    // sans que l'admin ait besoin de changer de filtre manuellement.
+    useEffect(() => {
+        const interval = setInterval(() => fetchListe(filtreStatut), 15000);
+        return () => clearInterval(interval);
+    }, [filtreStatut]);
+
+    useEffect(() => {
+        const el = messagesContainerRef.current;
+        if (el) el.scrollTop = el.scrollHeight;
+    }, [messages]);
+
     const ouvrirColis = async (id) => {
         try {
             const { data } = await axios.get(`/api/shein-cart/admin/${id}`);
@@ -82,6 +98,9 @@ const ColisSheinManager = () => {
             }
             const msgRes = await axios.get(`/api/shein-cart/admin/${id}/messages`);
             if (msgRes.data.success) setMessages(msgRes.data.messages);
+            // le GET messages ci-dessus marque déjà adminDernierLu côté serveur —
+            // on met juste à jour localement pour faire disparaître le badge tout de suite
+            setColisListe((prev) => prev.map((c) => (c._id === id ? { ...c, nonLu: false } : c)));
         } catch (error) {
             toast.error("Impossible d'ouvrir ce colis");
         }
@@ -95,9 +114,7 @@ const ColisSheinManager = () => {
 
     const validerDevis = async () => {
         try {
-            const { data } = await axios.post(`/api/shein-cart/admin/${selection._id}/validate`, {
-                articles: articlesEdit,
-            });
+            const { data } = await axios.post(`/api/shein-cart/admin/${selection._id}/validate`, { articles: articlesEdit });
             if (data.success) {
                 toast.success("Devis validé");
                 setSelection(data.colis);
@@ -132,9 +149,7 @@ const ColisSheinManager = () => {
         const tauxParKilo = window.prompt("Taux par kilo (FCFA) ?", selection?.devis?.tauxParKilo || "");
         if (!tauxParKilo) return;
         try {
-            const { data } = await axios.post(`/api/shein-cart/admin/${selection._id}/statut`, {
-                statut: "pese", poidsReel, tauxParKilo,
-            });
+            const { data } = await axios.post(`/api/shein-cart/admin/${selection._id}/statut`, { statut: "pese", poidsReel, tauxParKilo });
             if (data.success) {
                 toast.success("Pesée enregistrée, solde calculé");
                 setSelection(data.colis);
@@ -147,16 +162,32 @@ const ColisSheinManager = () => {
         }
     };
 
+    const choisirImage = (e) => {
+        const file = e.target.files?.[0];
+        if (file) setImageChoisie(file);
+    };
+
     const envoyerMessage = async () => {
-        if (!texte.trim()) return;
+        if ((!texte.trim() && !imageChoisie) || envoi) return;
+        setEnvoi(true);
         try {
-            const { data } = await axios.post(`/api/shein-cart/admin/${selection._id}/messages`, { texte: texte.trim() });
+            const formData = new FormData();
+            if (texte.trim()) formData.append("texte", texte.trim());
+            if (imageChoisie) formData.append("image", imageChoisie);
+
+            const { data } = await axios.post(`/api/shein-cart/admin/${selection._id}/messages`, formData, {
+                headers: { "Content-Type": "multipart/form-data" },
+            });
             if (data.success) {
                 setMessages((prev) => [...prev, data.message]);
                 setTexte("");
+                setImageChoisie(null);
+                if (fileInputRef.current) fileInputRef.current.value = "";
             }
         } catch (error) {
             toast.error("Erreur d'envoi");
+        } finally {
+            setEnvoi(false);
         }
     };
 
@@ -164,19 +195,13 @@ const ColisSheinManager = () => {
         <div className="csm-page">
             <div className="csm-taux-bar">
                 <span className="csm-taux-label">Taux de change (FCFA)</span>
-                <label>
-                    1 $ =
-                    <input type="number" value={taux.usd} onChange={(e) => setTaux((p) => ({ ...p, usd: e.target.value }))} placeholder="ex. 620" />
-                </label>
-                <label>
-                    1 € =
-                    <input type="number" value={taux.eur} onChange={(e) => setTaux((p) => ({ ...p, eur: e.target.value }))} placeholder="ex. 670" />
-                </label>
+                <label>1 $ = <input type="number" value={taux.usd} onChange={(e) => setTaux((p) => ({ ...p, usd: e.target.value }))} placeholder="ex. 620" /></label>
+                <label>1 € = <input type="number" value={taux.eur} onChange={(e) => setTaux((p) => ({ ...p, eur: e.target.value }))} placeholder="ex. 670" /></label>
                 <button onClick={enregistrerTaux} disabled={!tauxModifie || savingTaux} className="csm-taux-save">
                     {savingTaux ? "Enregistrement…" : "Enregistrer"}
                 </button>
                 {(!tauxSaved.usd || !tauxSaved.eur) && (
-                    <span className="csm-taux-warning">Non configuré — la validation de devis sera bloquée tant que ces taux sont vides</span>
+                    <span className="csm-taux-warning">Non configuré — la validation de devis sera bloquée</span>
                 )}
             </div>
 
@@ -197,7 +222,10 @@ const ColisSheinManager = () => {
                                 className={`csm-item ${selection?._id === c._id ? "active" : ""}`}
                                 onClick={() => ouvrirColis(c._id)}
                             >
-                                <span className="csm-item-numero">{c.numeroSuivi}</span>
+                                <span className="csm-item-top">
+                                    <span className="csm-item-numero">{c.numeroSuivi}</span>
+                                    {c.nonLu && <span className="csm-item-dot" title="Nouveau message du client" />}
+                                </span>
                                 <span className="csm-item-client">{c.userId?.name || c.userId?.email}</span>
                                 <span className="csm-item-statut">{c.statut}</span>
                             </button>
@@ -218,9 +246,7 @@ const ColisSheinManager = () => {
 
                             <div className="csm-captures">
                                 {selection.captures.map((url, i) => (
-                                    <a key={i} href={url} target="_blank" rel="noreferrer">
-                                        <img src={url} alt={`capture ${i + 1}`} />
-                                    </a>
+                                    <a key={i} href={url} target="_blank" rel="noreferrer"><img src={url} alt={`capture ${i + 1}`} /></a>
                                 ))}
                             </div>
 
@@ -241,28 +267,42 @@ const ColisSheinManager = () => {
 
                             <div className="csm-statuts">
                                 {STATUTS.map((s) => (
-                                    <button key={s} className={`csm-statut-btn ${selection.statut === s ? "active" : ""}`} onClick={() => changerStatut(s)}>
-                                        {s}
-                                    </button>
+                                    <button key={s} className={`csm-statut-btn ${selection.statut === s ? "active" : ""}`} onClick={() => changerStatut(s)}>{s}</button>
                                 ))}
                             </div>
 
                             {selection.devis?.montantArticlesFCFA != null && (
                                 <p className="csm-fcfa">
-                                    Total FCFA : {Math.round(selection.devis.montantArticlesFCFA).toLocaleString("fr-FR")} FCFA
-                                    (taux {selection.devis.tauxApplique} / {selection.devise})
+                                    Total FCFA : {Math.round(selection.devis.montantArticlesFCFA).toLocaleString("fr-FR")} FCFA (taux {selection.devis.tauxApplique} / {selection.devise})
                                 </p>
                             )}
 
                             <h4>Chat</h4>
                             <div className="csm-chat">
-                                {messages.map((m) => (
-                                    <div key={m._id} className={`csm-msg ${m.expediteurRole}`}>{m.texte}</div>
-                                ))}
-                            </div>
-                            <div className="csm-chat-input">
-                                <input value={texte} onChange={(e) => setTexte(e.target.value)} placeholder="Répondre au client…" />
-                                <button onClick={envoyerMessage}>Envoyer</button>
+                                <div className="csm-chat-messages" ref={messagesContainerRef}>
+                                    {messages.map((m) => (
+                                        <div key={m._id} className={`csm-msg ${m.expediteurRole}`}>
+                                            {m.imageUrl && <img src={m.imageUrl} alt="" className="csm-msg-img" onClick={() => window.open(m.imageUrl, "_blank")} />}
+                                            {m.texte && <p>{m.texte}</p>}
+                                        </div>
+                                    ))}
+                                </div>
+                                {imageChoisie && (
+                                    <div className="csm-preview">
+                                        <img src={URL.createObjectURL(imageChoisie)} alt="" />
+                                        <button onClick={() => { setImageChoisie(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}>✕</button>
+                                    </div>
+                                )}
+                                <div className="csm-chat-input">
+                                    <label className="csm-attach">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2">
+                                            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                                        </svg>
+                                        <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={choisirImage} />
+                                    </label>
+                                    <input value={texte} onChange={(e) => setTexte(e.target.value)} placeholder="Répondre au client…" onKeyDown={(e) => e.key === "Enter" && envoyerMessage()} />
+                                    <button onClick={envoyerMessage} disabled={(!texte.trim() && !imageChoisie) || envoi}>Envoyer</button>
+                                </div>
                             </div>
                         </>
                     )}
@@ -284,7 +324,9 @@ const ColisSheinManager = () => {
         .csm-liste select { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #e5e0d8; margin-bottom: 10px; }
         .csm-item { display: flex; flex-direction: column; width: 100%; text-align: left; background: #fff; border: 1px solid #f0ede8; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; }
         .csm-item.active { border-color: #e53935; }
+        .csm-item-top { display: flex; align-items: center; gap: 6px; }
         .csm-item-numero { font-size: 12px; font-weight: 700; color: #111; }
+        .csm-item-dot { width: 8px; height: 8px; border-radius: 50%; background: #e53935; }
         .csm-item-client { font-size: 12px; color: #666; }
         .csm-item-statut { font-size: 11px; color: #e53935; margin-top: 2px; }
         .csm-empty { color: #999; font-size: 13px; }
@@ -305,13 +347,21 @@ const ColisSheinManager = () => {
         .csm-statut-btn { font-size: 11px; padding: 5px 10px; border-radius: 14px; border: 1px solid #e5e0d8; background: #fff; cursor: pointer; }
         .csm-statut-btn.active { background: #111; color: #fff; border-color: #111; }
         .csm-fcfa { font-size: 13px; font-weight: 600; color: #e53935; }
-        .csm-chat { max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin: 10px 0; }
+        .csm-chat { border: 1px solid #f0ede8; border-radius: 12px; overflow: hidden; }
+        .csm-chat-messages { max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 10px; }
         .csm-msg { padding: 6px 10px; border-radius: 10px; font-size: 12.5px; max-width: 75%; }
+        .csm-msg p { margin: 0; }
+        .csm-msg-img { width: 100px; border-radius: 8px; display: block; margin-bottom: 4px; cursor: pointer; }
         .csm-msg.client { background: #f7f5f2; align-self: flex-start; }
         .csm-msg.agent { background: #111; color: #fff; align-self: flex-end; }
-        .csm-chat-input { display: flex; gap: 8px; }
-        .csm-chat-input input { flex: 1; padding: 8px 10px; border-radius: 20px; border: 1px solid #e5e0d8; font-size: 12.5px; }
+        .csm-preview { position: relative; width: 50px; margin: 0 10px; }
+        .csm-preview img { width: 50px; height: 50px; object-fit: cover; border-radius: 8px; }
+        .csm-preview button { position: absolute; top: -5px; right: -5px; background: #111; color: #fff; border: none; border-radius: 50%; width: 16px; height: 16px; font-size: 9px; cursor: pointer; }
+        .csm-chat-input { display: flex; align-items: center; gap: 8px; border-top: 1px solid #f0ede8; padding: 8px 10px; }
+        .csm-attach { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: #f7f5f2; cursor: pointer; flex-shrink: 0; }
+        .csm-chat-input input[type="text"], .csm-chat-input input:not([type]) { flex: 1; padding: 8px 10px; border-radius: 20px; border: 1px solid #e5e0d8; font-size: 12.5px; }
         .csm-chat-input button { background: #111; color: #fff; border: none; border-radius: 20px; padding: 8px 14px; font-size: 12.5px; cursor: pointer; }
+        .csm-chat-input button:disabled { opacity: .4; cursor: default; }
       `}</style>
         </div>
     );
