@@ -1,4 +1,6 @@
 import { v2 as cloudinary } from "cloudinary";
+import axios from "axios";
+import mongoose from "mongoose";
 import ColisShein from "../models/ColisShein.js";
 
 const EXTRACTION_PROMPT = `Tu extrais les données d'une ou plusieurs captures d'écran du panier de l'app SHEIN.
@@ -179,5 +181,102 @@ export const getUserColis = async (req, res) => {
     } catch (error) {
         console.error("Erreur getUserColis:", error);
         res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// Formate un numéro ivoirien au format international attendu par GeniusPay (+225XXXXXXXXX)
+const formatPhoneCI = (phone) => {
+    let p = (phone || "").replace(/\D/g, "");
+    if (p.startsWith("0")) p = p.substring(1);
+    if (!p.startsWith("225")) p = `225${p}`;
+    return `+${p}`;
+};
+
+// POST /api/shein-cart/:id/pay-acompte
+// Le montant n'est JAMAIS pris du client — recalculé depuis colis.devis.montantInitial,
+// figé par l'agent au moment de la validation du devis (validateColis).
+export const payAcompte = async (req, res) => {
+    try {
+        const colis = await ColisShein.findOne({ _id: req.params.id, userId: req.body.userId });
+        if (!colis) return res.status(404).json({ success: false, message: "Colis introuvable" });
+        if (colis.paiement.acomptePaye) {
+            return res.status(400).json({ success: false, message: "Acompte déjà payé" });
+        }
+        if (!colis.devis.montantInitial || colis.devis.montantInitial <= 0) {
+            return res.status(400).json({ success: false, message: "Le devis n'a pas encore de montant d'acompte défini" });
+        }
+
+        const User = mongoose.model("user");
+        const user = await User.findById(req.body.userId);
+        if (!user?.phone) {
+            return res.status(400).json({ success: false, message: "Ajoute un numéro de téléphone à ton compte avant de payer" });
+        }
+
+        const amount = Math.round(colis.devis.montantInitial);
+        const response = await axios.post(
+            `${process.env.GENIUSPAY_BASE_URL}/payments`,
+            {
+                amount,
+                description: `Acompte colis ${colis.numeroSuivi}`,
+                customer: { name: user.name?.substring(0, 100) || "Client RAMCI", phone: formatPhoneCI(user.phone) },
+                success_url: `${process.env.FRONTEND_URL}/colis-shein/${colis._id}?paiement=succes`,
+                error_url: `${process.env.FRONTEND_URL}/colis-shein/${colis._id}?paiement=erreur`,
+                metadata: { type: "shein_acompte", colis_id: colis._id.toString(), user_id: req.body.userId },
+            },
+            { headers: { "X-API-Key": process.env.GENIUSPAY_API_KEY, "X-API-Secret": process.env.GENIUSPAY_API_SECRET, "Content-Type": "application/json" } }
+        );
+
+        if (response.data.success) {
+            res.json({ success: true, checkout_url: response.data.data.checkout_url });
+        } else {
+            res.json({ success: false, message: response.data.error?.message || "Erreur d'initiation du paiement" });
+        }
+    } catch (error) {
+        console.error("Erreur payAcompte:", error.message);
+        res.status(500).json({ success: false, message: "Erreur lors de l'initialisation du paiement" });
+    }
+};
+
+// POST /api/shein-cart/:id/pay-solde — même logique, montant recalculé depuis paiement.soldeMontant
+// (fixé par l'agent à la pesée, jamais transmis par le client).
+export const paySolde = async (req, res) => {
+    try {
+        const colis = await ColisShein.findOne({ _id: req.params.id, userId: req.body.userId });
+        if (!colis) return res.status(404).json({ success: false, message: "Colis introuvable" });
+        if (colis.paiement.soldePaye) {
+            return res.status(400).json({ success: false, message: "Solde déjà payé" });
+        }
+        if (!colis.paiement.soldeMontant || colis.paiement.soldeMontant <= 0) {
+            return res.status(400).json({ success: false, message: "Le solde n'a pas encore été calculé (en attente de pesée)" });
+        }
+
+        const User = mongoose.model("user");
+        const user = await User.findById(req.body.userId);
+        if (!user?.phone) {
+            return res.status(400).json({ success: false, message: "Ajoute un numéro de téléphone à ton compte avant de payer" });
+        }
+
+        const amount = Math.round(colis.paiement.soldeMontant);
+        const response = await axios.post(
+            `${process.env.GENIUSPAY_BASE_URL}/payments`,
+            {
+                amount,
+                description: `Solde colis ${colis.numeroSuivi}`,
+                customer: { name: user.name?.substring(0, 100) || "Client RAMCI", phone: formatPhoneCI(user.phone) },
+                success_url: `${process.env.FRONTEND_URL}/colis-shein/${colis._id}?paiement=succes`,
+                error_url: `${process.env.FRONTEND_URL}/colis-shein/${colis._id}?paiement=erreur`,
+                metadata: { type: "shein_solde", colis_id: colis._id.toString(), user_id: req.body.userId },
+            },
+            { headers: { "X-API-Key": process.env.GENIUSPAY_API_KEY, "X-API-Secret": process.env.GENIUSPAY_API_SECRET, "Content-Type": "application/json" } }
+        );
+
+        if (response.data.success) {
+            res.json({ success: true, checkout_url: response.data.data.checkout_url });
+        } else {
+            res.json({ success: false, message: response.data.error?.message || "Erreur d'initiation du paiement" });
+        }
+    } catch (error) {
+        console.error("Erreur paySolde:", error.message);
+        res.status(500).json({ success: false, message: "Erreur lors de l'initialisation du paiement" });
     }
 };

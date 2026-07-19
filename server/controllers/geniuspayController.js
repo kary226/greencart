@@ -8,6 +8,7 @@ import Coupon from '../models/Coupon.js';
 import DeliveryPrice from '../models/DeliveryPrice.js';
 import DeliveryType from '../models/DeliveryType.js';
 import Commune from '../models/Commune.js';
+import '../models/ColisShein.js';
 import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
 
 // ✅ Fonction pour calculer les dates de livraison estimées (7 jours ouvrés)
@@ -483,9 +484,61 @@ export const geniuspayWebhook = async (req, res) => {
         if (event === 'payment.success') {
             const transactionData = payload.data;
             const metadata = transactionData.metadata;
+            const reference = transactionData.reference;
+
+            // ============================================================
+            // Branche colis SHEIN — distincte des commandes RAMCI normales.
+            // On la traite en premier et on sort (return) avant d'atteindre
+            // la logique Order ci-dessous, qui exige orderId et planterait sinon.
+            // ============================================================
+            if (metadata?.type === 'shein_acompte' || metadata?.type === 'shein_solde') {
+                const ColisShein = mongoose.model('colisshein');
+                const colis = await ColisShein.findById(metadata.colis_id);
+                if (!colis) {
+                    console.error(`❌ Colis SHEIN ${metadata.colis_id} non trouvé`);
+                    return res.status(404).json({ error: "Colis not found" });
+                }
+
+                const remoteAmount = transactionData.amount;
+                const isAcompte = metadata.type === 'shein_acompte';
+                const montantAttendu = isAcompte ? colis.devis.montantInitial : colis.paiement.soldeMontant;
+
+                // Idempotence — un webhook peut être renvoyé plusieurs fois par GeniusPay
+                if (isAcompte && colis.paiement.acomptePaye) {
+                    console.log(`ℹ️ Acompte du colis ${colis.numeroSuivi} déjà confirmé, ignorer`);
+                    return res.status(200).json({ received: true, alreadyProcessed: true });
+                }
+                if (!isAcompte && colis.paiement.soldePaye) {
+                    console.log(`ℹ️ Solde du colis ${colis.numeroSuivi} déjà confirmé, ignorer`);
+                    return res.status(200).json({ received: true, alreadyProcessed: true });
+                }
+
+                if (typeof remoteAmount === 'number' && montantAttendu && remoteAmount !== Math.round(montantAttendu)) {
+                    console.error(`❌ Montant GeniusPay (${remoteAmount}) ≠ montant attendu (${montantAttendu}) pour colis ${colis.numeroSuivi}`);
+                    return res.status(400).json({ error: "Amount mismatch" });
+                }
+
+                const now = new Date();
+                if (isAcompte) {
+                    colis.paiement.acomptePaye = true;
+                    colis.paiement.acompteDate = now;
+                    colis.paiement.methode = "geniuspay";
+                    colis.statut = "acompte_paye";
+                    colis.historique.push({ action: "acompte_paye", note: `Acompte réglé via GeniusPay (réf. ${reference})` });
+                } else {
+                    colis.paiement.soldePaye = true;
+                    colis.paiement.soldeDate = now;
+                    colis.paiement.methode = "geniuspay";
+                    colis.statut = "solde_paye";
+                    colis.historique.push({ action: "solde_paye", note: `Solde réglé via GeniusPay (réf. ${reference})` });
+                }
+                await colis.save();
+                console.log(`✅ ${isAcompte ? "Acompte" : "Solde"} confirmé pour le colis ${colis.numeroSuivi}`);
+                return res.status(200).json({ received: true });
+            }
+
             const orderId = metadata?.order_id;
             const userId = metadata?.user_id;
-            const reference = transactionData.reference;
 
             if (!orderId) {
                 console.error("❌ orderId manquant dans le webhook");

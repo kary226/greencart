@@ -41,7 +41,7 @@ export const getColisAdminById = async (req, res) => {
 // pour CE colis une fois figé ici (tauxApplique).
 export const validateColis = async (req, res) => {
     try {
-        const { articles, fraisLivraisonEstime } = req.body;
+        const { articles, fraisLivraisonEstime, pourcentageAcompte } = req.body;
         const colis = await ColisShein.findById(req.params.id);
         if (!colis) return res.status(404).json({ success: false, message: "Colis introuvable" });
 
@@ -82,11 +82,19 @@ export const validateColis = async (req, res) => {
         colis.devis.tauxApplique = tauxApplique;
         colis.devis.montantArticlesFCFA = montantArticlesFCFA;
         if (fraisLivraisonEstime != null) colis.devis.fraisLivraisonEstime = Number(fraisLivraisonEstime);
+
+        // Acompte = pourcentage (défini par l'agent, 50% par défaut) du total articles + livraison estimée.
+        // Figé ici — un changement ultérieur du taux de change ou des prix n'affecte plus ce montant.
+        const pct = pourcentageAcompte != null ? Number(pourcentageAcompte) : 50;
+        const base = (montantArticlesFCFA || 0) + (colis.devis.fraisLivraisonEstime || 0);
+        colis.devis.montantInitial = Math.round(base * (pct / 100));
+        colis.paiement.acompteMontant = colis.devis.montantInitial;
+
         colis.statut = "devis_envoye";
         colis.historique.push({
             action: "validation_agent",
             agent: process.env.SELLER_EMAIL,
-            note: "Panier vérifié et devis validé par l'agent",
+            note: `Panier vérifié et devis validé (acompte ${pct}% = ${colis.devis.montantInitial} FCFA)`,
         });
 
         await colis.save();

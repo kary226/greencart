@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useAppContext } from "../context/AppContext";
 
@@ -31,6 +31,9 @@ const STATUT_ORDER = [
 const ColisSheinDetail = () => {
     const { id } = useParams();
     const { axios, user } = useAppContext();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const [payingAcompte, setPayingAcompte] = useState(false);
+    const [payingSolde, setPayingSolde] = useState(false);
 
     const [colis, setColis] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -121,6 +124,51 @@ const ColisSheinDetail = () => {
         }
     };
 
+    useEffect(() => {
+        const paiement = searchParams.get("paiement");
+        if (paiement === "succes") {
+            toast.success("Paiement confirmé");
+            fetchColis();
+            setSearchParams({}, { replace: true });
+        } else if (paiement === "erreur") {
+            toast.error("Le paiement n'a pas abouti — réessaie");
+            setSearchParams({}, { replace: true });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const payerAcompte = async () => {
+        setPayingAcompte(true);
+        try {
+            const { data } = await axios.post(`/api/shein-cart/${id}/pay-acompte`);
+            if (data.success) {
+                window.location.href = data.checkout_url;
+            } else {
+                toast.error(data.message || "Paiement impossible");
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || "Erreur de paiement");
+        } finally {
+            setPayingAcompte(false);
+        }
+    };
+
+    const payerSolde = async () => {
+        setPayingSolde(true);
+        try {
+            const { data } = await axios.post(`/api/shein-cart/${id}/pay-solde`);
+            if (data.success) {
+                window.location.href = data.checkout_url;
+            } else {
+                toast.error(data.message || "Paiement impossible");
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || "Erreur de paiement");
+        } finally {
+            setPayingSolde(false);
+        }
+    };
+
     if (loading) return <div className="csd-loading">Chargement…</div>;
     if (!colis) return <div className="csd-loading">Colis introuvable</div>;
 
@@ -141,6 +189,17 @@ const ColisSheinDetail = () => {
                     </svg>
                 </button>
             </div>
+
+            {colis.statut === "devis_envoye" && !colis.paiement?.acomptePaye && colis.devis?.montantInitial > 0 && (
+                <button className="csd-pay-btn" onClick={payerAcompte} disabled={payingAcompte}>
+                    {payingAcompte ? "Redirection…" : `Payer l'acompte — ${Math.round(colis.devis.montantInitial).toLocaleString("fr-FR")} FCFA`}
+                </button>
+            )}
+            {(colis.statut === "pese" || colis.statut === "solde_du") && !colis.paiement?.soldePaye && colis.paiement?.soldeMontant > 0 && (
+                <button className="csd-pay-btn" onClick={payerSolde} disabled={payingSolde}>
+                    {payingSolde ? "Redirection…" : `Payer le solde — ${Math.round(colis.paiement.soldeMontant).toLocaleString("fr-FR")} FCFA`}
+                </button>
+            )}
 
             {/* Panneau repliable — progression + articles, fermé par défaut pour laisser la place au chat */}
             <div className={`csd-infos ${infosOuvertes ? "open" : ""}`}>
@@ -237,6 +296,8 @@ const ColisSheinDetail = () => {
         .csd-statut { font-size: 15px; font-weight: 700; color: #111; margin: 0; }
         .csd-toggle { background: #f7f5f2; border: none; border-radius: 50%; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; color: #555; cursor: pointer; transition: transform .2s; flex-shrink: 0; }
         .csd-toggle.open { transform: rotate(180deg); }
+        .csd-pay-btn { width: 100%; background: #e53935; color: #fff; border: none; border-radius: 40px; padding: 12px 16px; font-size: 13.5px; font-weight: 600; cursor: pointer; margin-bottom: 10px; }
+        .csd-pay-btn:disabled { opacity: .6; cursor: default; }
         .csd-infos { max-height: 0; overflow: hidden; transition: max-height .25s ease; }
         .csd-infos.open { max-height: 600px; overflow-y: auto; }
         .csd-progress { display: flex; gap: 4px; margin-bottom: 12px; }

@@ -20,6 +20,7 @@ const ColisSheinManager = () => {
     const [texte, setTexte] = useState("");
     const [imageChoisie, setImageChoisie] = useState(null);
     const [envoi, setEnvoi] = useState(false);
+    const [pourcentageAcompte, setPourcentageAcompte] = useState(50);
 
     const messagesContainerRef = useRef(null);
     const fileInputRef = useRef(null);
@@ -114,7 +115,7 @@ const ColisSheinManager = () => {
 
     const validerDevis = async () => {
         try {
-            const { data } = await axios.post(`/api/shein-cart/admin/${selection._id}/validate`, { articles: articlesEdit });
+            const { data } = await axios.post(`/api/shein-cart/admin/${selection._id}/validate`, { articles: articlesEdit, pourcentageAcompte });
             if (data.success) {
                 toast.success("Devis validé");
                 setSelection(data.colis);
@@ -260,6 +261,10 @@ const ColisSheinManager = () => {
                                 </div>
                             ))}
 
+                            <div className="csm-acompte-row">
+                                <label>Acompte <input type="number" min="0" max="100" value={pourcentageAcompte} onChange={(e) => setPourcentageAcompte(e.target.value)} />%</label>
+                            </div>
+
                             <div className="csm-actions">
                                 <button onClick={validerDevis} className="csm-btn-primary">Valider le devis</button>
                                 <button onClick={marquerPese} className="csm-btn-secondary">Enregistrer la pesée</button>
@@ -274,6 +279,16 @@ const ColisSheinManager = () => {
                             {selection.devis?.montantArticlesFCFA != null && (
                                 <p className="csm-fcfa">
                                     Total FCFA : {Math.round(selection.devis.montantArticlesFCFA).toLocaleString("fr-FR")} FCFA (taux {selection.devis.tauxApplique} / {selection.devise})
+                                </p>
+                            )}
+                            {selection.devis?.montantInitial > 0 && (
+                                <p className="csm-fcfa">
+                                    Acompte {selection.paiement?.acomptePaye ? "payé" : "attendu"} : {Math.round(selection.devis.montantInitial).toLocaleString("fr-FR")} FCFA
+                                </p>
+                            )}
+                            {selection.paiement?.soldeMontant > 0 && (
+                                <p className="csm-fcfa">
+                                    Solde {selection.paiement?.soldePaye ? "payé" : "attendu"} : {Math.round(selection.paiement.soldeMontant).toLocaleString("fr-FR")} FCFA
                                 </p>
                             )}
 
@@ -350,6 +365,9 @@ const ColisSheinManager = () => {
         .csm-statut-btn { font-size: 11px; padding: 5px 10px; border-radius: 14px; border: 1px solid #e5e0d8; background: #fff; cursor: pointer; }
         .csm-statut-btn.active { background: #111; color: #fff; border-color: #111; }
         .csm-fcfa { font-size: 13px; font-weight: 600; color: #e53935; }
+        .csm-acompte-row { margin-bottom: 8px; }
+        .csm-acompte-row label { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #555; }
+        .csm-acompte-row input { width: 50px; padding: 5px 7px; border: 1px solid #e5e0d8; border-radius: 6px; font-size: 12.5px; }
         .csm-chat { border: 1px solid #f0ede8; border-radius: 12px; overflow: hidden; }
         .csm-chat-messages { max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 10px; }
         .csm-msg { padding: 6px 10px; font-size: 12.5px; max-width: 75%; position: relative; }
