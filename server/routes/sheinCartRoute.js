@@ -48,11 +48,11 @@ sheinCartRouter.get("/admin/:id", authSeller, getColisAdminById);
 sheinCartRouter.post("/admin/:id/validate", authSeller, validateColis);
 sheinCartRouter.post("/admin/:id/statut", authSeller, updateStatutColis);
 sheinCartRouter.get("/admin/:id/messages", authSeller, getMessagesAdmin);
-sheinCartRouter.post("/admin/:id/messages", authSeller, uploadChatImage.single("image"), sendMessageAgent);
+sheinCartRouter.post("/admin/:id/messages", uploadChatImage.single("image"), authSeller, sendMessageAgent);
 
 // --- Routes client génériques (en dernier, elles absorbent tout le reste) ---
 sheinCartRouter.get("/:id", authUser, getColisById);
 sheinCartRouter.get("/:id/messages", authUser, getMessages);
-sheinCartRouter.post("/:id/messages", authUser, uploadChatImage.single("image"), sendMessageClient);
+sheinCartRouter.post("/:id/messages", uploadChatImage.single("image"), authUser, sendMessageClient);
 
 export default sheinCartRouter;
