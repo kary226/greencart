@@ -38,6 +38,7 @@ import InstallApp from './pages/InstallApp';
 import NotificationPrompt from './components/Notificationprompt';
 import ValiderPanierShein from './pages/ValiderPanierShein';
 import ColisSheinDetail from './pages/ColisSheinDetail';
+import ColisSheinDetail from './pages/ColisSheinDetail';
 
 // 🔝 ScrollToTop intelligent
 const useSmartScroll = () => {
