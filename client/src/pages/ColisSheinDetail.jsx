@@ -186,6 +186,9 @@ const ColisSheinDetail = () => {
                         <div key={m._id} className={`csd-msg ${m.expediteurRole === "client" ? "csd-msg-client" : "csd-msg-agent"}`}>
                             {m.imageUrl && <img src={m.imageUrl} alt="" className="csd-msg-img" onClick={() => window.open(m.imageUrl, "_blank")} />}
                             {m.texte && <p>{m.texte}</p>}
+                            <span className="csd-msg-heure">
+                                {new Date(m.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                            </span>
                         </div>
                     ))}
                 </div>
@@ -252,11 +255,12 @@ const ColisSheinDetail = () => {
         .csd-chat-zone { flex: 1; display: flex; flex-direction: column; min-height: 0; background: #fff; border: 1px solid #f0ede8; border-radius: 16px; margin-top: 8px; overflow: hidden; }
         .csd-messages { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
         .csd-chat-empty { font-size: 12.5px; color: #bbb; text-align: center; padding: 30px 0; margin: auto; }
-        .csd-msg { max-width: 78%; padding: 8px 12px; border-radius: 16px; font-size: 13.5px; line-height: 1.4; }
+        .csd-msg { max-width: 78%; padding: 8px 12px; border-radius: 16px; font-size: 13.5px; line-height: 1.4; position: relative; }
         .csd-msg p { margin: 0; }
+        .csd-msg-heure { display: block; font-size: 10px; opacity: .55; margin-top: 3px; text-align: right; }
         .csd-msg-img { width: 160px; border-radius: 10px; display: block; margin-bottom: 4px; cursor: pointer; }
-        .csd-msg-client { align-self: flex-end; background: #111; color: #fff; border-bottom-right-radius: 4px; }
-        .csd-msg-agent { align-self: flex-start; background: #f7f5f2; color: #222; border-bottom-left-radius: 4px; }
+        .csd-msg-client { align-self: flex-end; background: #111; color: #fff; border-radius: 16px 16px 3px 16px; }
+        .csd-msg-agent { align-self: flex-start; background: #f7f5f2; color: #222; border-radius: 16px 16px 16px 3px; }
 
         .csd-chat-form { border-top: 1px solid #f0ede8; padding: 10px 12px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
         .csd-chat-row { display: flex; align-items: center; gap: 8px; }

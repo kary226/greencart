@@ -284,6 +284,9 @@ const ColisSheinManager = () => {
                                         <div key={m._id} className={`csm-msg ${m.expediteurRole}`}>
                                             {m.imageUrl && <img src={m.imageUrl} alt="" className="csm-msg-img" onClick={() => window.open(m.imageUrl, "_blank")} />}
                                             {m.texte && <p>{m.texte}</p>}
+                                            <span className="csm-msg-heure">
+                                                {new Date(m.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                                            </span>
                                         </div>
                                     ))}
                                 </div>
@@ -349,11 +352,12 @@ const ColisSheinManager = () => {
         .csm-fcfa { font-size: 13px; font-weight: 600; color: #e53935; }
         .csm-chat { border: 1px solid #f0ede8; border-radius: 12px; overflow: hidden; }
         .csm-chat-messages { max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 10px; }
-        .csm-msg { padding: 6px 10px; border-radius: 10px; font-size: 12.5px; max-width: 75%; }
+        .csm-msg { padding: 6px 10px; font-size: 12.5px; max-width: 75%; position: relative; }
         .csm-msg p { margin: 0; }
+        .csm-msg-heure { display: block; font-size: 9.5px; opacity: .55; margin-top: 3px; text-align: right; }
         .csm-msg-img { width: 100px; border-radius: 8px; display: block; margin-bottom: 4px; cursor: pointer; }
-        .csm-msg.client { background: #f7f5f2; align-self: flex-start; }
-        .csm-msg.agent { background: #111; color: #fff; align-self: flex-end; }
+        .csm-msg.client { background: #f7f5f2; align-self: flex-start; border-radius: 14px 14px 14px 3px; }
+        .csm-msg.agent { background: #111; color: #fff; align-self: flex-end; border-radius: 14px 14px 3px 14px; }
         .csm-preview { position: relative; width: 50px; margin: 0 10px; }
         .csm-preview img { width: 50px; height: 50px; object-fit: cover; border-radius: 8px; }
         .csm-preview button { position: absolute; top: -5px; right: -5px; background: #111; color: #fff; border: none; border-radius: 50%; width: 16px; height: 16px; font-size: 9px; cursor: pointer; }
