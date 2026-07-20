@@ -2,7 +2,7 @@ import { useState } from "react";
 import toast from "react-hot-toast";
 import { useAppContext } from "../context/AppContext";
 
-const money = (n) => `$${Number(n || 0).toFixed(2)}`;
+const money = (n, devise) => `${devise === "EUR" ? "€" : "$"}${Number(n || 0).toFixed(2)}`;
 
 const ValiderPanierShein = () => {
     const { axios, user, setShowUserLogin, navigate } = useAppContext();
@@ -189,8 +189,8 @@ const ValiderPanierShein = () => {
                         <div className="vps-results">
                             {ecartTotal && (
                                 <div className="vps-warning">
-                                    Le total calculé ({money(sousTotal)}) diffère du total affiché sur ton
-                                    panier ({money(totalAffiche)}). Vérifie les quantités — l'agent confirmera
+                                    Le total calculé ({money(sousTotal, devise)}) diffère du total affiché sur ton
+                                    panier ({money(totalAffiche, devise)}). Vérifie les quantités — l'agent confirmera
                                     à la validation.
                                 </div>
                             )}
@@ -221,7 +221,7 @@ const ValiderPanierShein = () => {
                                                 />
                                             </label>
                                             <span className="vps-line-total">
-                                                {money((a.prix_unitaire ?? a.prixUnitaire) * a.quantite)}
+                                                {money((a.prix_unitaire ?? a.prixUnitaire) * a.quantite, devise)}
                                             </span>
                                         </div>
                                     </div>
@@ -240,7 +240,7 @@ const ValiderPanierShein = () => {
                     <div className="vps-sticky-inner">
                         <div>
                             <p className="vps-total-label">Total estimé</p>
-                            <p className="vps-total-value">{money(sousTotal)}</p>
+                            <p className="vps-total-value">{money(sousTotal, devise)}</p>
                         </div>
                         <button
                             onClick={soumettre}

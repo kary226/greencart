@@ -13,6 +13,7 @@ const messageColisSchema = new mongoose.Schema({
         montant: { type: Number, default: null },       // FCFA
         libelle: { type: String, default: null },        // ex. "Prix des articles", "Livraison (poids + Abidjan)"
         paymentType: { type: String, enum: ["shein_acompte", "shein_solde", null], default: null },
+        detail: { type: String, default: null },          // ex. "3.2 kg × 2500 FCFA/kg + 1500 FCFA livraison Abidjan"
     },
 }, { timestamps: true });
 

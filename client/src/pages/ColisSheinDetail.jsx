@@ -251,6 +251,7 @@ const ColisSheinDetail = () => {
                                 <div key={m._id} className="csd-devis-card">
                                     <p className="csd-devis-libelle">{m.payload?.libelle}</p>
                                     <p className="csd-devis-montant">{Math.round(m.payload?.montant || 0).toLocaleString("fr-FR")} FCFA</p>
+                                    {m.payload?.detail && <p className="csd-devis-detail">{m.payload.detail}</p>}
                                     {dejaPayee ? (
                                         <span className="csd-devis-paye">✓ Payé</span>
                                     ) : (
@@ -350,6 +351,7 @@ const ColisSheinDetail = () => {
         .csd-devis-card { align-self: center; width: 90%; background: #fff; border: 1.5px solid #e53935; border-radius: 14px; padding: 14px; text-align: center; margin: 6px 0; }
         .csd-devis-libelle { font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: .5px; margin: 0 0 4px; }
         .csd-devis-montant { font-size: 20px; font-weight: 700; color: #111; margin: 0 0 10px; }
+        .csd-devis-detail { font-size: 11px; color: #999; margin: -6px 0 10px; }
         .csd-devis-card button { background: #e53935; color: #fff; border: none; border-radius: 30px; padding: 9px 20px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
         .csd-devis-card button:disabled { opacity: .5; cursor: default; }
         .csd-devis-paye { display: inline-block; background: #e8f5e9; color: #2e7d32; font-size: 12px; font-weight: 600; padding: 6px 16px; border-radius: 20px; }

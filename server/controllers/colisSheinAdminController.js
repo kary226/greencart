@@ -9,13 +9,13 @@ const ArticleSheinInputSchema = ["boutique", "nom", "variante", "prixUnitaire", 
 // Poste un message "devis" auto-généré dans le chat — la carte apparaît dans la
 // conversation avec un bouton de paiement, en plus (pas à la place) du bouton
 // fixe en haut de la page client.
-const posterDevisMessage = async (colisId, montant, libelle, paymentType) => {
+const posterDevisMessage = async (colisId, montant, libelle, paymentType, detail = null) => {
     await MessageColis.create({
         colisId,
         expediteurRole: "agent",
         expediteurId: process.env.SELLER_EMAIL,
         type: "devis",
-        payload: { montant, libelle, paymentType },
+        payload: { montant, libelle, paymentType, detail },
     });
 };
 
@@ -166,7 +166,8 @@ export const updateStatutColis = async (req, res) => {
 
         await colis.save();
         if (statut === "pese") {
-            await posterDevisMessage(colis._id, colis.paiement.soldeMontant, "Livraison (poids + Abidjan)", "shein_solde");
+            const detail = `${colis.devis.poidsReel} kg × ${colis.devis.tauxParKilo} FCFA/kg + ${colis.devis.fraisLivraisonEstime || 0} FCFA livraison Abidjan`;
+            await posterDevisMessage(colis._id, colis.paiement.soldeMontant, "Livraison (poids + Abidjan)", "shein_solde", detail);
         }
         res.json({ success: true, colis });
     } catch (error) {

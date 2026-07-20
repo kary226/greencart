@@ -434,6 +434,7 @@ const ColisSheinManager = () => {
                                                 <div key={m._id} className="csm-devis-card">
                                                     <span>{m.payload?.libelle}</span>
                                                     <strong>{Math.round(m.payload?.montant || 0).toLocaleString("fr-FR")} FCFA</strong>
+                                                    {m.payload?.detail && <em>{m.payload.detail}</em>}
                                                 </div>
                                             );
                                         }
@@ -613,6 +614,7 @@ const ColisSheinManager = () => {
         .csm-devis-card { align-self: center; width: 85%; background: #fff; border: 1.5px solid #e53935; border-radius: 10px; padding: 8px 10px; text-align: center; }
         .csm-devis-card span { display: block; font-size: 10px; color: #999; text-transform: uppercase; }
         .csm-devis-card strong { font-size: 14px; color: #111; }
+        .csm-devis-card em { display: block; font-size: 9.5px; color: #aaa; font-style: normal; margin-top: 2px; }
         .csm-quick-replies { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 10px 0; border-top: 1px solid #f0ede8; }
         .csm-quick-replies button { background: #f7f5f2; border: 1px solid #e5e0d8; border-radius: 14px; padding: 5px 10px; font-size: 11px; color: #555; cursor: pointer; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .csm-quick-edit { background: none !important; border: none !important; font-size: 13px !important; padding: 4px 6px !important; }
