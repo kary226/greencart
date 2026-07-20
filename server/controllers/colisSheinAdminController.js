@@ -59,13 +59,17 @@ export const getColisAdminById = async (req, res) => {
 // pour CE colis une fois figé ici (tauxApplique).
 export const validateColis = async (req, res) => {
     try {
-        const { articles } = req.body;
+        const { articles, devise } = req.body;
         const colis = await ColisShein.findById(req.params.id);
         if (!colis) return res.status(404).json({ success: false, message: "Colis introuvable" });
 
         if (!Array.isArray(articles) || articles.length === 0) {
             return res.status(400).json({ success: false, message: "Aucun article à valider" });
         }
+
+        // Si l'admin corrige/fournit la devise dans ce même appel (cas où l'extraction
+        // ne l'avait pas détectée), on l'applique avant de calculer le FCFA.
+        if (devise === "USD" || devise === "EUR") colis.devise = devise;
 
         const articlesValides = articles.map((a) => ({
             boutique: a.boutique || "",
@@ -78,22 +82,26 @@ export const validateColis = async (req, res) => {
 
         const montantArticles = articlesValides.reduce((sum, a) => sum + a.prixUnitaire * a.quantite, 0);
 
-        // Taux de change : lu depuis le Setting global, pas de valeur par défaut arbitraire —
-        // si l'admin ne l'a jamais configuré, on bloque plutôt que d'appliquer un taux inventé.
-        let tauxApplique = null;
-        let montantArticlesFCFA = null;
-        if (colis.devise) {
-            const setting = await Setting.findOne({ key: "sheinExchangeRates" });
-            const taux = setting?.value?.[colis.devise.toLowerCase()];
-            if (!taux) {
-                return res.status(400).json({
-                    success: false,
-                    message: `Aucun taux configuré pour ${colis.devise}. Va dans Réglages pour le définir avant de valider.`,
-                });
-            }
-            tauxApplique = taux;
-            montantArticlesFCFA = montantArticles * taux;
+        // La devise est obligatoire pour calculer un montant FCFA — jamais de devis
+        // à 0 FCFA envoyé silencieusement. Si l'extraction ne l'a pas détectée,
+        // on bloque et on demande à l'admin de la préciser (voir champ devise ci-dessus).
+        if (!colis.devise) {
+            return res.status(400).json({
+                success: false,
+                message: "Devise inconnue pour ce colis — précise USD ou EUR avant d'envoyer le devis.",
+            });
         }
+
+        const setting = await Setting.findOne({ key: "sheinExchangeRates" });
+        const taux = setting?.value?.[colis.devise.toLowerCase()];
+        if (!taux) {
+            return res.status(400).json({
+                success: false,
+                message: `Aucun taux configuré pour ${colis.devise}. Renseigne-le dans la barre en haut avant de valider.`,
+            });
+        }
+        const tauxApplique = taux;
+        const montantArticlesFCFA = montantArticles * taux;
 
         colis.articlesValides = articlesValides;
         colis.devis.montantArticles = montantArticles;
