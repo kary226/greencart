@@ -7,6 +7,31 @@ const STATUTS = [
     "achete", "en_entrepot", "pese", "solde_du", "solde_paye", "en_livraison", "livre", "annule",
 ];
 
+const STATUT_LABELS = {
+    soumis: "Soumis — à vérifier",
+    en_verification: "En cours de vérification",
+    devis_envoye: "Devis envoyé — en attente de paiement",
+    acompte_paye: "Articles payés",
+    achete: "Acheté chez SHEIN",
+    en_entrepot: "En entrepôt",
+    pese: "Pesé — en attente de paiement",
+    solde_du: "Livraison due",
+    solde_paye: "Livraison payée",
+    en_livraison: "En livraison",
+    livre: "Livré",
+    annule: "Annulé",
+};
+
+// Une seule action "évidente" par étape — ce que l'admin doit faire ensuite,
+// sans avoir à deviner parmi 12 statuts. Les étapes sans action ici sont des
+// étapes d'attente (paiement du client, traité automatiquement par le webhook).
+const PROCHAINE_ACTION = {
+    acompte_paye: { label: "Marquer comme acheté chez SHEIN", cible: "achete" },
+    achete: { label: "Marquer reçu en entrepôt", cible: "en_entrepot" },
+    solde_paye: { label: "Marquer en cours de livraison", cible: "en_livraison" },
+    en_livraison: { label: "Marquer livré", cible: "livre" },
+};
+
 const money = (n, devise) => `${devise === "EUR" ? "€" : "$"}${Number(n || 0).toFixed(2)}`;
 
 const ColisSheinManager = () => {
@@ -154,8 +179,8 @@ const ColisSheinManager = () => {
         }
     };
 
-    const changerStatut = async (statut) => {
-        const note = window.prompt(`Note pour ce changement vers "${statut}" (optionnel) :`) || "";
+    const changerStatut = async (statut, silencieux = false) => {
+        const note = silencieux ? "" : (window.prompt(`Note pour ce changement vers "${statut}" (optionnel) :`) || "");
         try {
             const { data } = await axios.post(`/api/shein-cart/admin/${selection._id}/statut`, { statut, note });
             if (data.success) {
@@ -170,19 +195,33 @@ const ColisSheinManager = () => {
         }
     };
 
-    const marquerPese = async () => {
-        const poidsReel = window.prompt("Poids réel (kg) ?");
-        if (!poidsReel) return;
-        const tauxParKilo = window.prompt("Taux par kilo (FCFA) ?", selection?.devis?.tauxParKilo || "");
-        if (!tauxParKilo) return;
-        const fraisLivraisonAbidjan = window.prompt("Frais de livraison à Abidjan (FCFA) ?", selection?.devis?.fraisLivraisonEstime || "0");
-        if (fraisLivraisonAbidjan == null) return;
+    const [peseeModal, setPeseeModal] = useState(false);
+    const [peseeForm, setPeseeForm] = useState({ poidsReel: "", tauxParKilo: "", fraisLivraisonAbidjan: "0" });
+
+    const ouvrirModalPesee = () => {
+        setPeseeForm({
+            poidsReel: "",
+            tauxParKilo: selection?.devis?.tauxParKilo || "",
+            fraisLivraisonAbidjan: selection?.devis?.fraisLivraisonEstime || "0",
+        });
+        setPeseeModal(true);
+    };
+
+    const confirmerPesee = async () => {
+        const { poidsReel, tauxParKilo, fraisLivraisonAbidjan } = peseeForm;
+        if (!poidsReel || !tauxParKilo) {
+            toast.error("Poids et taux au kilo requis");
+            return;
+        }
         try {
-            const { data } = await axios.post(`/api/shein-cart/admin/${selection._id}/statut`, { statut: "pese", poidsReel, tauxParKilo, fraisLivraisonAbidjan });
+            const { data } = await axios.post(`/api/shein-cart/admin/${selection._id}/statut`, {
+                statut: "pese", poidsReel, tauxParKilo, fraisLivraisonAbidjan,
+            });
             if (data.success) {
-                toast.success("Pesée enregistrée, montant à payer calculé");
+                toast.success("Pesée enregistrée, devis livraison envoyé dans le chat");
                 setSelection(data.colis);
                 fetchListe(filtreStatut);
+                setPeseeModal(false);
             } else {
                 toast.error(data.message);
             }
@@ -190,6 +229,8 @@ const ColisSheinManager = () => {
             toast.error(error.response?.data?.message || "Erreur de pesée");
         }
     };
+
+    const peseeTotal = (Number(peseeForm.poidsReel) || 0) * (Number(peseeForm.tauxParKilo) || 0) + (Number(peseeForm.fraisLivraisonAbidjan) || 0);
 
     const choisirImage = (e) => {
         const file = e.target.files?.[0];
@@ -279,26 +320,61 @@ const ColisSheinManager = () => {
                                 ))}
                             </div>
 
-                            <h4>Articles (édition)</h4>
-                            {articlesEdit.map((a, i) => (
-                                <div key={i} className="csm-article-row">
-                                    <input value={a.nom} onChange={(e) => updateArticle(i, "nom", e.target.value)} className="csm-nom" />
-                                    <input type="number" step="0.01" value={a.prixUnitaire} onChange={(e) => updateArticle(i, "prixUnitaire", e.target.value)} className="csm-prix" />
-                                    <input type="number" value={a.quantite} onChange={(e) => updateArticle(i, "quantite", e.target.value)} className="csm-qte" />
-                                    <span className="csm-souligne">{money(a.prixUnitaire * a.quantite, selection.devise)}</span>
+                            <div className="csm-etape-actuelle">
+                                <span className="csm-etape-label">Étape actuelle</span>
+                                <p className="csm-etape-value">{STATUT_LABELS[selection.statut] || selection.statut}</p>
+                            </div>
+
+                            {(selection.statut === "soumis" || selection.statut === "en_verification") && (
+                                <>
+                                    <h4>Articles à vérifier</h4>
+                                    {articlesEdit.map((a, i) => (
+                                        <div key={i} className="csm-article-row">
+                                            <input value={a.nom} onChange={(e) => updateArticle(i, "nom", e.target.value)} className="csm-nom" />
+                                            <input type="number" step="0.01" value={a.prixUnitaire} onChange={(e) => updateArticle(i, "prixUnitaire", e.target.value)} className="csm-prix" />
+                                            <input type="number" value={a.quantite} onChange={(e) => updateArticle(i, "quantite", e.target.value)} className="csm-qte" />
+                                            <span className="csm-souligne">{money(a.prixUnitaire * a.quantite, selection.devise)}</span>
+                                        </div>
+                                    ))}
+                                    <button onClick={validerDevis} className="csm-btn-guide">Envoyer le devis des articles au client</button>
+                                </>
+                            )}
+
+                            {selection.statut === "en_entrepot" && (
+                                <button onClick={ouvrirModalPesee} className="csm-btn-guide">Enregistrer la pesée et envoyer le devis livraison</button>
+                            )}
+
+                            {PROCHAINE_ACTION[selection.statut] && (
+                                <button onClick={() => changerStatut(PROCHAINE_ACTION[selection.statut].cible, true)} className="csm-btn-guide">
+                                    {PROCHAINE_ACTION[selection.statut].label}
+                                </button>
+                            )}
+
+                            {(selection.statut === "devis_envoye" || selection.statut === "pese") && (
+                                <p className="csm-attente">En attente du paiement du client — la suite se fera automatiquement dès confirmation GeniusPay.</p>
+                            )}
+
+                            <details className="csm-avance">
+                                <summary>Options avancées (correction manuelle du statut)</summary>
+                                <div className="csm-statuts">
+                                    {STATUTS.map((s) => (
+                                        <button key={s} className={`csm-statut-btn ${selection.statut === s ? "active" : ""}`} onClick={() => changerStatut(s)}>{s}</button>
+                                    ))}
                                 </div>
-                            ))}
-
-                            <div className="csm-actions">
-                                <button onClick={validerDevis} className="csm-btn-primary">Valider le devis</button>
-                                <button onClick={marquerPese} className="csm-btn-secondary">Enregistrer la pesée</button>
-                            </div>
-
-                            <div className="csm-statuts">
-                                {STATUTS.map((s) => (
-                                    <button key={s} className={`csm-statut-btn ${selection.statut === s ? "active" : ""}`} onClick={() => changerStatut(s)}>{s}</button>
-                                ))}
-                            </div>
+                                {articlesEdit.length > 0 && selection.statut !== "soumis" && selection.statut !== "en_verification" && (
+                                    <>
+                                        <p className="csm-avance-titre">Articles (si correction nécessaire)</p>
+                                        {articlesEdit.map((a, i) => (
+                                            <div key={i} className="csm-article-row">
+                                                <input value={a.nom} onChange={(e) => updateArticle(i, "nom", e.target.value)} className="csm-nom" />
+                                                <input type="number" step="0.01" value={a.prixUnitaire} onChange={(e) => updateArticle(i, "prixUnitaire", e.target.value)} className="csm-prix" />
+                                                <input type="number" value={a.quantite} onChange={(e) => updateArticle(i, "quantite", e.target.value)} className="csm-qte" />
+                                            </div>
+                                        ))}
+                                        <button onClick={validerDevis} className="csm-btn-secondary">Renvoyer un devis corrigé</button>
+                                    </>
+                                )}
+                            </details>
 
                             {selection.devis?.montantArticlesFCFA != null && (
                                 <p className="csm-fcfa">
@@ -375,6 +451,31 @@ const ColisSheinManager = () => {
                 </div>
             </div>
 
+            {peseeModal && (
+                <div className="csm-modal-overlay" onClick={() => setPeseeModal(false)}>
+                    <div className="csm-modal" onClick={(e) => e.stopPropagation()}>
+                        <h3>Enregistrer la pesée</h3>
+                        <div className="csm-pesee-field">
+                            <label>Poids réel (kg)</label>
+                            <input type="number" step="0.1" value={peseeForm.poidsReel} onChange={(e) => setPeseeForm((p) => ({ ...p, poidsReel: e.target.value }))} autoFocus />
+                        </div>
+                        <div className="csm-pesee-field">
+                            <label>Taux par kilo (FCFA)</label>
+                            <input type="number" value={peseeForm.tauxParKilo} onChange={(e) => setPeseeForm((p) => ({ ...p, tauxParKilo: e.target.value }))} />
+                        </div>
+                        <div className="csm-pesee-field">
+                            <label>Frais de livraison à Abidjan (FCFA)</label>
+                            <input type="number" value={peseeForm.fraisLivraisonAbidjan} onChange={(e) => setPeseeForm((p) => ({ ...p, fraisLivraisonAbidjan: e.target.value }))} />
+                        </div>
+                        <div className="csm-pesee-total">Total à payer : <strong>{Math.round(peseeTotal).toLocaleString("fr-FR")} FCFA</strong></div>
+                        <div className="csm-pesee-actions">
+                            <button className="csm-btn-secondary" onClick={() => setPeseeModal(false)}>Annuler</button>
+                            <button className="csm-btn-primary" onClick={confirmerPesee}>Confirmer et envoyer le devis</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {gererReponses && (
                 <div className="csm-modal-overlay" onClick={() => setGererReponses(false)}>
                     <div className="csm-modal" onClick={(e) => e.stopPropagation()}>
@@ -443,6 +544,20 @@ const ColisSheinManager = () => {
         .csm-statut-btn { font-size: 11px; padding: 5px 10px; border-radius: 14px; border: 1px solid #e5e0d8; background: #fff; cursor: pointer; }
         .csm-statut-btn.active { background: #111; color: #fff; border-color: #111; }
         .csm-fcfa { font-size: 13px; font-weight: 600; color: #e53935; }
+        .csm-etape-actuelle { background: #f7f5f2; border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; }
+        .csm-etape-label { font-size: 10.5px; color: #999; text-transform: uppercase; letter-spacing: .5px; }
+        .csm-etape-value { font-size: 14px; font-weight: 700; color: #111; margin: 2px 0 0; }
+        .csm-btn-guide { display: block; width: 100%; background: #e53935; color: #fff; border: none; border-radius: 10px; padding: 12px; font-size: 13px; font-weight: 600; cursor: pointer; margin: 12px 0; }
+        .csm-attente { font-size: 12.5px; color: #999; background: #fdf1f0; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+        .csm-avance { margin: 14px 0; border: 1px solid #f0ede8; border-radius: 10px; padding: 10px 14px; }
+        .csm-avance summary { font-size: 12px; color: #999; cursor: pointer; }
+        .csm-avance-titre { font-size: 11.5px; color: #999; margin: 10px 0 6px; }
+        .csm-pesee-field { margin-bottom: 10px; }
+        .csm-pesee-field label { display: block; font-size: 11.5px; color: #666; margin-bottom: 4px; }
+        .csm-pesee-field input { width: 100%; padding: 8px 10px; border: 1px solid #e5e0d8; border-radius: 8px; font-size: 13px; }
+        .csm-pesee-total { text-align: center; font-size: 14px; margin: 12px 0; padding: 10px; background: #f7f5f2; border-radius: 8px; }
+        .csm-pesee-actions { display: flex; gap: 10px; }
+        .csm-pesee-actions button { flex: 1; }
         .csm-acompte-row { margin-bottom: 8px; }
         .csm-acompte-row label { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #555; }
         .csm-acompte-row input { width: 50px; padding: 5px 7px; border: 1px solid #e5e0d8; border-radius: 6px; font-size: 12.5px; }
