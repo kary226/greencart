@@ -20,7 +20,6 @@ const ColisSheinManager = () => {
     const [texte, setTexte] = useState("");
     const [imageChoisie, setImageChoisie] = useState(null);
     const [envoi, setEnvoi] = useState(false);
-    const [pourcentageAcompte, setPourcentageAcompte] = useState(50);
 
     const messagesContainerRef = useRef(null);
     const fileInputRef = useRef(null);
@@ -149,10 +148,12 @@ const ColisSheinManager = () => {
         if (!poidsReel) return;
         const tauxParKilo = window.prompt("Taux par kilo (FCFA) ?", selection?.devis?.tauxParKilo || "");
         if (!tauxParKilo) return;
+        const fraisLivraisonAbidjan = window.prompt("Frais de livraison à Abidjan (FCFA) ?", selection?.devis?.fraisLivraisonEstime || "0");
+        if (fraisLivraisonAbidjan == null) return;
         try {
-            const { data } = await axios.post(`/api/shein-cart/admin/${selection._id}/statut`, { statut: "pese", poidsReel, tauxParKilo });
+            const { data } = await axios.post(`/api/shein-cart/admin/${selection._id}/statut`, { statut: "pese", poidsReel, tauxParKilo, fraisLivraisonAbidjan });
             if (data.success) {
-                toast.success("Pesée enregistrée, solde calculé");
+                toast.success("Pesée enregistrée, montant à payer calculé");
                 setSelection(data.colis);
                 fetchListe(filtreStatut);
             } else {
@@ -283,12 +284,12 @@ const ColisSheinManager = () => {
                             )}
                             {selection.devis?.montantInitial > 0 && (
                                 <p className="csm-fcfa">
-                                    Acompte {selection.paiement?.acomptePaye ? "payé" : "attendu"} : {Math.round(selection.devis.montantInitial).toLocaleString("fr-FR")} FCFA
+                                    Paiement articles {selection.paiement?.acomptePaye ? "reçu" : "attendu"} : {Math.round(selection.devis.montantInitial).toLocaleString("fr-FR")} FCFA
                                 </p>
                             )}
                             {selection.paiement?.soldeMontant > 0 && (
                                 <p className="csm-fcfa">
-                                    Solde {selection.paiement?.soldePaye ? "payé" : "attendu"} : {Math.round(selection.paiement.soldeMontant).toLocaleString("fr-FR")} FCFA
+                                    Paiement livraison {selection.paiement?.soldePaye ? "reçu" : "attendu"} : {Math.round(selection.paiement.soldeMontant).toLocaleString("fr-FR")} FCFA
                                 </p>
                             )}
 

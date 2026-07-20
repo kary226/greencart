@@ -41,7 +41,7 @@ export const getColisAdminById = async (req, res) => {
 // pour CE colis une fois figé ici (tauxApplique).
 export const validateColis = async (req, res) => {
     try {
-        const { articles, fraisLivraisonEstime, pourcentageAcompte } = req.body;
+        const { articles } = req.body;
         const colis = await ColisShein.findById(req.params.id);
         if (!colis) return res.status(404).json({ success: false, message: "Colis introuvable" });
 
@@ -81,20 +81,18 @@ export const validateColis = async (req, res) => {
         colis.devis.montantArticles = montantArticles;
         colis.devis.tauxApplique = tauxApplique;
         colis.devis.montantArticlesFCFA = montantArticlesFCFA;
-        if (fraisLivraisonEstime != null) colis.devis.fraisLivraisonEstime = Number(fraisLivraisonEstime);
 
-        // Acompte = pourcentage (défini par l'agent, 50% par défaut) du total articles + livraison estimée.
-        // Figé ici — un changement ultérieur du taux de change ou des prix n'affecte plus ce montant.
-        const pct = pourcentageAcompte != null ? Number(pourcentageAcompte) : 50;
-        const base = (montantArticlesFCFA || 0) + (colis.devis.fraisLivraisonEstime || 0);
-        colis.devis.montantInitial = Math.round(base * (pct / 100));
+        // Paiement n°1 : uniquement le prix des articles, rien à voir avec la livraison
+        // qui n'est connue qu'après la pesée. Figé ici — un changement ultérieur du
+        // taux de change n'affecte plus ce montant pour ce colis.
+        colis.devis.montantInitial = Math.round(montantArticlesFCFA || 0);
         colis.paiement.acompteMontant = colis.devis.montantInitial;
 
         colis.statut = "devis_envoye";
         colis.historique.push({
             action: "validation_agent",
             agent: process.env.SELLER_EMAIL,
-            note: `Panier vérifié et devis validé (acompte ${pct}% = ${colis.devis.montantInitial} FCFA)`,
+            note: `Panier vérifié — prix des articles à payer : ${colis.devis.montantInitial} FCFA`,
         });
 
         await colis.save();
@@ -106,10 +104,9 @@ export const validateColis = async (req, res) => {
 };
 
 // POST /api/shein-cart/admin/:id/statut — transitions génériques pour la suite du parcours
-// (acompte_paye, achete, en_entrepot, pese avec poidsReel, solde_paye, en_livraison, livre, annule)
 export const updateStatutColis = async (req, res) => {
     try {
-        const { statut, note, poidsReel, tauxParKilo } = req.body;
+        const { statut, note, poidsReel, tauxParKilo, fraisLivraisonAbidjan } = req.body;
         const colis = await ColisShein.findById(req.params.id);
         if (!colis) return res.status(404).json({ success: false, message: "Colis introuvable" });
 
@@ -118,16 +115,19 @@ export const updateStatutColis = async (req, res) => {
             return res.status(400).json({ success: false, message: "Statut invalide" });
         }
 
-        // Pesée : calcule le solde dû dès que poids + taux/kg sont connus
+        // Pesée : deuxième devis, indépendant du premier — uniquement kilo + livraison Abidjan,
+        // jamais le prix des articles (déjà payé au paiement n°1).
         if (statut === "pese") {
             if (poidsReel == null || (tauxParKilo == null && !colis.devis.tauxParKilo)) {
                 return res.status(400).json({ success: false, message: "Poids réel et taux au kilo requis pour cette étape" });
             }
             colis.devis.poidsReel = Number(poidsReel);
             if (tauxParKilo != null) colis.devis.tauxParKilo = Number(tauxParKilo);
+            if (fraisLivraisonAbidjan != null) colis.devis.fraisLivraisonEstime = Number(fraisLivraisonAbidjan);
+
             const fraisTransport = colis.devis.poidsReel * colis.devis.tauxParKilo;
-            colis.devis.montantFinal = (colis.devis.montantArticlesFCFA || 0) + fraisTransport;
-            colis.paiement.soldeMontant = colis.devis.montantFinal - (colis.paiement.acompteMontant || 0);
+            colis.devis.montantFinal = fraisTransport + (colis.devis.fraisLivraisonEstime || 0);
+            colis.paiement.soldeMontant = colis.devis.montantFinal;
         }
 
         colis.statut = statut;

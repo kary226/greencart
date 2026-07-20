@@ -192,12 +192,12 @@ const ColisSheinDetail = () => {
 
             {colis.statut === "devis_envoye" && !colis.paiement?.acomptePaye && colis.devis?.montantInitial > 0 && (
                 <button className="csd-pay-btn" onClick={payerAcompte} disabled={payingAcompte}>
-                    {payingAcompte ? "Redirection…" : `Payer l'acompte — ${Math.round(colis.devis.montantInitial).toLocaleString("fr-FR")} FCFA`}
+                    {payingAcompte ? "Redirection…" : `Payer les articles — ${Math.round(colis.devis.montantInitial).toLocaleString("fr-FR")} FCFA`}
                 </button>
             )}
             {(colis.statut === "pese" || colis.statut === "solde_du") && !colis.paiement?.soldePaye && colis.paiement?.soldeMontant > 0 && (
                 <button className="csd-pay-btn" onClick={payerSolde} disabled={payingSolde}>
-                    {payingSolde ? "Redirection…" : `Payer le solde — ${Math.round(colis.paiement.soldeMontant).toLocaleString("fr-FR")} FCFA`}
+                    {payingSolde ? "Redirection…" : `Payer la livraison — ${Math.round(colis.paiement.soldeMontant).toLocaleString("fr-FR")} FCFA`}
                 </button>
             )}
 
