@@ -40,6 +40,7 @@ const ColisSheinManager = () => {
     const [filtreStatut, setFiltreStatut] = useState("soumis");
     const [selection, setSelection] = useState(null);
     const [articlesEdit, setArticlesEdit] = useState([]);
+    const [deviseEdit, setDeviseEdit] = useState(null);
     const [loading, setLoading] = useState(false);
     const [messages, setMessages] = useState([]);
     const [texte, setTexte] = useState("");
@@ -88,6 +89,8 @@ const ColisSheinManager = () => {
     };
 
     const tauxModifie = taux.usd != tauxSaved.usd || taux.eur != tauxSaved.eur;
+    const totalArticlesEdit = articlesEdit.reduce((sum, a) => sum + (Number(a.prixUnitaire) || 0) * (Number(a.quantite) || 0), 0);
+    const tauxDisponible = deviseEdit ? Number(tauxSaved[deviseEdit.toLowerCase()]) || null : null;
 
     const fetchListe = async (statut) => {
         setLoading(true);
@@ -147,6 +150,7 @@ const ColisSheinManager = () => {
             if (data.success) {
                 setSelection(data.colis);
                 setArticlesEdit(data.colis.articlesValides.map((a) => ({ ...a })));
+                setDeviseEdit(data.colis.devise || null);
             }
             const msgRes = await axios.get(`/api/shein-cart/admin/${id}/messages`);
             if (msgRes.data.success) setMessages(msgRes.data.messages);
@@ -166,7 +170,7 @@ const ColisSheinManager = () => {
 
     const validerDevis = async () => {
         try {
-            const { data } = await axios.post(`/api/shein-cart/admin/${selection._id}/validate`, { articles: articlesEdit });
+            const { data } = await axios.post(`/api/shein-cart/admin/${selection._id}/validate`, { articles: articlesEdit, devise: deviseEdit });
             if (data.success) {
                 toast.success("Devis validé");
                 setSelection(data.colis);
@@ -333,10 +337,36 @@ const ColisSheinManager = () => {
                                             <input value={a.nom} onChange={(e) => updateArticle(i, "nom", e.target.value)} className="csm-nom" />
                                             <input type="number" step="0.01" value={a.prixUnitaire} onChange={(e) => updateArticle(i, "prixUnitaire", e.target.value)} className="csm-prix" />
                                             <input type="number" value={a.quantite} onChange={(e) => updateArticle(i, "quantite", e.target.value)} className="csm-qte" />
-                                            <span className="csm-souligne">{money(a.prixUnitaire * a.quantite, selection.devise)}</span>
+                                            <span className="csm-souligne">{money(a.prixUnitaire * a.quantite, deviseEdit)}</span>
                                         </div>
                                     ))}
-                                    <button onClick={validerDevis} className="csm-btn-guide">Envoyer le devis des articles au client</button>
+
+                                    <div className="csm-devise-row">
+                                        <label>Devise</label>
+                                        <select value={deviseEdit || ""} onChange={(e) => setDeviseEdit(e.target.value || null)}>
+                                            <option value="">Non détectée — à choisir</option>
+                                            <option value="USD">USD ($)</option>
+                                            <option value="EUR">EUR (€)</option>
+                                        </select>
+                                        {!deviseEdit && <span className="csm-devise-warning">Requis pour calculer le FCFA</span>}
+                                    </div>
+
+                                    <div className="csm-apercu-total">
+                                        <div>
+                                            <span>Total articles</span>
+                                            <strong>{money(totalArticlesEdit, deviseEdit)}</strong>
+                                        </div>
+                                        <div>
+                                            <span>Équivalent FCFA</span>
+                                            <strong className={!tauxDisponible ? "csm-fcfa-manquant" : ""}>
+                                                {tauxDisponible ? `${Math.round(totalArticlesEdit * tauxDisponible).toLocaleString("fr-FR")} FCFA` : "Taux manquant"}
+                                            </strong>
+                                        </div>
+                                    </div>
+
+                                    <button onClick={validerDevis} className="csm-btn-guide" disabled={!deviseEdit || !tauxDisponible}>
+                                        Envoyer le devis des articles au client
+                                    </button>
                                 </>
                             )}
 
@@ -548,6 +578,16 @@ const ColisSheinManager = () => {
         .csm-etape-label { font-size: 10.5px; color: #999; text-transform: uppercase; letter-spacing: .5px; }
         .csm-etape-value { font-size: 14px; font-weight: 700; color: #111; margin: 2px 0 0; }
         .csm-btn-guide { display: block; width: 100%; background: #e53935; color: #fff; border: none; border-radius: 10px; padding: 12px; font-size: 13px; font-weight: 600; cursor: pointer; margin: 12px 0; }
+        .csm-btn-guide:disabled { opacity: .4; cursor: default; }
+        .csm-devise-row { display: flex; align-items: center; gap: 8px; margin: 10px 0; }
+        .csm-devise-row label { font-size: 12.5px; color: #555; }
+        .csm-devise-row select { padding: 6px 10px; border: 1px solid #e5e0d8; border-radius: 8px; font-size: 12.5px; }
+        .csm-devise-warning { font-size: 11px; color: #c62828; }
+        .csm-apercu-total { display: flex; gap: 20px; background: #f7f5f2; border-radius: 10px; padding: 12px 14px; margin: 10px 0; }
+        .csm-apercu-total > div { flex: 1; }
+        .csm-apercu-total span { display: block; font-size: 10.5px; color: #999; text-transform: uppercase; letter-spacing: .5px; }
+        .csm-apercu-total strong { font-size: 15px; color: #111; }
+        .csm-fcfa-manquant { color: #c62828 !important; font-size: 12px !important; }
         .csm-attente { font-size: 12.5px; color: #999; background: #fdf1f0; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
         .csm-avance { margin: 14px 0; border: 1px solid #f0ede8; border-radius: 10px; padding: 10px 14px; }
         .csm-avance summary { font-size: 12px; color: #999; cursor: pointer; }
