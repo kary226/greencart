@@ -20,6 +20,9 @@ const ColisSheinManager = () => {
     const [texte, setTexte] = useState("");
     const [imageChoisie, setImageChoisie] = useState(null);
     const [envoi, setEnvoi] = useState(false);
+    const [reponsesRapides, setReponsesRapides] = useState([]);
+    const [gererReponses, setGererReponses] = useState(false);
+    const [nouvelleReponse, setNouvelleReponse] = useState("");
 
     const messagesContainerRef = useRef(null);
     const fileInputRef = useRef(null);
@@ -75,6 +78,30 @@ const ColisSheinManager = () => {
     };
 
     useEffect(() => { fetchTaux(); }, []);
+    useEffect(() => {
+        axios.get("/api/setting/sheinReponsesRapides")
+            .then(({ data }) => { if (data.success && Array.isArray(data.data)) setReponsesRapides(data.data); })
+            .catch(() => {});
+    }, []);
+
+    const sauvegarderReponsesRapides = async (liste) => {
+        try {
+            const { data } = await axios.post("/api/setting/update", { key: "sheinReponsesRapides", value: liste });
+            if (data.success) setReponsesRapides(liste);
+        } catch (error) {
+            toast.error("Erreur d'enregistrement");
+        }
+    };
+
+    const ajouterReponseRapide = () => {
+        if (!nouvelleReponse.trim()) return;
+        sauvegarderReponsesRapides([...reponsesRapides, nouvelleReponse.trim()]);
+        setNouvelleReponse("");
+    };
+
+    const supprimerReponseRapide = (index) => {
+        sauvegarderReponsesRapides(reponsesRapides.filter((_, i) => i !== index));
+    };
     useEffect(() => { fetchListe(filtreStatut); }, [filtreStatut]);
 
     // Rafraîchit la liste en arrière-plan pour que les badges "non lu" apparaissent
@@ -114,7 +141,7 @@ const ColisSheinManager = () => {
 
     const validerDevis = async () => {
         try {
-            const { data } = await axios.post(`/api/shein-cart/admin/${selection._id}/validate`, { articles: articlesEdit, pourcentageAcompte });
+            const { data } = await axios.post(`/api/shein-cart/admin/${selection._id}/validate`, { articles: articlesEdit });
             if (data.success) {
                 toast.success("Devis validé");
                 setSelection(data.colis);
@@ -262,10 +289,6 @@ const ColisSheinManager = () => {
                                 </div>
                             ))}
 
-                            <div className="csm-acompte-row">
-                                <label>Acompte <input type="number" min="0" max="100" value={pourcentageAcompte} onChange={(e) => setPourcentageAcompte(e.target.value)} />%</label>
-                            </div>
-
                             <div className="csm-actions">
                                 <button onClick={validerDevis} className="csm-btn-primary">Valider le devis</button>
                                 <button onClick={marquerPese} className="csm-btn-secondary">Enregistrer la pesée</button>
@@ -296,16 +319,37 @@ const ColisSheinManager = () => {
                             <h4>Chat</h4>
                             <div className="csm-chat">
                                 <div className="csm-chat-messages" ref={messagesContainerRef}>
-                                    {messages.map((m) => (
-                                        <div key={m._id} className={`csm-msg ${m.expediteurRole}`}>
-                                            {m.imageUrl && <img src={m.imageUrl} alt="" className="csm-msg-img" onClick={() => window.open(m.imageUrl, "_blank")} />}
-                                            {m.texte && <p>{m.texte}</p>}
-                                            <span className="csm-msg-heure">
-                                                {new Date(m.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                                            </span>
-                                        </div>
-                                    ))}
+                                    {messages.map((m) => {
+                                        if (m.type === "systeme") {
+                                            return <div key={m._id} className="csm-badge-systeme">{m.texte}</div>;
+                                        }
+                                        if (m.type === "devis") {
+                                            return (
+                                                <div key={m._id} className="csm-devis-card">
+                                                    <span>{m.payload?.libelle}</span>
+                                                    <strong>{Math.round(m.payload?.montant || 0).toLocaleString("fr-FR")} FCFA</strong>
+                                                </div>
+                                            );
+                                        }
+                                        return (
+                                            <div key={m._id} className={`csm-msg ${m.expediteurRole}`}>
+                                                {m.imageUrl && <img src={m.imageUrl} alt="" className="csm-msg-img" onClick={() => window.open(m.imageUrl, "_blank")} />}
+                                                {m.texte && <p>{m.texte}</p>}
+                                                <span className="csm-msg-heure">
+                                                    {new Date(m.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
+                                {reponsesRapides.length > 0 && (
+                                    <div className="csm-quick-replies">
+                                        {reponsesRapides.map((r, i) => (
+                                            <button key={i} onClick={() => setTexte(r)}>{r}</button>
+                                        ))}
+                                        <button className="csm-quick-edit" onClick={() => setGererReponses(true)}>⚙</button>
+                                    </div>
+                                )}
                                 {imageChoisie && (
                                     <div className="csm-preview">
                                         <img src={URL.createObjectURL(imageChoisie)} alt="" />
@@ -322,11 +366,44 @@ const ColisSheinManager = () => {
                                     <input value={texte} onChange={(e) => setTexte(e.target.value)} placeholder="Répondre au client…" onKeyDown={(e) => e.key === "Enter" && envoyerMessage()} />
                                     <button onClick={envoyerMessage} disabled={(!texte.trim() && !imageChoisie) || envoi}>Envoyer</button>
                                 </div>
+                                {reponsesRapides.length === 0 && (
+                                    <button className="csm-manage-replies-empty" onClick={() => setGererReponses(true)}>+ Configurer des réponses rapides</button>
+                                )}
                             </div>
                         </>
                     )}
                 </div>
             </div>
+
+            {gererReponses && (
+                <div className="csm-modal-overlay" onClick={() => setGererReponses(false)}>
+                    <div className="csm-modal" onClick={(e) => e.stopPropagation()}>
+                        <h3>Réponses rapides</h3>
+                        <div className="csm-modal-add">
+                            <input
+                                value={nouvelleReponse}
+                                onChange={(e) => setNouvelleReponse(e.target.value)}
+                                placeholder="Ex. Merci, nous confirmons votre commande sous 24h"
+                                onKeyDown={(e) => e.key === "Enter" && ajouterReponseRapide()}
+                            />
+                            <button onClick={ajouterReponseRapide}>Ajouter</button>
+                        </div>
+                        <div className="csm-modal-liste">
+                            {reponsesRapides.length === 0 ? (
+                                <p className="csm-empty">Aucune réponse enregistrée</p>
+                            ) : (
+                                reponsesRapides.map((r, i) => (
+                                    <div key={i} className="csm-modal-item">
+                                        <span>{r}</span>
+                                        <button onClick={() => supprimerReponseRapide(i)}>✕</button>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                        <button className="csm-modal-close" onClick={() => setGererReponses(false)}>Fermer</button>
+                    </div>
+                </div>
+            )}
 
             <style>{`
         .csm-page { font-family: 'DM Sans', sans-serif; }
@@ -377,6 +454,24 @@ const ColisSheinManager = () => {
         .csm-msg-img { width: 100px; border-radius: 8px; display: block; margin-bottom: 4px; cursor: pointer; }
         .csm-msg.client { background: #f7f5f2; align-self: flex-start; border-radius: 14px 14px 14px 3px; }
         .csm-msg.agent { background: #111; color: #fff; align-self: flex-end; border-radius: 14px 14px 3px 14px; }
+        .csm-badge-systeme { align-self: center; background: #f0ede8; color: #888; font-size: 10.5px; padding: 4px 10px; border-radius: 20px; margin: 2px 0; }
+        .csm-devis-card { align-self: center; width: 85%; background: #fff; border: 1.5px solid #e53935; border-radius: 10px; padding: 8px 10px; text-align: center; }
+        .csm-devis-card span { display: block; font-size: 10px; color: #999; text-transform: uppercase; }
+        .csm-devis-card strong { font-size: 14px; color: #111; }
+        .csm-quick-replies { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 10px 0; border-top: 1px solid #f0ede8; }
+        .csm-quick-replies button { background: #f7f5f2; border: 1px solid #e5e0d8; border-radius: 14px; padding: 5px 10px; font-size: 11px; color: #555; cursor: pointer; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .csm-quick-edit { background: none !important; border: none !important; font-size: 13px !important; padding: 4px 6px !important; }
+        .csm-manage-replies-empty { width: 100%; background: none; border: none; color: #999; font-size: 11px; padding: 8px; cursor: pointer; text-decoration: underline; }
+        .csm-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 300; }
+        .csm-modal { background: #fff; border-radius: 14px; padding: 20px; width: 360px; max-width: 90vw; }
+        .csm-modal h3 { margin: 0 0 12px; font-size: 15px; }
+        .csm-modal-add { display: flex; gap: 8px; margin-bottom: 14px; }
+        .csm-modal-add input { flex: 1; padding: 8px 10px; border: 1px solid #e5e0d8; border-radius: 8px; font-size: 12.5px; }
+        .csm-modal-add button { background: #111; color: #fff; border: none; border-radius: 8px; padding: 8px 14px; font-size: 12px; cursor: pointer; }
+        .csm-modal-liste { max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+        .csm-modal-item { display: flex; justify-content: space-between; align-items: center; background: #f7f5f2; border-radius: 8px; padding: 8px 10px; font-size: 12.5px; }
+        .csm-modal-item button { background: none; border: none; color: #c62828; cursor: pointer; font-size: 12px; }
+        .csm-modal-close { width: 100%; background: #f7f5f2; border: none; border-radius: 20px; padding: 9px; font-size: 12.5px; cursor: pointer; }
         .csm-preview { position: relative; width: 50px; margin: 0 10px; }
         .csm-preview img { width: 50px; height: 50px; object-fit: cover; border-radius: 8px; }
         .csm-preview button { position: absolute; top: -5px; right: -5px; background: #111; color: #fff; border: none; border-radius: 50%; width: 16px; height: 16px; font-size: 9px; cursor: pointer; }

@@ -6,6 +6,24 @@ import Setting from "../models/Setting.js";
 
 const ArticleSheinInputSchema = ["boutique", "nom", "variante", "prixUnitaire", "prixOriginal", "quantite"];
 
+// Poste un message "devis" auto-généré dans le chat — la carte apparaît dans la
+// conversation avec un bouton de paiement, en plus (pas à la place) du bouton
+// fixe en haut de la page client.
+const posterDevisMessage = async (colisId, montant, libelle, paymentType) => {
+    await MessageColis.create({
+        colisId,
+        expediteurRole: "agent",
+        expediteurId: process.env.SELLER_EMAIL,
+        type: "devis",
+        payload: { montant, libelle, paymentType },
+    });
+};
+
+// Poste un badge système (confirmation) — visible des deux côtés, sans bulle orientée.
+export const posterMessageSysteme = async (colisId, texte) => {
+    await MessageColis.create({ colisId, expediteurRole: "systeme", type: "systeme", texte });
+};
+
 // GET /api/shein-cart/admin/all?statut=soumis (statut optionnel)
 export const getAllColisAdmin = async (req, res) => {
     try {
@@ -96,6 +114,7 @@ export const validateColis = async (req, res) => {
         });
 
         await colis.save();
+        await posterDevisMessage(colis._id, colis.devis.montantInitial, "Prix des articles", "shein_acompte");
         res.json({ success: true, colis });
     } catch (error) {
         console.error("Erreur validateColis:", error);
@@ -138,6 +157,9 @@ export const updateStatutColis = async (req, res) => {
         });
 
         await colis.save();
+        if (statut === "pese") {
+            await posterDevisMessage(colis._id, colis.paiement.soldeMontant, "Livraison (poids + Abidjan)", "shein_solde");
+        }
         res.json({ success: true, colis });
     } catch (error) {
         console.error("Erreur updateStatutColis:", error);

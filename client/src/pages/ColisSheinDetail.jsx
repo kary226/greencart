@@ -241,15 +241,37 @@ const ColisSheinDetail = () => {
                     {messages.length === 0 && (
                         <p className="csd-chat-empty">Aucun message pour l'instant — pose ta question à l'agent ici.</p>
                     )}
-                    {messages.map((m) => (
-                        <div key={m._id} className={`csd-msg ${m.expediteurRole === "client" ? "csd-msg-client" : "csd-msg-agent"}`}>
-                            {m.imageUrl && <img src={m.imageUrl} alt="" className="csd-msg-img" onClick={() => window.open(m.imageUrl, "_blank")} />}
-                            {m.texte && <p>{m.texte}</p>}
-                            <span className="csd-msg-heure">
-                                {new Date(m.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                            </span>
-                        </div>
-                    ))}
+                    {messages.map((m) => {
+                        if (m.type === "systeme") {
+                            return <div key={m._id} className="csd-badge-systeme">{m.texte}</div>;
+                        }
+                        if (m.type === "devis") {
+                            const dejaPayee = m.payload?.paymentType === "shein_acompte" ? colis.paiement?.acomptePaye : colis.paiement?.soldePaye;
+                            return (
+                                <div key={m._id} className="csd-devis-card">
+                                    <p className="csd-devis-libelle">{m.payload?.libelle}</p>
+                                    <p className="csd-devis-montant">{Math.round(m.payload?.montant || 0).toLocaleString("fr-FR")} FCFA</p>
+                                    {dejaPayee ? (
+                                        <span className="csd-devis-paye">✓ Payé</span>
+                                    ) : (
+                                        <button onClick={m.payload?.paymentType === "shein_acompte" ? payerAcompte : payerSolde} disabled={payingAcompte || payingSolde}>
+                                            Payer maintenant
+                                        </button>
+                                    )}
+                                    <span className="csd-msg-heure">{new Date(m.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+                                </div>
+                            );
+                        }
+                        return (
+                            <div key={m._id} className={`csd-msg ${m.expediteurRole === "client" ? "csd-msg-client" : "csd-msg-agent"}`}>
+                                {m.imageUrl && <img src={m.imageUrl} alt="" className="csd-msg-img" onClick={() => window.open(m.imageUrl, "_blank")} />}
+                                {m.texte && <p>{m.texte}</p>}
+                                <span className="csd-msg-heure">
+                                    {new Date(m.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                                </span>
+                            </div>
+                        );
+                    })}
                 </div>
 
                 {chatFerme ? (
@@ -322,6 +344,16 @@ const ColisSheinDetail = () => {
         .csd-msg-img { width: 160px; border-radius: 10px; display: block; margin-bottom: 4px; cursor: pointer; }
         .csd-msg-client { align-self: flex-end; background: #111; color: #fff; border-radius: 16px 16px 3px 16px; }
         .csd-msg-agent { align-self: flex-start; background: #f7f5f2; color: #222; border-radius: 16px 16px 16px 3px; }
+
+        .csd-badge-systeme { align-self: center; background: #f0ede8; color: #888; font-size: 11px; padding: 5px 12px; border-radius: 20px; margin: 4px 0; }
+
+        .csd-devis-card { align-self: center; width: 90%; background: #fff; border: 1.5px solid #e53935; border-radius: 14px; padding: 14px; text-align: center; margin: 6px 0; }
+        .csd-devis-libelle { font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: .5px; margin: 0 0 4px; }
+        .csd-devis-montant { font-size: 20px; font-weight: 700; color: #111; margin: 0 0 10px; }
+        .csd-devis-card button { background: #e53935; color: #fff; border: none; border-radius: 30px; padding: 9px 20px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+        .csd-devis-card button:disabled { opacity: .5; cursor: default; }
+        .csd-devis-paye { display: inline-block; background: #e8f5e9; color: #2e7d32; font-size: 12px; font-weight: 600; padding: 6px 16px; border-radius: 20px; }
+        .csd-devis-card .csd-msg-heure { display: block; margin-top: 8px; text-align: center; }
 
         .csd-chat-form { border-top: 1px solid #f0ede8; padding: 10px 12px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
         .csd-chat-row { display: flex; align-items: center; gap: 8px; }

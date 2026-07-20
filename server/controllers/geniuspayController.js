@@ -519,20 +519,24 @@ export const geniuspayWebhook = async (req, res) => {
                 }
 
                 const now = new Date();
+                const MessageColis = mongoose.model('messagecolis');
                 if (isAcompte) {
                     colis.paiement.acomptePaye = true;
                     colis.paiement.acompteDate = now;
                     colis.paiement.methode = "geniuspay";
                     colis.statut = "acompte_paye";
                     colis.historique.push({ action: "acompte_paye", note: `Acompte réglé via GeniusPay (réf. ${reference})` });
+                    await colis.save();
+                    await MessageColis.create({ colisId: colis._id, expediteurRole: "systeme", type: "systeme", texte: "✓ Paiement des articles confirmé" });
                 } else {
                     colis.paiement.soldePaye = true;
                     colis.paiement.soldeDate = now;
                     colis.paiement.methode = "geniuspay";
                     colis.statut = "solde_paye";
                     colis.historique.push({ action: "solde_paye", note: `Solde réglé via GeniusPay (réf. ${reference})` });
+                    await colis.save();
+                    await MessageColis.create({ colisId: colis._id, expediteurRole: "systeme", type: "systeme", texte: "✓ Paiement de la livraison confirmé" });
                 }
-                await colis.save();
                 console.log(`✅ ${isAcompte ? "Acompte" : "Solde"} confirmé pour le colis ${colis.numeroSuivi}`);
                 return res.status(200).json({ received: true });
             }
