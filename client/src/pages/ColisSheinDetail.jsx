@@ -246,6 +246,15 @@ const ColisSheinDetail = () => {
                             return <div key={m._id} className="csd-badge-systeme">{m.texte}</div>;
                         }
                         if (m.type === "devis") {
+                            if (m.payload?.superseded) {
+                                return (
+                                    <div key={m._id} className="csd-devis-card csd-devis-remplace">
+                                        <p className="csd-devis-libelle">{m.payload?.libelle}</p>
+                                        <p className="csd-devis-montant-barre">{Math.round(m.payload?.montant || 0).toLocaleString("fr-FR")} FCFA</p>
+                                        <span className="csd-devis-remplace-tag">Devis remplacé par une version plus récente</span>
+                                    </div>
+                                );
+                            }
                             const dejaPayee = m.payload?.paymentType === "shein_acompte" ? colis.paiement?.acomptePaye : colis.paiement?.soldePaye;
                             return (
                                 <div key={m._id} className="csd-devis-card">
@@ -356,6 +365,9 @@ const ColisSheinDetail = () => {
         .csd-devis-card button:disabled { opacity: .5; cursor: default; }
         .csd-devis-paye { display: inline-block; background: #e8f5e9; color: #2e7d32; font-size: 12px; font-weight: 600; padding: 6px 16px; border-radius: 20px; }
         .csd-devis-card .csd-msg-heure { display: block; margin-top: 8px; text-align: center; }
+        .csd-devis-remplace { border-color: #e5e0d8; opacity: .6; }
+        .csd-devis-montant-barre { font-size: 16px; font-weight: 600; color: #999; text-decoration: line-through; margin: 0 0 6px; }
+        .csd-devis-remplace-tag { font-size: 11px; color: #999; }
 
         .csd-chat-form { border-top: 1px solid #f0ede8; padding: 10px 12px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
         .csd-chat-row { display: flex; align-items: center; gap: 8px; }

@@ -10,6 +10,13 @@ const ArticleSheinInputSchema = ["boutique", "nom", "variante", "prixUnitaire", 
 // conversation avec un bouton de paiement, en plus (pas à la place) du bouton
 // fixe en haut de la page client.
 const posterDevisMessage = async (colisId, montant, libelle, paymentType, detail = null) => {
+    // Les anciens devis du même type (même paymentType) deviennent obsolètes —
+    // pas de suppression, ils gardent leur trace, mais plus de bouton "Payer"
+    // et plus de badge "payé" hérité à tort.
+    await MessageColis.updateMany(
+        { colisId, type: "devis", "payload.paymentType": paymentType },
+        { $set: { "payload.superseded": true } }
+    );
     await MessageColis.create({
         colisId,
         expediteurRole: "agent",
@@ -114,11 +121,22 @@ export const validateColis = async (req, res) => {
         colis.devis.montantInitial = Math.round(montantArticlesFCFA || 0);
         colis.paiement.acompteMontant = colis.devis.montantInitial;
 
+        // Si le client avait déjà payé une version précédente de ce devis (admin
+        // revenu en arrière pour corriger), on remet le paiement à zéro — le montant
+        // a changé, l'ancien paiement ne couvre plus forcément le bon total.
+        const etaitDejaPaye = colis.paiement.acomptePaye;
+        if (etaitDejaPaye) {
+            colis.paiement.acomptePaye = false;
+            colis.paiement.acompteDate = null;
+        }
+
         colis.statut = "devis_envoye";
         colis.historique.push({
             action: "validation_agent",
             agent: process.env.SELLER_EMAIL,
-            note: `Panier vérifié — prix des articles à payer : ${colis.devis.montantInitial} FCFA`,
+            note: etaitDejaPaye
+                ? `Devis corrigé après un paiement déjà reçu — nouveau montant à payer : ${colis.devis.montantInitial} FCFA`
+                : `Panier vérifié — prix des articles à payer : ${colis.devis.montantInitial} FCFA`,
         });
 
         await colis.save();
@@ -155,6 +173,13 @@ export const updateStatutColis = async (req, res) => {
             const fraisTransport = colis.devis.poidsReel * colis.devis.tauxParKilo;
             colis.devis.montantFinal = fraisTransport + (colis.devis.fraisLivraisonEstime || 0);
             colis.paiement.soldeMontant = colis.devis.montantFinal;
+
+            // Même logique que pour le paiement articles — une pesée corrigée après
+            // un paiement déjà reçu invalide ce paiement pour le nouveau montant.
+            if (colis.paiement.soldePaye) {
+                colis.paiement.soldePaye = false;
+                colis.paiement.soldeDate = null;
+            }
         }
 
         colis.statut = statut;
