@@ -74,6 +74,13 @@ const App = () => {
 
   const location = useLocation();
   const isSellerPath = location.pathname.includes("seller");
+  // Pages ColisShein (liste, détail, validation panier) : expérience façon app de
+  // messagerie, le gros footer marketing (liens, réseaux sociaux, copyright) n'a pas
+  // sa place ici — la BottomNav fixe suffit pour la navigation.
+  const isColisSheinPath =
+    location.pathname === "/mes-colis-shein" ||
+    location.pathname === "/valider-panier-shein" ||
+    location.pathname.startsWith("/colis-shein/");
   const { showUserLogin, isSeller, user } = useAppContext()
 
   useSmartScroll();
@@ -164,7 +171,7 @@ const App = () => {
           </Route>
         </Routes>
       </div>
-      {!isSellerPath && <Footer />}
+      {!isSellerPath && !isColisSheinPath && <Footer />}
       {!isSellerPath && <BottomNav />}
     </div>
   )

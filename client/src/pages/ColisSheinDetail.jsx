@@ -426,7 +426,7 @@ const ColisSheinDetail = () => {
             </div>
 
             <style>{`
-        .csd-page { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; height: calc(100vh - 140px); font-family: 'DM Sans', sans-serif; }
+        .csd-page { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; height: calc(100vh - 140px); height: calc(100dvh - 140px); font-family: 'DM Sans', sans-serif; }
         .csd-loading { text-align: center; padding: 60px 20px; color: #999; font-size: 14px; }
         .csd-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 0 10px; }
         .csd-numero { font-size: 11.5px; color: #999; margin: 0 0 2px; letter-spacing: .3px; }
