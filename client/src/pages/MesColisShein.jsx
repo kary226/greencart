@@ -35,6 +35,7 @@ const STATUT_STYLE = {
 };
 
 const money = (n, devise) => `${devise === "EUR" ? "€" : "$"}${Number(n || 0).toFixed(2)}`;
+const fcfa = (n) => `${Math.round(n || 0).toLocaleString("fr-FR")} FCFA`;
 
 const tempsEcoule = (date) => {
     const diff = Date.now() - new Date(date).getTime();
@@ -152,7 +153,12 @@ const MesColisShein = () => {
                                 <div className="mcs-card-bottom">
                                     <span className="mcs-articles-count">{c.articlesValides?.length || 0} article(s)</span>
                                     {c.devis?.montantArticles > 0 && (
-                                        <span className="mcs-montant">{money(c.devis.montantArticles, c.devise)}</span>
+                                        <span className="mcs-montant-bloc">
+                                            <span className="mcs-montant">{money(c.devis.montantArticles, c.devise)}</span>
+                                            {c.devis?.montantArticlesFCFA != null && (
+                                                <span className="mcs-montant-fcfa">≈ {fcfa(c.devis.montantArticlesFCFA)}</span>
+                                            )}
+                                        </span>
                                     )}
                                 </div>
                             </div>
@@ -212,7 +218,9 @@ const MesColisShein = () => {
 
         .mcs-card-bottom { display: flex; align-items: center; justify-content: space-between; }
         .mcs-articles-count { font-size: 11px; color: #999; }
+        .mcs-montant-bloc { display: flex; flex-direction: column; align-items: flex-end; }
         .mcs-montant { font-size: 13.5px; font-weight: 700; color: #111; }
+        .mcs-montant-fcfa { font-size: 10.5px; color: #b7791f; margin-top: 1px; }
 
         .mcs-badge-nonlu { position: absolute; top: 14px; right: 14px; background: #e53935; color: #fff; font-size: 10.5px; font-weight: 700; min-width: 18px; height: 18px; border-radius: 9px; display: flex; align-items: center; justify-content: center; padding: 0 5px; }
       `}</style>
