@@ -176,7 +176,14 @@ export const getColisById = async (req, res) => {
 // GET /api/shein-cart/user — suivi côté client, même pattern que getUserOrders
 export const getUserColis = async (req, res) => {
     try {
-        const colis = await ColisShein.find({ userId: req.body.userId }).sort({ createdAt: -1 });
+        const colisRaw = await ColisShein.find({ userId: req.body.userId }).sort({ createdAt: -1 });
+        // nonLuClient : true si l'agent a écrit depuis la dernière fois que le client
+        // a ouvert ce fil — sert au badge "1" affiché dans /mes-colis-shein.
+        const colis = colisRaw.map((c) => {
+            const obj = c.toObject();
+            obj.nonLuClient = !!(c.dernierMessageAgentAt && (!c.clientDernierLu || c.dernierMessageAgentAt > c.clientDernierLu));
+            return obj;
+        });
         res.json({ success: true, colis });
     } catch (error) {
         console.error("Erreur getUserColis:", error);
