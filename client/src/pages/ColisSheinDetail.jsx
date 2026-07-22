@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useAppContext } from "../context/AppContext";
 
@@ -9,6 +9,25 @@ const money = (n, devise) => {
 };
 
 const fcfa = (n) => `${Math.round(n || 0).toLocaleString("fr-FR")} FCFA`;
+
+const dateCourte = (d) => new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+// Horaires de service (Setting "sheinHoraires") — "HH:MM" en heure locale du navigateur.
+// Si aucun horaire n'est configuré côté admin, le service est considéré ouvert en permanence.
+const estDansHoraires = (horaires, maintenant) => {
+    if (!horaires?.ouverture || !horaires?.fermeture) return true;
+    const now = new Date(maintenant);
+    const [hO, mO] = horaires.ouverture.split(":").map(Number);
+    const [hF, mF] = horaires.fermeture.split(":").map(Number);
+    const minutesMaintenant = now.getHours() * 60 + now.getMinutes();
+    const minutesOuverture = hO * 60 + mO;
+    const minutesFermeture = hF * 60 + mF;
+    if (minutesFermeture > minutesOuverture) {
+        return minutesMaintenant >= minutesOuverture && minutesMaintenant < minutesFermeture;
+    }
+    // Plage à cheval sur minuit (ex. 20:00 → 06:00)
+    return minutesMaintenant >= minutesOuverture || minutesMaintenant < minutesFermeture;
+};
 
 const STATUT_LABELS = {
     soumis: "En attente de vérification par un agent",
@@ -66,9 +85,11 @@ const CocheDouble = () => (
 const ColisSheinDetail = () => {
     const { id } = useParams();
     const { axios, user } = useAppContext();
+    const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const [payingAcompte, setPayingAcompte] = useState(false);
     const [payingSolde, setPayingSolde] = useState(false);
+    const [horaires, setHoraires] = useState(null);
 
     const [colis, setColis] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -105,6 +126,13 @@ const ColisSheinDetail = () => {
             // silencieux — le polling réessaiera au prochain cycle
         }
     };
+
+    useEffect(() => {
+        axios.get("/api/setting/sheinHoraires")
+            .then(({ data }) => { if (data.success && data.data) setHoraires(data.data); })
+            .catch(() => {});
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     useEffect(() => {
         if (!user) return;
@@ -238,12 +266,18 @@ const ColisSheinDetail = () => {
     const etapeActuelle = STATUT_ORDER.indexOf(colis.statut);
     const chatFerme = colis.statut === "livre" || colis.statut === "annule";
     const tauxApplique = colis.devis?.tauxApplique || null;
+    const serviceOuvert = estDansHoraires(horaires, maintenant);
 
     return (
         <div className="csd-page">
             {/* En-tête compact, toujours visible */}
             <div className="csd-header">
-                <div>
+                <button className="csd-back" onClick={() => navigate("/mes-colis-shein")} aria-label="Retour">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="15 18 9 12 15 6" />
+                    </svg>
+                </button>
+                <div className="csd-header-titre">
                     <p className="csd-numero">{colis.numeroSuivi}</p>
                     <h1 className="csd-statut">{STATUT_LABELS[colis.statut] || colis.statut}</h1>
                 </div>
@@ -253,6 +287,18 @@ const ColisSheinDetail = () => {
                     </svg>
                 </button>
             </div>
+
+            {!serviceOuvert && (
+                <div className="csd-horaires-banner">
+                    Service fermé{horaires?.ouverture ? ` — réouverture à ${horaires.ouverture}` : ""}. Tu peux quand même écrire, on te répondra à la réouverture.
+                </div>
+            )}
+
+            {colis.statut === "en_livraison" && colis.livraison?.dateDebut && colis.livraison?.dateFin && (
+                <div className="csd-livraison-banner">
+                    📦 Livraison estimée entre le <strong>{dateCourte(colis.livraison.dateDebut)}</strong> et le <strong>{dateCourte(colis.livraison.dateFin)}</strong>
+                </div>
+            )}
 
             {colis.statut === "devis_envoye" && !colis.paiement?.acomptePaye && colis.devis?.montantInitial > 0 && (
                 <button className="csd-pay-btn" onClick={payerAcompte} disabled={payingAcompte}>
@@ -426,14 +472,19 @@ const ColisSheinDetail = () => {
             </div>
 
             <style>{`
-        .csd-page { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; height: calc(100vh - 140px); height: calc(100dvh - 140px); font-family: 'DM Sans', sans-serif; }
+        .csd-page { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; height: calc(100vh - 70px); height: calc(100dvh - 70px); font-family: 'DM Sans', sans-serif; padding: 0 12px; }
         .csd-loading { text-align: center; padding: 60px 20px; color: #999; font-size: 14px; }
-        .csd-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 0 10px; }
+        .csd-header { display: flex; align-items: center; gap: 10px; padding: 12px 0 10px; flex-shrink: 0; }
+        .csd-header-titre { flex: 1; min-width: 0; }
+        .csd-back { background: #f7f5f2; border: none; border-radius: 50%; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; color: #333; cursor: pointer; flex-shrink: 0; transition: background .15s; }
+        .csd-back:hover { background: #f0ede8; }
         .csd-numero { font-size: 11.5px; color: #999; margin: 0 0 2px; letter-spacing: .3px; }
-        .csd-statut { font-size: 15px; font-weight: 700; color: #111; margin: 0; }
+        .csd-statut { font-size: 15px; font-weight: 700; color: #111; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .csd-toggle { background: #f7f5f2; border: none; border-radius: 50%; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; color: #555; cursor: pointer; transition: transform .2s, background .15s; flex-shrink: 0; }
         .csd-toggle:hover { background: #f0ede8; }
         .csd-toggle.open { transform: rotate(180deg); }
+        .csd-horaires-banner { flex-shrink: 0; background: #fdf1f0; color: #b23b36; font-size: 11.5px; font-weight: 500; border-radius: 12px; padding: 8px 12px; margin-bottom: 8px; text-align: center; }
+        .csd-livraison-banner { flex-shrink: 0; background: #eef7f0; color: #256029; font-size: 12px; font-weight: 500; border-radius: 12px; padding: 9px 12px; margin-bottom: 8px; text-align: center; }
         .csd-pay-btn { width: 100%; background: #e53935; color: #fff; border: none; border-radius: 40px; padding: 12px 16px; font-size: 13.5px; font-weight: 600; cursor: pointer; margin-bottom: 10px; box-shadow: 0 4px 14px rgba(229,57,53,0.25); transition: transform .12s, box-shadow .12s; }
         .csd-pay-btn:active { transform: scale(0.98); }
         .csd-pay-btn:disabled { opacity: .6; cursor: default; box-shadow: none; }

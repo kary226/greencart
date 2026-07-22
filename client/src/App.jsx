@@ -81,6 +81,10 @@ const App = () => {
     location.pathname === "/mes-colis-shein" ||
     location.pathname === "/valider-panier-shein" ||
     location.pathname.startsWith("/colis-shein/");
+  // Page de chat (détail d'un colis) : expérience quasi plein écran façon messagerie —
+  // ni Navbar (recherche/menu) ni padding de page, la zone de chat gère elle-même
+  // son propre en-tête compact et reste calée juste au-dessus de la BottomNav fixe.
+  const isChatFullScreenPath = location.pathname.startsWith("/colis-shein/");
   const { showUserLogin, isSeller, user } = useAppContext()
 
   useSmartScroll();
@@ -88,11 +92,11 @@ const App = () => {
   return (
     <div className='text-default min-h-screen text-gray-700 bg-white'>
 
-      {!isSellerPath && <Navbar />}
+      {!isSellerPath && !isChatFullScreenPath && <Navbar />}
       
       {showUserLogin && !user ? <Login /> : null}
 
-      {!isSellerPath && <NotificationPrompt />}
+      {!isSellerPath && !isChatFullScreenPath && <NotificationPrompt />}
 
       <Toaster 
         position="top-center"
@@ -133,7 +137,7 @@ const App = () => {
         }}
       />
 
-      <div className={`${isSellerPath ? "" : "px-4 pb-20"}`}>
+      <div className={`${isSellerPath || isChatFullScreenPath ? "" : "px-4 pb-20"}`}>
         <Routes>
           <Route path='/' element={<Home />} />
           <Route path='/products' element={<AllProducts />} />

@@ -33,6 +33,7 @@ const PROCHAINE_ACTION = {
 };
 
 const money = (n, devise) => `${devise === "EUR" ? "€" : "$"}${Number(n || 0).toFixed(2)}`;
+const dateCourteFr = (d) => new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
 
 const ColisSheinManager = () => {
     const { axios } = useAppContext();
@@ -92,6 +93,112 @@ const ColisSheinManager = () => {
     const totalArticlesEdit = articlesEdit.reduce((sum, a) => sum + (Number(a.prixUnitaire) || 0) * (Number(a.quantite) || 0), 0);
     const tauxDisponible = deviseEdit ? Number(tauxSaved[deviseEdit.toLowerCase()]) || null : null;
 
+    // --- Horaires de service (Setting "sheinHoraires") ---
+    const [horaires, setHoraires] = useState({ ouverture: "08:00", fermeture: "19:00" });
+    const [horairesSaved, setHorairesSaved] = useState({ ouverture: "08:00", fermeture: "19:00" });
+    const [savingHoraires, setSavingHoraires] = useState(false);
+    const horairesModifie = horaires.ouverture !== horairesSaved.ouverture || horaires.fermeture !== horairesSaved.fermeture;
+
+    const fetchHoraires = async () => {
+        try {
+            const { data } = await axios.get("/api/setting/sheinHoraires");
+            if (data.success && data.data) {
+                setHoraires({ ouverture: data.data.ouverture || "08:00", fermeture: data.data.fermeture || "19:00" });
+                setHorairesSaved({ ouverture: data.data.ouverture || "08:00", fermeture: data.data.fermeture || "19:00" });
+            }
+        } catch (error) {
+            // pas encore configuré — reste sur la valeur par défaut 8h-19h
+        }
+    };
+
+    const enregistrerHoraires = async () => {
+        setSavingHoraires(true);
+        try {
+            const { data } = await axios.post("/api/setting/update", { key: "sheinHoraires", value: horaires });
+            if (data.success) {
+                toast.success("Horaires de service enregistrés");
+                setHorairesSaved(horaires);
+            } else {
+                toast.error(data.message);
+            }
+        } catch (error) {
+            toast.error("Erreur d'enregistrement des horaires");
+        } finally {
+            setSavingHoraires(false);
+        }
+    };
+
+    // --- Vue "Livraisons" : suivi des dates estimées pour tous les colis en cours de livraison ---
+    const [vue, setVue] = useState("suivi"); // "suivi" | "livraisons"
+    const [colisLivraison, setColisLivraison] = useState([]);
+    const [loadingLivraisons, setLoadingLivraisons] = useState(false);
+
+    const fetchLivraisons = async () => {
+        setLoadingLivraisons(true);
+        try {
+            const { data } = await axios.get("/api/shein-cart/admin/all?statut=en_livraison");
+            if (data.success) {
+                const tries = [...data.colis].sort((a, b) => new Date(a.livraison?.dateFin || 0) - new Date(b.livraison?.dateFin || 0));
+                setColisLivraison(tries);
+            }
+        } catch (error) {
+            toast.error("Erreur de chargement des livraisons");
+        } finally {
+            setLoadingLivraisons(false);
+        }
+    };
+
+    useEffect(() => { if (vue === "livraisons") fetchLivraisons(); }, [vue]);
+
+    const joursRestants = (dateFin) => {
+        if (!dateFin) return null;
+        const diff = Math.ceil((new Date(dateFin) - new Date()) / (1000 * 60 * 60 * 24));
+        return diff;
+    };
+
+    // --- Modal date de livraison (déclenché au passage en statut "en_livraison") ---
+    const [livraisonModal, setLivraisonModal] = useState(false);
+    const [livraisonForm, setLivraisonForm] = useState({ dateDebut: "", dateFin: "" });
+
+    const ouvrirModalLivraison = () => {
+        const dansUneSemaine = new Date();
+        dansUneSemaine.setDate(dansUneSemaine.getDate() + 7);
+        const dansDeuxSemaines = new Date();
+        dansDeuxSemaines.setDate(dansDeuxSemaines.getDate() + 14);
+        setLivraisonForm({
+            dateDebut: selection?.livraison?.dateDebut ? new Date(selection.livraison.dateDebut).toISOString().slice(0, 10) : dansUneSemaine.toISOString().slice(0, 10),
+            dateFin: selection?.livraison?.dateFin ? new Date(selection.livraison.dateFin).toISOString().slice(0, 10) : dansDeuxSemaines.toISOString().slice(0, 10),
+        });
+        setLivraisonModal(true);
+    };
+
+    const confirmerLivraison = async () => {
+        const { dateDebut, dateFin } = livraisonForm;
+        if (!dateDebut || !dateFin) {
+            toast.error("Les deux dates sont requises");
+            return;
+        }
+        if (new Date(dateFin) < new Date(dateDebut)) {
+            toast.error("La date de fin doit être après la date de début");
+            return;
+        }
+        try {
+            const { data } = await axios.post(`/api/shein-cart/admin/${selection._id}/statut`, {
+                statut: "en_livraison", dateLivraisonDebut: dateDebut, dateLivraisonFin: dateFin,
+            });
+            if (data.success) {
+                toast.success("Livraison en cours — dates communiquées au client");
+                setSelection(data.colis);
+                fetchListe(filtreStatut);
+                setLivraisonModal(false);
+            } else {
+                toast.error(data.message);
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || "Erreur d'enregistrement");
+        }
+    };
+
     const fetchListe = async (statut) => {
         setLoading(true);
         try {
@@ -105,7 +212,7 @@ const ColisSheinManager = () => {
         }
     };
 
-    useEffect(() => { fetchTaux(); }, []);
+    useEffect(() => { fetchTaux(); fetchHoraires(); }, []);
     useEffect(() => {
         axios.get("/api/setting/sheinReponsesRapides")
             .then(({ data }) => { if (data.success && Array.isArray(data.data)) setReponsesRapides(data.data); })
@@ -184,6 +291,12 @@ const ColisSheinManager = () => {
     };
 
     const changerStatut = async (statut, silencieux = false) => {
+        // Le passage en livraison exige une fenêtre de dates estimée — on passe
+        // toujours par la modale dédiée plutôt qu'un changement de statut direct.
+        if (statut === "en_livraison") {
+            ouvrirModalLivraison();
+            return;
+        }
         const note = silencieux ? "" : (window.prompt(`Note pour ce changement vers "${statut}" (optionnel) :`) || "");
         try {
             const { data } = await axios.post(`/api/shein-cart/admin/${selection._id}/statut`, { statut, note });
@@ -279,6 +392,66 @@ const ColisSheinManager = () => {
                 )}
             </div>
 
+            <div className="csm-taux-bar">
+                <span className="csm-taux-label">Horaires de service</span>
+                <label>Ouverture <input type="time" value={horaires.ouverture} onChange={(e) => setHoraires((p) => ({ ...p, ouverture: e.target.value }))} /></label>
+                <label>Fermeture <input type="time" value={horaires.fermeture} onChange={(e) => setHoraires((p) => ({ ...p, fermeture: e.target.value }))} /></label>
+                <button onClick={enregistrerHoraires} disabled={!horairesModifie || savingHoraires} className="csm-taux-save">
+                    {savingHoraires ? "Enregistrement…" : "Enregistrer"}
+                </button>
+                <span className="csm-horaires-info">Le client voit "Fermé" en dehors de cette plage</span>
+            </div>
+
+            <div className="csm-tabs">
+                <button className={`csm-tab ${vue === "suivi" ? "active" : ""}`} onClick={() => setVue("suivi")}>Suivi des colis</button>
+                <button className={`csm-tab ${vue === "livraisons" ? "active" : ""}`} onClick={() => setVue("livraisons")}>Livraisons en cours</button>
+            </div>
+
+            {vue === "livraisons" ? (
+                <div className="csm-livraisons">
+                    {loadingLivraisons ? (
+                        <p className="csm-empty">Chargement…</p>
+                    ) : colisLivraison.length === 0 ? (
+                        <p className="csm-empty">Aucun colis en cours de livraison</p>
+                    ) : (
+                        <table className="csm-livraisons-table">
+                            <thead>
+                                <tr>
+                                    <th>Colis</th>
+                                    <th>Client</th>
+                                    <th>Livraison estimée</th>
+                                    <th>Statut</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {colisLivraison.map((c) => {
+                                    const jours = joursRestants(c.livraison?.dateFin);
+                                    return (
+                                        <tr key={c._id}>
+                                            <td>{c.numeroSuivi}</td>
+                                            <td>{c.userId?.name || c.userId?.email}</td>
+                                            <td>
+                                                {c.livraison?.dateDebut && c.livraison?.dateFin
+                                                    ? `${dateCourteFr(c.livraison.dateDebut)} → ${dateCourteFr(c.livraison.dateFin)}`
+                                                    : "—"}
+                                            </td>
+                                            <td>
+                                                {jours == null ? "—" : jours < 0 ? (
+                                                    <span className="csm-retard">En retard de {Math.abs(jours)}j</span>
+                                                ) : jours === 0 ? (
+                                                    <span className="csm-aujourdhui">Aujourd'hui</span>
+                                                ) : (
+                                                    <span>Dans {jours}j</span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            ) : (
             <div className="csm-wrap">
                 <div className="csm-liste">
                     <h2>Colis SHEIN</h2>
@@ -328,6 +501,13 @@ const ColisSheinManager = () => {
                                 <span className="csm-etape-label">Étape actuelle</span>
                                 <p className="csm-etape-value">{STATUT_LABELS[selection.statut] || selection.statut}</p>
                             </div>
+
+                            {selection.livraison?.dateDebut && selection.livraison?.dateFin && (
+                                <div className="csm-livraison-info">
+                                    <span>📦 Livraison estimée : {dateCourteFr(selection.livraison.dateDebut)} → {dateCourteFr(selection.livraison.dateFin)}</span>
+                                    <button className="csm-btn-secondary" onClick={ouvrirModalLivraison}>Modifier</button>
+                                </div>
+                            )}
 
                             {(selection.statut === "soumis" || selection.statut === "en_verification") && (
                                 <>
@@ -481,6 +661,28 @@ const ColisSheinManager = () => {
                     )}
                 </div>
             </div>
+            )}
+
+            {livraisonModal && (
+                <div className="csm-modal-overlay" onClick={() => setLivraisonModal(false)}>
+                    <div className="csm-modal" onClick={(e) => e.stopPropagation()}>
+                        <h3>Fenêtre de livraison estimée</h3>
+                        <p className="csm-modal-hint">Ces dates seront communiquées au client dans le chat.</p>
+                        <div className="csm-pesee-field">
+                            <label>Livraison à partir du</label>
+                            <input type="date" value={livraisonForm.dateDebut} onChange={(e) => setLivraisonForm((p) => ({ ...p, dateDebut: e.target.value }))} autoFocus />
+                        </div>
+                        <div className="csm-pesee-field">
+                            <label>Jusqu'au</label>
+                            <input type="date" value={livraisonForm.dateFin} onChange={(e) => setLivraisonForm((p) => ({ ...p, dateFin: e.target.value }))} />
+                        </div>
+                        <div className="csm-pesee-actions">
+                            <button className="csm-btn-secondary" onClick={() => setLivraisonModal(false)}>Annuler</button>
+                            <button className="csm-btn-primary" onClick={confirmerLivraison}>Confirmer et prévenir le client</button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {peseeModal && (
                 <div className="csm-modal-overlay" onClick={() => setPeseeModal(false)}>
@@ -546,6 +748,19 @@ const ColisSheinManager = () => {
         .csm-taux-save { background: #111; color: #fff; border: none; border-radius: 20px; padding: 6px 14px; font-size: 12px; cursor: pointer; }
         .csm-taux-save:disabled { opacity: .4; cursor: default; }
         .csm-taux-warning { font-size: 11.5px; color: #c62828; }
+        .csm-horaires-info { font-size: 11.5px; color: #999; }
+        .csm-tabs { display: flex; gap: 6px; padding: 12px 20px 0; }
+        .csm-tab { background: #f7f5f2; border: none; border-radius: 20px; padding: 8px 16px; font-size: 12.5px; font-weight: 600; color: #666; cursor: pointer; }
+        .csm-tab.active { background: #111; color: #fff; }
+        .csm-livraisons { padding: 20px; }
+        .csm-livraisons-table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #f0ede8; border-radius: 10px; overflow: hidden; }
+        .csm-livraisons-table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: #999; padding: 10px 14px; background: #f7f5f2; }
+        .csm-livraisons-table td { padding: 10px 14px; font-size: 13px; border-top: 1px solid #f0ede8; }
+        .csm-retard { color: #c62828; font-weight: 600; }
+        .csm-aujourdhui { color: #e53935; font-weight: 600; }
+        .csm-livraison-info { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #eef7f0; color: #256029; border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; font-size: 12.5px; }
+        .csm-livraison-info button { flex-shrink: 0; padding: 5px 12px !important; font-size: 11.5px !important; }
+        .csm-modal-hint { font-size: 12px; color: #999; margin: -6px 0 14px; }
         .csm-wrap { display: flex; gap: 20px; padding: 20px; }
         .csm-liste { width: 280px; flex-shrink: 0; }
         .csm-liste h2 { font-size: 16px; margin: 0 0 10px; }

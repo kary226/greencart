@@ -77,6 +77,13 @@ const colisSheinSchema = new mongoose.Schema({
         methode: { type: String, enum: ["geniuspay", "cash", null], default: null },
     },
 
+    // Fenêtre de livraison estimée — renseignée par l'agent au moment du passage
+    // au statut "en_livraison" (ex. entre le 12/01/2026 et le 19/01/2026).
+    livraison: {
+        dateDebut: { type: Date, default: null },
+        dateFin: { type: Date, default: null },
+    },
+
     historique: [HistoriqueSchema],
 
     // Suivi de lecture du chat — sert uniquement à afficher les badges "nouveau message"

@@ -151,13 +151,31 @@ export const validateColis = async (req, res) => {
 // POST /api/shein-cart/admin/:id/statut — transitions génériques pour la suite du parcours
 export const updateStatutColis = async (req, res) => {
     try {
-        const { statut, note, poidsReel, tauxParKilo, fraisLivraisonAbidjan } = req.body;
+        const { statut, note, poidsReel, tauxParKilo, fraisLivraisonAbidjan, dateLivraisonDebut, dateLivraisonFin } = req.body;
         const colis = await ColisShein.findById(req.params.id);
         if (!colis) return res.status(404).json({ success: false, message: "Colis introuvable" });
 
         const statutsValides = ColisShein.schema.path("statut").enumValues;
         if (!statutsValides.includes(statut)) {
             return res.status(400).json({ success: false, message: "Statut invalide" });
+        }
+
+        // Passage en livraison : la fenêtre estimée (ex. 12/01/2026 → 19/01/2026)
+        // est obligatoire — jamais de statut "en_livraison" sans date annoncée au client.
+        if (statut === "en_livraison") {
+            if (!dateLivraisonDebut || !dateLivraisonFin) {
+                return res.status(400).json({ success: false, message: "Dates de livraison estimées requises (début et fin)" });
+            }
+            const debut = new Date(dateLivraisonDebut);
+            const fin = new Date(dateLivraisonFin);
+            if (isNaN(debut.getTime()) || isNaN(fin.getTime())) {
+                return res.status(400).json({ success: false, message: "Dates de livraison invalides" });
+            }
+            if (fin < debut) {
+                return res.status(400).json({ success: false, message: "La date de fin doit être après la date de début" });
+            }
+            colis.livraison.dateDebut = debut;
+            colis.livraison.dateFin = fin;
         }
 
         // Pesée : deuxième devis, indépendant du premier — uniquement kilo + livraison Abidjan,
@@ -193,6 +211,13 @@ export const updateStatutColis = async (req, res) => {
         if (statut === "pese") {
             const detail = `${colis.devis.poidsReel} kg × ${colis.devis.tauxParKilo} FCFA/kg + ${colis.devis.fraisLivraisonEstime || 0} FCFA livraison Abidjan`;
             await posterDevisMessage(colis._id, colis.paiement.soldeMontant, "Livraison (poids + Abidjan)", "shein_solde", detail);
+        }
+        if (statut === "en_livraison") {
+            const fmt = (d) => new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+            await posterMessageSysteme(
+                colis._id,
+                `📦 Colis en cours de livraison — livraison estimée entre le ${fmt(colis.livraison.dateDebut)} et le ${fmt(colis.livraison.dateFin)}`
+            );
         }
         res.json({ success: true, colis });
     } catch (error) {
