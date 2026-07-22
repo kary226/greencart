@@ -68,3 +68,18 @@ export const sendMessageClient = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
+// POST /api/shein-cart/:id/typing — signal léger "le client écrit", appelé en continu
+// pendant la frappe (débattu côté front). updateOne pour rester très bon marché,
+// aucun besoin de charger/valider tout le document pour ça.
+export const setClientTyping = async (req, res) => {
+    try {
+        await ColisShein.updateOne(
+            { _id: req.params.id, userId: req.body.userId },
+            { clientTypingAt: new Date() }
+        );
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};

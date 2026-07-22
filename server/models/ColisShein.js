@@ -86,6 +86,11 @@ const colisSheinSchema = new mongoose.Schema({
     adminDernierLu: { type: Date, default: null },
     clientDernierLu: { type: Date, default: null },
 
+    // Indicateur "en train d'écrire" — horodatage mis à jour à chaque frappe,
+    // considéré valide quelques secondes seulement (voir TYPING_TTL_MS côté client).
+    agentTypingAt: { type: Date, default: null },
+    clientTypingAt: { type: Date, default: null },
+
 }, { timestamps: true, minimize: false });
 
 // Génère un numéro lisible du type SHEIN-2607-014 (mois+année + compteur du jour)

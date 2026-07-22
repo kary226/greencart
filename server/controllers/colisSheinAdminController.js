@@ -258,3 +258,14 @@ export const sendMessageAgent = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
+// POST /api/shein-cart/admin/:id/typing — signal léger "l'agent écrit", même logique
+// que setClientTyping côté client (updateOne, pas de validation complète du document).
+export const setAgentTyping = async (req, res) => {
+    try {
+        await ColisShein.updateOne({ _id: req.params.id }, { agentTypingAt: new Date() });
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};

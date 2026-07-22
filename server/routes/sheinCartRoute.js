@@ -3,7 +3,7 @@ import multer from "multer";
 import authUser from "../middlewares/authUser.js";
 import authSeller from "../middlewares/authSeller.js";
 import { analyzeCart, submitCart, getUserColis, getColisById, payAcompte, paySolde } from "../controllers/sheinCartController.js";
-import { getMessages, sendMessageClient } from "../controllers/messageColisController.js";
+import { getMessages, sendMessageClient, setClientTyping } from "../controllers/messageColisController.js";
 import {
     getAllColisAdmin,
     getColisAdminById,
@@ -11,6 +11,7 @@ import {
     updateStatutColis,
     getMessagesAdmin,
     sendMessageAgent,
+    setAgentTyping,
 } from "../controllers/colisSheinAdminController.js";
 
 const sheinCartRouter = express.Router();
@@ -49,11 +50,13 @@ sheinCartRouter.post("/admin/:id/validate", authSeller, validateColis);
 sheinCartRouter.post("/admin/:id/statut", authSeller, updateStatutColis);
 sheinCartRouter.get("/admin/:id/messages", authSeller, getMessagesAdmin);
 sheinCartRouter.post("/admin/:id/messages", uploadChatImage.single("image"), authSeller, sendMessageAgent);
+sheinCartRouter.post("/admin/:id/typing", authSeller, setAgentTyping);
 
 // --- Routes client génériques (en dernier, elles absorbent tout le reste) ---
 sheinCartRouter.get("/:id", authUser, getColisById);
 sheinCartRouter.get("/:id/messages", authUser, getMessages);
 sheinCartRouter.post("/:id/messages", uploadChatImage.single("image"), authUser, sendMessageClient);
+sheinCartRouter.post("/:id/typing", authUser, setClientTyping);
 sheinCartRouter.post("/:id/pay-acompte", authUser, payAcompte);
 sheinCartRouter.post("/:id/pay-solde", authUser, paySolde);
 
