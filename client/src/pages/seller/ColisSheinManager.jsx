@@ -27,7 +27,7 @@ const STATUT_LABELS = {
 // étapes d'attente (paiement du client, traité automatiquement par le webhook).
 const PROCHAINE_ACTION = {
     acompte_paye: { label: "Marquer comme acheté chez SHEIN", cible: "achete" },
-    achete: { label: "Marquer reçu en entrepôt", cible: "en_entrepot" },
+    achete: { label: "✅ Confirmer l'arrivée à Abidjan", cible: "en_entrepot" },
     solde_paye: { label: "Marquer en cours de livraison", cible: "en_livraison" },
     en_livraison: { label: "Marquer livré", cible: "livre" },
 };
@@ -150,13 +150,93 @@ const ColisSheinManager = () => {
 
     useEffect(() => { if (vue === "livraisons") fetchLivraisons(); }, [vue]);
 
+    // --- Vue "Avis clients" : moyenne, distribution par étoile, derniers commentaires ---
+    const [statsAvis, setStatsAvis] = useState({ total: 0, moyenne: 0, distribution: {} });
+    const [listeAvis, setListeAvis] = useState([]);
+    const [loadingAvis, setLoadingAvis] = useState(false);
+
+    const fetchStatsAvis = async () => {
+        setLoadingAvis(true);
+        try {
+            const { data } = await axios.get("/api/shein-cart/admin/avis/stats");
+            if (data.success) {
+                setStatsAvis(data.stats);
+                setListeAvis(data.avis);
+            }
+        } catch (error) {
+            toast.error("Erreur de chargement des avis");
+        } finally {
+            setLoadingAvis(false);
+        }
+    };
+
+    useEffect(() => { if (vue === "avis") fetchStatsAvis(); }, [vue]);
+
     const joursRestants = (dateFin) => {
         if (!dateFin) return null;
         const diff = Math.ceil((new Date(dateFin) - new Date()) / (1000 * 60 * 60 * 24));
         return diff;
     };
 
-    // --- Modal date de livraison (déclenché au passage en statut "en_livraison") ---
+    // --- Estimation d'arrivée à Abidjan (posée juste après le paiement de l'acompte) ---
+    const [arriveeModal, setArriveeModal] = useState(false);
+    const [arriveeForm, setArriveeForm] = useState({ dateDebut: "", dateFin: "" });
+
+    const ouvrirModalArrivee = () => {
+        const dansCinqJours = new Date();
+        dansCinqJours.setDate(dansCinqJours.getDate() + 5);
+        const dansDixJours = new Date();
+        dansDixJours.setDate(dansDixJours.getDate() + 10);
+        setArriveeForm({
+            dateDebut: selection?.estimationArrivee?.dateDebut ? new Date(selection.estimationArrivee.dateDebut).toISOString().slice(0, 10) : dansCinqJours.toISOString().slice(0, 10),
+            dateFin: selection?.estimationArrivee?.dateFin ? new Date(selection.estimationArrivee.dateFin).toISOString().slice(0, 10) : dansDixJours.toISOString().slice(0, 10),
+        });
+        setArriveeModal(true);
+    };
+
+    const confirmerEstimationArrivee = async () => {
+        const { dateDebut, dateFin } = arriveeForm;
+        if (!dateDebut || !dateFin) {
+            toast.error("Les deux dates sont requises");
+            return;
+        }
+        if (new Date(dateFin) < new Date(dateDebut)) {
+            toast.error("La date de fin doit être après la date de début");
+            return;
+        }
+        try {
+            const { data } = await axios.post(`/api/shein-cart/admin/${selection._id}/estimation-arrivee`, { dateDebut, dateFin });
+            if (data.success) {
+                toast.success("Estimation communiquée au client");
+                setSelection(data.colis);
+                setArriveeModal(false);
+            } else {
+                toast.error(data.message);
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || "Erreur d'enregistrement");
+        }
+    };
+
+    // --- Raccourci "Demander un avis" (carte étoiles envoyée dans le chat) ---
+    const [envoiDemandeAvis, setEnvoiDemandeAvis] = useState(false);
+
+    const demanderAvisClient = async () => {
+        setEnvoiDemandeAvis(true);
+        try {
+            const { data } = await axios.post(`/api/shein-cart/admin/${selection._id}/demander-avis`);
+            if (data.success) {
+                toast.success("Demande d'avis envoyée au client");
+                setMessages((prev) => [...prev, data.message]);
+            } else {
+                toast.error(data.message);
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || "Erreur d'envoi");
+        } finally {
+            setEnvoiDemandeAvis(false);
+        }
+    };
     const [livraisonModal, setLivraisonModal] = useState(false);
     const [livraisonForm, setLivraisonForm] = useState({ dateDebut: "", dateFin: "" });
 
@@ -405,6 +485,7 @@ const ColisSheinManager = () => {
             <div className="csm-tabs">
                 <button className={`csm-tab ${vue === "suivi" ? "active" : ""}`} onClick={() => setVue("suivi")}>Suivi des colis</button>
                 <button className={`csm-tab ${vue === "livraisons" ? "active" : ""}`} onClick={() => setVue("livraisons")}>Livraisons en cours</button>
+                <button className={`csm-tab ${vue === "avis" ? "active" : ""}`} onClick={() => setVue("avis")}>⭐ Avis clients{statsAvis.total > 0 ? ` (${statsAvis.total})` : ""}</button>
             </div>
 
             {vue === "livraisons" ? (
@@ -449,6 +530,53 @@ const ColisSheinManager = () => {
                                 })}
                             </tbody>
                         </table>
+                    )}
+                </div>
+            ) : vue === "avis" ? (
+                <div className="csm-avis-overview">
+                    {loadingAvis ? (
+                        <p className="csm-empty">Chargement…</p>
+                    ) : statsAvis.total === 0 ? (
+                        <p className="csm-empty">Aucun avis reçu pour l'instant — utilise le raccourci "⭐ Demander un avis" dans une conversation.</p>
+                    ) : (
+                        <>
+                            <div className="csm-avis-summary">
+                                <div className="csm-avis-moyenne">
+                                    <span className="csm-avis-moyenne-chiffre">{statsAvis.moyenne}</span>
+                                    <div className="csm-avis-moyenne-etoiles">
+                                        {[1, 2, 3, 4, 5].map((n) => (
+                                            <span key={n} className={n <= Math.round(statsAvis.moyenne) ? "pleine" : "vide"}>★</span>
+                                        ))}
+                                    </div>
+                                    <span className="csm-avis-moyenne-total">{statsAvis.total} avis</span>
+                                </div>
+                                <div className="csm-avis-distribution">
+                                    {[5, 4, 3, 2, 1].map((n) => {
+                                        const count = statsAvis.distribution[n] || 0;
+                                        const pct = statsAvis.total > 0 ? Math.round((count / statsAvis.total) * 100) : 0;
+                                        return (
+                                            <div key={n} className="csm-avis-bar-row">
+                                                <span className="csm-avis-bar-label">{n}★</span>
+                                                <div className="csm-avis-bar-track"><div className="csm-avis-bar-fill" style={{ width: `${pct}%` }} /></div>
+                                                <span className="csm-avis-bar-count">{count}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                            <div className="csm-avis-liste">
+                                {listeAvis.map((a) => (
+                                    <div key={a._id} className="csm-avis-item">
+                                        <div className="csm-avis-item-top">
+                                            <span className="csm-avis-item-etoiles">{"★".repeat(a.etoiles)}{"☆".repeat(5 - a.etoiles)}</span>
+                                            <span className="csm-avis-item-date">{dateCourteFr(a.createdAt)}</span>
+                                        </div>
+                                        <p className="csm-avis-item-meta">{a.userId?.name || a.userId?.email || "Client"} · {a.colisId?.numeroSuivi || "—"}</p>
+                                        {a.commentaire && <p className="csm-avis-item-comment">"{a.commentaire}"</p>}
+                                    </div>
+                                ))}
+                            </div>
+                        </>
                     )}
                 </div>
             ) : (
@@ -502,6 +630,18 @@ const ColisSheinManager = () => {
                                 <p className="csm-etape-value">{STATUT_LABELS[selection.statut] || selection.statut}</p>
                             </div>
 
+                            {selection.estimationArrivee?.dateDebut && selection.estimationArrivee?.dateFin && (
+                                <div className={`csm-livraison-info ${selection.estimationArrivee.confirmee ? "csm-arrivee-confirmee" : ""}`}>
+                                    <span>
+                                        🚚 Arrivée Abidjan estimée : {dateCourteFr(selection.estimationArrivee.dateDebut)} → {dateCourteFr(selection.estimationArrivee.dateFin)}
+                                        {selection.estimationArrivee.confirmee && ` — confirmée le ${dateCourteFr(selection.estimationArrivee.dateConfirmee)}`}
+                                    </span>
+                                    {!selection.estimationArrivee.confirmee && (
+                                        <button className="csm-btn-secondary" onClick={ouvrirModalArrivee}>Modifier</button>
+                                    )}
+                                </div>
+                            )}
+
                             {selection.livraison?.dateDebut && selection.livraison?.dateFin && (
                                 <div className="csm-livraison-info">
                                     <span>📦 Livraison estimée : {dateCourteFr(selection.livraison.dateDebut)} → {dateCourteFr(selection.livraison.dateFin)}</span>
@@ -552,6 +692,12 @@ const ColisSheinManager = () => {
 
                             {selection.statut === "en_entrepot" && (
                                 <button onClick={ouvrirModalPesee} className="csm-btn-guide">Enregistrer la pesée et envoyer le devis livraison</button>
+                            )}
+
+                            {(selection.statut === "acompte_paye" || selection.statut === "achete") && (
+                                <button onClick={ouvrirModalArrivee} className="csm-btn-secondary csm-btn-full">
+                                    📅 {selection.estimationArrivee?.dateDebut ? "Modifier" : "Définir"} l'estimation d'arrivée à Abidjan
+                                </button>
                             )}
 
                             {PROCHAINE_ACTION[selection.statut] && (
@@ -618,6 +764,18 @@ const ColisSheinManager = () => {
                                                 </div>
                                             );
                                         }
+                                        if (m.type === "avis") {
+                                            return (
+                                                <div key={m._id} className="csm-avis-card-admin">
+                                                    <span>⭐ Demande d'avis envoyée</span>
+                                                    {m.payload?.repondu ? (
+                                                        <strong>{"⭐".repeat(m.payload.etoilesDonnees)} ({m.payload.etoilesDonnees}/5)</strong>
+                                                    ) : (
+                                                        <em>En attente de réponse du client</em>
+                                                    )}
+                                                </div>
+                                            );
+                                        }
                                         return (
                                             <div key={m._id} className={`csm-msg ${m.expediteurRole}`}>
                                                 {m.imageUrl && <img src={m.imageUrl} alt="" className="csm-msg-img" onClick={() => window.open(m.imageUrl, "_blank")} />}
@@ -629,14 +787,15 @@ const ColisSheinManager = () => {
                                         );
                                     })}
                                 </div>
-                                {reponsesRapides.length > 0 && (
-                                    <div className="csm-quick-replies">
-                                        {reponsesRapides.map((r, i) => (
-                                            <button key={i} onClick={() => setTexte(r)}>{r}</button>
-                                        ))}
-                                        <button className="csm-quick-edit" onClick={() => setGererReponses(true)}>⚙</button>
-                                    </div>
-                                )}
+                                <div className="csm-quick-replies">
+                                    {reponsesRapides.map((r, i) => (
+                                        <button key={i} onClick={() => setTexte(r)}>{r}</button>
+                                    ))}
+                                    <button className="csm-quick-avis" onClick={demanderAvisClient} disabled={envoiDemandeAvis}>
+                                        ⭐ Demander un avis
+                                    </button>
+                                    <button className="csm-quick-edit" onClick={() => setGererReponses(true)}>⚙</button>
+                                </div>
                                 {imageChoisie && (
                                     <div className="csm-preview">
                                         <img src={URL.createObjectURL(imageChoisie)} alt="" />
@@ -661,6 +820,27 @@ const ColisSheinManager = () => {
                     )}
                 </div>
             </div>
+            )}
+
+            {arriveeModal && (
+                <div className="csm-modal-overlay" onClick={() => setArriveeModal(false)}>
+                    <div className="csm-modal" onClick={(e) => e.stopPropagation()}>
+                        <h3>Estimation d'arrivée à Abidjan</h3>
+                        <p className="csm-modal-hint">Fenêtre large (achat + transit) communiquée au client en attendant l'arrivée réelle en entrepôt.</p>
+                        <div className="csm-pesee-field">
+                            <label>Arrivée à partir du</label>
+                            <input type="date" value={arriveeForm.dateDebut} onChange={(e) => setArriveeForm((p) => ({ ...p, dateDebut: e.target.value }))} autoFocus />
+                        </div>
+                        <div className="csm-pesee-field">
+                            <label>Jusqu'au</label>
+                            <input type="date" value={arriveeForm.dateFin} onChange={(e) => setArriveeForm((p) => ({ ...p, dateFin: e.target.value }))} />
+                        </div>
+                        <div className="csm-pesee-actions">
+                            <button className="csm-btn-secondary" onClick={() => setArriveeModal(false)}>Annuler</button>
+                            <button className="csm-btn-primary" onClick={confirmerEstimationArrivee}>Confirmer et prévenir le client</button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {livraisonModal && (
@@ -760,6 +940,8 @@ const ColisSheinManager = () => {
         .csm-aujourdhui { color: #e53935; font-weight: 600; }
         .csm-livraison-info { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #eef7f0; color: #256029; border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; font-size: 12.5px; }
         .csm-livraison-info button { flex-shrink: 0; padding: 5px 12px !important; font-size: 11.5px !important; }
+        .csm-livraison-info.csm-arrivee-confirmee { background: #f7f5f2; color: #666; }
+        .csm-btn-full { width: 100%; margin-bottom: 8px; text-align: center; }
         .csm-modal-hint { font-size: 12px; color: #999; margin: -6px 0 14px; }
         .csm-wrap { display: flex; gap: 20px; padding: 20px; }
         .csm-liste { width: 280px; flex-shrink: 0; }
@@ -830,6 +1012,31 @@ const ColisSheinManager = () => {
         .csm-devis-card span { display: block; font-size: 10px; color: #999; text-transform: uppercase; }
         .csm-devis-card strong { font-size: 14px; color: #111; }
         .csm-devis-card em { display: block; font-size: 9.5px; color: #aaa; font-style: normal; margin-top: 2px; }
+        .csm-avis-card-admin { display: flex; flex-direction: column; gap: 3px; background: #fff8e6; border: 1px solid #f5e3ae; border-radius: 10px; padding: 8px 12px; font-size: 12px; align-self: flex-start; max-width: 240px; }
+        .csm-avis-card-admin strong { color: #8a6100; }
+        .csm-avis-card-admin em { color: #999; font-style: normal; }
+        .csm-quick-avis { background: #fff8e6 !important; border-color: #f5e3ae !important; color: #8a6100 !important; font-weight: 600 !important; }
+        .csm-avis-overview { padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+        .csm-avis-summary { display: flex; gap: 32px; background: #fff; border: 1px solid #f0ede8; border-radius: 12px; padding: 20px; flex-wrap: wrap; }
+        .csm-avis-moyenne { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 120px; }
+        .csm-avis-moyenne-chiffre { font-size: 40px; font-weight: 800; color: #111; line-height: 1; }
+        .csm-avis-moyenne-etoiles { font-size: 18px; letter-spacing: 2px; }
+        .csm-avis-moyenne-etoiles .pleine { color: #f5a623; }
+        .csm-avis-moyenne-etoiles .vide { color: #ddd; }
+        .csm-avis-moyenne-total { font-size: 11.5px; color: #999; }
+        .csm-avis-distribution { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 6px; justify-content: center; }
+        .csm-avis-bar-row { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: #666; }
+        .csm-avis-bar-label { width: 20px; }
+        .csm-avis-bar-track { flex: 1; height: 8px; background: #f0ede8; border-radius: 4px; overflow: hidden; }
+        .csm-avis-bar-fill { height: 100%; background: #f5a623; border-radius: 4px; }
+        .csm-avis-bar-count { width: 22px; text-align: right; }
+        .csm-avis-liste { display: flex; flex-direction: column; gap: 10px; }
+        .csm-avis-item { background: #fff; border: 1px solid #f0ede8; border-radius: 10px; padding: 12px 16px; }
+        .csm-avis-item-top { display: flex; justify-content: space-between; align-items: center; }
+        .csm-avis-item-etoiles { color: #f5a623; letter-spacing: 1px; }
+        .csm-avis-item-date { font-size: 11px; color: #999; }
+        .csm-avis-item-meta { font-size: 11.5px; color: #888; margin: 4px 0 0; }
+        .csm-avis-item-comment { font-size: 13px; color: #333; margin: 6px 0 0; font-style: italic; }
         .csm-quick-replies { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 10px 0; border-top: 1px solid #f0ede8; }
         .csm-quick-replies button { background: #f7f5f2; border: 1px solid #e5e0d8; border-radius: 14px; padding: 5px 10px; font-size: 11px; color: #555; cursor: pointer; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .csm-quick-edit { background: none !important; border: none !important; font-size: 13px !important; padding: 4px 6px !important; }

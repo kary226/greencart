@@ -31,6 +31,53 @@ export const posterMessageSysteme = async (colisId, texte) => {
     await MessageColis.create({ colisId, expediteurRole: "systeme", type: "systeme", texte });
 };
 
+// POST /api/shein-cart/admin/:id/estimation-arrivee
+// Renseigné juste après le paiement du premier devis (acompte) : une fenêtre
+// large "arrivée estimée à Abidjan" (achat + transit), affichée au client en
+// attendant l'arrivée réelle en entrepôt. Indépendante de la confirmation
+// d'arrivée elle-même (voir updateStatutColis, statut "en_entrepot").
+export const definirEstimationArrivee = async (req, res) => {
+    try {
+        const { dateDebut, dateFin } = req.body;
+        const colis = await ColisShein.findById(req.params.id);
+        if (!colis) return res.status(404).json({ success: false, message: "Colis introuvable" });
+
+        if (!dateDebut || !dateFin) {
+            return res.status(400).json({ success: false, message: "Les deux dates sont requises" });
+        }
+        const debut = new Date(dateDebut);
+        const fin = new Date(dateFin);
+        if (isNaN(debut.getTime()) || isNaN(fin.getTime())) {
+            return res.status(400).json({ success: false, message: "Dates invalides" });
+        }
+        if (fin < debut) {
+            return res.status(400).json({ success: false, message: "La date de fin doit être après la date de début" });
+        }
+
+        colis.estimationArrivee.dateDebut = debut;
+        colis.estimationArrivee.dateFin = fin;
+        colis.estimationArrivee.confirmee = false;
+        colis.estimationArrivee.dateConfirmee = null;
+        colis.historique.push({
+            action: "estimation_arrivee",
+            agent: process.env.SELLER_EMAIL,
+            note: `Arrivée estimée à Abidjan entre le ${debut.toLocaleDateString("fr-FR")} et le ${fin.toLocaleDateString("fr-FR")}`,
+        });
+        await colis.save();
+
+        const fmt = (d) => new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+        await posterMessageSysteme(
+            colis._id,
+            `🚚 Commande validée — arrivée estimée à Abidjan entre le ${fmt(debut)} et le ${fmt(fin)}`
+        );
+
+        res.json({ success: true, colis });
+    } catch (error) {
+        console.error("Erreur definirEstimationArrivee:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 // GET /api/shein-cart/admin/all?statut=soumis (statut optionnel)
 export const getAllColisAdmin = async (req, res) => {
     try {
@@ -200,6 +247,14 @@ export const updateStatutColis = async (req, res) => {
             }
         }
 
+        // Arrivée à l'entrepôt d'Abidjan — on "confirme" l'estimation posée plus tôt
+        // (si elle existe), quel que soit le résultat : la confirmation n'est jamais
+        // bloquée par l'estimation, elle sert juste à donner un retour honnête au client.
+        if (statut === "en_entrepot") {
+            colis.estimationArrivee.confirmee = true;
+            colis.estimationArrivee.dateConfirmee = new Date();
+        }
+
         colis.statut = statut;
         colis.historique.push({
             action: `statut_${statut}`,
@@ -218,6 +273,15 @@ export const updateStatutColis = async (req, res) => {
                 colis._id,
                 `📦 Colis en cours de livraison — livraison estimée entre le ${fmt(colis.livraison.dateDebut)} et le ${fmt(colis.livraison.dateFin)}`
             );
+        }
+        if (statut === "en_entrepot") {
+            const estimation = colis.estimationArrivee;
+            let texte = "📍 Colis arrivé à l'entrepôt d'Abidjan !";
+            if (estimation?.dateFin) {
+                const enAvance = new Date() < estimation.dateFin;
+                texte += enAvance ? " (avant la date estimée 🎉)" : " (l'estimation initiale a pris un peu de retard, merci de votre patience)";
+            }
+            await posterMessageSysteme(colis._id, texte);
         }
         res.json({ success: true, colis });
     } catch (error) {

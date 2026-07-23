@@ -82,6 +82,12 @@ const CocheDouble = () => (
     </svg>
 );
 
+const Etoile = ({ remplie }) => (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill={remplie ? "#f5a623" : "none"} stroke={remplie ? "#f5a623" : "#ccc"} strokeWidth="1.5">
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+);
+
 const ColisSheinDetail = () => {
     const { id } = useParams();
     const { axios, user } = useAppContext();
@@ -99,6 +105,8 @@ const ColisSheinDetail = () => {
     const [infosOuvertes, setInfosOuvertes] = useState(false);
     const [imageChoisie, setImageChoisie] = useState(null);
     const [maintenant, setMaintenant] = useState(Date.now());
+    const [avisEnCours, setAvisEnCours] = useState({}); // { [messageId]: { etoiles, commentaire } }
+    const [envoiAvis, setEnvoiAvis] = useState(null); // messageId en cours d'envoi
 
     const messagesContainerRef = useRef(null);
     const pollRef = useRef(null);
@@ -215,6 +223,43 @@ const ColisSheinDetail = () => {
         }
     };
 
+    const choisirEtoiles = (messageId, etoiles) => {
+        setAvisEnCours((prev) => ({ ...prev, [messageId]: { ...prev[messageId], etoiles } }));
+    };
+
+    const changerCommentaireAvis = (messageId, commentaire) => {
+        setAvisEnCours((prev) => ({ ...prev, [messageId]: { ...prev[messageId], commentaire } }));
+    };
+
+    const envoyerAvis = async (messageId) => {
+        const brouillon = avisEnCours[messageId];
+        if (!brouillon?.etoiles) {
+            toast.error("Choisis une note avant d'envoyer");
+            return;
+        }
+        setEnvoiAvis(messageId);
+        try {
+            const { data } = await axios.post(`/api/shein-cart/${id}/avis`, {
+                messageId,
+                etoiles: brouillon.etoiles,
+                commentaire: brouillon.commentaire || "",
+            });
+            if (data.success) {
+                toast.success("Merci pour ton avis !");
+                setMessages((prev) => prev.map((m) => (m._id === messageId
+                    ? { ...m, payload: { ...m.payload, repondu: true, etoilesDonnees: brouillon.etoiles } }
+                    : m)));
+                fetchMessages();
+            } else {
+                toast.error(data.message || "Envoi impossible");
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || "Erreur d'envoi");
+        } finally {
+            setEnvoiAvis(null);
+        }
+    };
+
     useEffect(() => {
         const paiement = searchParams.get("paiement");
         if (paiement === "succes") {
@@ -291,6 +336,12 @@ const ColisSheinDetail = () => {
             {!serviceOuvert && (
                 <div className="csd-horaires-banner">
                     Service fermé{horaires?.ouverture ? ` — réouverture à ${horaires.ouverture}` : ""}. Tu peux quand même écrire, on te répondra à la réouverture.
+                </div>
+            )}
+
+            {colis.estimationArrivee?.dateDebut && colis.estimationArrivee?.dateFin && !colis.estimationArrivee?.confirmee && (
+                <div className="csd-arrivee-banner">
+                    🚚 Arrivée estimée à Abidjan entre le <strong>{dateCourte(colis.estimationArrivee.dateDebut)}</strong> et le <strong>{dateCourte(colis.estimationArrivee.dateFin)}</strong>
                 </div>
             )}
 
@@ -402,7 +453,47 @@ const ColisSheinDetail = () => {
                             );
                         }
 
-                        const estClient = m.expediteurRole === "client";
+                        if (m.type === "avis") {
+                            if (m.payload?.superseded) return null;
+                            if (m.payload?.repondu) {
+                                return (
+                                    <div key={m._id} className="csd-msg-wrap">
+                                        {nouveauJour && <div className="csd-day-divider"><span>{libelleJour(m.createdAt)}</span></div>}
+                                        <div className="csd-avis-card csd-avis-repondu">
+                                            <p className="csd-avis-libelle">Merci pour ton avis !</p>
+                                            <div className="csd-avis-etoiles-lecture">
+                                                {[1, 2, 3, 4, 5].map((n) => <Etoile key={n} remplie={n <= m.payload.etoilesDonnees} />)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            }
+                            const brouillon = avisEnCours[m._id] || {};
+                            return (
+                                <div key={m._id} className="csd-msg-wrap">
+                                    {nouveauJour && <div className="csd-day-divider"><span>{libelleJour(m.createdAt)}</span></div>}
+                                    <div className="csd-avis-card">
+                                        <p className="csd-avis-libelle">{m.payload?.libelle || "Comment s'est passée votre expérience ?"}</p>
+                                        <div className="csd-avis-etoiles">
+                                            {[1, 2, 3, 4, 5].map((n) => (
+                                                <button key={n} type="button" onClick={() => choisirEtoiles(m._id, n)} aria-label={`${n} étoiles`}>
+                                                    <Etoile remplie={n <= (brouillon.etoiles || 0)} />
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <textarea
+                                            placeholder="Un commentaire ? (optionnel)"
+                                            value={brouillon.commentaire || ""}
+                                            onChange={(e) => changerCommentaireAvis(m._id, e.target.value)}
+                                            rows={2}
+                                        />
+                                        <button className="csd-avis-envoyer" onClick={() => envoyerAvis(m._id)} disabled={envoiAvis === m._id}>
+                                            {envoiAvis === m._id ? "Envoi…" : "Envoyer mon avis"}
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        }
                         const lu = estClient && colis.adminDernierLu && new Date(m.createdAt) <= new Date(colis.adminDernierLu);
 
                         return (
@@ -485,6 +576,18 @@ const ColisSheinDetail = () => {
         .csd-toggle.open { transform: rotate(180deg); }
         .csd-horaires-banner { flex-shrink: 0; background: #fdf1f0; color: #b23b36; font-size: 11.5px; font-weight: 500; border-radius: 12px; padding: 8px 12px; margin-bottom: 8px; text-align: center; }
         .csd-livraison-banner { flex-shrink: 0; background: #eef7f0; color: #256029; font-size: 12px; font-weight: 500; border-radius: 12px; padding: 9px 12px; margin-bottom: 8px; text-align: center; }
+        .csd-arrivee-banner { flex-shrink: 0; background: #fff8e6; color: #8a6100; font-size: 12px; font-weight: 500; border-radius: 12px; padding: 9px 12px; margin-bottom: 8px; text-align: center; }
+        .csd-avis-card { background: #fff; border: 1px solid #f0ede8; border-radius: 14px; padding: 14px 16px; max-width: 280px; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+        .csd-avis-libelle { font-size: 13px; font-weight: 600; color: #222; margin: 0 0 10px; }
+        .csd-avis-etoiles { display: flex; gap: 4px; margin-bottom: 10px; }
+        .csd-avis-etoiles button { background: none; border: none; padding: 2px; cursor: pointer; }
+        .csd-avis-etoiles-lecture { display: flex; gap: 2px; }
+        .csd-avis-card textarea { width: 100%; border: 1px solid #eee; border-radius: 8px; padding: 8px 10px; font-size: 12.5px; font-family: inherit; resize: none; margin-bottom: 10px; box-sizing: border-box; }
+        .csd-avis-envoyer { width: 100%; background: #111; color: #fff; border: none; border-radius: 8px; padding: 9px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+        .csd-avis-envoyer:disabled { opacity: .5; cursor: default; }
+        .csd-avis-repondu { text-align: center; }
+        .csd-avis-repondu .csd-avis-libelle { margin-bottom: 8px; }
+        .csd-avis-etoiles-lecture { justify-content: center; }
         .csd-pay-btn { width: 100%; background: #e53935; color: #fff; border: none; border-radius: 40px; padding: 12px 16px; font-size: 13.5px; font-weight: 600; cursor: pointer; margin-bottom: 10px; box-shadow: 0 4px 14px rgba(229,57,53,0.25); transition: transform .12s, box-shadow .12s; }
         .csd-pay-btn:active { transform: scale(0.98); }
         .csd-pay-btn:disabled { opacity: .6; cursor: default; box-shadow: none; }
