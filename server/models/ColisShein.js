@@ -34,6 +34,7 @@ const colisSheinSchema = new mongoose.Schema({
             "acompte_paye",
             "achete",
             "en_entrepot",
+            "arrive_abidjan",
             "pese",
             "solde_du",
             "solde_paye",
@@ -77,8 +78,22 @@ const colisSheinSchema = new mongoose.Schema({
         methode: { type: String, enum: ["geniuspay", "cash", null], default: null },
     },
 
-    // Fenêtre de livraison estimée — renseignée par l'agent au moment du passage
-    // au statut "en_livraison" (ex. entre le 12/01/2026 et le 19/01/2026).
+    // Fenêtre d'arrivée à Abidjan — estimation grossière renseignée par l'agent dès
+    // que le client a payé le premier devis (statut "acompte_paye"), bien avant que
+    // le colis soit physiquement arrivé. Modifiable à tout moment tant que le colis
+    // n'est pas confirmé arrivé. "confirmee" bascule à true quand l'agent clique sur
+    // "Confirmer l'arrivée à Abidjan" — peut se produire avant, pendant ou après la
+    // fenêtre annoncée, ce n'est qu'une estimation.
+    arriveeAbidjan: {
+        dateDebut: { type: Date, default: null },
+        dateFin: { type: Date, default: null },
+        confirmee: { type: Boolean, default: false },
+        dateConfirmee: { type: Date, default: null },
+    },
+
+    // Fenêtre de livraison locale estimée (Abidjan → domicile du client) — renseignée
+    // par l'agent au moment du passage au statut "en_livraison", bien après l'arrivée
+    // à Abidjan ci-dessus (ex. entre le 12/01/2026 et le 19/01/2026).
     livraison: {
         dateDebut: { type: Date, default: null },
         dateFin: { type: Date, default: null },
