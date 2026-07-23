@@ -9,7 +9,6 @@ import {
     getColisAdminById,
     validateColis,
     updateStatutColis,
-    definirEstimationArrivee,
     getMessagesAdmin,
     sendMessageAgent,
     setAgentTyping,
@@ -49,7 +48,6 @@ sheinCartRouter.get("/admin/all", authSeller, getAllColisAdmin);
 sheinCartRouter.get("/admin/:id", authSeller, getColisAdminById);
 sheinCartRouter.post("/admin/:id/validate", authSeller, validateColis);
 sheinCartRouter.post("/admin/:id/statut", authSeller, updateStatutColis);
-sheinCartRouter.post("/admin/:id/estimation-arrivee", authSeller, definirEstimationArrivee);
 sheinCartRouter.get("/admin/:id/messages", authSeller, getMessagesAdmin);
 sheinCartRouter.post("/admin/:id/messages", uploadChatImage.single("image"), authSeller, sendMessageAgent);
 sheinCartRouter.post("/admin/:id/typing", authSeller, setAgentTyping);

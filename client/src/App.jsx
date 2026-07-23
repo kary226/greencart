@@ -171,7 +171,6 @@ const App = () => {
             <Route path='delivery' element={<DeliveryManager />} />
             <Route path='settings' element={<SettingsManager />} /> {/* ✅ AJOUTÉ */}
             <Route path='colis-shein' element={<ColisSheinManager />} />
-
           </Route>
         </Routes>
       </div>
