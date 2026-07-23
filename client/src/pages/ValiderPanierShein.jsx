@@ -220,7 +220,7 @@ const ValiderPanierShein = () => {
                         <IconWarning />
                         <span>
                             Sélectionne <strong>« Tout »</strong> dans ton panier SHEIN et vérifie que le
-                            total n'affiche pas <strong>$0.00</strong> avant de capturer l'écran.
+                            total n'affiche pas <strong>0.00</strong> avant de capturer l'écran.
                         </span>
                     </div>
 
