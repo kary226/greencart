@@ -494,6 +494,7 @@ const ColisSheinDetail = () => {
                                 </div>
                             );
                         }
+                        const estClient = m.expediteurRole === "client";
                         const lu = estClient && colis.adminDernierLu && new Date(m.createdAt) <= new Date(colis.adminDernierLu);
 
                         return (
