@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useAppContext } from "../context/AppContext";
-import EnqueteSatisfaction from "../components/EnqueteSatisfaction";
 
 const money = (n, devise) => {
     const symbole = devise === "EUR" ? "€" : "$";
@@ -36,8 +35,7 @@ const STATUT_LABELS = {
     devis_envoye: "Devis validé — acompte à régler",
     acompte_paye: "Acompte reçu — commande en cours",
     achete: "Article(s) acheté(s) chez SHEIN",
-    en_entrepot: "En entrepôt en Chine — en cours d'expédition",
-    arrive_abidjan: "Arrivé à Abidjan — en attente de pesée",
+    en_entrepot: "Arrivé en entrepôt — en attente de pesée",
     pese: "Pesé — solde à régler",
     solde_du: "Solde à régler",
     solde_paye: "Solde réglé — préparation livraison",
@@ -48,7 +46,7 @@ const STATUT_LABELS = {
 
 const STATUT_ORDER = [
     "soumis", "en_verification", "devis_envoye", "acompte_paye",
-    "achete", "en_entrepot", "arrive_abidjan", "pese", "solde_du", "solde_paye", "en_livraison", "livre",
+    "achete", "en_entrepot", "pese", "solde_du", "solde_paye", "en_livraison", "livre",
 ];
 
 // Fenêtre de validité de l'indicateur "en train d'écrire" — l'agent renvoie un
@@ -296,17 +294,6 @@ const ColisSheinDetail = () => {
                 </div>
             )}
 
-            {!colis.arriveeAbidjan?.confirmee && colis.arriveeAbidjan?.dateDebut && colis.arriveeAbidjan?.dateFin && (
-                <div className="csd-livraison-banner csd-arrivee-banner">
-                    🚢 Arrivée à Abidjan estimée entre le <strong>{dateCourte(colis.arriveeAbidjan.dateDebut)}</strong> et le <strong>{dateCourte(colis.arriveeAbidjan.dateFin)}</strong>
-                </div>
-            )}
-            {colis.arriveeAbidjan?.confirmee && colis.statut !== "en_livraison" && colis.statut !== "livre" && (
-                <div className="csd-livraison-banner csd-arrivee-confirmee-banner">
-                    🎉 Ton colis est arrivé à Abidjan — prochaine étape : la pesée
-                </div>
-            )}
-
             {colis.statut === "en_livraison" && colis.livraison?.dateDebut && colis.livraison?.dateFin && (
                 <div className="csd-livraison-banner">
                     📦 Livraison estimée entre le <strong>{dateCourte(colis.livraison.dateDebut)}</strong> et le <strong>{dateCourte(colis.livraison.dateFin)}</strong>
@@ -449,13 +436,8 @@ const ColisSheinDetail = () => {
                 </div>
 
                 {chatFerme ? (
-                    <div className="csd-chat-closed-wrap">
-                        <div className="csd-chat-closed">
-                            {colis.statut === "livre" ? "Colis livré — conversation clôturée" : "Colis annulé — conversation clôturée"}
-                        </div>
-                        {colis.statut === "livre" && (
-                            <EnqueteSatisfaction declencheur="colis_livre" contexteType="colis_shein" contexteId={colis._id} />
-                        )}
+                    <div className="csd-chat-closed">
+                        {colis.statut === "livre" ? "Colis livré — conversation clôturée" : "Colis annulé — conversation clôturée"}
                     </div>
                 ) : (
                     <form className="csd-chat-form" onSubmit={envoyerMessage}>
@@ -503,8 +485,6 @@ const ColisSheinDetail = () => {
         .csd-toggle.open { transform: rotate(180deg); }
         .csd-horaires-banner { flex-shrink: 0; background: #fdf1f0; color: #b23b36; font-size: 11.5px; font-weight: 500; border-radius: 12px; padding: 8px 12px; margin-bottom: 8px; text-align: center; }
         .csd-livraison-banner { flex-shrink: 0; background: #eef7f0; color: #256029; font-size: 12px; font-weight: 500; border-radius: 12px; padding: 9px 12px; margin-bottom: 8px; text-align: center; }
-        .csd-arrivee-banner { background: #eaf3fb; color: #1a4a73; }
-        .csd-arrivee-confirmee-banner { background: #fff4e0; color: #8a5a00; font-weight: 700; }
         .csd-pay-btn { width: 100%; background: #e53935; color: #fff; border: none; border-radius: 40px; padding: 12px 16px; font-size: 13.5px; font-weight: 600; cursor: pointer; margin-bottom: 10px; box-shadow: 0 4px 14px rgba(229,57,53,0.25); transition: transform .12s, box-shadow .12s; }
         .csd-pay-btn:active { transform: scale(0.98); }
         .csd-pay-btn:disabled { opacity: .6; cursor: default; box-shadow: none; }
@@ -579,8 +559,7 @@ const ColisSheinDetail = () => {
         .csd-preview { position: relative; width: 60px; margin-bottom: 8px; }
         .csd-preview img { width: 60px; height: 60px; object-fit: cover; border-radius: 10px; }
         .csd-preview button { position: absolute; top: -6px; right: -6px; background: #111; color: #fff; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer; }
-        .csd-chat-closed-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 10px 12px; border-top: 1px solid #f0ede8; background: #fff; }
-        .csd-chat-closed { text-align: center; font-size: 12.5px; color: #999; background: #f7f5f2; border-radius: 40px; padding: 10px 14px; width: 100%; }
+        .csd-chat-closed { text-align: center; font-size: 12.5px; color: #999; background: #f7f5f2; border-radius: 40px; padding: 10px 14px; margin: 10px 12px; }
       `}</style>
         </div>
     );

@@ -4,7 +4,7 @@ import { useAppContext } from "../../context/AppContext";
 
 const STATUTS = [
     "soumis", "en_verification", "devis_envoye", "acompte_paye",
-    "achete", "en_entrepot", "arrive_abidjan", "pese", "solde_du", "solde_paye", "en_livraison", "livre", "annule",
+    "achete", "en_entrepot", "pese", "solde_du", "solde_paye", "en_livraison", "livre", "annule",
 ];
 
 const STATUT_LABELS = {
@@ -13,8 +13,7 @@ const STATUT_LABELS = {
     devis_envoye: "Devis envoyé — en attente de paiement",
     acompte_paye: "Articles payés",
     achete: "Acheté chez SHEIN",
-    en_entrepot: "En entrepôt (Chine)",
-    arrive_abidjan: "Arrivé à Abidjan",
+    en_entrepot: "En entrepôt",
     pese: "Pesé — en attente de paiement",
     solde_du: "Livraison due",
     solde_paye: "Livraison payée",
@@ -23,26 +22,12 @@ const STATUT_LABELS = {
     annule: "Annulé",
 };
 
-// Étapes affichées dans la mini-timeline visuelle du panneau détail — l'ordre
-// définit l'ordre d'affichage, "annule" est volontairement exclu (cas à part).
-const TIMELINE_ETAPES = [
-    { key: "acompte_paye", label: "Payé", court: "Payé" },
-    { key: "achete", label: "Acheté chez SHEIN", court: "Acheté" },
-    { key: "en_entrepot", label: "En entrepôt (Chine)", court: "Entrepôt" },
-    { key: "arrive_abidjan", label: "Arrivé à Abidjan", court: "Abidjan" },
-    { key: "pese", label: "Pesé", court: "Pesé" },
-    { key: "solde_paye", label: "Solde payé", court: "Soldé" },
-    { key: "en_livraison", label: "En livraison", court: "Livraison" },
-    { key: "livre", label: "Livré", court: "Livré" },
-];
-
 // Une seule action "évidente" par étape — ce que l'admin doit faire ensuite,
-// sans avoir à deviner parmi 13 statuts. Les étapes sans action ici sont des
+// sans avoir à deviner parmi 12 statuts. Les étapes sans action ici sont des
 // étapes d'attente (paiement du client, traité automatiquement par le webhook).
 const PROCHAINE_ACTION = {
     acompte_paye: { label: "Marquer comme acheté chez SHEIN", cible: "achete" },
     achete: { label: "Marquer reçu en entrepôt", cible: "en_entrepot" },
-    en_entrepot: { label: "Confirmer l'arrivée à Abidjan", cible: "arrive_abidjan" },
     solde_paye: { label: "Marquer en cours de livraison", cible: "en_livraison" },
     en_livraison: { label: "Marquer livré", cible: "livre" },
 };
@@ -169,47 +154,6 @@ const ColisSheinManager = () => {
         if (!dateFin) return null;
         const diff = Math.ceil((new Date(dateFin) - new Date()) / (1000 * 60 * 60 * 24));
         return diff;
-    };
-
-    // --- Modal estimation d'arrivée à Abidjan (dispo dès "acompte_paye", indépendant du statut) ---
-    const [estimationModal, setEstimationModal] = useState(false);
-    const [estimationForm, setEstimationForm] = useState({ dateDebut: "", dateFin: "" });
-
-    const ouvrirModalEstimation = () => {
-        const dansDixJours = new Date();
-        dansDixJours.setDate(dansDixJours.getDate() + 10);
-        const dansTroisSemaines = new Date();
-        dansTroisSemaines.setDate(dansTroisSemaines.getDate() + 21);
-        setEstimationForm({
-            dateDebut: selection?.arriveeAbidjan?.dateDebut ? new Date(selection.arriveeAbidjan.dateDebut).toISOString().slice(0, 10) : dansDixJours.toISOString().slice(0, 10),
-            dateFin: selection?.arriveeAbidjan?.dateFin ? new Date(selection.arriveeAbidjan.dateFin).toISOString().slice(0, 10) : dansTroisSemaines.toISOString().slice(0, 10),
-        });
-        setEstimationModal(true);
-    };
-
-    const confirmerEstimation = async () => {
-        const { dateDebut, dateFin } = estimationForm;
-        if (!dateDebut || !dateFin) {
-            toast.error("Les deux dates sont requises");
-            return;
-        }
-        if (new Date(dateFin) < new Date(dateDebut)) {
-            toast.error("La date de fin doit être après la date de début");
-            return;
-        }
-        try {
-            const { data } = await axios.post(`/api/shein-cart/admin/${selection._id}/estimation-arrivee`, { dateDebut, dateFin });
-            if (data.success) {
-                toast.success("Estimation d'arrivée envoyée au client");
-                setSelection(data.colis);
-                fetchListe(filtreStatut);
-                setEstimationModal(false);
-            } else {
-                toast.error(data.message);
-            }
-        } catch (error) {
-            toast.error(error.response?.data?.message || "Erreur d'enregistrement");
-        }
     };
 
     // --- Modal date de livraison (déclenché au passage en statut "en_livraison") ---
@@ -558,50 +502,9 @@ const ColisSheinManager = () => {
                                 <p className="csm-etape-value">{STATUT_LABELS[selection.statut] || selection.statut}</p>
                             </div>
 
-                            {selection.statut !== "annule" && selection.statut !== "soumis" && selection.statut !== "en_verification" && selection.statut !== "devis_envoye" && (
-                                <div className="csm-timeline">
-                                    {TIMELINE_ETAPES.map((etape, i) => {
-                                        const indexActuel = TIMELINE_ETAPES.findIndex((e) => e.key === selection.statut);
-                                        const franchie = i < indexActuel || selection.statut === "livre";
-                                        const active = etape.key === selection.statut;
-                                        return (
-                                            <div key={etape.key} className={`csm-timeline-etape ${franchie ? "franchie" : ""} ${active ? "active" : ""}`}>
-                                                <span className="csm-timeline-point">{franchie ? "✓" : i + 1}</span>
-                                                <span className="csm-timeline-label">{etape.court}</span>
-                                                {i < TIMELINE_ETAPES.length - 1 && <span className="csm-timeline-trait" />}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-
-                            {/* Estimation d'arrivée à Abidjan — dispo dès que l'acompte est payé, bien
-                                avant l'arrivée réelle. Reste modifiable tant que non confirmée. */}
-                            {["acompte_paye", "achete", "en_entrepot"].includes(selection.statut) && (
-                                <div className={`csm-arrivee-card ${selection.arriveeAbidjan?.dateDebut ? "" : "csm-arrivee-card-vide"}`}>
-                                    {selection.arriveeAbidjan?.dateDebut ? (
-                                        <>
-                                            <span>🚢 Arrivée à Abidjan estimée : {dateCourteFr(selection.arriveeAbidjan.dateDebut)} → {dateCourteFr(selection.arriveeAbidjan.dateFin)}</span>
-                                            <button className="csm-btn-secondary" onClick={ouvrirModalEstimation}>Modifier</button>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <span>🚢 Aucune estimation d'arrivée envoyée au client</span>
-                                            <button className="csm-btn-secondary" onClick={ouvrirModalEstimation}>Donner une estimation</button>
-                                        </>
-                                    )}
-                                </div>
-                            )}
-                            {selection.arriveeAbidjan?.confirmee && (
-                                <div className="csm-arrivee-confirmee">
-                                    🎉 Arrivé à Abidjan le {dateCourteFr(selection.arriveeAbidjan.dateConfirmee)}
-                                    {selection.arriveeAbidjan?.dateDebut && ` (estimation initiale : ${dateCourteFr(selection.arriveeAbidjan.dateDebut)} → ${dateCourteFr(selection.arriveeAbidjan.dateFin)})`}
-                                </div>
-                            )}
-
                             {selection.livraison?.dateDebut && selection.livraison?.dateFin && (
                                 <div className="csm-livraison-info">
-                                    <span>📦 Livraison locale estimée : {dateCourteFr(selection.livraison.dateDebut)} → {dateCourteFr(selection.livraison.dateFin)}</span>
+                                    <span>📦 Livraison estimée : {dateCourteFr(selection.livraison.dateDebut)} → {dateCourteFr(selection.livraison.dateFin)}</span>
                                     <button className="csm-btn-secondary" onClick={ouvrirModalLivraison}>Modifier</button>
                                 </div>
                             )}
@@ -647,7 +550,7 @@ const ColisSheinManager = () => {
                                 </>
                             )}
 
-                            {selection.statut === "arrive_abidjan" && (
+                            {selection.statut === "en_entrepot" && (
                                 <button onClick={ouvrirModalPesee} className="csm-btn-guide">Enregistrer la pesée et envoyer le devis livraison</button>
                             )}
 
@@ -760,27 +663,6 @@ const ColisSheinManager = () => {
             </div>
             )}
 
-            {estimationModal && (
-                <div className="csm-modal-overlay" onClick={() => setEstimationModal(false)}>
-                    <div className="csm-modal" onClick={(e) => e.stopPropagation()}>
-                        <h3>Estimation d'arrivée à Abidjan</h3>
-                        <p className="csm-modal-hint">Une estimation grossière, envoyée dès maintenant au client — modifiable jusqu'à la confirmation d'arrivée.</p>
-                        <div className="csm-pesee-field">
-                            <label>Arrivée à partir du</label>
-                            <input type="date" value={estimationForm.dateDebut} onChange={(e) => setEstimationForm((p) => ({ ...p, dateDebut: e.target.value }))} autoFocus />
-                        </div>
-                        <div className="csm-pesee-field">
-                            <label>Jusqu'au</label>
-                            <input type="date" value={estimationForm.dateFin} onChange={(e) => setEstimationForm((p) => ({ ...p, dateFin: e.target.value }))} />
-                        </div>
-                        <div className="csm-pesee-actions">
-                            <button className="csm-btn-secondary" onClick={() => setEstimationModal(false)}>Annuler</button>
-                            <button className="csm-btn-primary" onClick={confirmerEstimation}>Envoyer l'estimation au client</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {livraisonModal && (
                 <div className="csm-modal-overlay" onClick={() => setLivraisonModal(false)}>
                     <div className="csm-modal" onClick={(e) => e.stopPropagation()}>
@@ -878,21 +760,6 @@ const ColisSheinManager = () => {
         .csm-aujourdhui { color: #e53935; font-weight: 600; }
         .csm-livraison-info { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #eef7f0; color: #256029; border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; font-size: 12.5px; }
         .csm-livraison-info button { flex-shrink: 0; padding: 5px 12px !important; font-size: 11.5px !important; }
-
-        .csm-timeline { display: flex; align-items: flex-start; margin: 4px 0 18px; overflow-x: auto; padding-bottom: 4px; }
-        .csm-timeline-etape { display: flex; align-items: center; flex-shrink: 0; }
-        .csm-timeline-point { width: 22px; height: 22px; border-radius: 50%; background: #f1ede4; color: #999; font-size: 10.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .2s; }
-        .csm-timeline-etape.franchie .csm-timeline-point { background: #256029; color: #fff; }
-        .csm-timeline-etape.active .csm-timeline-point { background: #e53935; color: #fff; box-shadow: 0 0 0 3px rgba(229,57,53,.18); }
-        .csm-timeline-label { font-size: 10px; color: #888; margin: 0 6px 0 5px; white-space: nowrap; }
-        .csm-timeline-etape.franchie .csm-timeline-label, .csm-timeline-etape.active .csm-timeline-label { color: #222; font-weight: 600; }
-        .csm-timeline-trait { width: 18px; height: 2px; background: #f1ede4; flex-shrink: 0; }
-        .csm-timeline-etape.franchie .csm-timeline-trait { background: #256029; }
-
-        .csm-arrivee-card { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: #eaf3fb; color: #1a4a73; border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; font-size: 12.5px; }
-        .csm-arrivee-card button { flex-shrink: 0; padding: 5px 12px !important; font-size: 11.5px !important; }
-        .csm-arrivee-card-vide { background: #f6f4ee; color: #8a8371; border: 1px dashed #ddd5c4; }
-        .csm-arrivee-confirmee { background: #fff4e0; color: #8a5a00; border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; font-size: 12.5px; font-weight: 600; }
         .csm-modal-hint { font-size: 12px; color: #999; margin: -6px 0 14px; }
         .csm-wrap { display: flex; gap: 20px; padding: 20px; }
         .csm-liste { width: 280px; flex-shrink: 0; }
