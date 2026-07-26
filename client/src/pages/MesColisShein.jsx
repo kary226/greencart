@@ -133,7 +133,7 @@ const MesColisShein = () => {
         <div className="mcs-page">
             <div className="mcs-header">
                 <div>
-                    <h1>Bonjour{prenom ? `, ${prenom}` : ""} <span className="mcs-wave">👋</span></h1>
+                    <h1>Bienvennu(e){prenom ? `, ${prenom}` : ""} <span className="mcs-wave">👋</span></h1>
                     <p className="mcs-subtitle">Tous vos échanges avec nos agents.</p>
                 </div>
                 <Link to="/valider-panier-shein" className="mcs-new-btn"><IconPlus /> Nouveau</Link>
