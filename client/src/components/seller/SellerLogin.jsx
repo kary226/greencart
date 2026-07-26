@@ -116,7 +116,7 @@ const SellerLogin = () => {
                                 type="text" 
                                 inputMode="numeric"
                                 maxLength={6}
-                                placeholder="123456" 
+                                placeholder="" 
                                 className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition text-sm tracking-widest" 
                                 required 
                             />
