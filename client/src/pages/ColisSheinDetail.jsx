@@ -1,9 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import {
-    useParams,
-    useSearchParams,
-    useNavigate
-} from "react-router-dom";
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useAppContext } from "../context/AppContext";
 
@@ -12,8 +8,7 @@ const money = (n, devise) => {
     return `${symbole}${Number(n || 0).toFixed(2)}`;
 };
 
-const fcfa = (n) =>
-    `${Math.round(n || 0).toLocaleString("fr-FR")} FCFA`;
+const fcfa = (n) => `${Math.round(n || 0).toLocaleString("fr-FR")} FCFA`;
 
 const dateCourte = (d) =>
     new Date(d).toLocaleDateString("fr-FR", {
@@ -23,26 +18,15 @@ const dateCourte = (d) =>
     });
 
 const estDansHoraires = (horaires, maintenant) => {
-    if (!horaires?.ouverture || !horaires?.fermeture) {
-        return true;
-    }
+    if (!horaires?.ouverture || !horaires?.fermeture) return true;
 
     const now = new Date(maintenant);
+    const [hO, mO] = horaires.ouverture.split(":").map(Number);
+    const [hF, mF] = horaires.fermeture.split(":").map(Number);
 
-    const [hO, mO] =
-        horaires.ouverture.split(":").map(Number);
-
-    const [hF, mF] =
-        horaires.fermeture.split(":").map(Number);
-
-    const minutesMaintenant =
-        now.getHours() * 60 + now.getMinutes();
-
-    const minutesOuverture =
-        hO * 60 + mO;
-
-    const minutesFermeture =
-        hF * 60 + mF;
+    const minutesMaintenant = now.getHours() * 60 + now.getMinutes();
+    const minutesOuverture = hO * 60 + mO;
+    const minutesFermeture = hF * 60 + mF;
 
     if (minutesFermeture > minutesOuverture) {
         return (
@@ -91,22 +75,15 @@ const POLL_MS = 3000;
 const TYPING_SIGNAL_THROTTLE_MS = 2200;
 
 const memeJour = (a, b) =>
-    new Date(a).toDateString() ===
-    new Date(b).toDateString();
+    new Date(a).toDateString() === new Date(b).toDateString();
 
 const libelleJour = (date) => {
     const d = new Date(date);
-
     const hier = new Date();
     hier.setDate(hier.getDate() - 1);
 
-    if (memeJour(d, new Date())) {
-        return "Aujourd'hui";
-    }
-
-    if (memeJour(d, hier)) {
-        return "Hier";
-    }
+    if (memeJour(d, new Date())) return "Aujourd'hui";
+    if (memeJour(d, hier)) return "Hier";
 
     return d.toLocaleDateString("fr-FR", {
         day: "numeric",
@@ -114,13 +91,32 @@ const libelleJour = (date) => {
     });
 };
 
+const IconBack = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <polyline points="15 18 9 12 15 6" />
+    </svg>
+);
+
+const IconChevron = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <polyline points="6 9 12 15 18 9" />
+    </svg>
+);
+
+const IconAttach = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+    </svg>
+);
+
+const IconSend = () => (
+    <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M2 21l21-9L2 3v7l15 2-15 2z" />
+    </svg>
+);
+
 const CocheSimple = () => (
-    <svg
-        width="14"
-        height="10"
-        viewBox="0 0 16 11"
-        fill="none"
-    >
+    <svg width="14" height="10" viewBox="0 0 16 11" fill="none">
         <path
             d="M1 5.5L5 9.5L15 0.5"
             stroke="currentColor"
@@ -132,12 +128,7 @@ const CocheSimple = () => (
 );
 
 const CocheDouble = () => (
-    <svg
-        width="18"
-        height="10"
-        viewBox="0 0 20 11"
-        fill="none"
-    >
+    <svg width="18" height="10" viewBox="0 0 20 11" fill="none">
         <path
             d="M1 5.5L5 9.5L11 1.5"
             stroke="currentColor"
@@ -145,7 +136,6 @@ const CocheDouble = () => (
             strokeLinecap="round"
             strokeLinejoin="round"
         />
-
         <path
             d="M6 5.5L10 9.5L19 0.5"
             stroke="currentColor"
@@ -158,11 +148,11 @@ const CocheDouble = () => (
 
 const Etoile = ({ remplie }) => (
     <svg
-        width="26"
-        height="26"
+        width="25"
+        height="25"
         viewBox="0 0 24 24"
-        fill={remplie ? "#f5a623" : "none"}
-        stroke={remplie ? "#f5a623" : "#ccc"}
+        fill={remplie ? "#E50914" : "none"}
+        stroke={remplie ? "#E50914" : "#555"}
         strokeWidth="1.5"
     >
         <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
@@ -173,80 +163,36 @@ const ColisSheinDetail = () => {
     const { id } = useParams();
     const { axios, user } = useAppContext();
     const navigate = useNavigate();
-    const [searchParams, setSearchParams] =
-        useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
 
-    const [payingAcompte, setPayingAcompte] =
-        useState(false);
+    const [payingAcompte, setPayingAcompte] = useState(false);
+    const [payingSolde, setPayingSolde] = useState(false);
+    const [horaires, setHoraires] = useState(null);
 
-    const [payingSolde, setPayingSolde] =
-        useState(false);
+    const [colis, setColis] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [messages, setMessages] = useState([]);
+    const [texte, setTexte] = useState("");
+    const [envoi, setEnvoi] = useState(false);
+    const [infosOuvertes, setInfosOuvertes] = useState(false);
+    const [imageChoisie, setImageChoisie] = useState(null);
+    const [maintenant, setMaintenant] = useState(Date.now());
+    const [avisEnCours, setAvisEnCours] = useState({});
+    const [envoiAvis, setEnvoiAvis] = useState(null);
 
-    const [horaires, setHoraires] =
-        useState(null);
-
-    const [colis, setColis] =
-        useState(null);
-
-    const [loading, setLoading] =
-        useState(true);
-
-    const [messages, setMessages] =
-        useState([]);
-
-    const [texte, setTexte] =
-        useState("");
-
-    const [envoi, setEnvoi] =
-        useState(false);
-
-    const [infosOuvertes, setInfosOuvertes] =
-        useState(false);
-
-    const [imageChoisie, setImageChoisie] =
-        useState(null);
-
-    const [maintenant, setMaintenant] =
-        useState(Date.now());
-
-    const [avisEnCours, setAvisEnCours] =
-        useState({});
-
-    const [envoiAvis, setEnvoiAvis] =
-        useState(null);
-
-    const messagesContainerRef =
-        useRef(null);
-
-    const pollRef =
-        useRef(null);
-
-    const tickRef =
-        useRef(null);
-
-    const premierChargement =
-        useRef(true);
-
-    const fileInputRef =
-        useRef(null);
-
-    const dernierSignalFrappe =
-        useRef(0);
+    const messagesContainerRef = useRef(null);
+    const pollRef = useRef(null);
+    const tickRef = useRef(null);
+    const premierChargement = useRef(true);
+    const fileInputRef = useRef(null);
+    const dernierSignalFrappe = useRef(0);
 
     const fetchColis = async () => {
         try {
-            const { data } =
-                await axios.get(
-                    `/api/shein-cart/${id}`
-                );
-
-            if (data.success) {
-                setColis(data.colis);
-            }
+            const { data } = await axios.get(`/api/shein-cart/${id}`);
+            if (data.success) setColis(data.colis);
         } catch (error) {
-            toast.error(
-                "Impossible de charger ce colis"
-            );
+            toast.error("Impossible de charger ce colis");
         } finally {
             setLoading(false);
         }
@@ -254,16 +200,10 @@ const ColisSheinDetail = () => {
 
     const fetchMessages = async () => {
         try {
-            const { data } =
-                await axios.get(
-                    `/api/shein-cart/${id}/messages`
-                );
-
-            if (data.success) {
-                setMessages(data.messages);
-            }
+            const { data } = await axios.get(`/api/shein-cart/${id}/messages`);
+            if (data.success) setMessages(data.messages);
         } catch (error) {
-            // Le polling réessaiera automatiquement.
+            // Le polling réessaiera.
         }
     };
 
@@ -271,11 +211,10 @@ const ColisSheinDetail = () => {
         axios
             .get("/api/setting/sheinHoraires")
             .then(({ data }) => {
-                if (data.success && data.data) {
-                    setHoraires(data.data);
-                }
+                if (data.success && data.data) setHoraires(data.data);
             })
             .catch(() => {});
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
@@ -289,28 +228,23 @@ const ColisSheinDetail = () => {
             fetchColis();
         }, POLL_MS);
 
-        return () => {
-            clearInterval(pollRef.current);
-        };
+        return () => clearInterval(pollRef.current);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id, user]);
 
     useEffect(() => {
-        tickRef.current = setInterval(() => {
-            setMaintenant(Date.now());
-        }, 1000);
+        tickRef.current = setInterval(
+            () => setMaintenant(Date.now()),
+            1000
+        );
 
-        return () => {
-            clearInterval(tickRef.current);
-        };
+        return () => clearInterval(tickRef.current);
     }, []);
 
     useEffect(() => {
         if (
             colis &&
-            (
-                colis.statut === "livre" ||
-                colis.statut === "annule"
-            ) &&
+            (colis.statut === "livre" || colis.statut === "annule") &&
             pollRef.current
         ) {
             clearInterval(pollRef.current);
@@ -319,125 +253,80 @@ const ColisSheinDetail = () => {
 
     const agentEnTrainDecrire =
         !!colis?.agentTypingAt &&
-        maintenant -
-            new Date(
-                colis.agentTypingAt
-            ).getTime() <
+        maintenant - new Date(colis.agentTypingAt).getTime() <
             TYPING_TTL_MS;
 
     useEffect(() => {
-        const el =
-            messagesContainerRef.current;
-
+        const el = messagesContainerRef.current;
         if (!el) return;
 
         el.scrollTop = el.scrollHeight;
-
         premierChargement.current = false;
     }, [messages, agentEnTrainDecrire]);
 
     const choisirImage = (e) => {
-        const file =
-            e.target.files?.[0];
-
-        if (file) {
-            setImageChoisie(file);
-        }
+        const file = e.target.files?.[0];
+        if (file) setImageChoisie(file);
     };
 
     const signalerFrappe = () => {
         const t = Date.now();
 
         if (
-            t -
-                dernierSignalFrappe.current <
+            t - dernierSignalFrappe.current <
             TYPING_SIGNAL_THROTTLE_MS
         ) {
             return;
         }
 
         dernierSignalFrappe.current = t;
-
-        axios
-            .post(`/api/shein-cart/${id}/typing`)
-            .catch(() => {});
+        axios.post(`/api/shein-cart/${id}/typing`).catch(() => {});
     };
 
     const envoyerMessage = async (e) => {
         e.preventDefault();
 
-        if (
-            (!texte.trim() && !imageChoisie) ||
-            envoi
-        ) {
-            return;
-        }
+        if ((!texte.trim() && !imageChoisie) || envoi) return;
 
         setEnvoi(true);
 
         try {
-            const formData =
-                new FormData();
+            const formData = new FormData();
 
-            if (texte.trim()) {
-                formData.append(
-                    "texte",
-                    texte.trim()
-                );
-            }
+            if (texte.trim()) formData.append("texte", texte.trim());
+            if (imageChoisie) formData.append("image", imageChoisie);
 
-            if (imageChoisie) {
-                formData.append(
-                    "image",
-                    imageChoisie
-                );
-            }
-
-            const { data } =
-                await axios.post(
-                    `/api/shein-cart/${id}/messages`,
-                    formData,
-                    {
-                        headers: {
-                            "Content-Type":
-                                "multipart/form-data",
-                        },
-                    }
-                );
+            const { data } = await axios.post(
+                `/api/shein-cart/${id}/messages`,
+                formData,
+                {
+                    headers: {
+                        "Content-Type": "multipart/form-data",
+                    },
+                }
+            );
 
             if (data.success) {
-                setMessages((prev) => [
-                    ...prev,
-                    data.message,
-                ]);
-
+                setMessages((prev) => [...prev, data.message]);
                 setTexte("");
                 setImageChoisie(null);
 
                 if (fileInputRef.current) {
-                    fileInputRef.current.value =
-                        "";
+                    fileInputRef.current.value = "";
                 }
             } else {
-                toast.error(
-                    data.message ||
-                    "Envoi impossible"
-                );
+                toast.error(data.message || "Envoi impossible");
             }
         } catch (error) {
             toast.error(
-                error.response?.data?.message ||
-                "Erreur d'envoi"
+                error.response?.data?.message || "Erreur d'envoi"
             );
         } finally {
             setEnvoi(false);
         }
     };
 
-    const choisirEtoiles = (
-        messageId,
-        etoiles
-    ) => {
+    const choisirEtoiles = (messageId, etoiles) => {
         setAvisEnCours((prev) => ({
             ...prev,
             [messageId]: {
@@ -447,10 +336,7 @@ const ColisSheinDetail = () => {
         }));
     };
 
-    const changerCommentaireAvis = (
-        messageId,
-        commentaire
-    ) => {
+    const changerCommentaireAvis = (messageId, commentaire) => {
         setAvisEnCours((prev) => ({
             ...prev,
             [messageId]: {
@@ -460,67 +346,52 @@ const ColisSheinDetail = () => {
         }));
     };
 
-    const envoyerAvis = async (
-        messageId
-    ) => {
-        const brouillon =
-            avisEnCours[messageId];
+    const envoyerAvis = async (messageId) => {
+        const brouillon = avisEnCours[messageId];
 
         if (!brouillon?.etoiles) {
-            toast.error(
-                "Choisis une note avant d'envoyer"
-            );
+            toast.error("Choisis une note avant d'envoyer");
             return;
         }
 
         setEnvoiAvis(messageId);
 
         try {
-            const { data } =
-                await axios.post(
-                    `/api/shein-cart/${id}/avis`,
-                    {
-                        messageId,
-                        etoiles:
-                            brouillon.etoiles,
-                        commentaire:
-                            brouillon.commentaire ||
-                            "",
-                    }
-                );
+            const { data } = await axios.post(
+                `/api/shein-cart/${id}/avis`,
+                {
+                    messageId,
+                    etoiles: brouillon.etoiles,
+                    commentaire: brouillon.commentaire || "",
+                }
+            );
 
             if (data.success) {
-                toast.success(
-                    "Merci pour ton avis !"
-                );
+                toast.success("Merci pour ton avis !");
 
                 setMessages((prev) =>
                     prev.map((m) =>
                         m._id === messageId
                             ? {
-                                ...m,
-                                payload: {
-                                    ...m.payload,
-                                    repondu: true,
-                                    etoilesDonnees:
-                                        brouillon.etoiles,
-                                },
-                            }
+                                  ...m,
+                                  payload: {
+                                      ...m.payload,
+                                      repondu: true,
+                                      etoilesDonnees:
+                                          brouillon.etoiles,
+                                  },
+                              }
                             : m
                     )
                 );
 
                 fetchMessages();
             } else {
-                toast.error(
-                    data.message ||
-                    "Envoi impossible"
-                );
+                toast.error(data.message || "Envoi impossible");
             }
         } catch (error) {
             toast.error(
-                error.response?.data?.message ||
-                "Erreur d'envoi"
+                error.response?.data?.message || "Erreur d'envoi"
             );
         } finally {
             setEnvoiAvis(null);
@@ -528,54 +399,37 @@ const ColisSheinDetail = () => {
     };
 
     useEffect(() => {
-        const paiement =
-            searchParams.get("paiement");
+        const paiement = searchParams.get("paiement");
 
         if (paiement === "succes") {
-            toast.success(
-                "Paiement confirmé"
-            );
-
+            toast.success("Paiement confirmé");
             fetchColis();
-
-            setSearchParams(
-                {},
-                { replace: true }
-            );
+            setSearchParams({}, { replace: true });
         } else if (paiement === "erreur") {
             toast.error(
                 "Le paiement n'a pas abouti — réessaie"
             );
-
-            setSearchParams(
-                {},
-                { replace: true }
-            );
+            setSearchParams({}, { replace: true });
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const payerAcompte = async () => {
         setPayingAcompte(true);
 
         try {
-            const { data } =
-                await axios.post(
-                    `/api/shein-cart/${id}/pay-acompte`
-                );
+            const { data } = await axios.post(
+                `/api/shein-cart/${id}/pay-acompte`
+            );
 
             if (data.success) {
-                window.location.href =
-                    data.checkout_url;
+                window.location.href = data.checkout_url;
             } else {
-                toast.error(
-                    data.message ||
-                    "Paiement impossible"
-                );
+                toast.error(data.message || "Paiement impossible");
             }
         } catch (error) {
             toast.error(
-                error.response?.data?.message ||
-                "Erreur de paiement"
+                error.response?.data?.message || "Erreur de paiement"
             );
         } finally {
             setPayingAcompte(false);
@@ -586,24 +440,18 @@ const ColisSheinDetail = () => {
         setPayingSolde(true);
 
         try {
-            const { data } =
-                await axios.post(
-                    `/api/shein-cart/${id}/pay-solde`
-                );
+            const { data } = await axios.post(
+                `/api/shein-cart/${id}/pay-solde`
+            );
 
             if (data.success) {
-                window.location.href =
-                    data.checkout_url;
+                window.location.href = data.checkout_url;
             } else {
-                toast.error(
-                    data.message ||
-                    "Paiement impossible"
-                );
+                toast.error(data.message || "Paiement impossible");
             }
         } catch (error) {
             toast.error(
-                error.response?.data?.message ||
-                "Erreur de paiement"
+                error.response?.data?.message || "Erreur de paiement"
             );
         } finally {
             setPayingSolde(false);
@@ -613,7 +461,8 @@ const ColisSheinDetail = () => {
     if (loading) {
         return (
             <div className="csd-loading">
-                Chargement…
+                <span className="csd-loading-spinner" />
+                <span>Chargement de la conversation</span>
             </div>
         );
     }
@@ -621,125 +470,95 @@ const ColisSheinDetail = () => {
     if (!colis) {
         return (
             <div className="csd-loading">
-                Colis introuvable
+                <span>Colis introuvable</span>
             </div>
         );
     }
 
-    const etapeActuelle =
-        STATUT_ORDER.indexOf(
-            colis.statut
-        );
-
+    const etapeActuelle = STATUT_ORDER.indexOf(colis.statut);
     const chatFerme =
-        colis.statut === "livre" ||
-        colis.statut === "annule";
-
-    const tauxApplique =
-        colis.devis?.tauxApplique ||
-        null;
-
-    const serviceOuvert =
-        estDansHoraires(
-            horaires,
-            maintenant
-        );
+        colis.statut === "livre" || colis.statut === "annule";
+    const tauxApplique = colis.devis?.tauxApplique || null;
+    const serviceOuvert = estDansHoraires(horaires, maintenant);
 
     return (
         <div className="csd-page">
-            <div className="csd-header">
+            <header className="csd-header">
                 <button
                     className="csd-back"
-                    onClick={() =>
-                        navigate(
-                            "/mes-colis-shein"
-                        )
-                    }
+                    onClick={() => navigate("/mes-colis-shein")}
                     aria-label="Retour"
                 >
-                    <svg
-                        width="20"
-                        height="20"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                    >
-                        <polyline points="15 18 9 12 15 6" />
-                    </svg>
+                    <IconBack />
                 </button>
 
                 <div className="csd-header-titre">
-                    <p className="csd-numero">
-                        {colis.numeroSuivi}
-                    </p>
+                    <div className="csd-header-topline">
+                        <span className="csd-live-dot" />
+                        <p className="csd-numero">
+                            {colis.numeroSuivi}
+                        </p>
+                    </div>
 
                     <h1 className="csd-statut">
-                        {STATUT_LABELS[
-                            colis.statut
-                        ] ||
-                            colis.statut}
+                        {STATUT_LABELS[colis.statut] || colis.statut}
                     </h1>
                 </div>
 
                 <button
                     className={`csd-toggle ${
-                        infosOuvertes
-                            ? "open"
-                            : ""
+                        infosOuvertes ? "open" : ""
                     }`}
                     onClick={() =>
-                        setInfosOuvertes(
-                            (v) => !v
-                        )
+                        setInfosOuvertes((v) => !v)
                     }
                     aria-label="Détails du colis"
                 >
-                    <svg
-                        width="18"
-                        height="18"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                    >
-                        <polyline points="6 9 12 15 18 9" />
-                    </svg>
+                    <IconChevron />
                 </button>
+            </header>
+
+            <div className="csd-chat-heading">
+                <div>
+                    <span className="csd-chat-heading-label">
+                        Discussion
+                    </span>
+                    <span className="csd-chat-heading-sub">
+                        Assistance SHEIN
+                    </span>
+                </div>
+
+                <span className="csd-secure-label">
+                    Conversation sécurisée
+                </span>
             </div>
 
             {!serviceOuvert && (
                 <div className="csd-horaires-banner">
-                    Service fermé
+                    <strong>Service fermé</strong>
                     {horaires?.ouverture
                         ? ` — réouverture à ${horaires.ouverture}`
                         : ""}
-                    . Tu peux quand même
-                    écrire, on te répondra à la
-                    réouverture.
+                    . Tu peux quand même écrire, on te répondra à
+                    la réouverture.
                 </div>
             )}
 
             {colis.estimationArrivee?.dateDebut &&
                 colis.estimationArrivee?.dateFin &&
-                !colis.estimationArrivee
-                    ?.confirmee && (
+                !colis.estimationArrivee?.confirmee && (
                     <div className="csd-arrivee-banner">
-                        Arrivée estimée à Abidjan
-                        entre le{" "}
+                        <span className="csd-banner-dot" />
+                        Arrivée estimée à Abidjan entre le{" "}
                         <strong>
                             {dateCourte(
-                                colis
-                                    .estimationArrivee
-                                    .dateDebut
+                                colis.estimationArrivee.dateDebut
                             )}
                         </strong>{" "}
                         et le{" "}
                         <strong>
                             {dateCourte(
-                                colis
-                                    .estimationArrivee
-                                    .dateFin
+                                colis.estimationArrivee.dateFin
                             )}
                         </strong>
                     </div>
@@ -749,170 +568,150 @@ const ColisSheinDetail = () => {
                 colis.livraison?.dateDebut &&
                 colis.livraison?.dateFin && (
                     <div className="csd-livraison-banner">
+                        <span className="csd-banner-dot" />
                         Livraison estimée entre le{" "}
                         <strong>
                             {dateCourte(
-                                colis.livraison
-                                    .dateDebut
+                                colis.livraison.dateDebut
                             )}
                         </strong>{" "}
                         et le{" "}
                         <strong>
                             {dateCourte(
-                                colis.livraison
-                                    .dateFin
+                                colis.livraison.dateFin
                             )}
                         </strong>
                     </div>
                 )}
 
-            {colis.statut ===
-                "devis_envoye" &&
-                !colis.paiement
-                    ?.acomptePaye &&
-                colis.devis
-                    ?.montantInitial > 0 && (
+            {colis.statut === "devis_envoye" &&
+                !colis.paiement?.acomptePaye &&
+                colis.devis?.montantInitial > 0 && (
                     <button
                         className="csd-pay-btn"
-                        onClick={
-                            payerAcompte
-                        }
-                        disabled={
-                            payingAcompte
-                        }
+                        onClick={payerAcompte}
+                        disabled={payingAcompte}
                     >
-                        {payingAcompte
-                            ? "Redirection…"
-                            : `Payer les articles — ${fcfa(
-                                colis.devis
-                                    .montantInitial
-                            )}`}
+                        <span>
+                            {payingAcompte
+                                ? "Redirection…"
+                                : "Payer les articles"}
+                        </span>
+                        {!payingAcompte && (
+                            <strong>
+                                {fcfa(
+                                    colis.devis.montantInitial
+                                )}
+                            </strong>
+                        )}
                     </button>
                 )}
 
             {(colis.statut === "pese" ||
-                colis.statut ===
-                    "solde_du") &&
-                !colis.paiement
-                    ?.soldePaye &&
-                colis.paiement
-                    ?.soldeMontant > 0 && (
+                colis.statut === "solde_du") &&
+                !colis.paiement?.soldePaye &&
+                colis.paiement?.soldeMontant > 0 && (
                     <button
                         className="csd-pay-btn"
-                        onClick={
-                            payerSolde
-                        }
-                        disabled={
-                            payingSolde
-                        }
+                        onClick={payerSolde}
+                        disabled={payingSolde}
                     >
-                        {payingSolde
-                            ? "Redirection…"
-                            : `Payer la livraison — ${fcfa(
-                                colis.paiement
-                                    .soldeMontant
-                            )}`}
+                        <span>
+                            {payingSolde
+                                ? "Redirection…"
+                                : "Payer la livraison"}
+                        </span>
+                        {!payingSolde && (
+                            <strong>
+                                {fcfa(
+                                    colis.paiement.soldeMontant
+                                )}
+                            </strong>
+                        )}
                     </button>
                 )}
 
             <div
                 className={`csd-infos ${
-                    infosOuvertes
-                        ? "open"
-                        : ""
+                    infosOuvertes ? "open" : ""
                 }`}
             >
-                {colis.statut !==
-                    "annule" && (
+                {colis.statut !== "annule" && (
                     <div className="csd-progress">
-                        {STATUT_ORDER.map(
-                            (s, i) => (
-                                <div
-                                    key={s}
-                                    className={`csd-dot ${
-                                        i <=
-                                        etapeActuelle
-                                            ? "done"
-                                            : ""
-                                    }`}
-                                />
-                            )
-                        )}
+                        {STATUT_ORDER.map((s, i) => (
+                            <div
+                                key={s}
+                                className={`csd-dot ${
+                                    i <= etapeActuelle
+                                        ? "done"
+                                        : ""
+                                }`}
+                            />
+                        ))}
                     </div>
                 )}
 
                 <div className="csd-card">
-                    <p className="csd-card-title">
-                        Articles
-                    </p>
+                    <div className="csd-card-heading">
+                        <p className="csd-card-title">Articles</p>
+                        <span>
+                            {colis.articlesValides.length} article
+                            {colis.articlesValides.length > 1
+                                ? "s"
+                                : ""}
+                        </span>
+                    </div>
 
-                    {colis.articlesValides.map(
-                        (a, i) => (
-                            <div
-                                key={i}
-                                className="csd-article"
-                            >
-                                <div>
-                                    <p className="csd-article-nom">
-                                        {a.nom}
-                                    </p>
+                    {colis.articlesValides.map((a, i) => (
+                        <div key={i} className="csd-article">
+                            <div>
+                                <p className="csd-article-nom">
+                                    {a.nom}
+                                </p>
+                                <p className="csd-article-variante">
+                                    {a.variante} · x{a.quantite}
+                                </p>
+                            </div>
 
-                                    <p className="csd-article-variante">
-                                        {a.variante} ·
-                                        x{a.quantite}
-                                    </p>
-                                </div>
+                            <div className="csd-article-prix-bloc">
+                                <span className="csd-article-prix">
+                                    {money(
+                                        a.prixUnitaire *
+                                            a.quantite,
+                                        colis.devise
+                                    )}
+                                </span>
 
-                                <div className="csd-article-prix-bloc">
-                                    <span className="csd-article-prix">
-                                        {money(
+                                {tauxApplique && (
+                                    <span className="csd-article-fcfa">
+                                        ≈{" "}
+                                        {fcfa(
                                             a.prixUnitaire *
-                                                a.quantite,
-                                            colis.devise
+                                                a.quantite *
+                                                tauxApplique
                                         )}
                                     </span>
-
-                                    {tauxApplique && (
-                                        <span className="csd-article-fcfa">
-                                            ≈{" "}
-                                            {fcfa(
-                                                a.prixUnitaire *
-                                                    a.quantite *
-                                                    tauxApplique
-                                            )}
-                                        </span>
-                                    )}
-                                </div>
+                                )}
                             </div>
-                        )
-                    )}
+                        </div>
+                    ))}
 
                     <div className="csd-total-row">
-                        <span>
-                            Total articles
-                        </span>
-
+                        <span>Total articles</span>
                         <strong>
                             {money(
-                                colis.devis
-                                    ?.montantArticles,
+                                colis.devis?.montantArticles,
                                 colis.devise
                             )}
                         </strong>
                     </div>
 
-                    {colis.devis
-                        ?.montantArticlesFCFA !=
-                        null && (
+                    {colis.devis?.montantArticlesFCFA != null && (
                         <div className="csd-total-row csd-fcfa">
-                            <span>
-                                Équivalent
-                            </span>
-
+                            <span>Équivalent</span>
                             <strong>
                                 {fcfa(
-                                    colis.devis
-                                        .montantArticlesFCFA
+                                    colis.devis.montantArticlesFCFA
                                 )}
                             </strong>
                         </div>
@@ -923,142 +722,61 @@ const ColisSheinDetail = () => {
             <div className="csd-chat-zone">
                 <div
                     className="csd-messages"
-                    ref={
-                        messagesContainerRef
-                    }
+                    ref={messagesContainerRef}
                 >
                     {messages.length === 0 &&
                         !agentEnTrainDecrire && (
-                            <div className="csd-chat-empty-state">
-                                <div className="csd-chat-empty-icon">
-                                    <svg
-                                        width="22"
-                                        height="22"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="1.7"
-                                    >
-                                        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7A8.38 8.38 0 0 1 4 11.5a8.5 8.5 0 0 1 4.7-7.6A8.38 8.38 0 0 1 12.5 3h.5a8.5 8.5 0 0 1 8 8v.5Z" />
-                                    </svg>
+                            <div className="csd-empty-state">
+                                <div className="csd-empty-icon">
+                                    <span />
                                 </div>
 
-                                <p>
-                                    Aucun message
-                                    pour l'instant
-                                </p>
+                                <strong>
+                                    Aucun message pour l'instant
+                                </strong>
 
-                                <span>
-                                    Pose ta question
-                                    à l'agent ici.
-                                </span>
+                                <p>
+                                    Pose ta question à l'agent
+                                    directement ici.
+                                </p>
                             </div>
                         )}
 
-                    {messages.map(
-                        (m, idx) => {
-                            const precedent =
-                                messages[
-                                    idx - 1
-                                ];
+                    {messages.map((m, idx) => {
+                        const precedent = messages[idx - 1];
 
-                            const nouveauJour =
-                                !precedent ||
-                                !memeJour(
-                                    precedent.createdAt,
-                                    m.createdAt
-                                );
+                        const nouveauJour =
+                            !precedent ||
+                            !memeJour(
+                                precedent.createdAt,
+                                m.createdAt
+                            );
 
-                            if (
-                                m.type ===
-                                "systeme"
-                            ) {
-                                return (
-                                    <div
-                                        key={m._id}
-                                        className="csd-msg-wrap"
-                                    >
-                                        {nouveauJour && (
-                                            <div className="csd-day-divider">
-                                                <span>
-                                                    {libelleJour(
-                                                        m.createdAt
-                                                    )}
-                                                </span>
-                                            </div>
-                                        )}
-
-                                        <div className="csd-badge-systeme">
-                                            {m.texte}
+                        if (m.type === "systeme") {
+                            return (
+                                <div
+                                    key={m._id}
+                                    className="csd-msg-wrap"
+                                >
+                                    {nouveauJour && (
+                                        <div className="csd-day-divider">
+                                            <span>
+                                                {libelleJour(
+                                                    m.createdAt
+                                                )}
+                                            </span>
                                         </div>
+                                    )}
+
+                                    <div className="csd-badge-systeme">
+                                        {m.texte}
                                     </div>
-                                );
-                            }
+                                </div>
+                            );
+                        }
 
-                            if (
-                                m.type ===
-                                "devis"
-                            ) {
-                                if (
-                                    m.payload
-                                        ?.superseded
-                                ) {
-                                    return (
-                                        <div
-                                            key={
-                                                m._id
-                                            }
-                                            className="csd-msg-wrap"
-                                        >
-                                            {nouveauJour && (
-                                                <div className="csd-day-divider">
-                                                    <span>
-                                                        {libelleJour(
-                                                            m.createdAt
-                                                        )}
-                                                    </span>
-                                                </div>
-                                            )}
-
-                                            <div className="csd-devis-card csd-devis-remplace">
-                                                <p className="csd-devis-libelle">
-                                                    {
-                                                        m
-                                                            .payload
-                                                            ?.libelle
-                                                    }
-                                                </p>
-
-                                                <p className="csd-devis-montant-barre">
-                                                    {fcfa(
-                                                        m
-                                                            .payload
-                                                            ?.montant
-                                                    )}
-                                                </p>
-
-                                                <span className="csd-devis-remplace-tag">
-                                                    Devis remplacé
-                                                    par une
-                                                    version plus
-                                                    récente
-                                                </span>
-                                            </div>
-                                        </div>
-                                    );
-                                }
-
-                                const dejaPayee =
-                                    m.payload
-                                        ?.paymentType ===
-                                    "shein_acompte"
-                                        ? colis
-                                            .paiement
-                                            ?.acomptePaye
-                                        : colis
-                                            .paiement
-                                            ?.soldePaye;
-
+                        if (m.type === "devis") {
+                            if (m.payload?.superseded) {
                                 return (
                                     <div
                                         key={m._id}
@@ -1074,269 +792,35 @@ const ColisSheinDetail = () => {
                                             </div>
                                         )}
 
-                                        <div className="csd-devis-card">
-                                            <div className="csd-devis-top">
-                                                <span className="csd-devis-kicker">
-                                                    Proposition
-                                                </span>
-
-                                                <span className="csd-devis-status-dot" />
+                                        <div className="csd-devis-card csd-devis-remplace">
+                                            <div className="csd-card-status">
+                                                VERSION PRÉCÉDENTE
                                             </div>
 
                                             <p className="csd-devis-libelle">
-                                                {
-                                                    m
-                                                        .payload
-                                                        ?.libelle
-                                                }
+                                                {m.payload?.libelle}
                                             </p>
 
-                                            <p className="csd-devis-montant">
+                                            <p className="csd-devis-montant-barre">
                                                 {fcfa(
-                                                    m
-                                                        .payload
-                                                        ?.montant
+                                                    m.payload?.montant
                                                 )}
                                             </p>
 
-                                            {m
-                                                .payload
-                                                ?.detail && (
-                                                <p className="csd-devis-detail">
-                                                    {
-                                                        m
-                                                            .payload
-                                                            .detail
-                                                    }
-                                                </p>
-                                            )}
-
-                                            {dejaPayee ? (
-                                                <span className="csd-devis-paye">
-                                                    Payé
-                                                </span>
-                                            ) : (
-                                                <button
-                                                    onClick={
-                                                        m
-                                                            .payload
-                                                            ?.paymentType ===
-                                                        "shein_acompte"
-                                                            ? payerAcompte
-                                                            : payerSolde
-                                                    }
-                                                    disabled={
-                                                        payingAcompte ||
-                                                        payingSolde
-                                                    }
-                                                >
-                                                    Payer maintenant
-                                                </button>
-                                            )}
-
-                                            <span className="csd-msg-heure">
-                                                {new Date(
-                                                    m.createdAt
-                                                ).toLocaleTimeString(
-                                                    "fr-FR",
-                                                    {
-                                                        hour: "2-digit",
-                                                        minute: "2-digit",
-                                                    }
-                                                )}
+                                            <span className="csd-devis-remplace-tag">
+                                                Devis remplacé par une
+                                                version plus récente
                                             </span>
                                         </div>
                                     </div>
                                 );
                             }
 
-                            if (
-                                m.type ===
-                                "avis"
-                            ) {
-                                if (
-                                    m.payload
-                                        ?.superseded
-                                ) {
-                                    return null;
-                                }
-
-                                if (
-                                    m.payload
-                                        ?.repondu
-                                ) {
-                                    return (
-                                        <div
-                                            key={
-                                                m._id
-                                            }
-                                            className="csd-msg-wrap"
-                                        >
-                                            {nouveauJour && (
-                                                <div className="csd-day-divider">
-                                                    <span>
-                                                        {libelleJour(
-                                                            m.createdAt
-                                                        )}
-                                                    </span>
-                                                </div>
-                                            )}
-
-                                            <div className="csd-avis-card csd-avis-repondu">
-                                                <p className="csd-avis-libelle">
-                                                    Merci
-                                                    pour ton
-                                                    avis
-                                                </p>
-
-                                                <div className="csd-avis-etoiles-lecture">
-                                                    {[
-                                                        1,
-                                                        2,
-                                                        3,
-                                                        4,
-                                                        5,
-                                                    ].map(
-                                                        (
-                                                            n
-                                                        ) => (
-                                                            <Etoile
-                                                                key={
-                                                                    n
-                                                                }
-                                                                remplie={
-                                                                    n <=
-                                                                    m
-                                                                        .payload
-                                                                        .etoilesDonnees
-                                                                }
-                                                            />
-                                                        )
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                }
-
-                                const brouillon =
-                                    avisEnCours[
-                                        m._id
-                                    ] || {};
-
-                                return (
-                                    <div
-                                        key={m._id}
-                                        className="csd-msg-wrap"
-                                    >
-                                        {nouveauJour && (
-                                            <div className="csd-day-divider">
-                                                <span>
-                                                    {libelleJour(
-                                                        m.createdAt
-                                                    )}
-                                                </span>
-                                            </div>
-                                        )}
-
-                                        <div className="csd-avis-card">
-                                            <p className="csd-avis-libelle">
-                                                {m
-                                                    .payload
-                                                    ?.libelle ||
-                                                    "Comment s'est passée votre expérience ?"}
-                                            </p>
-
-                                            <div className="csd-avis-etoiles">
-                                                {[
-                                                    1,
-                                                    2,
-                                                    3,
-                                                    4,
-                                                    5,
-                                                ].map(
-                                                    (
-                                                        n
-                                                    ) => (
-                                                        <button
-                                                            key={
-                                                                n
-                                                            }
-                                                            type="button"
-                                                            onClick={() =>
-                                                                choisirEtoiles(
-                                                                    m._id,
-                                                                    n
-                                                                )
-                                                            }
-                                                            aria-label={`${n} étoiles`}
-                                                        >
-                                                            <Etoile
-                                                                remplie={
-                                                                    n <=
-                                                                    (brouillon.etoiles ||
-                                                                        0)
-                                                                }
-                                                            />
-                                                        </button>
-                                                    )
-                                                )}
-                                            </div>
-
-                                            <textarea
-                                                placeholder="Un commentaire ? (optionnel)"
-                                                value={
-                                                    brouillon.commentaire ||
-                                                    ""
-                                                }
-                                                onChange={(
-                                                    e
-                                                ) =>
-                                                    changerCommentaireAvis(
-                                                        m._id,
-                                                        e
-                                                            .target
-                                                            .value
-                                                    )
-                                                }
-                                                rows={2}
-                                            />
-
-                                            <button
-                                                className="csd-avis-envoyer"
-                                                onClick={() =>
-                                                    envoyerAvis(
-                                                        m._id
-                                                    )
-                                                }
-                                                disabled={
-                                                    envoiAvis ===
-                                                    m._id
-                                                }
-                                            >
-                                                {envoiAvis ===
-                                                m._id
-                                                    ? "Envoi…"
-                                                    : "Envoyer mon avis"}
-                                            </button>
-                                        </div>
-                                    </div>
-                                );
-                            }
-
-                            const estClient =
-                                m.expediteurRole ===
-                                "client";
-
-                            const lu =
-                                estClient &&
-                                colis.adminDernierLu &&
-                                new Date(
-                                    m.createdAt
-                                ) <=
-                                    new Date(
-                                        colis.adminDernierLu
-                                    );
+                            const dejaPayee =
+                                m.payload?.paymentType ===
+                                "shein_acompte"
+                                    ? colis.paiement?.acomptePaye
+                                    : colis.paiement?.soldePaye;
 
                             return (
                                 <div
@@ -1353,105 +837,330 @@ const ColisSheinDetail = () => {
                                         </div>
                                     )}
 
-                                    <div
-                                        className={`csd-msg ${
-                                            estClient
-                                                ? "csd-msg-client"
-                                                : "csd-msg-agent"
-                                        }`}
-                                    >
-                                        {!estClient && (
-                                            <span className="csd-agent-label">
-                                                Agent
-                                            </span>
-                                        )}
+                                    <div className="csd-devis-card">
+                                        <div className="csd-card-status red">
+                                            DEVIS
+                                        </div>
 
-                                        {m.imageUrl && (
-                                            <img
-                                                src={
-                                                    m.imageUrl
-                                                }
-                                                alt=""
-                                                className="csd-msg-img"
-                                                onClick={() =>
-                                                    window.open(
-                                                        m.imageUrl,
-                                                        "_blank"
-                                                    )
-                                                }
-                                            />
-                                        )}
+                                        <p className="csd-devis-libelle">
+                                            {m.payload?.libelle}
+                                        </p>
 
-                                        {m.texte && (
-                                            <p>
-                                                {m.texte}
+                                        <p className="csd-devis-montant">
+                                            {fcfa(
+                                                m.payload?.montant
+                                            )}
+                                        </p>
+
+                                        {m.payload?.detail && (
+                                            <p className="csd-devis-detail">
+                                                {m.payload.detail}
                                             </p>
                                         )}
 
-                                        <span className="csd-msg-meta">
-                                            <span className="csd-msg-heure">
-                                                {new Date(
-                                                    m.createdAt
-                                                ).toLocaleTimeString(
-                                                    "fr-FR",
-                                                    {
-                                                        hour: "2-digit",
-                                                        minute: "2-digit",
-                                                    }
-                                                )}
+                                        {dejaPayee ? (
+                                            <span className="csd-devis-paye">
+                                                Paiement confirmé
                                             </span>
+                                        ) : (
+                                            <button
+                                                onClick={
+                                                    m.payload
+                                                        ?.paymentType ===
+                                                    "shein_acompte"
+                                                        ? payerAcompte
+                                                        : payerSolde
+                                                }
+                                                disabled={
+                                                    payingAcompte ||
+                                                    payingSolde
+                                                }
+                                            >
+                                                Payer maintenant
+                                            </button>
+                                        )}
 
-                                            {estClient && (
-                                                <span
-                                                    className={`csd-check ${
-                                                        lu
-                                                            ? "csd-check-lu"
-                                                            : ""
-                                                    }`}
-                                                    aria-label={
-                                                        lu
-                                                            ? "Lu"
-                                                            : "Envoyé"
-                                                    }
-                                                >
-                                                    {lu ? (
-                                                        <CocheDouble />
-                                                    ) : (
-                                                        <CocheSimple />
-                                                    )}
-                                                </span>
+                                        <span className="csd-msg-heure">
+                                            {new Date(
+                                                m.createdAt
+                                            ).toLocaleTimeString(
+                                                "fr-FR",
+                                                {
+                                                    hour: "2-digit",
+                                                    minute: "2-digit",
+                                                }
                                             )}
                                         </span>
                                     </div>
                                 </div>
                             );
                         }
-                    )}
+
+                        if (m.type === "avis") {
+                            if (m.payload?.superseded) return null;
+
+                            if (m.payload?.repondu) {
+                                return (
+                                    <div
+                                        key={m._id}
+                                        className="csd-msg-wrap"
+                                    >
+                                        {nouveauJour && (
+                                            <div className="csd-day-divider">
+                                                <span>
+                                                    {libelleJour(
+                                                        m.createdAt
+                                                    )}
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        <div className="csd-avis-card csd-avis-repondu">
+                                            <div className="csd-card-status">
+                                                AVIS ENVOYÉ
+                                            </div>
+
+                                            <p className="csd-avis-libelle">
+                                                Merci pour ton avis.
+                                            </p>
+
+                                            <div className="csd-avis-etoiles-lecture">
+                                                {[1, 2, 3, 4, 5].map(
+                                                    (n) => (
+                                                        <Etoile
+                                                            key={n}
+                                                            remplie={
+                                                                n <=
+                                                                m
+                                                                    .payload
+                                                                    .etoilesDonnees
+                                                            }
+                                                        />
+                                                    )
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            const brouillon =
+                                avisEnCours[m._id] || {};
+
+                            return (
+                                <div
+                                    key={m._id}
+                                    className="csd-msg-wrap"
+                                >
+                                    {nouveauJour && (
+                                        <div className="csd-day-divider">
+                                            <span>
+                                                {libelleJour(
+                                                    m.createdAt
+                                                )}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    <div className="csd-avis-card">
+                                        <div className="csd-card-status red">
+                                            VOTRE AVIS
+                                        </div>
+
+                                        <p className="csd-avis-libelle">
+                                            {m.payload?.libelle ||
+                                                "Comment s'est passée votre expérience ?"}
+                                        </p>
+
+                                        <div className="csd-avis-etoiles">
+                                            {[1, 2, 3, 4, 5].map(
+                                                (n) => (
+                                                    <button
+                                                        key={n}
+                                                        type="button"
+                                                        onClick={() =>
+                                                            choisirEtoiles(
+                                                                m._id,
+                                                                n
+                                                            )
+                                                        }
+                                                        aria-label={`${n} étoiles`}
+                                                    >
+                                                        <Etoile
+                                                            remplie={
+                                                                n <=
+                                                                (brouillon.etoiles ||
+                                                                    0)
+                                                            }
+                                                        />
+                                                    </button>
+                                                )
+                                            )}
+                                        </div>
+
+                                        <textarea
+                                            placeholder="Un commentaire ? (optionnel)"
+                                            value={
+                                                brouillon.commentaire ||
+                                                ""
+                                            }
+                                            onChange={(e) =>
+                                                changerCommentaireAvis(
+                                                    m._id,
+                                                    e.target.value
+                                                )
+                                            }
+                                            rows={2}
+                                        />
+
+                                        <button
+                                            className="csd-avis-envoyer"
+                                            onClick={() =>
+                                                envoyerAvis(m._id)
+                                            }
+                                            disabled={
+                                                envoiAvis === m._id
+                                            }
+                                        >
+                                            {envoiAvis === m._id
+                                                ? "Envoi…"
+                                                : "Envoyer mon avis"}
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        }
+
+                        const estClient =
+                            m.expediteurRole === "client";
+
+                        const lu =
+                            estClient &&
+                            colis.adminDernierLu &&
+                            new Date(m.createdAt) <=
+                                new Date(
+                                    colis.adminDernierLu
+                                );
+
+                        return (
+                            <div
+                                key={m._id}
+                                className={`csd-msg-wrap ${
+                                    estClient
+                                        ? "client-wrap"
+                                        : "agent-wrap"
+                                }`}
+                            >
+                                {nouveauJour && (
+                                    <div className="csd-day-divider">
+                                        <span>
+                                            {libelleJour(
+                                                m.createdAt
+                                            )}
+                                        </span>
+                                    </div>
+                                )}
+
+                                <div
+                                    className={`csd-msg ${
+                                        estClient
+                                            ? "csd-msg-client"
+                                            : "csd-msg-agent"
+                                    }`}
+                                >
+                                    {!estClient && (
+                                        <div className="csd-agent-label">
+                                            Assistance
+                                        </div>
+                                    )}
+
+                                    {m.imageUrl && (
+                                        <img
+                                            src={m.imageUrl}
+                                            alt=""
+                                            className="csd-msg-img"
+                                            onClick={() =>
+                                                window.open(
+                                                    m.imageUrl,
+                                                    "_blank"
+                                                )
+                                            }
+                                        />
+                                    )}
+
+                                    {m.texte && (
+                                        <p>{m.texte}</p>
+                                    )}
+
+                                    <span className="csd-msg-meta">
+                                        <span className="csd-msg-heure">
+                                            {new Date(
+                                                m.createdAt
+                                            ).toLocaleTimeString(
+                                                "fr-FR",
+                                                {
+                                                    hour: "2-digit",
+                                                    minute: "2-digit",
+                                                }
+                                            )}
+                                        </span>
+
+                                        {estClient && (
+                                            <span
+                                                className={`csd-check ${
+                                                    lu
+                                                        ? "csd-check-lu"
+                                                        : ""
+                                                }`}
+                                                aria-label={
+                                                    lu
+                                                        ? "Lu"
+                                                        : "Envoyé"
+                                                }
+                                            >
+                                                {lu ? (
+                                                    <CocheDouble />
+                                                ) : (
+                                                    <CocheSimple />
+                                                )}
+                                            </span>
+                                        )}
+                                    </span>
+                                </div>
+                            </div>
+                        );
+                    })}
 
                     {agentEnTrainDecrire && (
                         <div
                             className="csd-msg csd-msg-agent csd-typing"
                             aria-label="L'agent écrit"
                         >
-                            <span className="csd-typing-dot" />
-                            <span className="csd-typing-dot" />
-                            <span className="csd-typing-dot" />
+                            <div className="csd-agent-label">
+                                Assistance
+                            </div>
+
+                            <div className="csd-typing-row">
+                                <span className="csd-typing-dot" />
+                                <span className="csd-typing-dot" />
+                                <span className="csd-typing-dot" />
+                            </div>
                         </div>
                     )}
                 </div>
 
                 {chatFerme ? (
                     <div className="csd-chat-closed">
+                        <span className="csd-closed-line" />
                         {colis.statut === "livre"
                             ? "Colis livré — conversation clôturée"
                             : "Colis annulé — conversation clôturée"}
+                        <span className="csd-closed-line" />
                     </div>
                 ) : (
                     <form
                         className="csd-chat-form"
-                        onSubmit={
-                            envoyerMessage
-                        }
+                        onSubmit={envoyerMessage}
                     >
                         {imageChoisie && (
                             <div className="csd-preview">
@@ -1462,12 +1171,19 @@ const ColisSheinDetail = () => {
                                     alt=""
                                 />
 
+                                <div className="csd-preview-info">
+                                    <strong>
+                                        Image jointe
+                                    </strong>
+                                    <span>
+                                        Prête à être envoyée
+                                    </span>
+                                </div>
+
                                 <button
                                     type="button"
                                     onClick={() => {
-                                        setImageChoisie(
-                                            null
-                                        );
+                                        setImageChoisie(null);
 
                                         if (
                                             fileInputRef.current
@@ -1476,7 +1192,7 @@ const ColisSheinDetail = () => {
                                                 "";
                                         }
                                     }}
-                                    aria-label="Supprimer l'image"
+                                    aria-label="Retirer l'image"
                                 >
                                     ×
                                 </button>
@@ -1484,39 +1200,27 @@ const ColisSheinDetail = () => {
                         )}
 
                         <div className="csd-chat-row">
-                            <label className="csd-attach-btn">
-                                <svg
-                                    width="20"
-                                    height="20"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                >
-                                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                                </svg>
+                            <label
+                                className="csd-attach-btn"
+                                title="Joindre une image"
+                            >
+                                <IconAttach />
 
                                 <input
-                                    ref={
-                                        fileInputRef
-                                    }
+                                    ref={fileInputRef}
                                     type="file"
                                     accept="image/*"
                                     hidden
-                                    onChange={
-                                        choisirImage
-                                    }
+                                    onChange={choisirImage}
                                 />
                             </label>
 
                             <input
                                 type="text"
-                                placeholder="Écris un message…"
+                                placeholder="Écrire un message..."
                                 value={texte}
                                 onChange={(e) => {
-                                    setTexte(
-                                        e.target.value
-                                    );
+                                    setTexte(e.target.value);
 
                                     if (
                                         e.target.value.trim()
@@ -1537,19 +1241,7 @@ const ColisSheinDetail = () => {
                                 className="csd-send-btn"
                                 aria-label="Envoyer"
                             >
-                                <svg
-                                    width="17"
-                                    height="17"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                >
-                                    <path d="M22 2L11 13" />
-                                    <path d="M22 2L15 22L11 13L2 9L22 2Z" />
-                                </svg>
+                                <IconSend />
                             </button>
                         </div>
                     </form>
@@ -1558,65 +1250,91 @@ const ColisSheinDetail = () => {
 
             <style>{`
                 .csd-page {
-                    --csd-bg: #f5f7fa;
-                    --csd-card: #ffffff;
-                    --csd-border: #e7ebf0;
-                    --csd-text: #101828;
-                    --csd-muted: #667085;
-                    --csd-blue: #2563eb;
-                    --csd-blue-soft: #eff6ff;
-                    --csd-green: #12b76a;
+                    --black: #070707;
+                    --black-soft: #0d0d0d;
+                    --surface: #131313;
+                    --surface-2: #181818;
+                    --surface-3: #202020;
+                    --border: #282828;
+                    --border-soft: #202020;
+                    --white: #f7f7f7;
+                    --muted: #858585;
+                    --muted-2: #5e5e5e;
+                    --red: #e50914;
+                    --red-hover: #ff1c28;
 
-                    max-width: 760px;
+                    max-width: 560px;
                     margin: 0 auto;
                     display: flex;
                     flex-direction: column;
                     height: calc(100vh - 70px);
                     height: calc(100dvh - 70px);
-                    padding: 0 14px;
-                    font-family: Inter, "DM Sans", system-ui, sans-serif;
-                    color: var(--csd-text);
-                    background: var(--csd-bg);
+                    font-family: Inter, "DM Sans", sans-serif;
+                    padding: 0 14px 14px;
+                    color: var(--white);
+                    background: var(--black);
                 }
 
                 .csd-loading {
-                    min-height: 300px;
+                    min-height: 50vh;
                     display: flex;
+                    flex-direction: column;
                     align-items: center;
                     justify-content: center;
-                    color: var(--csd-muted);
-                    font-size: 14px;
-                    font-weight: 600;
+                    gap: 12px;
+                    background: #070707;
+                    color: #888;
+                    font-size: 13px;
+                }
+
+                .csd-loading-spinner {
+                    width: 22px;
+                    height: 22px;
+                    border: 2px solid #252525;
+                    border-top-color: #e50914;
+                    border-radius: 50%;
+                    animation: csd-spin .7s linear infinite;
+                }
+
+                @keyframes csd-spin {
+                    to { transform: rotate(360deg); }
                 }
 
                 .csd-header {
                     display: flex;
                     align-items: center;
                     gap: 11px;
-                    padding: 14px 0 12px;
+                    padding: 14px 0 10px;
                     flex-shrink: 0;
                 }
 
                 .csd-back,
                 .csd-toggle {
-                    width: 40px;
-                    height: 40px;
+                    width: 38px;
+                    height: 38px;
+                    border: 1px solid #292929;
+                    background: #111;
+                    color: #ddd;
                     border-radius: 12px;
-                    border: 1px solid var(--csd-border);
-                    background: #fff;
-                    color: #344054;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     cursor: pointer;
-                    transition: .18s ease;
                     flex-shrink: 0;
+                    transition: .18s ease;
+                }
+
+                .csd-back svg,
+                .csd-toggle svg {
+                    width: 18px;
+                    height: 18px;
                 }
 
                 .csd-back:hover,
                 .csd-toggle:hover {
-                    background: #f8fafc;
-                    border-color: #cfd6df;
+                    background: #1b1b1b;
+                    border-color: #3a3a3a;
+                    color: #fff;
                 }
 
                 .csd-header-titre {
@@ -1624,78 +1342,141 @@ const ColisSheinDetail = () => {
                     min-width: 0;
                 }
 
+                .csd-header-topline {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                }
+
+                .csd-live-dot {
+                    width: 6px;
+                    height: 6px;
+                    background: #e50914;
+                    border-radius: 50%;
+                    box-shadow: 0 0 0 4px rgba(229,9,20,.10);
+                }
+
                 .csd-numero {
-                    margin: 0 0 3px;
-                    color: #98a2b3;
                     font-size: 10px;
-                    font-weight: 800;
-                    letter-spacing: .6px;
+                    color: #777;
+                    margin: 0;
+                    letter-spacing: .7px;
                     text-transform: uppercase;
                 }
 
                 .csd-statut {
-                    margin: 0;
                     font-size: 14px;
-                    line-height: 1.3;
-                    font-weight: 800;
+                    font-weight: 700;
+                    color: #f5f5f5;
+                    margin: 3px 0 0;
                     white-space: nowrap;
                     overflow: hidden;
                     text-overflow: ellipsis;
                 }
 
-                .csd-toggle svg {
-                    transition: transform .2s ease;
+                .csd-toggle.open {
+                    transform: rotate(180deg);
+                    color: #e50914;
                 }
 
-                .csd-toggle.open svg {
-                    transform: rotate(180deg);
+                .csd-chat-heading {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 10px 2px 12px;
+                    border-top: 1px solid #181818;
+                    flex-shrink: 0;
+                }
+
+                .csd-chat-heading-label {
+                    display: block;
+                    font-size: 14px;
+                    font-weight: 750;
+                    color: #fff;
+                    letter-spacing: -.2px;
+                }
+
+                .csd-chat-heading-sub {
+                    display: block;
+                    margin-top: 2px;
+                    color: #666;
+                    font-size: 10.5px;
+                }
+
+                .csd-secure-label {
+                    font-size: 9px;
+                    text-transform: uppercase;
+                    letter-spacing: .65px;
+                    color: #696969;
+                    border: 1px solid #242424;
+                    border-radius: 20px;
+                    padding: 5px 8px;
                 }
 
                 .csd-horaires-banner,
                 .csd-arrivee-banner,
                 .csd-livraison-banner {
-                    border-radius: 12px;
-                    padding: 10px 13px;
-                    font-size: 11.5px;
-                    line-height: 1.45;
-                    margin-bottom: 9px;
                     flex-shrink: 0;
+                    border-radius: 10px;
+                    padding: 9px 11px;
+                    margin-bottom: 8px;
+                    text-align: center;
+                    font-size: 10.5px;
+                    line-height: 1.4;
                 }
 
                 .csd-horaires-banner {
-                    color: #7a5b00;
-                    background: #fffaeb;
-                    border: 1px solid #fedf89;
+                    background: #17100f;
+                    border: 1px solid #34201e;
+                    color: #bd817e;
                 }
 
                 .csd-arrivee-banner,
                 .csd-livraison-banner {
-                    color: #1e40af;
-                    background: #eff6ff;
-                    border: 1px solid #dbeafe;
+                    background: #111;
+                    border: 1px solid #252525;
+                    color: #999;
+                }
+
+                .csd-arrivee-banner strong,
+                .csd-livraison-banner strong {
+                    color: #ddd;
+                }
+
+                .csd-banner-dot {
+                    display: inline-block;
+                    width: 5px;
+                    height: 5px;
+                    background: #e50914;
+                    border-radius: 50%;
+                    margin: 0 6px 1px 0;
                 }
 
                 .csd-pay-btn {
                     width: 100%;
-                    border: none;
-                    border-radius: 12px;
-                    background: var(--csd-text);
-                    color: #fff;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    background: #e50914;
+                    color: white;
+                    border: 0;
+                    border-radius: 11px;
                     padding: 12px 14px;
-                    font-size: 12.5px;
-                    font-weight: 800;
+                    font-size: 12px;
+                    font-weight: 650;
                     cursor: pointer;
                     margin-bottom: 9px;
-                    box-shadow: 0 7px 18px rgba(16,24,40,.12);
-                    transition: transform .15s ease, background .15s ease;
+                    box-shadow: 0 7px 24px rgba(229,9,20,.16);
+                    transition: .18s ease;
+                }
+
+                .csd-pay-btn strong {
+                    font-size: 12px;
                 }
 
                 .csd-pay-btn:hover:not(:disabled) {
-                    background: #1d2939;
-                }
-
-                .csd-pay-btn:active:not(:disabled) {
-                    transform: scale(.99);
+                    background: #ff1823;
+                    transform: translateY(-1px);
                 }
 
                 .csd-pay-btn:disabled {
@@ -1705,236 +1486,224 @@ const ColisSheinDetail = () => {
 
                 .csd-infos {
                     max-height: 0;
-                    opacity: 0;
                     overflow: hidden;
-                    transition: max-height .3s ease, opacity .2s ease;
-                    flex-shrink: 0;
+                    transition: max-height .28s ease;
                 }
 
                 .csd-infos.open {
-                    max-height: 500px;
-                    opacity: 1;
+                    max-height: 600px;
                     overflow-y: auto;
-                    padding-bottom: 9px;
                 }
 
                 .csd-progress {
                     display: flex;
-                    align-items: center;
-                    gap: 5px;
-                    padding: 5px 2px 12px;
+                    gap: 4px;
+                    margin: 0 0 10px;
                 }
 
                 .csd-dot {
                     flex: 1;
-                    height: 4px;
-                    border-radius: 999px;
-                    background: #e4e7ec;
-                    transition: background .2s ease;
+                    height: 3px;
+                    border-radius: 2px;
+                    background: #242424;
+                    transition: .2s;
                 }
 
                 .csd-dot.done {
-                    background: var(--csd-blue);
+                    background: #e50914;
                 }
 
                 .csd-card {
-                    background: #fff;
-                    border: 1px solid var(--csd-border);
-                    border-radius: 16px;
+                    background: #111;
+                    border: 1px solid #242424;
+                    border-radius: 15px;
                     padding: 14px;
-                    box-shadow: 0 5px 18px rgba(16,24,40,.035);
+                    margin-bottom: 10px;
+                }
+
+                .csd-card-heading {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    margin-bottom: 9px;
+                }
+
+                .csd-card-heading > span {
+                    color: #666;
+                    font-size: 10px;
                 }
 
                 .csd-card-title {
-                    margin: 0 0 11px;
-                    font-size: 11px;
-                    font-weight: 850;
-                    color: #475467;
+                    font-size: 10px;
+                    font-weight: 700;
+                    color: #777;
                     text-transform: uppercase;
-                    letter-spacing: .55px;
+                    letter-spacing: .8px;
+                    margin: 0;
                 }
 
                 .csd-article {
                     display: flex;
-                    align-items: flex-start;
                     justify-content: space-between;
-                    gap: 15px;
-                    padding: 10px 0;
-                    border-top: 1px solid #f0f2f5;
+                    align-items: flex-start;
+                    padding: 9px 0;
+                    border-bottom: 1px solid #1e1e1e;
+                    gap: 10px;
                 }
 
-                .csd-article:first-of-type {
-                    border-top: none;
-                    padding-top: 0;
+                .csd-article:last-of-type {
+                    border-bottom: none;
                 }
 
                 .csd-article-nom {
-                    margin: 0 0 3px;
-                    font-size: 12.5px;
-                    font-weight: 750;
+                    font-size: 12px;
+                    font-weight: 550;
+                    color: #eee;
+                    margin: 0;
                 }
 
                 .csd-article-variante {
-                    margin: 0;
-                    font-size: 10.5px;
-                    color: #98a2b3;
+                    font-size: 10px;
+                    color: #666;
+                    margin: 3px 0 0;
                 }
 
                 .csd-article-prix-bloc {
-                    text-align: right;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: flex-end;
                     flex-shrink: 0;
                 }
 
                 .csd-article-prix {
-                    display: block;
-                    font-size: 12.5px;
-                    font-weight: 800;
+                    font-size: 12px;
+                    font-weight: 650;
+                    color: #eee;
                 }
 
                 .csd-article-fcfa {
-                    display: block;
+                    font-size: 9px;
+                    color: #777;
                     margin-top: 2px;
-                    color: #98a2b3;
-                    font-size: 9.5px;
                 }
 
                 .csd-total-row {
                     display: flex;
-                    align-items: center;
                     justify-content: space-between;
-                    border-top: 1px solid #e9edf2;
-                    padding-top: 11px;
-                    margin-top: 4px;
-                    font-size: 11.5px;
-                    color: #667085;
+                    padding-top: 10px;
+                    margin-top: 5px;
+                    border-top: 1px solid #292929;
+                    font-size: 12px;
+                    color: #999;
                 }
 
                 .csd-total-row strong {
-                    color: var(--csd-text);
-                    font-size: 13px;
+                    color: #fff;
                 }
 
                 .csd-total-row.csd-fcfa {
-                    border-top: none;
-                    margin-top: 5px;
+                    border-top: 0;
                     padding-top: 0;
+                    margin-top: 3px;
                 }
 
                 .csd-total-row.csd-fcfa strong {
-                    color: var(--csd-blue);
+                    color: #e50914;
                 }
 
                 .csd-chat-zone {
-                    min-height: 0;
                     flex: 1;
                     display: flex;
                     flex-direction: column;
-                    background: #fff;
-                    border: 1px solid var(--csd-border);
-                    border-radius: 20px 20px 14px 14px;
+                    min-height: 0;
+                    background: #0d0d0d;
+                    border: 1px solid #242424;
+                    border-radius: 18px;
                     overflow: hidden;
-                    box-shadow: 0 10px 30px rgba(16,24,40,.045);
+                    box-shadow: 0 15px 50px rgba(0,0,0,.28);
                 }
 
                 .csd-messages {
                     flex: 1;
-                    min-height: 0;
                     overflow-y: auto;
-                    overscroll-behavior: contain;
-                    padding: 18px 13px 12px;
-                    background:
-                        radial-gradient(circle at 10% 0%, rgba(37,99,235,.035), transparent 28%),
-                        #fbfcfe;
-                    scrollbar-width: thin;
-                    scrollbar-color: #d0d5dd transparent;
-                }
-
-                .csd-chat-empty-state {
-                    min-height: 230px;
+                    padding: 18px 13px;
                     display: flex;
                     flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    text-align: center;
-                    color: #667085;
+                    gap: 7px;
+                    scrollbar-width: thin;
+                    scrollbar-color: #333 transparent;
                 }
 
-                .csd-chat-empty-icon {
-                    width: 48px;
-                    height: 48px;
-                    border-radius: 15px;
-                    background: #eff6ff;
-                    color: var(--csd-blue);
+                .csd-messages::-webkit-scrollbar {
+                    width: 4px;
+                }
+
+                .csd-messages::-webkit-scrollbar-thumb {
+                    background: #333;
+                    border-radius: 20px;
+                }
+
+                .csd-empty-state {
+                    margin: auto;
+                    text-align: center;
+                    max-width: 230px;
+                    padding: 30px 0;
+                    color: #777;
+                }
+
+                .csd-empty-icon {
+                    width: 42px;
+                    height: 42px;
+                    margin: 0 auto 13px;
+                    border-radius: 14px;
+                    background: #151515;
+                    border: 1px solid #282828;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    margin-bottom: 12px;
                 }
 
-                .csd-chat-empty-state p {
-                    margin: 0 0 4px;
-                    color: #344054;
-                    font-size: 13px;
-                    font-weight: 800;
+                .csd-empty-icon span {
+                    width: 14px;
+                    height: 10px;
+                    border: 1.5px solid #777;
+                    border-radius: 4px;
+                    position: relative;
                 }
 
-                .csd-chat-empty-state span {
-                    font-size: 11px;
-                    color: #98a2b3;
+                .csd-empty-icon span::after {
+                    content: "";
+                    position: absolute;
+                    bottom: -4px;
+                    left: 3px;
+                    border-width: 3px 3px 0 0;
+                    border-style: solid;
+                    border-color: #777 transparent transparent transparent;
+                }
+
+                .csd-empty-state strong {
+                    display: block;
+                    color: #cfcfcf;
+                    font-size: 12px;
+                }
+
+                .csd-empty-state p {
+                    margin: 5px 0 0;
+                    color: #5f5f5f;
+                    font-size: 10.5px;
+                    line-height: 1.5;
                 }
 
                 .csd-msg-wrap {
-                    margin-bottom: 8px;
-                }
-
-                .csd-day-divider {
                     display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    margin: 16px 0 12px;
-                    color: #98a2b3;
-                    font-size: 9.5px;
-                    font-weight: 750;
-                    text-transform: uppercase;
-                    letter-spacing: .5px;
+                    flex-direction: column;
+                    animation: csd-pop .2s ease;
                 }
 
-                .csd-day-divider::before,
-                .csd-day-divider::after {
-                    content: "";
-                    height: 1px;
-                    flex: 1;
-                    background: #eaecf0;
-                }
-
-                .csd-badge-systeme {
-                    width: fit-content;
-                    max-width: 85%;
-                    margin: 8px auto;
-                    background: #f2f4f7;
-                    border: 1px solid #eaecf0;
-                    color: #667085;
-                    border-radius: 999px;
-                    padding: 6px 10px;
-                    text-align: center;
-                    font-size: 9.5px;
-                    line-height: 1.4;
-                }
-
-                .csd-msg {
-                    position: relative;
-                    width: fit-content;
-                    max-width: 78%;
-                    padding: 9px 11px 7px;
-                    border-radius: 16px;
-                    box-shadow: 0 2px 8px rgba(16,24,40,.045);
-                    animation: csd-message-in .18s ease;
-                }
-
-                @keyframes csd-message-in {
+                @keyframes csd-pop {
                     from {
                         opacity: 0;
-                        transform: translateY(4px);
+                        transform: translateY(5px);
                     }
                     to {
                         opacity: 1;
@@ -1942,47 +1711,76 @@ const ColisSheinDetail = () => {
                     }
                 }
 
-                .csd-msg-client {
-                    margin-left: auto;
-                    background: #111827;
-                    color: #fff;
-                    border-bottom-right-radius: 5px;
+                .csd-day-divider {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin: 12px 0 8px;
                 }
 
-                .csd-msg-agent {
-                    margin-right: auto;
-                    background: #fff;
-                    color: #1d2939;
-                    border: 1px solid #e5e7eb;
-                    border-bottom-left-radius: 5px;
-                }
-
-                .csd-agent-label {
-                    display: block;
-                    color: var(--csd-blue);
-                    font-size: 8.5px;
-                    font-weight: 850;
-                    margin-bottom: 4px;
+                .csd-day-divider span {
+                    font-size: 9px;
+                    font-weight: 650;
+                    color: #555;
+                    background: #141414;
+                    border: 1px solid #222;
+                    padding: 4px 10px;
+                    border-radius: 20px;
                     text-transform: uppercase;
-                    letter-spacing: .5px;
+                    letter-spacing: .45px;
+                }
+
+                .csd-msg {
+                    max-width: 80%;
+                    padding: 9px 11px;
+                    border-radius: 15px;
+                    font-size: 12.5px;
+                    line-height: 1.5;
+                    position: relative;
+                    margin-bottom: 2px;
                 }
 
                 .csd-msg p {
                     margin: 0;
-                    white-space: pre-wrap;
                     word-break: break-word;
-                    font-size: 12.5px;
-                    line-height: 1.48;
                 }
 
-                .csd-msg-img {
-                    display: block;
-                    max-width: 230px;
-                    max-height: 280px;
-                    border-radius: 11px;
-                    object-fit: cover;
-                    cursor: pointer;
-                    margin-bottom: 5px;
+                .client-wrap {
+                    align-items: flex-end;
+                }
+
+                .agent-wrap {
+                    align-items: flex-start;
+                }
+
+                .csd-msg-client {
+                    align-self: flex-end;
+                    background: #e50914;
+                    color: #fff;
+                    border: 1px solid #f01822;
+                    border-radius: 15px 15px 4px 15px;
+                    box-shadow: 0 6px 18px rgba(229,9,20,.13);
+                }
+
+                .csd-msg-agent {
+                    align-self: flex-start;
+                    background: #181818;
+                    color: #eee;
+                    border: 1px solid #2b2b2b;
+                    border-radius: 15px 15px 15px 4px;
+                }
+
+                .csd-agent-label {
+                    color: #777;
+                    font-size: 8.5px;
+                    text-transform: uppercase;
+                    letter-spacing: .65px;
+                    font-weight: 700;
+                    margin-bottom: 4px;
+                }
+
+                .csd-msg-client .csd-agent-label {
+                    display: none;
                 }
 
                 .csd-msg-meta {
@@ -1991,37 +1789,48 @@ const ColisSheinDetail = () => {
                     justify-content: flex-end;
                     gap: 4px;
                     margin-top: 4px;
-                    min-height: 10px;
                 }
 
                 .csd-msg-heure {
                     font-size: 8.5px;
-                    opacity: .58;
+                    opacity: .5;
+                }
+
+                .csd-msg-img {
+                    width: 180px;
+                    max-width: 100%;
+                    border-radius: 10px;
+                    display: block;
+                    margin-bottom: 5px;
+                    cursor: pointer;
                 }
 
                 .csd-check {
                     display: inline-flex;
-                    color: rgba(255,255,255,.55);
+                    color: rgba(255,255,255,.5);
                 }
 
                 .csd-check-lu {
-                    color: #93c5fd;
+                    color: #fff;
                 }
 
                 .csd-typing {
+                    width: fit-content;
+                    min-width: 62px;
+                }
+
+                .csd-typing-row {
                     display: flex;
                     align-items: center;
                     gap: 4px;
-                    padding: 11px 13px;
-                    width: 48px;
                 }
 
                 .csd-typing-dot {
                     width: 5px;
                     height: 5px;
                     border-radius: 50%;
-                    background: #98a2b3;
-                    animation: csd-typing 1.1s infinite ease-in-out;
+                    background: #777;
+                    animation: csd-bounce 1.1s infinite ease-in-out;
                 }
 
                 .csd-typing-dot:nth-child(2) {
@@ -2032,372 +1841,380 @@ const ColisSheinDetail = () => {
                     animation-delay: .3s;
                 }
 
-                @keyframes csd-typing {
+                @keyframes csd-bounce {
                     0%, 60%, 100% {
                         transform: translateY(0);
                         opacity: .45;
                     }
                     30% {
-                        transform: translateY(-3px);
+                        transform: translateY(-4px);
                         opacity: 1;
                     }
                 }
 
-                .csd-devis-card {
-                    position: relative;
-                    max-width: 86%;
-                    margin: 7px auto;
-                    padding: 16px;
-                    background: linear-gradient(145deg, #ffffff, #f8fbff);
-                    border: 1px solid #dbe7f8;
-                    border-radius: 17px;
-                    box-shadow: 0 8px 22px rgba(37,99,235,.07);
+                .csd-badge-systeme {
+                    align-self: center;
+                    background: #151515;
+                    border: 1px solid #262626;
+                    color: #666;
+                    font-size: 9.5px;
+                    padding: 5px 11px;
+                    border-radius: 20px;
+                    margin: 4px 0;
                 }
 
-                .csd-devis-top {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    margin-bottom: 7px;
+                .csd-devis-card,
+                .csd-avis-card {
+                    align-self: center;
+                    width: 90%;
+                    background: #131313;
+                    border: 1px solid #303030;
+                    border-radius: 15px;
+                    padding: 15px;
+                    text-align: center;
+                    margin: 6px 0;
+                    box-shadow: 0 8px 25px rgba(0,0,0,.16);
                 }
 
-                .csd-devis-kicker {
-                    color: var(--csd-blue);
-                    font-size: 8.5px;
-                    font-weight: 850;
-                    text-transform: uppercase;
-                    letter-spacing: .7px;
+                .csd-card-status {
+                    display: inline-block;
+                    font-size: 8px;
+                    letter-spacing: 1px;
+                    font-weight: 750;
+                    color: #666;
+                    border: 1px solid #292929;
+                    border-radius: 20px;
+                    padding: 4px 7px;
+                    margin-bottom: 8px;
                 }
 
-                .csd-devis-status-dot {
-                    width: 7px;
-                    height: 7px;
-                    border-radius: 50%;
-                    background: #22c55e;
-                    box-shadow: 0 0 0 4px #dcfce7;
+                .csd-card-status.red {
+                    color: #ff4851;
+                    border-color: rgba(229,9,20,.3);
+                    background: rgba(229,9,20,.06);
                 }
 
                 .csd-devis-libelle {
-                    margin: 0 0 5px;
-                    font-size: 12px;
-                    font-weight: 750;
-                    color: #344054;
+                    font-size: 10px;
+                    color: #888;
+                    text-transform: uppercase;
+                    letter-spacing: .5px;
+                    margin: 0 0 4px;
                 }
 
                 .csd-devis-montant {
-                    margin: 0;
-                    font-size: 23px;
-                    line-height: 1.1;
-                    font-weight: 900;
-                    letter-spacing: -.6px;
-                    color: #101828;
+                    font-size: 20px;
+                    font-weight: 750;
+                    color: #fff;
+                    margin: 0 0 10px;
                 }
 
                 .csd-devis-detail {
-                    margin: 9px 0 12px;
-                    color: #667085;
-                    font-size: 10.5px;
-                    line-height: 1.5;
+                    font-size: 10px;
+                    color: #777;
+                    margin: -4px 0 10px;
+                    line-height: 1.45;
                 }
 
                 .csd-devis-card button {
-                    width: 100%;
-                    border: none;
-                    border-radius: 10px;
-                    padding: 10px 12px;
-                    background: var(--csd-blue);
+                    background: #e50914;
                     color: #fff;
+                    border: none;
+                    border-radius: 9px;
+                    padding: 9px 18px;
                     font-size: 11px;
-                    font-weight: 800;
+                    font-weight: 700;
                     cursor: pointer;
-                    transition: background .15s ease;
+                    transition: .16s;
                 }
 
                 .csd-devis-card button:hover:not(:disabled) {
-                    background: #1d4ed8;
+                    background: #ff1b26;
                 }
 
                 .csd-devis-card button:disabled {
-                    opacity: .55;
+                    opacity: .5;
+                    cursor: default;
                 }
 
                 .csd-devis-paye {
-                    display: inline-flex;
-                    align-items: center;
-                    border-radius: 999px;
-                    background: #ecfdf3;
-                    color: #027a48;
-                    padding: 6px 10px;
+                    display: inline-block;
+                    color: #bdbdbd;
+                    background: #1b1b1b;
+                    border: 1px solid #2b2b2b;
                     font-size: 10px;
-                    font-weight: 800;
+                    font-weight: 600;
+                    padding: 7px 13px;
+                    border-radius: 20px;
+                }
+
+                .csd-devis-card .csd-msg-heure {
+                    display: block;
+                    margin-top: 9px;
+                    text-align: center;
+                    opacity: .35;
                 }
 
                 .csd-devis-remplace {
-                    opacity: .65;
-                    background: #f8fafc;
-                    border-color: #e5e7eb;
+                    border-color: #292929;
+                    opacity: .55;
+                    box-shadow: none;
                 }
 
                 .csd-devis-montant-barre {
-                    margin: 0 0 8px;
-                    color: #98a2b3;
                     font-size: 15px;
-                    font-weight: 800;
+                    font-weight: 600;
+                    color: #666;
                     text-decoration: line-through;
+                    margin: 0 0 6px;
                 }
 
                 .csd-devis-remplace-tag {
-                    display: block;
-                    color: #667085;
-                    font-size: 9px;
-                    line-height: 1.4;
-                }
-
-                .csd-avis-card {
-                    max-width: 88%;
-                    margin: 7px auto;
-                    background: #fff;
-                    border: 1px solid #e5e7eb;
-                    border-radius: 17px;
-                    padding: 15px;
-                    box-shadow: 0 7px 20px rgba(16,24,40,.045);
-                }
-
-                .csd-avis-repondu {
-                    background: #fbfefc;
-                    border-color: #d1fadf;
+                    font-size: 9.5px;
+                    color: #666;
                 }
 
                 .csd-avis-libelle {
-                    margin: 0 0 9px;
                     font-size: 12px;
-                    font-weight: 750;
-                    color: #344054;
+                    font-weight: 600;
+                    color: #eee;
+                    margin: 0 0 10px;
                 }
 
                 .csd-avis-etoiles {
                     display: flex;
-                    gap: 1px;
-                    margin-bottom: 9px;
+                    justify-content: center;
+                    gap: 4px;
+                    margin-bottom: 10px;
                 }
 
                 .csd-avis-etoiles button {
-                    border: none;
                     background: none;
-                    padding: 0;
+                    border: none;
+                    padding: 2px;
                     cursor: pointer;
-                    display: flex;
                 }
 
                 .csd-avis-etoiles-lecture {
                     display: flex;
-                    gap: 0;
+                    gap: 2px;
+                    justify-content: center;
                 }
 
                 .csd-avis-card textarea {
                     width: 100%;
                     box-sizing: border-box;
-                    resize: vertical;
-                    border: 1px solid #d0d5dd;
-                    border-radius: 10px;
-                    outline: none;
+                    border: 1px solid #292929;
+                    background: #0e0e0e;
+                    color: #eee;
+                    border-radius: 9px;
                     padding: 9px 10px;
-                    font-family: inherit;
                     font-size: 11px;
-                    color: #101828;
-                    margin-bottom: 8px;
-                    transition: border-color .15s, box-shadow .15s;
+                    font-family: inherit;
+                    resize: none;
+                    margin-bottom: 9px;
+                    outline: none;
                 }
 
                 .csd-avis-card textarea:focus {
-                    border-color: #60a5fa;
-                    box-shadow: 0 0 0 3px rgba(37,99,235,.08);
+                    border-color: #555;
                 }
 
                 .csd-avis-envoyer {
                     width: 100%;
-                    border: none;
-                    border-radius: 10px;
-                    padding: 10px;
-                    background: #101828;
+                    background: #e50914;
                     color: #fff;
-                    font-size: 10.5px;
-                    font-weight: 800;
+                    border: none;
+                    border-radius: 9px;
+                    padding: 9px;
+                    font-size: 11px;
+                    font-weight: 650;
                     cursor: pointer;
+                }
+
+                .csd-avis-envoyer:disabled {
+                    opacity: .5;
+                    cursor: default;
                 }
 
                 .csd-chat-form {
-                    flex-shrink: 0;
+                    border-top: 1px solid #222;
+                    background: #101010;
                     padding: 10px;
-                    background: rgba(255,255,255,.96);
-                    border-top: 1px solid #eaecf0;
-                }
-
-                .csd-preview {
-                    position: relative;
-                    width: 70px;
-                    height: 70px;
-                    border-radius: 10px;
-                    overflow: hidden;
-                    margin: 0 0 8px 4px;
-                    border: 1px solid #e5e7eb;
-                }
-
-                .csd-preview img {
-                    width: 100%;
-                    height: 100%;
-                    object-fit: cover;
-                }
-
-                .csd-preview button {
-                    position: absolute;
-                    top: 4px;
-                    right: 4px;
-                    width: 20px;
-                    height: 20px;
-                    border: none;
-                    border-radius: 6px;
-                    background: rgba(17,24,39,.82);
-                    color: #fff;
-                    cursor: pointer;
-                    font-size: 13px;
-                    line-height: 1;
+                    padding-bottom: calc(10px + env(safe-area-inset-bottom));
                 }
 
                 .csd-chat-row {
                     display: flex;
                     align-items: center;
                     gap: 7px;
-                    min-height: 46px;
-                    border: 1px solid #dfe3e8;
-                    border-radius: 15px;
-                    background: #f8fafc;
-                    padding: 4px;
-                    transition: border-color .18s, box-shadow .18s, background .18s;
-                }
-
-                .csd-chat-row:focus-within {
-                    border-color: #93c5fd;
-                    background: #fff;
-                    box-shadow: 0 0 0 4px rgba(37,99,235,.07);
                 }
 
                 .csd-attach-btn {
-                    width: 36px;
-                    height: 36px;
-                    border-radius: 10px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    color: #667085;
+                    width: 37px;
+                    height: 37px;
+                    border-radius: 11px;
+                    background: #181818;
+                    border: 1px solid #292929;
+                    color: #888;
                     cursor: pointer;
-                    transition: background .15s, color .15s;
                     flex-shrink: 0;
+                    transition: .16s;
+                }
+
+                .csd-attach-btn svg {
+                    width: 17px;
+                    height: 17px;
                 }
 
                 .csd-attach-btn:hover {
-                    color: var(--csd-blue);
-                    background: #eff6ff;
+                    color: #fff;
+                    border-color: #444;
                 }
 
-                .csd-chat-row > input {
+                .csd-chat-row input[type="text"] {
                     flex: 1;
                     min-width: 0;
-                    border: none;
+                    border: 1px solid #292929;
+                    background: #181818;
+                    color: #eee;
+                    border-radius: 11px;
+                    padding: 10px 13px;
+                    font-size: 12px;
                     outline: none;
-                    background: transparent;
-                    color: #101828;
-                    font-family: inherit;
-                    font-size: 12.5px;
-                    padding: 0 3px;
+                    transition: .16s;
                 }
 
-                .csd-chat-row > input::placeholder {
-                    color: #98a2b3;
+                .csd-chat-row input[type="text"]::placeholder {
+                    color: #5e5e5e;
+                }
+
+                .csd-chat-row input[type="text"]:focus {
+                    border-color: #555;
+                    background: #1b1b1b;
                 }
 
                 .csd-send-btn {
-                    width: 36px;
-                    height: 36px;
-                    border-radius: 11px;
-                    border: none;
-                    background: var(--csd-blue);
+                    background: #e50914;
                     color: #fff;
+                    border: none;
+                    border-radius: 11px;
+                    width: 37px;
+                    height: 37px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     cursor: pointer;
                     flex-shrink: 0;
-                    transition: background .15s, transform .1s, opacity .15s;
+                    transition: .16s;
+                    box-shadow: 0 5px 16px rgba(229,9,20,.18);
+                }
+
+                .csd-send-btn svg {
+                    width: 15px;
+                    height: 15px;
                 }
 
                 .csd-send-btn:hover:not(:disabled) {
-                    background: #1d4ed8;
-                }
-
-                .csd-send-btn:active:not(:disabled) {
-                    transform: scale(.94);
+                    background: #ff1b26;
+                    transform: translateY(-1px);
                 }
 
                 .csd-send-btn:disabled {
-                    opacity: .35;
+                    opacity: .25;
                     cursor: default;
+                    box-shadow: none;
+                }
+
+                .csd-preview {
+                    display: flex;
+                    align-items: center;
+                    gap: 9px;
+                    position: relative;
+                    background: #171717;
+                    border: 1px solid #292929;
+                    border-radius: 10px;
+                    padding: 7px;
+                    margin-bottom: 8px;
+                }
+
+                .csd-preview img {
+                    width: 48px;
+                    height: 48px;
+                    object-fit: cover;
+                    border-radius: 7px;
+                }
+
+                .csd-preview-info {
+                    flex: 1;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 2px;
+                }
+
+                .csd-preview-info strong {
+                    font-size: 10px;
+                    color: #ddd;
+                }
+
+                .csd-preview-info span {
+                    font-size: 9px;
+                    color: #666;
+                }
+
+                .csd-preview button {
+                    background: #252525;
+                    color: #aaa;
+                    border: 1px solid #333;
+                    border-radius: 7px;
+                    width: 25px;
+                    height: 25px;
+                    font-size: 17px;
+                    line-height: 1;
+                    cursor: pointer;
                 }
 
                 .csd-chat-closed {
-                    flex-shrink: 0;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 9px;
                     text-align: center;
-                    border-top: 1px solid #eaecf0;
-                    background: #f8fafc;
-                    color: #667085;
-                    padding: 12px;
-                    font-size: 10.5px;
-                    font-weight: 700;
+                    color: #666;
+                    font-size: 10px;
+                    background: #111;
+                    padding: 13px 10px;
                 }
 
-                @media (max-width: 600px) {
+                .csd-closed-line {
+                    width: 25px;
+                    height: 1px;
+                    background: #292929;
+                }
+
+                @media (min-width: 700px) {
+                    .csd-page {
+                        max-width: 640px;
+                        padding-left: 0;
+                        padding-right: 0;
+                    }
+                }
+
+                @media (max-width: 420px) {
                     .csd-page {
                         padding-left: 9px;
                         padding-right: 9px;
                     }
 
-                    .csd-chat-zone {
-                        border-radius: 18px 18px 12px 12px;
+                    .csd-secure-label {
+                        display: none;
                     }
 
                     .csd-msg {
-                        max-width: 84%;
-                    }
-
-                    .csd-devis-card,
-                    .csd-avis-card {
-                        max-width: 94%;
-                    }
-                }
-
-                @media (max-width: 380px) {
-                    .csd-page {
-                        padding-left: 7px;
-                        padding-right: 7px;
-                    }
-
-                    .csd-header {
-                        gap: 8px;
-                    }
-
-                    .csd-back,
-                    .csd-toggle {
-                        width: 36px;
-                        height: 36px;
-                        border-radius: 10px;
-                    }
-
-                    .csd-statut {
-                        font-size: 12px;
-                    }
-
-                    .csd-msg {
-                        max-width: 88%;
+                        max-width: 86%;
                     }
                 }
             `}</style>
