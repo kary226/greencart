@@ -42,6 +42,7 @@ import ColisSheinDetail from './pages/ColisSheinDetail';
 import MesColisShein from './pages/MesColisShein';
 import StaffLogin from './pages/staff/StaffLogin';
 import StaffActivation from './pages/staff/StaffActivation';
+import AdminComptes from './pages/admin/AdminComptes';
 
 // 🔝 ScrollToTop intelligent
 const useSmartScroll = () => {
@@ -163,6 +164,7 @@ const App = () => {
           <Route path='/colis-shein/:id' element={<ColisSheinDetail />} />
           <Route path='/staff/login' element={<StaffLogin />} />
           <Route path='/staff/activation/:token' element={<StaffActivation />} />
+          <Route path='/staff/admin/comptes' element={<AdminComptes />} />
           <Route path='/seller' element={isSeller ? <SellerLayout /> : <SellerLogin />}>
             <Route index element={<Dashboard />} />
             <Route path='add-product' element={<AddProduct />} />

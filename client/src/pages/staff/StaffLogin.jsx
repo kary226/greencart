@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useAppContext } from '../../context/AppContext'
+import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast';
 import { Mail, Lock, LogIn, UserCog, ShieldCheck, CheckCircle2 } from 'lucide-react';
 
@@ -12,11 +13,12 @@ const ROLE_LABELS = {
 
 const StaffLogin = () => {
     const { axios } = useAppContext()
+    const navigate = useNavigate();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [totpCode, setTotpCode] = useState("");
     const [loading, setLoading] = useState(false);
-    // Pas encore d'espace dédié par rôle (Phases 2 à 5) : on affiche donc
+    // Pas encore d'espace dédié par rôle (Phases 3 à 5) : on affiche donc
     // ici la confirmation de connexion directement, avec les infos du
     // compte renvoyées par le serveur — c'est la preuve visuelle que tout
     // fonctionne de bout en bout.
@@ -30,7 +32,11 @@ const StaffLogin = () => {
             const { data } = await axios.post('/api/staff/login', { email, password, totpCode })
             if (data.success) {
                 toast.success("Connexion réussie");
-                setConnectedAccount(data.staffUser);
+                if (data.staffUser?.role === 'admin') {
+                    navigate('/staff/admin/comptes');
+                } else {
+                    setConnectedAccount(data.staffUser);
+                }
             } else {
                 toast.error(data.message);
             }
@@ -65,7 +71,7 @@ const StaffLogin = () => {
                         Se déconnecter (revenir au formulaire)
                     </button>
                     <p className="text-xs text-gray-400 mt-4">
-                        Il n'y a pas encore d'espace dédié à ce rôle (Phases 2 à 5 à venir) — cette page confirme juste que la connexion fonctionne.
+                        Il n'y a pas encore d'espace dédié à ce rôle (Phases 3 à 5 à venir) — cette page confirme juste que la connexion fonctionne.
                     </p>
                 </div>
             </div>
