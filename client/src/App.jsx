@@ -40,6 +40,8 @@ import NotificationPrompt from './components/Notificationprompt';
 import ValiderPanierShein from './pages/ValiderPanierShein';
 import ColisSheinDetail from './pages/ColisSheinDetail';
 import MesColisShein from './pages/MesColisShein';
+import StaffLogin from './pages/staff/StaffLogin';
+import StaffActivation from './pages/staff/StaffActivation';
 
 // 🔝 ScrollToTop intelligent
 const useSmartScroll = () => {
@@ -74,6 +76,7 @@ const App = () => {
 
   const location = useLocation();
   const isSellerPath = location.pathname.includes("seller");
+  const isStaffPath = location.pathname.startsWith("/staff");
   // Pages ColisShein (liste, détail, validation panier) : expérience façon app de
   // messagerie, le gros footer marketing (liens, réseaux sociaux, copyright) n'a pas
   // sa place ici — la BottomNav fixe suffit pour la navigation.
@@ -92,11 +95,11 @@ const App = () => {
   return (
     <div className='text-default min-h-screen text-gray-700 bg-white'>
 
-      {!isSellerPath && !isChatFullScreenPath && <Navbar />}
+      {!isSellerPath && !isStaffPath && !isChatFullScreenPath && <Navbar />}
       
       {showUserLogin && !user ? <Login /> : null}
 
-      {!isSellerPath && !isChatFullScreenPath && <NotificationPrompt />}
+      {!isSellerPath && !isStaffPath && !isChatFullScreenPath && <NotificationPrompt />}
 
       <Toaster 
         position="top-center"
@@ -137,7 +140,7 @@ const App = () => {
         }}
       />
 
-      <div className={`${isSellerPath || isChatFullScreenPath ? "" : "px-4 pb-20"}`}>
+      <div className={`${isSellerPath || isStaffPath || isChatFullScreenPath ? "" : "px-4 pb-20"}`}>
         <Routes>
           <Route path='/' element={<Home />} />
           <Route path='/products' element={<AllProducts />} />
@@ -158,6 +161,8 @@ const App = () => {
           <Route path='/valider-panier-shein' element={<ValiderPanierShein />} />
           <Route path='/mes-colis-shein' element={<MesColisShein />} />
           <Route path='/colis-shein/:id' element={<ColisSheinDetail />} />
+          <Route path='/staff/login' element={<StaffLogin />} />
+          <Route path='/staff/activation/:token' element={<StaffActivation />} />
           <Route path='/seller' element={isSeller ? <SellerLayout /> : <SellerLogin />}>
             <Route index element={<Dashboard />} />
             <Route path='add-product' element={<AddProduct />} />
@@ -175,8 +180,8 @@ const App = () => {
           </Route>
         </Routes>
       </div>
-      {!isSellerPath && !isColisSheinPath && <Footer />}
-      {!isSellerPath && <BottomNav />}
+      {!isSellerPath && !isStaffPath && !isColisSheinPath && <Footer />}
+      {!isSellerPath && !isStaffPath && <BottomNav />}
     </div>
   )
 }
