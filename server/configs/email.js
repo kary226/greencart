@@ -309,3 +309,66 @@ export const sendAdminNotificationEmail = async (orderId, amount, customerName, 
     `;
     return sendEmail(adminEmail, `RAMCI - Nouvelle commande #${orderId.slice(-8)}`, html);
 };
+// Libellés affichés pour chaque rôle staff
+const ROLE_LABELS = {
+    admin: 'Administrateur',
+    commercant: 'Commerçant',
+    livreur: 'Livreur',
+    assistant_shein: 'Assistant Shein',
+};
+
+// Email d'invitation à activer un compte staff (admin, commerçant,
+// livreur ou assistant Shein). La personne choisit elle-même son mot de
+// passe en cliquant sur le lien — il n'est jamais fixé par l'admin.
+export const sendStaffInvitationEmail = async (to, token, role) => {
+    const activationUrl = `${process.env.FRONTEND_URL}/staff/activation/${token}`;
+    const roleLabel = ROLE_LABELS[role] || role;
+    const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f5f5f5; color: #333333;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 0;">
+                <tr>
+                    <td align="center">
+                        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); overflow: hidden;">
+                            <tr>
+                                <td style="padding: 30px 40px 20px; border-bottom: 2px solid #e53935;">
+                                    <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: #111111; letter-spacing: 0.5px;">RAMCI<span style="color: #e53935;">.ci</span></h1>
+                                    <p style="margin: 4px 0 0; font-size: 13px; color: #888888;">Votre boutique en ligne</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 35px 40px 25px;">
+                                    <h2 style="margin: 0 0 16px; font-size: 20px; font-weight: 600; color: #111111;">Invitation à rejoindre l'équipe RAMCI</h2>
+                                    <p style="margin: 0 0 16px; font-size: 14px; line-height: 1.6; color: #555555;">Bonjour,</p>
+                                    <p style="margin: 0 0 20px; font-size: 14px; line-height: 1.6; color: #555555;">Un administrateur vous invite à créer un compte avec le rôle <strong>${roleLabel}</strong>. Cliquez sur le bouton ci-dessous pour choisir votre mot de passe et activer votre compte.</p>
+                                    <table width="100%" cellpadding="0" cellspacing="0">
+                                        <tr>
+                                            <td align="center" style="padding: 10px 0 20px;">
+                                                <a href="${activationUrl}" style="display: inline-block; background-color: #e53935; color: #ffffff; padding: 12px 32px; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 4px;">Activer mon compte</a>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                    <p style="margin: 0 0 8px; font-size: 13px; color: #888888;">Ce lien expirera dans 48 heures.</p>
+                                    <p style="margin: 0; font-size: 13px; color: #888888;">Si vous ne vous attendiez pas à cette invitation, ignorez simplement cet email.</p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 20px 40px 30px; border-top: 1px solid #eeeeee; text-align: center;">
+                                    <p style="margin: 0; font-size: 12px; color: #999999;">RAMCI - Votre boutique en ligne</p>
+                                    <p style="margin: 4px 0 0; font-size: 12px; color: #999999;">&copy; ${new Date().getFullYear()} RAMCI. Tous droits réservés.</p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </body>
+        </html>
+    `;
+    return sendEmail(to, `RAMCI - Invitation : ${roleLabel}`, html);
+};

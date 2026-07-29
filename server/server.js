@@ -22,6 +22,7 @@ import locationRouter from './routes/locationRoute.js';
 import deliveryRouter from './routes/deliveryRoute.js';
 import settingRouter from './routes/settingRoute.js';
 import pushRouter from './routes/pushRoute.js';
+import staffRouter from './routes/staffRoute.js';
 import { geniuspayWebhook } from './controllers/geniuspayController.js';
 import dns from 'dns';
 
@@ -88,6 +89,7 @@ app.get('/', (req, res) => res.send("API is Working"));
 app.use('/api/shein-cart', sheinCartRouter);
 app.use('/api/user', userRouter);
 app.use('/api/seller', sellerRouter);
+app.use('/api/staff', staffRouter);
 app.use('/api/product', productRouter);
 app.use('/api/cart', cartRouter);
 app.use('/api/address', addressRouter);
