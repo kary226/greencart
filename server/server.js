@@ -26,6 +26,11 @@ import staffRouter from './routes/staffRoute.js';
 import { geniuspayWebhook } from './controllers/geniuspayController.js';
 import dns from 'dns';
 
+// ✅ PHASE 3 - Routes Commerçant
+import boutiqueRouter from './routes/boutiqueRoute.js';
+import walletRouter from './routes/walletRoute.js';
+import retraitRouter from './routes/retraitRoute.js';
+
 const app = express();
 const port = process.env.PORT || 4000;
 
@@ -69,17 +74,9 @@ app.use(helmet({
     crossOriginResourcePolicy: false,
 }));
 
-// ✅ AJOUT : Middleware standard avec LIMITES AUGMENTÉES
-app.use(express.json({ 
-    limit: '150mb'  // Pour les gros JSON (productData)
-}));
-app.use(express.urlencoded({ 
-    limit: '150mb', 
-    extended: true 
-}));
+app.use(express.json({ limit: '150mb' }));
+app.use(express.urlencoded({ limit: '150mb', extended: true }));
 app.use(cookieParser());
-
-// [FIX défense en profondeur] Nettoie automatiquement req.body/req.query/
 app.use(mongoSanitize());
 
 // Route de test
@@ -104,35 +101,24 @@ app.use('/api/delivery', deliveryRouter);
 app.use('/api/setting', settingRouter);
 app.use('/api/push', pushRouter);
 
-// ✅ AJOUT : Gestionnaire d'erreur global pour les uploads
+// ✅ PHASE 3 - Routes Commerçant
+app.use('/api/boutiques', boutiqueRouter);
+app.use('/api/wallet', walletRouter);
+app.use('/api/retraits', retraitRouter);
+
+// Gestionnaire d'erreur global
 app.use((err, req, res, next) => {
-    // Erreur CORS
     if (err && err.message === 'Origine non autorisée par CORS') {
         return res.status(403).json({ success: false, message: 'Origine non autorisée' });
     }
-    
-    // Erreur de taille de payload
     if (err.type === 'entity.too.large') {
-        return res.status(413).json({ 
-            success: false, 
-            message: 'Les données sont trop volumineuses. Taille max: 150MB' 
-        });
+        return res.status(413).json({ success: false, message: 'Les données sont trop volumineuses. Taille max: 150MB' });
     }
-    
-    // Erreur Multer déjà gérée dans productRoute.js
     if (err.code === 'LIMIT_FILE_SIZE' || err.code === 'LIMIT_FILE_COUNT') {
-        return res.status(400).json({ 
-            success: false, 
-            message: err.message 
-        });
+        return res.status(400).json({ success: false, message: err.message });
     }
-    
-    // Erreur inattendue
     console.error('❌ Erreur serveur non gérée:', err);
-    res.status(500).json({ 
-        success: false, 
-        message: 'Erreur interne du serveur' 
-    });
+    res.status(500).json({ success: false, message: 'Erreur interne du serveur' });
 });
 
 // Démarrage du serveur
@@ -140,5 +126,4 @@ app.listen(port, ()=>{
     console.log(`Server is running on http://localhost:${port}`);
 });
 
-// EXPORT POUR VERCEL (SERVERLESS FUNCTIONS)
 export default app;

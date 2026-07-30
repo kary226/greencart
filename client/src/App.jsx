@@ -29,7 +29,7 @@ import CouponManager from './pages/seller/CouponManager';
 import LocationManager from './pages/seller/LocationManager';
 import DeliveryManager from './pages/seller/DeliveryManager';
 import SettingsManager from './pages/seller/SettingsManager';
-import ColisSheinManager from './pages/seller/ColisSheinManager'; // ✅ AJOUTÉ
+import ColisSheinManager from './pages/seller/ColisSheinManager';
 import AllCategories from './pages/AllCategories';
 import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentError from './pages/PaymentError';
@@ -43,6 +43,17 @@ import MesColisShein from './pages/MesColisShein';
 import StaffLogin from './pages/staff/StaffLogin';
 import StaffActivation from './pages/staff/StaffActivation';
 import AdminComptes from './pages/admin/AdminComptes';
+
+// ✅ PHASE 3 - Espace commerçant
+import DashboardCommercant from './pages/commercant/Dashboard';
+import Boutique from './pages/commercant/Boutique';
+import Produits from './pages/commercant/Produits';
+import Portefeuille from './pages/commercant/Portefeuille';
+import DemandeRetrait from './pages/commercant/DemandeRetrait';
+
+// ✅ PHASE 4 - Espace livreur
+import MesLivraisons from './pages/livreur/MesLivraisons';
+import LivraisonDetail from './pages/livreur/LivraisonDetail';
 
 // 🔝 ScrollToTop intelligent
 const useSmartScroll = () => {
@@ -78,29 +89,30 @@ const App = () => {
   const location = useLocation();
   const isSellerPath = location.pathname.includes("seller");
   const isStaffPath = location.pathname.startsWith("/staff");
-  // Pages ColisShein (liste, détail, validation panier) : expérience façon app de
-  // messagerie, le gros footer marketing (liens, réseaux sociaux, copyright) n'a pas
-  // sa place ici — la BottomNav fixe suffit pour la navigation.
+  const isLivreurPath = location.pathname.startsWith("/livreur");
+  const isCommercantPath = location.pathname.startsWith("/commercant");
+  
   const isColisSheinPath =
     location.pathname === "/mes-colis-shein" ||
     location.pathname === "/valider-panier-shein" ||
     location.pathname.startsWith("/colis-shein/");
-  // Page de chat (détail d'un colis) : expérience quasi plein écran façon messagerie —
-  // ni Navbar (recherche/menu) ni padding de page, la zone de chat gère elle-même
-  // son propre en-tête compact et reste calée juste au-dessus de la BottomNav fixe.
+    
   const isChatFullScreenPath = location.pathname.startsWith("/colis-shein/");
   const { showUserLogin, isSeller, user } = useAppContext()
 
   useSmartScroll();
 
+  const showFooter = !isSellerPath && !isStaffPath && !isColisSheinPath && !isLivreurPath && !isCommercantPath;
+  const showBottomNav = !isSellerPath && !isStaffPath && !isLivreurPath && !isCommercantPath;
+
   return (
     <div className='text-default min-h-screen text-gray-700 bg-white'>
 
-      {!isSellerPath && !isStaffPath && !isChatFullScreenPath && <Navbar />}
+      {!isSellerPath && !isStaffPath && !isChatFullScreenPath && !isLivreurPath && !isCommercantPath && <Navbar />}
       
       {showUserLogin && !user ? <Login /> : null}
 
-      {!isSellerPath && !isStaffPath && !isChatFullScreenPath && <NotificationPrompt />}
+      {!isSellerPath && !isStaffPath && !isChatFullScreenPath && !isLivreurPath && !isCommercantPath && <NotificationPrompt />}
 
       <Toaster 
         position="top-center"
@@ -141,7 +153,7 @@ const App = () => {
         }}
       />
 
-      <div className={`${isSellerPath || isStaffPath || isChatFullScreenPath ? "" : "px-4 pb-20"}`}>
+      <div className={`${isSellerPath || isStaffPath || isChatFullScreenPath || isLivreurPath || isCommercantPath ? "" : "px-4 pb-20"}`}>
         <Routes>
           <Route path='/' element={<Home />} />
           <Route path='/products' element={<AllProducts />} />
@@ -162,9 +174,24 @@ const App = () => {
           <Route path='/valider-panier-shein' element={<ValiderPanierShein />} />
           <Route path='/mes-colis-shein' element={<MesColisShein />} />
           <Route path='/colis-shein/:id' element={<ColisSheinDetail />} />
+          
+          {/* Routes Staff */}
           <Route path='/staff/login' element={<StaffLogin />} />
           <Route path='/staff/activation/:token' element={<StaffActivation />} />
           <Route path='/staff/admin/comptes' element={<AdminComptes />} />
+
+          {/* ✅ PHASE 3 - Routes Commerçant */}
+          <Route path='/commercant/dashboard' element={<DashboardCommercant />} />
+          <Route path='/commercant/boutique' element={<Boutique />} />
+          <Route path='/commercant/produits' element={<Produits />} />
+          <Route path='/commercant/portefeuille' element={<Portefeuille />} />
+          <Route path='/commercant/retraits' element={<DemandeRetrait />} />
+
+          {/* ✅ PHASE 4 - Routes Livreur */}
+          <Route path='/livreur/mes-livraisons' element={<MesLivraisons />} />
+          <Route path='/livreur/commande/:orderId' element={<LivraisonDetail />} />
+
+          {/* Routes Seller */}
           <Route path='/seller' element={isSeller ? <SellerLayout /> : <SellerLogin />}>
             <Route index element={<Dashboard />} />
             <Route path='add-product' element={<AddProduct />} />
@@ -176,14 +203,14 @@ const App = () => {
             <Route path='coupons' element={<CouponManager />} />
             <Route path='locations' element={<LocationManager />} />
             <Route path='delivery' element={<DeliveryManager />} />
-            <Route path='settings' element={<SettingsManager />} /> {/* ✅ AJOUTÉ */}
+            <Route path='settings' element={<SettingsManager />} />
             <Route path='colis-shein' element={<ColisSheinManager />} />
-
           </Route>
         </Routes>
       </div>
-      {!isSellerPath && !isStaffPath && !isColisSheinPath && <Footer />}
-      {!isSellerPath && !isStaffPath && <BottomNav />}
+      
+      {showFooter && <Footer />}
+      {showBottomNav && <BottomNav />}
     </div>
   )
 }
