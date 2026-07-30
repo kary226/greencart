@@ -27,10 +27,10 @@ orderRouter.get('/seller', authSeller, getAllOrders);
 orderRouter.post('/status', authSeller, updateOrderStatus);
 orderRouter.get('/admin/user/:userId', authSeller, getUserOrdersByAdmin);
 
-// ✅ PHASE 3 : Route pour assigner un livreur (admin)
+// ✅ PHASE 4 : Route pour assigner un livreur (admin)
 orderRouter.post('/admin/assigner-livreur', authStaff, requireRole('admin'), assignerLivreur);
 
-// ✅ PHASE 3 : Routes pour livreur
+// ✅ PHASE 4 : Routes pour livreur
 orderRouter.get('/livreur/mes-livraisons', authStaff, requireRole('livreur'), getLivraisonsLivreur);
 orderRouter.patch('/livreur/statut', authStaff, requireRole('livreur'), updateLivraisonStatus);
 

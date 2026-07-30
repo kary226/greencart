@@ -2,7 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
-import { Package, MapPin, Clock, CheckCircle, Loader2, Truck, Eye, Calendar, Phone, User, ChevronRight } from 'lucide-react';
+import {
+    Package, MapPin, Clock, CheckCircle, Loader2,
+    Truck, Eye, Calendar, Phone, User, ChevronRight
+} from 'lucide-react';
 
 const MesLivraisons = () => {
     const { axios } = useAppContext();
@@ -12,9 +15,6 @@ const MesLivraisons = () => {
     const [commandes, setCommandes] = useState([]);
     const [historique, setHistorique] = useState([]);
     const [moi, setMoi] = useState(null);
-    const [showModal, setShowModal] = useState(false);
-    const [selectedOrder, setSelectedOrder] = useState(null);
-    const [updating, setUpdating] = useState(false);
 
     useEffect(() => {
         const loadLivraisons = async () => {
@@ -33,16 +33,18 @@ const MesLivraisons = () => {
                 }
             } catch (error) {
                 toast.error(error.response?.data?.message || error.message);
-                if (error.response?.status === 401) navigate('/staff/login');
+                if (error.response?.status === 401) {
+                    navigate('/staff/login');
+                }
             } finally {
                 setLoading(false);
             }
         };
+
         loadLivraisons();
     }, [axios, navigate]);
 
     const handleUpdateStatus = async (order, newStatus) => {
-        setUpdating(true);
         try {
             const { data } = await axios.patch('/api/order/livreur/statut', {
                 orderId: order._id,
@@ -58,8 +60,6 @@ const MesLivraisons = () => {
             }
         } catch (error) {
             toast.error(error.response?.data?.message || error.message);
-        } finally {
-            setUpdating(false);
         }
     };
 
@@ -84,7 +84,9 @@ const MesLivraisons = () => {
         );
     }
 
-    const commandesActives = commandes.filter(o => !['Delivered', 'Returned', 'Cancelled'].includes(o.status));
+    const commandesActives = commandes.filter(o => 
+        !['Delivered', 'Returned', 'Cancelled'].includes(o.status)
+    );
 
     return (
         <div className="min-h-screen bg-ivory-200">
@@ -95,24 +97,31 @@ const MesLivraisons = () => {
                             <Truck size={24} />
                             <div>
                                 <h1 className="text-lg font-bold">Mes livraisons</h1>
-                                <p className="text-sm text-blush-300">{commandesActives.length} commande{commandesActives.length > 1 ? 's' : ''} en cours</p>
+                                <p className="text-sm text-blush-300">
+                                    {commandesActives.length} commande{commandesActives.length > 1 ? 's' : ''} en cours
+                                </p>
                             </div>
                         </div>
-                        <span className="text-xs bg-blush-200/20 px-3 py-1 rounded-full">{moi?.nom}</span>
+                        <span className="text-xs bg-blush-200/20 px-3 py-1 rounded-full">
+                            {moi?.nom}
+                        </span>
                     </div>
                 </div>
             </div>
 
             <div className="max-w-4xl mx-auto px-4 py-6">
                 <h2 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                    <Clock size={18} className="text-amber-500" /> Commandes à livrer
+                    <Clock size={18} className="text-amber-500" />
+                    Commandes à livrer
                 </h2>
 
                 {commandesActives.length === 0 ? (
                     <div className="bg-white rounded-xl shadow-sm border border-blush-300 p-8 text-center mb-6">
                         <Package className="mx-auto text-gray-400 mb-3" size={48} />
                         <h3 className="text-lg font-medium text-gray-800">Aucune commande en cours</h3>
-                        <p className="text-sm text-gray-500 mt-1">Vous serez notifié lorsqu'une nouvelle commande vous sera assignée</p>
+                        <p className="text-sm text-gray-500 mt-1">
+                            Vous serez notifié lorsqu'une nouvelle commande vous sera assignée
+                        </p>
                     </div>
                 ) : (
                     <div className="space-y-4 mb-8">
@@ -123,24 +132,34 @@ const MesLivraisons = () => {
                                     <div className="p-4">
                                         <div className="flex items-start justify-between">
                                             <div>
-                                                <p className="text-sm font-medium text-gray-800">Commande #{order._id.slice(-8)}</p>
+                                                <p className="text-sm font-medium text-gray-800">
+                                                    Commande #{order._id.slice(-8)}
+                                                </p>
                                                 <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
                                                     <Calendar size={12} />
-                                                    {new Date(order.createdAt).toLocaleDateString('fr-FR')} · {order.items.length} article{order.items.length > 1 ? 's' : ''}
+                                                    {new Date(order.createdAt).toLocaleDateString('fr-FR')}
+                                                    {' · '}
+                                                    {order.items.length} article{order.items.length > 1 ? 's' : ''}
                                                 </p>
                                             </div>
-                                            <span className={`text-xs px-2 py-1 rounded-full font-medium ${status.className}`}>{status.label}</span>
+                                            <span className={`text-xs px-2 py-1 rounded-full font-medium ${status.className}`}>
+                                                {status.label}
+                                            </span>
                                         </div>
 
                                         <div className="mt-2 text-sm border-t border-blush-100 pt-2">
                                             <div className="flex items-center gap-2 text-gray-600">
-                                                <User size={14} /><span>{order.address?.name || 'Client'}</span>
+                                                <User size={14} />
+                                                <span>{order.address?.name || 'Client'}</span>
                                                 <span className="text-gray-300">|</span>
-                                                <Phone size={14} /><span>{order.address?.phone || 'N/A'}</span>
+                                                <Phone size={14} />
+                                                <span>{order.address?.phone || 'N/A'}</span>
                                             </div>
                                             <div className="flex items-center gap-2 text-gray-600 mt-0.5">
                                                 <MapPin size={14} />
-                                                <span className="text-xs">{order.address?.street || ''}, {order.address?.communeId?.name || ''}</span>
+                                                <span className="text-xs">
+                                                    {order.address?.street || ''}, {order.address?.communeId?.name || ''}
+                                                </span>
                                             </div>
                                         </div>
 
@@ -150,22 +169,37 @@ const MesLivraisons = () => {
                                                     {item.product?.name || 'Produit'} x{item.quantity}
                                                 </span>
                                             ))}
-                                            {order.items.length > 3 && <span className="text-xs text-gray-400">+{order.items.length - 3} autres</span>}
+                                            {order.items.length > 3 && (
+                                                <span className="text-xs text-gray-400">
+                                                    +{order.items.length - 3} autres
+                                                </span>
+                                            )}
                                         </div>
 
                                         <div className="mt-3 flex items-center justify-between">
-                                            <span className="text-sm font-bold text-burgundy-600">{order.amount.toLocaleString()} FCFA</span>
+                                            <span className="text-sm font-bold text-burgundy-600">
+                                                {order.amount.toLocaleString()} FCFA
+                                            </span>
                                             <div className="flex gap-2">
-                                                <button onClick={() => navigate(`/livreur/commande/${order._id}`)} className="text-sm text-gray-500 hover:text-burgundy-600 transition flex items-center gap-1">
+                                                <button
+                                                    onClick={() => navigate(`/livreur/commande/${order._id}`)}
+                                                    className="text-sm text-gray-500 hover:text-burgundy-600 transition flex items-center gap-1"
+                                                >
                                                     <Eye size={14} /> Détails
                                                 </button>
                                                 {order.status === 'Out for Delivery' && (
-                                                    <button onClick={() => handleUpdateStatus(order, 'Delivered')} className="flex items-center gap-1 text-sm bg-burgundy-600 text-ivory-200 px-3 py-1.5 rounded-lg hover:bg-burgundy-700 transition">
+                                                    <button
+                                                        onClick={() => handleUpdateStatus(order, 'Delivered')}
+                                                        className="flex items-center gap-1 text-sm bg-burgundy-600 text-ivory-200 px-3 py-1.5 rounded-lg hover:bg-burgundy-700 transition"
+                                                    >
                                                         <CheckCircle size={14} /> Livré
                                                     </button>
                                                 )}
                                                 {order.status === 'Shipped' && (
-                                                    <button onClick={() => handleUpdateStatus(order, 'Out for Delivery')} className="flex items-center gap-1 text-sm bg-amber-600 text-white px-3 py-1.5 rounded-lg hover:bg-amber-700 transition">
+                                                    <button
+                                                        onClick={() => handleUpdateStatus(order, 'Out for Delivery')}
+                                                        className="flex items-center gap-1 text-sm bg-amber-600 text-white px-3 py-1.5 rounded-lg hover:bg-amber-700 transition"
+                                                    >
                                                         <Truck size={14} /> En livraison
                                                     </button>
                                                 )}
@@ -179,7 +213,8 @@ const MesLivraisons = () => {
                 )}
 
                 <h2 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                    <CheckCircle size={18} className="text-green-500" /> Historique des livraisons
+                    <CheckCircle size={18} className="text-green-500" />
+                    Historique des livraisons
                 </h2>
 
                 {historique.length === 0 ? (
@@ -194,13 +229,24 @@ const MesLivraisons = () => {
                                 return (
                                     <div key={order._id} className="px-4 py-3 flex items-center justify-between">
                                         <div>
-                                            <p className="text-sm font-medium text-gray-800">#{order._id.slice(-8)}</p>
-                                            <p className="text-xs text-gray-500">{new Date(order.createdAt).toLocaleDateString('fr-FR')}</p>
+                                            <p className="text-sm font-medium text-gray-800">
+                                                #{order._id.slice(-8)}
+                                            </p>
+                                            <p className="text-xs text-gray-500">
+                                                {new Date(order.createdAt).toLocaleDateString('fr-FR')}
+                                            </p>
                                         </div>
                                         <div className="flex items-center gap-3">
-                                            <span className="text-sm text-gray-600">{order.amount.toLocaleString()} FCFA</span>
-                                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${status.className}`}>{status.label}</span>
-                                            <button onClick={() => navigate(`/livreur/commande/${order._id}`)} className="p-1 text-gray-400 hover:text-burgundy-600 transition">
+                                            <span className="text-sm text-gray-600">
+                                                {order.amount.toLocaleString()} FCFA
+                                            </span>
+                                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${status.className}`}>
+                                                {status.label}
+                                            </span>
+                                            <button
+                                                onClick={() => navigate(`/livreur/commande/${order._id}`)}
+                                                className="p-1 text-gray-400 hover:text-burgundy-600 transition"
+                                            >
                                                 <ChevronRight size={16} />
                                             </button>
                                         </div>

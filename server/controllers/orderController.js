@@ -41,13 +41,12 @@ const calculateEstimatedDeliveryDates = (orderDate) => {
     return { deliveryStart, deliveryEnd };
 };
 
-// ✅ MODIFIÉ : Réduire le stock ET incrémenter les ventes
+// Réduire le stock ET incrémenter les ventes
 const reduceVariantStock = async (items) => {
     for (const item of items) {
         const product = await Product.findById(item.product);
         if (!product) continue;
         
-        // Incrémenter les ventes GLOBALES
         await Product.findByIdAndUpdate(item.product, {
             $inc: { salesCount: item.quantity }
         });
@@ -73,13 +72,11 @@ const reduceVariantStock = async (items) => {
     }
 };
 
-// ✅ NOUVEAU PHASE 3 : Créditer les wallets des commerçants
+// Créditer les wallets des commerçants
 const crediterWallets = async (items) => {
-    // Regrouper les ventes par boutique
     const ventesParBoutique = {};
     
     for (const item of items) {
-        // Récupérer le produit pour avoir sa boutiqueId
         const product = await Product.findById(item.product).select('boutiqueId');
         if (!product || !product.boutiqueId) continue;
         
@@ -94,9 +91,7 @@ const crediterWallets = async (items) => {
         ventesParBoutique[boutiqueId].items.push(item);
     }
     
-    // Pour chaque boutique, créditer le wallet
     for (const [boutiqueId, data] of Object.entries(ventesParBoutique)) {
-        // Trouver le commerçant propriétaire de la boutique
         const Boutique = await import('../models/Boutique.js').then(m => m.default);
         const boutique = await Boutique.findById(boutiqueId).select('ownerId');
         if (!boutique) continue;
@@ -104,7 +99,6 @@ const crediterWallets = async (items) => {
         const wallet = await Wallet.findOne({ ownerId: boutique.ownerId });
         if (!wallet) continue;
         
-        // Créer la transaction de vente
         const montant = data.montantTotal;
         const description = `Vente - ${data.items.length} article(s)`;
         
@@ -113,14 +107,15 @@ const crediterWallets = async (items) => {
             type: 'vente',
             montant: montant,
             description: description,
-            // orderId sera ajouté après la création de la commande
         });
         
-        // Recalculer le solde
         await wallet.recalculerSolde();
     }
 };
 
+// =============================================================
+// PLACER UNE COMMANDE (COD)
+// =============================================================
 export const placeOrderCOD = async (req, res) => {
     try {
         const { userId, items, address, deliveryType, couponApplied } = req.body;
@@ -135,7 +130,6 @@ export const placeOrderCOD = async (req, res) => {
                 throw new Error("Produit introuvable");
             }
 
-            // ✅ PHASE 3 : Récupérer la boutiqueId du produit
             const boutiqueId = product.boutiqueId || null;
 
             let priceAtOrder = product.offerPrice;
@@ -156,7 +150,7 @@ export const placeOrderCOD = async (req, res) => {
                 color: item.selectedColor || null,
                 size: item.selectedSize || null,
                 priceAtOrder: priceAtOrder,
-                boutiqueId: boutiqueId, // ✅ PHASE 3
+                boutiqueId: boutiqueId,
             };
         }));
 
@@ -225,14 +219,11 @@ export const placeOrderCOD = async (req, res) => {
             status: "Order Placed",
             estimatedDeliveryStart: deliveryStart,
             estimatedDeliveryEnd: deliveryEnd,
-            // livreurId sera assigné plus tard par l'admin
         });
 
-        // Réduire le stock ET incrémenter salesCount
         await reduceVariantStock(itemsWithPrice);
         await User.findByIdAndUpdate(userId, { cartItems: {} });
 
-        // Envoyer les emails
         const user = await User.findById(userId);
         if (user && user.email) {
             await sendOrderConfirmationEmail(
@@ -252,6 +243,9 @@ export const placeOrderCOD = async (req, res) => {
     }
 };
 
+// =============================================================
+// METTRE À JOUR LE STATUT D'UNE COMMANDE (Admin)
+// =============================================================
 export const updateOrderStatus = async (req, res) => {
     try {
         const { orderId, status } = req.body;
@@ -268,7 +262,6 @@ export const updateOrderStatus = async (req, res) => {
         
         const order = await Order.findByIdAndUpdate(orderId, updateData);
 
-        // ✅ PHASE 3 : Si la commande passe à Delivered, créditer les wallets
         if (status === 'Delivered' && order) {
             await crediterWallets(order.items);
         }
@@ -289,7 +282,9 @@ export const updateOrderStatus = async (req, res) => {
     }
 };
 
-// ✅ NOUVEAU PHASE 3 : Assigner un livreur à une commande
+// =============================================================
+// ✅ PHASE 4 : ASSIGNER UN LIVREUR À UNE COMMANDE (Admin)
+// =============================================================
 export const assignerLivreur = async (req, res) => {
     try {
         const { orderId, livreurId } = req.body;
@@ -303,7 +298,6 @@ export const assignerLivreur = async (req, res) => {
             return res.status(404).json({ success: false, message: "Commande non trouvée" });
         }
         
-        // Vérifier que le livreur existe et a bien le rôle 'livreur'
         const StaffUser = await import('../models/StaffUser.js').then(m => m.default);
         const livreur = await StaffUser.findOne({ _id: livreurId, role: 'livreur', statut: 'actif' });
         if (!livreur) {
@@ -312,9 +306,6 @@ export const assignerLivreur = async (req, res) => {
         
         order.livreurId = livreurId;
         await order.save();
-        
-        // Notification push au livreur (à implémenter)
-        // sendPushToUser(livreurId, { title: 'Nouvelle commande assignée 🚚', body: `Commande #${order._id.toString().slice(-8)}` });
         
         return res.json({ 
             success: true, 
@@ -327,7 +318,9 @@ export const assignerLivreur = async (req, res) => {
     }
 };
 
-// ✅ NOUVEAU PHASE 3 : Récupérer les commandes d'un livreur
+// =============================================================
+// ✅ PHASE 4 : RÉCUPÉRER LES COMMANDES D'UN LIVREUR
+// =============================================================
 export const getLivraisonsLivreur = async (req, res) => {
     try {
         const livreurId = req.staffUser._id;
@@ -353,7 +346,9 @@ export const getLivraisonsLivreur = async (req, res) => {
     }
 };
 
-// ✅ NOUVEAU PHASE 3 : Mettre à jour le statut d'une livraison (par le livreur)
+// =============================================================
+// ✅ PHASE 4 : METTRE À JOUR LE STATUT D'UNE LIVRAISON (Livreur)
+// =============================================================
 export const updateLivraisonStatus = async (req, res) => {
     try {
         const { orderId, status } = req.body;
@@ -376,7 +371,6 @@ export const updateLivraisonStatus = async (req, res) => {
         
         await Order.findByIdAndUpdate(orderId, updateData);
         
-        // Si Delivered, créditer les wallets
         if (status === 'Delivered') {
             await crediterWallets(order.items);
         }
@@ -400,6 +394,9 @@ export const updateLivraisonStatus = async (req, res) => {
     }
 };
 
+// =============================================================
+// COMMANDES UTILISATEUR
+// =============================================================
 export const getUserOrders = async (req, res) => {
     try {
         const { userId } = req.body;
@@ -413,6 +410,9 @@ export const getUserOrders = async (req, res) => {
     }
 };
 
+// =============================================================
+// COMMANDES ADMIN
+// =============================================================
 export const getAllOrders = async (req, res) => {
     try {
         const orders = await Order.find({
