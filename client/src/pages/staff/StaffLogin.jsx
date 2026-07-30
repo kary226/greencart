@@ -18,10 +18,6 @@ const StaffLogin = () => {
     const [password, setPassword] = useState("");
     const [totpCode, setTotpCode] = useState("");
     const [loading, setLoading] = useState(false);
-    // Pas encore d'espace dédié par rôle (Phases 3 à 5) : on affiche donc
-    // ici la confirmation de connexion directement, avec les infos du
-    // compte renvoyées par le serveur — c'est la preuve visuelle que tout
-    // fonctionne de bout en bout.
     const [connectedAccount, setConnectedAccount] = useState(null);
 
     const onSubmitHandler = async (event) => {
@@ -32,9 +28,19 @@ const StaffLogin = () => {
             const { data } = await axios.post('/api/staff/login', { email, password, totpCode })
             if (data.success) {
                 toast.success("Connexion réussie");
+                
+                // ✅ Redirection selon le rôle
                 if (data.staffUser?.role === 'admin') {
                     navigate('/staff/admin/comptes');
+                } else if (data.staffUser?.role === 'commercant') {
+                    navigate('/commercant/dashboard');
+                } else if (data.staffUser?.role === 'livreur') {
+                    navigate('/livreur/mes-livraisons');
+                } else if (data.staffUser?.role === 'assistant_shein') {
+                    // Phase 5 à venir
+                    navigate('/assistant/conversations');
                 } else {
+                    // Fallback : afficher les infos du compte
                     setConnectedAccount(data.staffUser);
                 }
             } else {
@@ -71,7 +77,7 @@ const StaffLogin = () => {
                         Se déconnecter (revenir au formulaire)
                     </button>
                     <p className="text-xs text-gray-400 mt-4">
-                        Il n'y a pas encore d'espace dédié à ce rôle (Phases 3 à 5 à venir) — cette page confirme juste que la connexion fonctionne.
+                        Aucun espace dédié pour ce rôle — cette page confirme juste que la connexion fonctionne.
                     </p>
                 </div>
             </div>
