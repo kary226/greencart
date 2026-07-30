@@ -15,30 +15,55 @@ const authStaff = async (req, res, next) => {
             : null);
 
     if (!token) {
-        return res.json({ success: false, message: 'Not Authorized - Token manquant' });
+        return res.status(401).json({
+            success: false,
+            message: 'Non authentifié - Token manquant'
+        });
     }
 
     try {
         const tokenDecode = jwt.verify(token, process.env.JWT_SECRET);
 
         if (!tokenDecode?.id) {
-            return res.json({ success: false, message: 'Not Authorized - Token invalide' });
+            return res.status(401).json({
+                success: false,
+                message: 'Non authentifié - Token invalide'
+            });
         }
 
         const staffUser = await StaffUser.findById(tokenDecode.id).select('-password -totpSecret');
 
         if (!staffUser) {
-            return res.json({ success: false, message: 'Not Authorized - Compte introuvable' });
+            return res.status(401).json({
+                success: false,
+                message: 'Non authentifié - Compte introuvable'
+            });
         }
 
         if (staffUser.statut !== 'actif') {
-            return res.json({ success: false, message: 'Ce compte est suspendu' });
+            return res.status(403).json({
+                success: false,
+                message: 'Ce compte est suspendu'
+            });
         }
 
         req.staffUser = staffUser;
         next();
     } catch (error) {
-        res.json({ success: false, message: error.message });
+        if (error.name === 'JsonWebTokenError') {
+            return res.status(401).json({
+                success: false,
+                message: 'Non authentifié - Token invalide'
+            });
+        }
+        if (error.name === 'TokenExpiredError') {
+            return res.status(401).json({
+                success: false,
+                message: 'Session expirée - Veuillez vous reconnecter'
+            });
+        }
+        console.error('Erreur authStaff:', error.message);
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
@@ -48,10 +73,16 @@ const authStaff = async (req, res, next) => {
 export const requireRole = (...rolesAutorises) => {
     return (req, res, next) => {
         if (!req.staffUser) {
-            return res.json({ success: false, message: 'Not Authorized' });
+            return res.status(401).json({
+                success: false,
+                message: 'Non authentifié'
+            });
         }
         if (!rolesAutorises.includes(req.staffUser.role)) {
-            return res.json({ success: false, message: "Accès refusé pour ce rôle" });
+            return res.status(403).json({
+                success: false,
+                message: 'Accès refusé - Rôle insuffisant'
+            });
         }
         next();
     };

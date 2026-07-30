@@ -36,8 +36,8 @@ const staffUserSchema = new mongoose.Schema({
     },
     statut: {
         type: String,
-        enum: ['actif', 'suspendu'],
-        default: 'actif',
+        enum: ['actif', 'suspendu', 'en_attente'],
+        default: 'en_attente',
     },
     // Secret TOTP propre à CE compte (contrairement au compte seller qui
     // partage un seul secret global via l'environnement). Généré à
@@ -62,6 +62,11 @@ const staffUserSchema = new mongoose.Schema({
         default: null,
     },
 }, { timestamps: true, minimize: false });
+
+// Index pour accélérer les requêtes courantes
+staffUserSchema.index({ email: 1 });
+staffUserSchema.index({ role: 1 });
+staffUserSchema.index({ statut: 1 });
 
 const StaffUser = mongoose.models.staffuser || mongoose.model('staffuser', staffUserSchema);
 

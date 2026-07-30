@@ -11,16 +11,21 @@ const INVITATION_VALIDITE_MS = 48 * 60 * 60 * 1000; // 48 heures
 
 // Cookie séparé de 'token' (client) et de 'sellerToken' (ancien compte
 // vendeur unique) — même logique de séparation des sessions par espace.
-const STAFF_COOKIE_OPTIONS = {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'lax',
-    domain: '.ramci.ci',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
+// CORRECTION : secure et domain adaptés selon l'environnement
+const getStaffCookieOptions = () => {
+    const isProduction = process.env.NODE_ENV === 'production';
+    return {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: isProduction ? 'strict' : 'lax',
+        domain: isProduction ? '.ramci.ci' : undefined,
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        path: '/',
+    };
 };
 
 const setStaffTokenCookie = (res, token) => {
-    res.cookie('staffToken', token, STAFF_COOKIE_OPTIONS);
+    res.cookie('staffToken', token, getStaffCookieOptions());
 };
 
 // Ne renvoie jamais password ni totpSecret au client.
@@ -44,22 +49,22 @@ export const createInvitation = async (req, res) => {
         const { email, role } = req.body;
 
         if (typeof email !== 'string' || typeof role !== 'string') {
-            return res.json({ success: false, message: 'Format de données invalide' });
+            return res.status(400).json({ success: false, message: 'Format de données invalide' });
         }
 
         const emailNormalise = email.trim().toLowerCase();
 
         if (!emailNormalise) {
-            return res.json({ success: false, message: 'Email requis' });
+            return res.status(400).json({ success: false, message: 'Email requis' });
         }
 
         if (!ROLES_VALIDES.includes(role)) {
-            return res.json({ success: false, message: 'Rôle invalide' });
+            return res.status(400).json({ success: false, message: 'Rôle invalide' });
         }
 
         const compteExistant = await StaffUser.findOne({ email: emailNormalise });
         if (compteExistant) {
-            return res.json({ success: false, message: 'Un compte existe déjà avec cet email' });
+            return res.status(409).json({ success: false, message: 'Un compte existe déjà avec cet email' });
         }
 
         // Une seule invitation valide à la fois par email : on invalide
@@ -78,7 +83,7 @@ export const createInvitation = async (req, res) => {
 
         await sendStaffInvitationEmail(emailNormalise, token, role);
 
-        return res.json({
+        return res.status(201).json({
             success: true,
             message: 'Invitation envoyée',
             invitation: {
@@ -89,8 +94,8 @@ export const createInvitation = async (req, res) => {
             },
         });
     } catch (error) {
-        console.log(error.message);
-        res.json({ success: false, message: error.message });
+        console.error('Erreur createInvitation:', error.message);
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
@@ -103,10 +108,10 @@ export const listInvitations = async (req, res) => {
             .sort('-createdAt')
             .select('-token');
 
-        return res.json({ success: true, invitations });
+        return res.status(200).json({ success: true, invitations });
     } catch (error) {
-        console.log(error.message);
-        res.json({ success: false, message: error.message });
+        console.error('Erreur listInvitations:', error.message);
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
@@ -119,34 +124,34 @@ export const activateAccount = async (req, res) => {
         const { nom, password } = req.body;
 
         if (typeof token !== 'string' || typeof nom !== 'string' || typeof password !== 'string') {
-            return res.json({ success: false, message: 'Format de données invalide' });
+            return res.status(400).json({ success: false, message: 'Format de données invalide' });
         }
 
         if (!nom.trim()) {
-            return res.json({ success: false, message: 'Le nom est requis' });
+            return res.status(400).json({ success: false, message: 'Le nom est requis' });
         }
 
         if (password.length < 8) {
-            return res.json({ success: false, message: 'Le mot de passe doit contenir au moins 8 caractères' });
+            return res.status(400).json({ success: false, message: 'Le mot de passe doit contenir au moins 8 caractères' });
         }
 
         const invitation = await Invitation.findOne({ token });
 
         if (!invitation) {
-            return res.json({ success: false, message: "Lien d'invitation introuvable" });
+            return res.status(404).json({ success: false, message: "Lien d'invitation introuvable" });
         }
 
         if (invitation.utilisee) {
-            return res.json({ success: false, message: 'Ce lien a déjà été utilisé' });
+            return res.status(400).json({ success: false, message: 'Ce lien a déjà été utilisé' });
         }
 
         if (invitation.expireA.getTime() < Date.now()) {
-            return res.json({ success: false, message: 'Ce lien a expiré, demandez une nouvelle invitation' });
+            return res.status(410).json({ success: false, message: 'Ce lien a expiré, demandez une nouvelle invitation' });
         }
 
         const compteExistant = await StaffUser.findOne({ email: invitation.email });
         if (compteExistant) {
-            return res.json({ success: false, message: 'Un compte existe déjà avec cet email' });
+            return res.status(409).json({ success: false, message: 'Un compte existe déjà avec cet email' });
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -176,15 +181,15 @@ export const activateAccount = async (req, res) => {
         // Authenticator / Authy). Il n'est plus jamais renvoyé ensuite.
         const otpauthUrl = authenticator.keyuri(staffUser.email, 'GreenCart', totpSecret);
 
-        return res.json({
+        return res.status(201).json({
             success: true,
             message: 'Compte activé',
             staffUser: toPublicStaff(staffUser),
             totpSetup: { secret: totpSecret, otpauthUrl },
         });
     } catch (error) {
-        console.log(error.message);
-        res.json({ success: false, message: error.message });
+        console.error('Erreur activateAccount:', error.message);
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
@@ -196,27 +201,27 @@ export const staffLogin = async (req, res) => {
         const { email, password, totpCode } = req.body;
 
         if (typeof email !== 'string' || typeof password !== 'string' || typeof totpCode !== 'string') {
-            return res.json({ success: false, message: 'Identifiants invalides' });
+            return res.status(400).json({ success: false, message: 'Identifiants invalides' });
         }
 
         const staffUser = await StaffUser.findOne({ email: email.trim().toLowerCase() });
 
         if (!staffUser) {
-            return res.json({ success: false, message: 'Identifiants invalides' });
+            return res.status(401).json({ success: false, message: 'Identifiants invalides' });
         }
 
         if (staffUser.statut !== 'actif') {
-            return res.json({ success: false, message: 'Ce compte est suspendu' });
+            return res.status(403).json({ success: false, message: 'Ce compte est suspendu' });
         }
 
         const passwordValide = await bcrypt.compare(password, staffUser.password);
         if (!passwordValide) {
-            return res.json({ success: false, message: 'Identifiants invalides' });
+            return res.status(401).json({ success: false, message: 'Identifiants invalides' });
         }
 
         const codeValide = authenticator.verify({ token: totpCode, secret: staffUser.totpSecret });
         if (!codeValide) {
-            return res.json({ success: false, message: "Code d'authentification invalide" });
+            return res.status(401).json({ success: false, message: "Code d'authentification invalide" });
         }
 
         staffUser.derniereConnexion = new Date();
@@ -225,10 +230,14 @@ export const staffLogin = async (req, res) => {
         const jwtToken = jwt.sign({ id: staffUser._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
         setStaffTokenCookie(res, jwtToken);
 
-        return res.json({ success: true, message: 'Connexion réussie', staffUser: toPublicStaff(staffUser) });
+        return res.status(200).json({
+            success: true,
+            message: 'Connexion réussie',
+            staffUser: toPublicStaff(staffUser)
+        });
     } catch (error) {
-        console.log(error.message);
-        res.json({ success: false, message: error.message });
+        console.error('Erreur staffLogin:', error.message);
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
@@ -237,10 +246,13 @@ export const staffLogin = async (req, res) => {
 // ------------------------------------------------------------------ //
 export const isStaffAuth = async (req, res) => {
     try {
-        return res.json({ success: true, staffUser: toPublicStaff(req.staffUser) });
+        return res.status(200).json({
+            success: true,
+            staffUser: toPublicStaff(req.staffUser)
+        });
     } catch (error) {
-        console.log(error.message);
-        res.json({ success: false, message: error.message });
+        console.error('Erreur isStaffAuth:', error.message);
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
@@ -249,11 +261,11 @@ export const isStaffAuth = async (req, res) => {
 // ------------------------------------------------------------------ //
 export const staffLogout = async (req, res) => {
     try {
-        res.clearCookie('staffToken', STAFF_COOKIE_OPTIONS);
-        return res.json({ success: true, message: 'Déconnexion réussie' });
+        res.clearCookie('staffToken', getStaffCookieOptions());
+        return res.status(200).json({ success: true, message: 'Déconnexion réussie' });
     } catch (error) {
-        console.log(error.message);
-        res.json({ success: false, message: error.message });
+        console.error('Erreur staffLogout:', error.message);
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
@@ -262,11 +274,32 @@ export const staffLogout = async (req, res) => {
 // ------------------------------------------------------------------ //
 export const listStaffAccounts = async (req, res) => {
     try {
-        const comptes = await StaffUser.find().sort('-createdAt').select('-password -totpSecret');
-        return res.json({ success: true, comptes });
+        // Support de pagination optionnel
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 50;
+        const skip = (page - 1) * limit;
+
+        const comptes = await StaffUser.find()
+            .sort('-createdAt')
+            .select('-password -totpSecret')
+            .skip(skip)
+            .limit(limit);
+
+        const total = await StaffUser.countDocuments();
+
+        return res.status(200).json({
+            success: true,
+            comptes,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit),
+            },
+        });
     } catch (error) {
-        console.log(error.message);
-        res.json({ success: false, message: error.message });
+        console.error('Erreur listStaffAccounts:', error.message);
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
@@ -279,25 +312,29 @@ export const updateStaffStatus = async (req, res) => {
         const { statut } = req.body;
 
         if (!['actif', 'suspendu'].includes(statut)) {
-            return res.json({ success: false, message: 'Statut invalide' });
+            return res.status(400).json({ success: false, message: 'Statut invalide' });
         }
 
         if (id === req.staffUser._id.toString()) {
-            return res.json({ success: false, message: 'Vous ne pouvez pas modifier votre propre statut' });
+            return res.status(403).json({ success: false, message: 'Vous ne pouvez pas modifier votre propre statut' });
         }
 
         const staffUser = await StaffUser.findById(id);
         if (!staffUser) {
-            return res.json({ success: false, message: 'Compte introuvable' });
+            return res.status(404).json({ success: false, message: 'Compte introuvable' });
         }
 
         staffUser.statut = statut;
         await staffUser.save();
 
-        return res.json({ success: true, message: 'Statut mis à jour', staffUser: toPublicStaff(staffUser) });
+        return res.status(200).json({
+            success: true,
+            message: 'Statut mis à jour',
+            staffUser: toPublicStaff(staffUser)
+        });
     } catch (error) {
-        console.log(error.message);
-        res.json({ success: false, message: error.message });
+        console.error('Erreur updateStaffStatus:', error.message);
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
@@ -310,24 +347,28 @@ export const updateStaffRole = async (req, res) => {
         const { role } = req.body;
 
         if (!ROLES_VALIDES.includes(role)) {
-            return res.json({ success: false, message: 'Rôle invalide' });
+            return res.status(400).json({ success: false, message: 'Rôle invalide' });
         }
 
         if (id === req.staffUser._id.toString()) {
-            return res.json({ success: false, message: 'Vous ne pouvez pas modifier votre propre rôle' });
+            return res.status(403).json({ success: false, message: 'Vous ne pouvez pas modifier votre propre rôle' });
         }
 
         const staffUser = await StaffUser.findById(id);
         if (!staffUser) {
-            return res.json({ success: false, message: 'Compte introuvable' });
+            return res.status(404).json({ success: false, message: 'Compte introuvable' });
         }
 
         staffUser.role = role;
         await staffUser.save();
 
-        return res.json({ success: true, message: 'Rôle mis à jour', staffUser: toPublicStaff(staffUser) });
+        return res.status(200).json({
+            success: true,
+            message: 'Rôle mis à jour',
+            staffUser: toPublicStaff(staffUser)
+        });
     } catch (error) {
-        console.log(error.message);
-        res.json({ success: false, message: error.message });
+        console.error('Erreur updateStaffRole:', error.message);
+        res.status(500).json({ success: false, message: error.message });
     }
 };
