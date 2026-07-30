@@ -4,6 +4,8 @@ import jwt from 'jsonwebtoken';
 import { authenticator } from 'otplib';
 import StaffUser from '../models/StaffUser.js';
 import Invitation from '../models/Invitation.js';
+import Boutique from '../models/Boutique.js';
+import Wallet from '../models/Wallet.js';
 import { sendStaffInvitationEmail } from '../configs/email.js';
 
 const ROLES_VALIDES = ['admin', 'commercant', 'livreur', 'assistant_shein'];
@@ -11,7 +13,6 @@ const INVITATION_VALIDITE_MS = 48 * 60 * 60 * 1000; // 48 heures
 
 // Cookie séparé de 'token' (client) et de 'sellerToken' (ancien compte
 // vendeur unique) — même logique de séparation des sessions par espace.
-// CORRECTION : secure et domain adaptés selon l'environnement
 const getStaffCookieOptions = () => {
     const isProduction = process.env.NODE_ENV === 'production';
     return {
@@ -167,8 +168,23 @@ export const activateAccount = async (req, res) => {
             creePar: invitation.creePar,
         });
 
-        // NOTE Phase 3 : si role === 'commercant', créer automatiquement
-        // une Boutique vide et renseigner staffUser.boutiqueId ici.
+        // ✅ PHASE 3 : Création automatique de la boutique et du wallet
+        if (staffUser.role === 'commercant') {
+            // Créer la boutique
+            const boutique = await Boutique.create({
+                nom: `Boutique de ${staffUser.nom}`,
+                ownerId: staffUser._id,
+                statut: 'active',
+            });
+            staffUser.boutiqueId = boutique._id;
+            await staffUser.save();
+
+            // Créer le portefeuille
+            await Wallet.create({
+                ownerId: staffUser._id,
+                solde: 0,
+            });
+        }
 
         invitation.utilisee = true;
         await invitation.save();
@@ -279,13 +295,24 @@ export const listStaffAccounts = async (req, res) => {
         const limit = parseInt(req.query.limit) || 50;
         const skip = (page - 1) * limit;
 
-        const comptes = await StaffUser.find()
+        // Filtres optionnels
+        const filter = {};
+        if (req.query.role) filter.role = req.query.role;
+        if (req.query.statut) filter.statut = req.query.statut;
+        if (req.query.search) {
+            filter.$or = [
+                { nom: { $regex: req.query.search, $options: 'i' } },
+                { email: { $regex: req.query.search, $options: 'i' } },
+            ];
+        }
+
+        const comptes = await StaffUser.find(filter)
             .sort('-createdAt')
             .select('-password -totpSecret')
             .skip(skip)
             .limit(limit);
 
-        const total = await StaffUser.countDocuments();
+        const total = await StaffUser.countDocuments(filter);
 
         return res.status(200).json({
             success: true,

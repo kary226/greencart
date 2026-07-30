@@ -49,6 +49,14 @@ const productSchema = new mongoose.Schema({
         type: String,
         enum: ['size', 'variant'],
         default: 'size'
+    },
+
+    // ✅ NOUVEAU PHASE 3 : Boutique du produit
+    boutiqueId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'boutique',
+        default: null, // null = produit de l'admin principal
+        index: true,
     }
     
 }, { timestamps: true });

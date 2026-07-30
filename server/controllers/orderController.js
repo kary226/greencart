@@ -1,15 +1,17 @@
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
-import User from "../models/User.js"
+import User from "../models/User.js";
 import Address from "../models/Address.js";
 import Coupon from "../models/Coupon.js";
 import DeliveryPrice from "../models/DeliveryPrice.js";
 import DeliveryType from "../models/DeliveryType.js";
 import Commune from "../models/Commune.js";
+import Wallet from "../models/Wallet.js";
+import WalletTransaction from "../models/WalletTransaction.js";
 import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
 import { sendPushToUser } from './pushController.js';
 
-// Messages affichés dans la notification push selon le nouveau statut de la commande.
+// Messages affichés dans la notification push
 const orderStatusPushMessages = {
     'Confirmed': { title: 'Commande confirmée ✅', body: 'Votre commande a été confirmée et est en cours de préparation.' },
     'Shipped': { title: 'Commande expédiée 📦', body: 'Votre commande vient d\'être expédiée.' },
@@ -21,10 +23,8 @@ const orderStatusPushMessages = {
 
 const calculateEstimatedDeliveryDates = (orderDate) => {
     const startDate = new Date(orderDate);
-    
     let workingDaysAdded = 0;
     let daysAdded = 0;
-    
     while (workingDaysAdded < 7) {
         daysAdded++;
         const currentDate = new Date(startDate);
@@ -34,13 +34,10 @@ const calculateEstimatedDeliveryDates = (orderDate) => {
             workingDaysAdded++;
         }
     }
-    
     const deliveryStart = new Date(startDate);
     deliveryStart.setDate(startDate.getDate() + daysAdded);
-    
     const deliveryEnd = new Date(deliveryStart);
     deliveryEnd.setDate(deliveryStart.getDate() + 3);
-    
     return { deliveryStart, deliveryEnd };
 };
 
@@ -50,7 +47,7 @@ const reduceVariantStock = async (items) => {
         const product = await Product.findById(item.product);
         if (!product) continue;
         
-        // ✅ Incrémenter les ventes GLOBALES
+        // Incrémenter les ventes GLOBALES
         await Product.findByIdAndUpdate(item.product, {
             $inc: { salesCount: item.quantity }
         });
@@ -60,7 +57,6 @@ const reduceVariantStock = async (items) => {
                 (item.color ? v.color === item.color : !v.color) &&
                 (item.size ? v.size === item.size : !v.size)
             );
-            
             if (variant) {
                 variant.stock = Math.max(0, variant.stock - item.quantity);
                 product.inStock = product.variants.some(v => v.stock > 0);
@@ -77,11 +73,59 @@ const reduceVariantStock = async (items) => {
     }
 };
 
-export const placeOrderCOD = async (req, res)=>{
+// ✅ NOUVEAU PHASE 3 : Créditer les wallets des commerçants
+const crediterWallets = async (items) => {
+    // Regrouper les ventes par boutique
+    const ventesParBoutique = {};
+    
+    for (const item of items) {
+        // Récupérer le produit pour avoir sa boutiqueId
+        const product = await Product.findById(item.product).select('boutiqueId');
+        if (!product || !product.boutiqueId) continue;
+        
+        const boutiqueId = product.boutiqueId.toString();
+        if (!ventesParBoutique[boutiqueId]) {
+            ventesParBoutique[boutiqueId] = {
+                montantTotal: 0,
+                items: []
+            };
+        }
+        ventesParBoutique[boutiqueId].montantTotal += item.priceAtOrder * item.quantity;
+        ventesParBoutique[boutiqueId].items.push(item);
+    }
+    
+    // Pour chaque boutique, créditer le wallet
+    for (const [boutiqueId, data] of Object.entries(ventesParBoutique)) {
+        // Trouver le commerçant propriétaire de la boutique
+        const Boutique = await import('../models/Boutique.js').then(m => m.default);
+        const boutique = await Boutique.findById(boutiqueId).select('ownerId');
+        if (!boutique) continue;
+        
+        const wallet = await Wallet.findOne({ ownerId: boutique.ownerId });
+        if (!wallet) continue;
+        
+        // Créer la transaction de vente
+        const montant = data.montantTotal;
+        const description = `Vente - ${data.items.length} article(s)`;
+        
+        await WalletTransaction.create({
+            walletId: wallet._id,
+            type: 'vente',
+            montant: montant,
+            description: description,
+            // orderId sera ajouté après la création de la commande
+        });
+        
+        // Recalculer le solde
+        await wallet.recalculerSolde();
+    }
+};
+
+export const placeOrderCOD = async (req, res) => {
     try {
         const { userId, items, address, deliveryType, couponApplied } = req.body;
-        if(!address || items.length === 0){
-            return res.json({success: false, message: "Invalid data"});
+        if (!address || items.length === 0) {
+            return res.status(400).json({ success: false, message: "Invalid data" });
         }
 
         let amount = 0;
@@ -90,6 +134,9 @@ export const placeOrderCOD = async (req, res)=>{
             if (!product) {
                 throw new Error("Produit introuvable");
             }
+
+            // ✅ PHASE 3 : Récupérer la boutiqueId du produit
+            const boutiqueId = product.boutiqueId || null;
 
             let priceAtOrder = product.offerPrice;
             if (product.variants && product.variants.length > 0) {
@@ -108,13 +155,13 @@ export const placeOrderCOD = async (req, res)=>{
                 quantity: item.quantity,
                 color: item.selectedColor || null,
                 size: item.selectedSize || null,
-                priceAtOrder: priceAtOrder
+                priceAtOrder: priceAtOrder,
+                boutiqueId: boutiqueId, // ✅ PHASE 3
             };
         }));
 
         const tax = Math.floor(amount * 0.02);
         amount += tax;
-
         const itemsSubtotal = amount;
 
         let deliveryPrice = 0;
@@ -151,13 +198,13 @@ export const placeOrderCOD = async (req, res)=>{
         if (couponApplied) {
             const coupon = await Coupon.findOne({ code: String(couponApplied).toUpperCase() });
             if (!coupon) {
-                return res.json({ success: false, message: "Code promo invalide" });
+                return res.status(400).json({ success: false, message: "Code promo invalide" });
             }
             if (!coupon.isValid()) {
-                return res.json({ success: false, message: "Code promo expiré ou désactivé" });
+                return res.status(400).json({ success: false, message: "Code promo expiré ou désactivé" });
             }
             if (itemsSubtotal < coupon.minPurchase) {
-                return res.json({ success: false, message: `Montant minimum d'achat: ${coupon.minPurchase} FCFA` });
+                return res.status(400).json({ success: false, message: `Montant minimum d'achat: ${coupon.minPurchase} FCFA` });
             }
             discountAmount = coupon.calculateDiscount(itemsSubtotal);
         }
@@ -177,13 +224,15 @@ export const placeOrderCOD = async (req, res)=>{
             paymentType: "COD",
             status: "Order Placed",
             estimatedDeliveryStart: deliveryStart,
-            estimatedDeliveryEnd: deliveryEnd
+            estimatedDeliveryEnd: deliveryEnd,
+            // livreurId sera assigné plus tard par l'admin
         });
 
-        // ✅ ICI : Réduire le stock ET incrémenter salesCount
+        // Réduire le stock ET incrémenter salesCount
         await reduceVariantStock(itemsWithPrice);
-        await User.findByIdAndUpdate(userId, {cartItems: {}});
+        await User.findByIdAndUpdate(userId, { cartItems: {} });
 
+        // Envoyer les emails
         const user = await User.findById(userId);
         if (user && user.email) {
             await sendOrderConfirmationEmail(
@@ -196,19 +245,20 @@ export const placeOrderCOD = async (req, res)=>{
             await sendAdminNotificationEmail(order._id.toString(), amount, `${user.name}`, user.email);
         }
 
-        return res.json({success: true, message: "Order Placed Successfully" });
+        return res.status(201).json({ success: true, message: "Order Placed Successfully" });
     } catch (error) {
-        return res.json({ success: false, message: error.message });
+        console.error('Erreur placeOrderCOD:', error.message);
+        return res.status(500).json({ success: false, message: error.message });
     }
 };
 
-export const updateOrderStatus = async (req, res)=>{
+export const updateOrderStatus = async (req, res) => {
     try {
         const { orderId, status } = req.body;
         const validStatuses = ['Order Placed', 'Confirmed', 'Shipped', 'Out for Delivery', 'Delivered', 'Returned', 'Cancelled'];
         
         if (!validStatuses.includes(status)) {
-            return res.json({ success: false, message: "Statut invalide" });
+            return res.status(400).json({ success: false, message: "Statut invalide" });
         }
         
         const updateData = { status };
@@ -217,6 +267,11 @@ export const updateOrderStatus = async (req, res)=>{
         }
         
         const order = await Order.findByIdAndUpdate(orderId, updateData);
+
+        // ✅ PHASE 3 : Si la commande passe à Delivered, créditer les wallets
+        if (status === 'Delivered' && order) {
+            await crediterWallets(order.items);
+        }
 
         const pushContent = orderStatusPushMessages[status];
         if (order && pushContent) {
@@ -229,45 +284,154 @@ export const updateOrderStatus = async (req, res)=>{
 
         res.json({ success: true, message: "Statut mis à jour" });
     } catch (error) {
-        res.json({ success: false, message: error.message });
+        console.error('Erreur updateOrderStatus:', error.message);
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
-export const getUserOrders = async (req, res)=>{
+// ✅ NOUVEAU PHASE 3 : Assigner un livreur à une commande
+export const assignerLivreur = async (req, res) => {
+    try {
+        const { orderId, livreurId } = req.body;
+        
+        if (!orderId || !livreurId) {
+            return res.status(400).json({ success: false, message: "orderId et livreurId requis" });
+        }
+        
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return res.status(404).json({ success: false, message: "Commande non trouvée" });
+        }
+        
+        // Vérifier que le livreur existe et a bien le rôle 'livreur'
+        const StaffUser = await import('../models/StaffUser.js').then(m => m.default);
+        const livreur = await StaffUser.findOne({ _id: livreurId, role: 'livreur', statut: 'actif' });
+        if (!livreur) {
+            return res.status(404).json({ success: false, message: "Livreur non trouvé ou inactif" });
+        }
+        
+        order.livreurId = livreurId;
+        await order.save();
+        
+        // Notification push au livreur (à implémenter)
+        // sendPushToUser(livreurId, { title: 'Nouvelle commande assignée 🚚', body: `Commande #${order._id.toString().slice(-8)}` });
+        
+        return res.json({ 
+            success: true, 
+            message: "Livreur assigné avec succès",
+            order 
+        });
+    } catch (error) {
+        console.error('Erreur assignerLivreur:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// ✅ NOUVEAU PHASE 3 : Récupérer les commandes d'un livreur
+export const getLivraisonsLivreur = async (req, res) => {
+    try {
+        const livreurId = req.staffUser._id;
+        
+        const orders = await Order.find({
+            livreurId: livreurId,
+            status: { $in: ['Order Placed', 'Confirmed', 'Shipped', 'Out for Delivery'] }
+        }).populate('items.product address').sort({ createdAt: -1 });
+        
+        const historique = await Order.find({
+            livreurId: livreurId,
+            status: { $in: ['Delivered', 'Returned', 'Cancelled'] }
+        }).populate('items.product address').sort({ createdAt: -1 }).limit(50);
+        
+        return res.json({ 
+            success: true, 
+            orders,
+            historique
+        });
+    } catch (error) {
+        console.error('Erreur getLivraisonsLivreur:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// ✅ NOUVEAU PHASE 3 : Mettre à jour le statut d'une livraison (par le livreur)
+export const updateLivraisonStatus = async (req, res) => {
+    try {
+        const { orderId, status } = req.body;
+        const livreurId = req.staffUser._id;
+        
+        const validStatuses = ['Out for Delivery', 'Delivered'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ success: false, message: "Statut invalide pour un livreur" });
+        }
+        
+        const order = await Order.findOne({ _id: orderId, livreurId: livreurId });
+        if (!order) {
+            return res.status(404).json({ success: false, message: "Commande non trouvée ou non assignée à ce livreur" });
+        }
+        
+        const updateData = { status };
+        if (status === 'Delivered') {
+            updateData.deliveredAt = new Date();
+        }
+        
+        await Order.findByIdAndUpdate(orderId, updateData);
+        
+        // Si Delivered, créditer les wallets
+        if (status === 'Delivered') {
+            await crediterWallets(order.items);
+        }
+        
+        const pushContent = orderStatusPushMessages[status];
+        if (pushContent) {
+            sendPushToUser(order.userId, {
+                title: pushContent.title,
+                body: pushContent.body,
+                url: '/my-orders'
+            });
+        }
+        
+        return res.json({ 
+            success: true, 
+            message: "Statut de livraison mis à jour" 
+        });
+    } catch (error) {
+        console.error('Erreur updateLivraisonStatus:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const getUserOrders = async (req, res) => {
     try {
         const { userId } = req.body;
         const orders = await Order.find({
             userId,
-            $or: [{paymentType: "COD"}, {isPaid: true}]
-        }).populate("items.product address").sort({createdAt: -1});
+            $or: [{ paymentType: "COD" }, { isPaid: true }]
+        }).populate("items.product address").sort({ createdAt: -1 });
         res.json({ success: true, orders });
     } catch (error) {
-        res.json({ success: false, message: error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
-export const getAllOrders = async (req, res)=>{
+export const getAllOrders = async (req, res) => {
     try {
         const orders = await Order.find({
-            $or: [{paymentType: "COD"}, {isPaid: true}]
-        }).populate("items.product address").sort({createdAt: -1});
+            $or: [{ paymentType: "COD" }, { isPaid: true }]
+        }).populate("items.product address").sort({ createdAt: -1 });
         res.json({ success: true, orders });
     } catch (error) {
-        res.json({ success: false, message: error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
 export const getUserOrdersByAdmin = async (req, res) => {
     try {
         const { userId } = req.params;
-        
         const orders = await Order.find({
             userId,
-            $or: [{paymentType: "COD"}, {isPaid: true}]
-        }).populate("items.product address").sort({createdAt: -1});
-        
+            $or: [{ paymentType: "COD" }, { isPaid: true }]
+        }).populate("items.product address").sort({ createdAt: -1 });
         const user = await User.findById(userId).select("-password");
-        
         res.json({ 
             success: true, 
             orders,
@@ -282,6 +446,6 @@ export const getUserOrdersByAdmin = async (req, res) => {
         });
     } catch (error) {
         console.log(error.message);
-        res.json({ success: false, message: error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
 };

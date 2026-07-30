@@ -1,37 +1,48 @@
-import { v2 as cloudinary } from "cloudinary"
-import Product from "../models/Product.js"
-import { scrapeProductPreview, fetchImagesAsDataUrls } from "../services/scraper.js"
+import { v2 as cloudinary } from "cloudinary";
+import Product from "../models/Product.js";
+import { scrapeProductPreview, fetchImagesAsDataUrls } from "../services/scraper.js";
 
-// ✅ Add Product - AVEC VIDÉO (OPTIMISÉ)
+// ✅ Add Product - AVEC VIDÉO ET BOUTIQUE
 export const addProduct = async (req, res) => {
     try {
         console.log('📥 Début addProduct');
-        console.log('📦 req.files:', req.files ? 'Présent' : 'Absent');
-        console.log('📦 req.body.productData:', req.body.productData ? 'Présent' : 'Absent');
         
-        let productData = JSON.parse(req.body.productData)
-        
-        // ✅ Récupérer les fichiers avec sécurité
+        let productData = JSON.parse(req.body.productData);
         const images = req.files?.images || [];
         const videoFile = req.files?.video ? req.files.video[0] : null;
 
-        console.log(`📸 Images: ${images.length} fichier(s)`);
-        console.log(`📹 Vidéo: ${videoFile ? videoFile.originalname + ' (' + (videoFile.size / 1024 / 1024).toFixed(2) + 'MB)' : 'Aucune'}`);
+        // ✅ PHASE 3 : Récupérer la boutique du commerçant
+        // Si le user est un commerçant, on utilise sa boutiqueId
+        // Si c'est l'admin, boutiqueId = null (produit global)
+        let boutiqueId = null;
+        if (req.staffUser && req.staffUser.role === 'commercant') {
+            if (!req.staffUser.boutiqueId) {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: 'Vous n\'avez pas de boutique. Contactez l\'administrateur.' 
+                });
+            }
+            boutiqueId = req.staffUser.boutiqueId;
+        } else if (req.staffUser && req.staffUser.role === 'admin') {
+            // L'admin peut ajouter des produits sans boutique (globaux)
+            boutiqueId = null;
+        } else {
+            // Non-staff (client) ne peut pas ajouter de produits
+            return res.status(403).json({ 
+                success: false, 
+                message: 'Accès refusé' 
+            });
+        }
 
         // Upload des images
-        let imagesUrl = []
+        let imagesUrl = [];
         if (images.length > 0) {
-            console.log('⏳ Upload des images...');
             imagesUrl = await Promise.all(
-                images.map(async (item, index) => {
+                images.map(async (item) => {
                     try {
-                        console.log(`  📸 Image ${index + 1}/${images.length}...`);
                         let result = await new Promise((resolve, reject) => {
                             const uploadStream = cloudinary.uploader.upload_stream(
-                                { 
-                                    resource_type: 'image',
-                                    folder: 'products/images'
-                                },
+                                { resource_type: 'image', folder: 'products/images' },
                                 (error, result) => {
                                     if (error) reject(error);
                                     else resolve(result);
@@ -39,66 +50,32 @@ export const addProduct = async (req, res) => {
                             );
                             uploadStream.end(item.buffer);
                         });
-                        console.log(`  ✅ Image ${index + 1} uploadée: ${result.secure_url}`);
                         return result.secure_url;
                     } catch (error) {
-                        console.error(`  ❌ Erreur image ${index + 1}:`, error.message);
+                        console.error('❌ Erreur image:', error.message);
                         throw error;
                     }
                 })
             );
         }
 
-        // ✅ Upload de la vidéo si présente
-        let videoUrl = null
-        let videoPublicId = null
+        // Upload de la vidéo
+        let videoUrl = null;
+        let videoPublicId = null;
         if (videoFile) {
-            console.log('⏳ Upload de la vidéo...');
-            console.log(`📹 Taille: ${(videoFile.size / 1024 / 1024).toFixed(2)}MB`);
-            console.log(`📹 Type: ${videoFile.mimetype}`);
-            
             try {
                 const result = await new Promise((resolve, reject) => {
                     const uploadStream = cloudinary.uploader.upload_stream(
-                        { 
-                            resource_type: 'video',
-                            folder: 'products/videos',
-                            chunk_size: 6000000,
-                            timeout: 180000,
-                            eager: [
-                                { 
-                                    format: 'mp4',
-                                    quality: 'auto',
-                                    fetch_format: 'auto'
-                                }
-                            ]
-                        },
+                        { resource_type: 'video', folder: 'products/videos', chunk_size: 6000000 },
                         (error, result) => {
-                            if (error) {
-                                console.error('❌ Erreur Cloudinary:', error);
-                                reject(error);
-                            } else {
-                                resolve(result);
-                            }
+                            if (error) reject(error);
+                            else resolve(result);
                         }
                     );
-                    
-                    const buffer = videoFile.buffer;
-                    const CHUNK_SIZE = 1024 * 1024;
-                    let offset = 0;
-                    
-                    while (offset < buffer.length) {
-                        const chunk = buffer.slice(offset, offset + CHUNK_SIZE);
-                        uploadStream.write(chunk);
-                        offset += CHUNK_SIZE;
-                    }
-                    uploadStream.end();
+                    uploadStream.end(videoFile.buffer);
                 });
-                
                 videoUrl = result.secure_url;
                 videoPublicId = result.public_id;
-                console.log('📹 Vidéo uploadée avec succès:', videoUrl);
-                console.log('📹 Public ID:', videoPublicId);
             } catch (videoError) {
                 console.error('❌ Erreur upload vidéo:', videoError.message);
             }
@@ -112,20 +89,13 @@ export const addProduct = async (req, res) => {
             offerPrice: variant.offerPrice || 0,
             stock: variant.stock || 0,
             startImageIndex: variant.startImageIndex || 0
-        }))
+        }));
 
-        const hasVariants = productData.variants && productData.variants.length > 0
-        
-        let totalStock = 0
-        if (hasVariants) {
-            totalStock = processedVariants.reduce((sum, v) => sum + v.stock, 0)
-        } else {
-            totalStock = productData.stock || 0
-        }
+        const hasVariants = productData.variants && productData.variants.length > 0;
+        let totalStock = hasVariants 
+            ? processedVariants.reduce((sum, v) => sum + v.stock, 0) 
+            : (productData.stock || 0);
 
-        console.log('📝 Création du produit...');
-
-        // ✅ Récupérer labelType avec valeur par défaut 'size'
         const labelType = productData.labelType || 'size';
 
         const product = await Product.create({
@@ -141,50 +111,49 @@ export const addProduct = async (req, res) => {
             inStock: hasVariants ? processedVariants.some(v => v.stock > 0) : (productData.stock > 0),
             video: videoUrl,
             videoPublicId: videoPublicId,
-            labelType: labelType, // ✅ NOUVEAU
-            // ✅ salesCount est ajouté automatiquement avec default: 0
+            labelType: labelType,
+            boutiqueId: boutiqueId, // ✅ PHASE 3
         });
-
-        console.log('✅ Produit créé avec succès:', product._id);
-        console.log(`📹 Vidéo: ${videoUrl ? 'Présente' : 'Absente'}`);
-        console.log(`📋 LabelType: ${labelType}`);
 
         res.json({ 
             success: true, 
             message: "Product Added",
-            product: {
-                id: product._id,
-                video: videoUrl
-            }
-        })
+            product: { id: product._id, video: videoUrl }
+        });
 
     } catch (error) {
         console.error('❌ Erreur addProduct:', error.message);
-        console.error('📚 Stack:', error.stack);
-        res.json({ 
-            success: false, 
-            message: error.message 
-        })
+        res.status(500).json({ success: false, message: error.message });
     }
-}
+};
 
-// Ajouter des images à un produit existant
+// ✅ Ajouter des images à un produit existant (avec vérification boutique)
 export const addProductImages = async (req, res) => {
     try {
         const { productId } = req.body;
         const images = req.files;
 
         if (!productId) {
-            return res.json({ success: false, message: "ID produit requis" });
+            return res.status(400).json({ success: false, message: "ID produit requis" });
         }
 
         if (!images || images.length === 0) {
-            return res.json({ success: false, message: "Aucune image fournie" });
+            return res.status(400).json({ success: false, message: "Aucune image fournie" });
         }
 
         const product = await Product.findById(productId);
         if (!product) {
-            return res.json({ success: false, message: "Produit non trouvé" });
+            return res.status(404).json({ success: false, message: "Produit non trouvé" });
+        }
+
+        // ✅ PHASE 3 : Vérifier que le produit appartient à la boutique du commerçant
+        if (req.staffUser && req.staffUser.role === 'commercant') {
+            if (product.boutiqueId?.toString() !== req.staffUser.boutiqueId?.toString()) {
+                return res.status(403).json({ 
+                    success: false, 
+                    message: "Vous n'êtes pas autorisé à modifier ce produit" 
+                });
+            }
         }
 
         let imagesUrl = await Promise.all(
@@ -209,11 +178,11 @@ export const addProductImages = async (req, res) => {
         res.json({ success: true, message: `${imagesUrl.length} image(s) ajoutée(s)`, product });
     } catch (error) {
         console.log(error.message);
-        res.json({ success: false, message: error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
-// ✅ Get Product : /api/product/list - AVEC TRI PAR salesCount / discount
+// ✅ Get Product : /api/product/list - AVEC FILTRE BOUTIQUE
 export const productList = async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
@@ -221,23 +190,35 @@ export const productList = async (req, res) => {
         const sort = req.query.sort || 'createdAt';
         const skip = (page - 1) * limit;
 
-        console.log(`📊 Tri par: ${sort}`);
+        // ✅ PHASE 3 : Filtrer par boutique
+        const filter = {};
+        if (req.query.boutiqueId) {
+            filter.boutiqueId = req.query.boutiqueId;
+        }
+        // Si aucun boutiqueId spécifié, on affiche tous les produits (pour l'admin)
+        // Pour un commerçant, on filtre automatiquement
+        if (req.staffUser && req.staffUser.role === 'commercant') {
+            filter.boutiqueId = req.staffUser.boutiqueId;
+        }
 
-        // ✅ Cas spécial : tri par pourcentage de réduction (champ calculé,
-        // pas stocké en base → nécessite une agrégation).
+        console.log(`📊 Tri par: ${sort}, Filtre:`, filter);
+
         if (sort === 'discount') {
             const matchStage = {
-                $expr: {
-                    $and: [
-                        { $gt: ["$offerPrice", 0] },
-                        { $lt: ["$offerPrice", "$price"] },
-                        { $gt: ["$price", 0] }
-                    ]
+                $match: {
+                    ...filter,
+                    $expr: {
+                        $and: [
+                            { $gt: ["$offerPrice", 0] },
+                            { $lt: ["$offerPrice", "$price"] },
+                            { $gt: ["$price", 0] }
+                        ]
+                    }
                 }
             };
 
             const pipeline = [
-                { $match: matchStage },
+                matchStage,
                 {
                     $addFields: {
                         discountPercent: {
@@ -254,7 +235,16 @@ export const productList = async (req, res) => {
             ];
 
             const products = await Product.aggregate(pipeline);
-            const totalProducts = await Product.countDocuments(matchStage);
+            const totalProducts = await Product.countDocuments({
+                ...filter,
+                $expr: {
+                    $and: [
+                        { $gt: ["$offerPrice", 0] },
+                        { $lt: ["$offerPrice", "$price"] },
+                        { $gt: ["$price", 0] }
+                    ]
+                }
+            });
             const totalPages = Math.ceil(totalProducts / limit);
 
             return res.json({
@@ -270,22 +260,17 @@ export const productList = async (req, res) => {
         }
 
         let sortOption = { createdAt: -1 };
-        if (sort === 'salesCount') {
-            sortOption = { salesCount: -1 };
-        } else if (sort === 'createdAt') {
-            sortOption = { createdAt: -1 };
-        } else if (sort === 'price') {
-            sortOption = { price: 1 };
-        } else if (sort === 'price-desc') {
-            sortOption = { price: -1 };
-        }
+        if (sort === 'salesCount') sortOption = { salesCount: -1 };
+        else if (sort === 'createdAt') sortOption = { createdAt: -1 };
+        else if (sort === 'price') sortOption = { price: 1 };
+        else if (sort === 'price-desc') sortOption = { price: -1 };
 
-        const products = await Product.find({})
+        const products = await Product.find(filter)
             .sort(sortOption)
             .skip(skip)
             .limit(limit);
 
-        const totalProducts = await Product.countDocuments({});
+        const totalProducts = await Product.countDocuments(filter);
         const totalPages = Math.ceil(totalProducts / limit);
 
         res.json({ 
@@ -297,49 +282,61 @@ export const productList = async (req, res) => {
                 totalProducts,
                 hasMore: page < totalPages
             }
-        })
+        });
     } catch (error) {
         console.log(error.message);
-        res.json({ success: false, message: error.message })
+        res.status(500).json({ success: false, message: error.message });
     }
-}
+};
 
 // Get single Product : /api/product/id
 export const productById = async (req, res) => {
     try {
-        const { id } = req.body
-        const product = await Product.findById(id)
-        res.json({ success: true, product })
+        const { id } = req.body;
+        const product = await Product.findById(id);
+        res.json({ success: true, product });
     } catch (error) {
         console.log(error.message);
-        res.json({ success: false, message: error.message })
+        res.status(500).json({ success: false, message: error.message });
     }
-}
+};
 
 // Change Product inStock : /api/product/stock
 export const changeStock = async (req, res) => {
     try {
-        const { id, inStock } = req.body
-        await Product.findByIdAndUpdate(id, { inStock })
-        res.json({ success: true, message: "Stock Updated" })
+        const { id, inStock } = req.body;
+        await Product.findByIdAndUpdate(id, { inStock });
+        res.json({ success: true, message: "Stock Updated" });
     } catch (error) {
         console.log(error.message);
-        res.json({ success: false, message: error.message })
+        res.status(500).json({ success: false, message: error.message });
     }
-}
+};
 
-// ✅ UPDATE PRODUCT - AVEC VIDÉO (OPTIMISÉ)
+// ✅ UPDATE PRODUCT - AVEC VÉRIFICATION BOUTIQUE
 export const updateProduct = async (req, res) => {
     try {
-        const { id, name, description, categories, price, offerPrice, variants, stock, size, videoUrl, videoPublicId, labelType, image } = req.body
-        const videoFile = req.file
+        const { id, name, description, categories, price, offerPrice, variants, stock, size, videoUrl, videoPublicId, labelType, image } = req.body;
+        const videoFile = req.file;
 
-        console.log('📥 Données reçues:', { id, name, size, stock, labelType, hasVariants: variants?.length > 0 })
+        // ✅ PHASE 3 : Vérifier que le produit appartient à la boutique
+        const existingProduct = await Product.findById(id);
+        if (!existingProduct) {
+            return res.status(404).json({ success: false, message: "Produit non trouvé" });
+        }
 
-        const hasVariants = variants && variants.length > 0
-        
-        let processedVariants = []
-        let totalStock = 0
+        if (req.staffUser && req.staffUser.role === 'commercant') {
+            if (existingProduct.boutiqueId?.toString() !== req.staffUser.boutiqueId?.toString()) {
+                return res.status(403).json({ 
+                    success: false, 
+                    message: "Vous n'êtes pas autorisé à modifier ce produit" 
+                });
+            }
+        }
+
+        const hasVariants = variants && variants.length > 0;
+        let processedVariants = [];
+        let totalStock = 0;
         
         if (hasVariants) {
             processedVariants = (variants || []).map(v => ({
@@ -350,21 +347,21 @@ export const updateProduct = async (req, res) => {
                 offerPrice: v.offerPrice || 0,
                 stock: v.stock || 0,
                 startImageIndex: v.startImageIndex || 0
-            }))
-            totalStock = processedVariants.reduce((sum, v) => sum + v.stock, 0)
+            }));
+            totalStock = processedVariants.reduce((sum, v) => sum + v.stock, 0);
         } else {
-            totalStock = stock || 0
+            totalStock = stock || 0;
         }
 
         const inStock = hasVariants 
             ? processedVariants.some(v => v.stock > 0) 
-            : totalStock > 0
+            : totalStock > 0;
 
-        let descriptionToSave = description
+        let descriptionToSave = description;
         if (typeof description === 'string') {
-            descriptionToSave = description
+            descriptionToSave = description;
         } else if (Array.isArray(description)) {
-            descriptionToSave = description.join('\n')
+            descriptionToSave = description.join('\n');
         }
 
         const updateData = {
@@ -376,29 +373,26 @@ export const updateProduct = async (req, res) => {
             variants: hasVariants ? processedVariants : [],
             stock: totalStock,
             inStock,
-            labelType: labelType || 'size', // ✅ NOUVEAU
-        }
+            labelType: labelType || 'size',
+        };
 
         if (!hasVariants) {
-            updateData.size = size || null
+            updateData.size = size || null;
         } else {
-            updateData.size = null
+            updateData.size = null;
         }
 
-        // ✅ Gestion des images existantes (suppression possible depuis le front)
         if (Array.isArray(image)) {
-            updateData.image = image
+            updateData.image = image;
         }
 
-        // ✅ Gestion de la vidéo
+        // Gestion de la vidéo
         if (videoFile) {
-            const existingProduct = await Product.findById(id);
             if (existingProduct?.videoPublicId) {
                 try {
                     await cloudinary.uploader.destroy(existingProduct.videoPublicId, {
                         resource_type: 'video'
                     });
-                    console.log('🗑️ Ancienne vidéo supprimée:', existingProduct.videoPublicId);
                 } catch (error) {
                     console.error('❌ Erreur suppression vidéo:', error);
                 }
@@ -407,11 +401,7 @@ export const updateProduct = async (req, res) => {
             try {
                 const result = await new Promise((resolve, reject) => {
                     const uploadStream = cloudinary.uploader.upload_stream(
-                        { 
-                            resource_type: 'video',
-                            folder: 'products/videos',
-                            chunk_size: 6000000
-                        },
+                        { resource_type: 'video', folder: 'products/videos', chunk_size: 6000000 },
                         (error, result) => {
                             if (error) reject(error);
                             else resolve(result);
@@ -421,78 +411,85 @@ export const updateProduct = async (req, res) => {
                 });
                 updateData.video = result.secure_url;
                 updateData.videoPublicId = result.public_id;
-                console.log('📹 Nouvelle vidéo uploadée:', result.secure_url);
             } catch (videoError) {
                 console.error('❌ Erreur upload vidéo:', videoError);
             }
-        } 
-        else if (videoUrl) {
+        } else if (videoUrl) {
             updateData.video = videoUrl;
             updateData.videoPublicId = null;
         }
 
-        console.log('📤 Données à enregistrer:', updateData)
+        await Product.findByIdAndUpdate(id, updateData);
 
-        await Product.findByIdAndUpdate(id, updateData)
-
-        res.json({ success: true, message: "Product Updated" })
+        res.json({ success: true, message: "Product Updated" });
     } catch (error) {
         console.log('❌ Erreur updateProduct:', error.message);
-        res.json({ success: false, message: error.message })
+        res.status(500).json({ success: false, message: error.message });
     }
-}
+};
 
-// ✅ Delete Product - AVEC SUPPRESSION VIDÉO
+// ✅ Delete Product - AVEC VÉRIFICATION BOUTIQUE
 export const deleteProduct = async (req, res) => {
     try {
-        const { id } = req.body
-        const product = await Product.findById(id)
+        const { id } = req.body;
+        const product = await Product.findById(id);
         
-        if (product) {
-            if (product.videoPublicId) {
-                try {
-                    await cloudinary.uploader.destroy(product.videoPublicId, {
-                        resource_type: 'video'
-                    });
-                    console.log('🗑️ Vidéo supprimée:', product.videoPublicId);
-                } catch (error) {
-                    console.error('❌ Erreur suppression vidéo:', error);
-                }
+        if (!product) {
+            return res.status(404).json({ success: false, message: "Produit non trouvé" });
+        }
+
+        // ✅ PHASE 3 : Vérification boutique
+        if (req.staffUser && req.staffUser.role === 'commercant') {
+            if (product.boutiqueId?.toString() !== req.staffUser.boutiqueId?.toString()) {
+                return res.status(403).json({ 
+                    success: false, 
+                    message: "Vous n'êtes pas autorisé à supprimer ce produit" 
+                });
             }
         }
         
-        await Product.findByIdAndDelete(id)
-        res.json({ success: true, message: "Product Deleted" })
+        if (product.videoPublicId) {
+            try {
+                await cloudinary.uploader.destroy(product.videoPublicId, {
+                    resource_type: 'video'
+                });
+            } catch (error) {
+                console.error('❌ Erreur suppression vidéo:', error);
+            }
+        }
+        
+        await Product.findByIdAndDelete(id);
+        res.json({ success: true, message: "Product Deleted" });
     } catch (error) {
         console.log(error.message);
-        res.json({ success: false, message: error.message })
+        res.status(500).json({ success: false, message: error.message });
     }
-}
+};
 
 // Reduce stock after order : internal function
 export const reduceVariantStock = async (productId, color, size, quantity) => {
-    const product = await Product.findById(productId)
-    if (!product) return
+    const product = await Product.findById(productId);
+    if (!product) return;
 
     if (product.variants.length === 0) {
-        product.stock = Math.max(0, (product.stock || 0) - quantity)
-        product.inStock = product.stock > 0
-        await product.save()
-        return
+        product.stock = Math.max(0, (product.stock || 0) - quantity);
+        product.inStock = product.stock > 0;
+        await product.save();
+        return;
     }
 
     const variant = product.variants.find(v =>
         (color ? v.color === color : true) &&
         (size ? v.size === size : true)
-    )
+    );
 
     if (variant) {
-        variant.stock = Math.max(0, variant.stock - quantity)
+        variant.stock = Math.max(0, variant.stock - quantity);
     }
 
-    product.inStock = product.variants.some(v => v.stock > 0)
-    await product.save()
-}
+    product.inStock = product.variants.some(v => v.stock > 0);
+    await product.save();
+};
 
 // Get Les plus populaires : /api/product/bestsellers
 export const getBestSellers = async (req, res) => {
@@ -536,24 +533,24 @@ export const getBestSellers = async (req, res) => {
         res.json({ success: true, products: orderedBestSellers });
     } catch (error) {
         console.error(error);
-        res.json({ success: false, message: error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
 // Récupérer les détails d'une variante spécifique
 export const getVariantDetails = async (req, res) => {
     try {
-        const { productId, color } = req.body
-        const product = await Product.findById(productId)
+        const { productId, color } = req.body;
+        const product = await Product.findById(productId);
         
         if (!product) {
-            return res.json({ success: false, message: "Product not found" })
+            return res.status(404).json({ success: false, message: "Product not found" });
         }
         
-        const variant = product.variants.find(v => v.color === color)
+        const variant = product.variants.find(v => v.color === color);
         
         if (!variant) {
-            return res.json({ success: false, message: "Variant not found" })
+            return res.status(404).json({ success: false, message: "Variant not found" });
         }
         
         res.json({
@@ -566,34 +563,34 @@ export const getVariantDetails = async (req, res) => {
                 stock: variant.stock,
                 startImageIndex: variant.startImageIndex || 0
             }
-        })
+        });
     } catch (error) {
         console.log(error.message);
-        res.json({ success: false, message: error.message })
+        res.status(500).json({ success: false, message: error.message });
     }
-}
-// ✅ Import produit par URL (scraping) — nom, description, images uniquement.
-// Le prix, le stock et les variantes restent saisis manuellement par le vendeur.
+};
+
+// ✅ Import produit par URL (scraping)
 export const scrapeImport = async (req, res) => {
     try {
-        const { url } = req.body
+        const { url } = req.body;
 
         if (!url || typeof url !== "string") {
-            return res.json({ success: false, message: "URL manquante" })
+            return res.status(400).json({ success: false, message: "URL manquante" });
         }
 
-        let parsedUrl
+        let parsedUrl;
         try {
-            parsedUrl = new URL(url)
+            parsedUrl = new URL(url);
         } catch {
-            return res.json({ success: false, message: "URL invalide" })
+            return res.status(400).json({ success: false, message: "URL invalide" });
         }
         if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-            return res.json({ success: false, message: "URL invalide" })
+            return res.status(400).json({ success: false, message: "URL invalide" });
         }
 
-        const preview = await scrapeProductPreview(url)
-        const imageDataUrls = await fetchImagesAsDataUrls(preview.images)
+        const preview = await scrapeProductPreview(url);
+        const imageDataUrls = await fetchImagesAsDataUrls(preview.images);
 
         res.json({
             success: true,
@@ -602,9 +599,9 @@ export const scrapeImport = async (req, res) => {
                 description: preview.description,
                 images: imageDataUrls
             }
-        })
+        });
     } catch (error) {
         console.log(error.message);
-        res.json({ success: false, message: "Impossible de récupérer les informations de cette page : " + error.message })
+        res.status(500).json({ success: false, message: "Impossible de récupérer les informations de cette page : " + error.message });
     }
-}
+};
