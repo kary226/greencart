@@ -9,7 +9,8 @@ import {
     getUserOrdersByAdmin,
     assignerLivreur,
     getLivraisonsLivreur,
-    updateLivraisonStatus
+    updateLivraisonStatus,
+    getMesVentesCommercant
 } from '../controllers/orderController.js';
 import authSeller from '../middlewares/authSeller.js';
 import { initiateGeniusPay } from '../controllers/geniuspayController.js';
@@ -33,6 +34,9 @@ orderRouter.post('/admin/assigner-livreur', authStaff, requireRole('admin'), ass
 // ✅ PHASE 4 : Routes pour livreur
 orderRouter.get('/livreur/mes-livraisons', authStaff, requireRole('livreur'), getLivraisonsLivreur);
 orderRouter.patch('/livreur/statut', authStaff, requireRole('livreur'), updateLivraisonStatus);
+
+// ✅ Commerçant : ses ventes uniquement (scopées à sa boutique)
+orderRouter.get('/commercant/mes-ventes', authStaff, requireRole('commercant'), getMesVentesCommercant);
 
 // Récupérer une commande par son ID (client)
 orderRouter.get('/:orderId', authUser, async (req, res) => {

@@ -18,6 +18,10 @@ const boutiqueSchema = new mongoose.Schema({
         type: String,
         default: null,
     },
+    logoPublicId: {
+        type: String,
+        default: null,
+    },
     ownerId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'staffuser',

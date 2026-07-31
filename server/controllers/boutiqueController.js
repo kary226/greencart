@@ -1,3 +1,4 @@
+import { v2 as cloudinary } from 'cloudinary';
 import Boutique from '../models/Boutique.js';
 import Product from '../models/Product.js';
 import StaffUser from '../models/StaffUser.js';
@@ -16,10 +17,10 @@ export const getMaBoutique = async (req, res) => {
     }
 };
 
-// PATCH /api/boutiques/moi — Modifier sa boutique
+// PATCH /api/boutiques/moi — Modifier sa boutique (multipart, champ "logo" optionnel)
 export const updateMaBoutique = async (req, res) => {
     try {
-        const { nom, description, logo } = req.body;
+        const { nom, description } = req.body;
 
         const boutique = await Boutique.findOne({ ownerId: req.staffUser._id });
         if (!boutique) {
@@ -28,7 +29,27 @@ export const updateMaBoutique = async (req, res) => {
 
         if (nom) boutique.nom = nom;
         if (description !== undefined) boutique.description = description;
-        if (logo) boutique.logo = logo;
+
+        // ✅ Upload direct du logo vers Cloudinary (le frontend envoie le
+        // fichier lui-même, pas une URL déjà hébergée ailleurs).
+        if (req.file) {
+            if (boutique.logoPublicId) {
+                try {
+                    await cloudinary.uploader.destroy(boutique.logoPublicId);
+                } catch (err) {
+                    console.log('Erreur suppression ancien logo:', err.message);
+                }
+            }
+            const result = await new Promise((resolve, reject) => {
+                const uploadStream = cloudinary.uploader.upload_stream(
+                    { resource_type: 'image', folder: 'boutiques/logos' },
+                    (error, uploadResult) => (error ? reject(error) : resolve(uploadResult))
+                );
+                uploadStream.end(req.file.buffer);
+            });
+            boutique.logo = result.secure_url;
+            boutique.logoPublicId = result.public_id;
+        }
 
         await boutique.save();
 

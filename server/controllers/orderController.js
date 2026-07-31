@@ -424,6 +424,52 @@ export const getAllOrders = async (req, res) => {
     }
 };
 
+// ✅ Commerçant : uniquement les commandes contenant au moins un article
+// de SA boutique, avec les montants recalculés sur ses seules lignes
+// (une commande peut mélanger des articles de plusieurs boutiques).
+export const getMesVentesCommercant = async (req, res) => {
+    try {
+        const boutiqueId = req.staffUser.boutiqueId;
+        if (!boutiqueId) {
+            return res.json({ success: false, message: 'Aucune boutique associée à ce compte' });
+        }
+
+        const produitsBoutique = await Product.find({ boutiqueId }).select('_id');
+        const produitIds = produitsBoutique.map((p) => p._id.toString());
+
+        if (produitIds.length === 0) {
+            return res.json({ success: true, orders: [] });
+        }
+
+        const orders = await Order.find({
+            'items.product': { $in: produitIds },
+            $or: [{ paymentType: 'COD' }, { isPaid: true }],
+        }).populate('items.product address').sort({ createdAt: -1 });
+
+        const ordersScoped = orders.map((order) => {
+            const itemsBoutique = order.items.filter(
+                (item) => item.product && produitIds.includes(item.product._id.toString())
+            );
+            const montantBoutique = itemsBoutique.reduce(
+                (sum, item) => sum + (item.priceAtOrder || 0) * (item.quantity || 0), 0
+            );
+            return {
+                _id: order._id,
+                status: order.status,
+                createdAt: order.createdAt,
+                address: order.address,
+                items: itemsBoutique,
+                montantBoutique,
+            };
+        });
+
+        res.json({ success: true, orders: ordersScoped });
+    } catch (error) {
+        console.log(error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 export const getUserOrdersByAdmin = async (req, res) => {
     try {
         const { userId } = req.params;

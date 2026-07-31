@@ -1,4 +1,5 @@
 import express from 'express';
+import { upload } from '../configs/multer.js';
 import authStaff, { requireRole } from '../middlewares/authStaff.js';
 import {
     getMaBoutique,
@@ -15,7 +16,7 @@ boutiqueRouter.get('/:id', getBoutiqueById);
 
 // Routes commerçant
 boutiqueRouter.get('/moi', authStaff, requireRole('commercant'), getMaBoutique);
-boutiqueRouter.patch('/moi', authStaff, requireRole('commercant'), updateMaBoutique);
+boutiqueRouter.patch('/moi', authStaff, requireRole('commercant'), upload.single('logo'), updateMaBoutique);
 
 // Routes admin
 boutiqueRouter.get('/', authStaff, requireRole('admin'), listAllBoutiques);

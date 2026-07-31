@@ -1,0 +1,1927 @@
+diff --git a/client/src/App.jsx b/client/src/App.jsx
+index 3e21305..691ab35 100644
+--- a/client/src/App.jsx
++++ b/client/src/App.jsx
+@@ -45,9 +45,11 @@ import StaffActivation from './pages/staff/StaffActivation';
+ import AdminComptes from './pages/admin/AdminComptes';
+ 
+ // ✅ PHASE 3 - Espace commerçant
++import CommercantLayout from './pages/commercant/CommercantLayout';
+ import DashboardCommercant from './pages/commercant/Dashboard';
+ import Boutique from './pages/commercant/Boutique';
+ import Produits from './pages/commercant/Produits';
++import ProduitForm from './pages/commercant/ProduitForm';
+ import Portefeuille from './pages/commercant/Portefeuille';
+ import DemandeRetrait from './pages/commercant/DemandeRetrait';
+ 
+@@ -185,11 +187,15 @@ const App = () => {
+           <Route path='/staff/admin/comptes' element={<AdminComptes />} />
+ 
+           {/* ✅ PHASE 3 - Routes Commerçant */}
+-          <Route path='/commercant/dashboard' element={<DashboardCommercant />} />
+-          <Route path='/commercant/boutique' element={<Boutique />} />
+-          <Route path='/commercant/produits' element={<Produits />} />
+-          <Route path='/commercant/portefeuille' element={<Portefeuille />} />
+-          <Route path='/commercant/retraits' element={<DemandeRetrait />} />
++          <Route path='/commercant' element={<CommercantLayout />}>
++            <Route path='dashboard' element={<DashboardCommercant />} />
++            <Route path='boutique' element={<Boutique />} />
++            <Route path='produits' element={<Produits />} />
++            <Route path='produits/ajouter' element={<ProduitForm />} />
++            <Route path='produits/editer/:id' element={<ProduitForm />} />
++            <Route path='portefeuille' element={<Portefeuille />} />
++            <Route path='retraits' element={<DemandeRetrait />} />
++          </Route>
+ 
+           {/* ✅ PHASE 4 - Routes Livreur */}
+           <Route path='/livreur/mes-livraisons' element={<MesLivraisons />} />
+diff --git a/client/src/index.css b/client/src/index.css
+index f355c5b..9c1bb27 100644
+--- a/client/src/index.css
++++ b/client/src/index.css
+@@ -1,7 +1,49 @@
+-@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap');
++@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500;1,600&display=swap');
+ 
+ @import "tailwindcss";
+ 
++/* Palette "Espace commerçant" (Burgundy + Blush + Ivory) — Tailwind v4
++   nécessite ces tokens dans un bloc @theme pour que des classes comme
++   bg-burgundy-600 ou text-blush-300 génèrent réellement du CSS. Sans ce
++   bloc, ces classes n'existaient pas : c'est la raison principale pour
++   laquelle l'espace commerçant s'affichait sans aucune couleur. */
++@theme {
++  --color-burgundy-50: #FDF3F3;
++  --color-burgundy-100: #FBE4E4;
++  --color-burgundy-200: #F5C6C6;
++  --color-burgundy-300: #E89999;
++  --color-burgundy-400: #D66D6D;
++  --color-burgundy-500: #B33F3F;
++  --color-burgundy-600: #7F1D1D;
++  --color-burgundy-700: #6B1818;
++  --color-burgundy-800: #571313;
++  --color-burgundy-900: #430F0F;
++
++  --color-blush-50: #FEFAFA;
++  --color-blush-100: #FCF1F2;
++  --color-blush-200: #F9E4E6;
++  --color-blush-300: #F3D5D8;
++  --color-blush-400: #EABBC0;
++  --color-blush-500: #DE97A0;
++  --color-blush-600: #C96E7A;
++  --color-blush-700: #A94F5C;
++  --color-blush-800: #833945;
++  --color-blush-900: #5C2731;
++
++  --color-ivory-50: #FFFFFF;
++  --color-ivory-100: #FFFEFB;
++  --color-ivory-200: #FFFDF7;
++  --color-ivory-300: #FDF8ED;
++  --color-ivory-400: #FAF1DD;
++  --color-ivory-500: #F5E7C4;
++  --color-ivory-600: #EAD79E;
++  --color-ivory-700: #D9BE71;
++  --color-ivory-800: #C0A150;
++  --color-ivory-900: #9C813C;
++
++  --font-display: "Playfair Display", Georgia, serif;
++}
++
+ /* FORCER LE MODE CLAIR - Empêche tout mode sombre */
+ :root {
+   color-scheme: light only;
+diff --git a/client/src/pages/commercant/Boutique.jsx b/client/src/pages/commercant/Boutique.jsx
+index aceeea5..b0c8d85 100644
+--- a/client/src/pages/commercant/Boutique.jsx
++++ b/client/src/pages/commercant/Boutique.jsx
+@@ -1,50 +1,37 @@
+-import React, { useState, useEffect } from 'react';
+-import { useNavigate } from 'react-router-dom';
++import React, { useState } from 'react';
++import { useOutletContext } from 'react-router-dom';
+ import { useAppContext } from '../../context/AppContext';
+ import toast from 'react-hot-toast';
+ import { Store, Edit, Save, X, Loader2, Camera, Upload } from 'lucide-react';
+ 
+ const Boutique = () => {
+     const { axios } = useAppContext();
+-    const navigate = useNavigate();
++    const { boutique, setBoutique } = useOutletContext();
+ 
+-    const [loading, setLoading] = useState(true);
+     const [editing, setEditing] = useState(false);
+-    const [boutique, setBoutique] = useState(null);
+-    const [formData, setFormData] = useState({ nom: '', description: '', logo: '' });
++    const [uploading, setUploading] = useState(false);
++    const [nom, setNom] = useState(boutique?.nom || '');
++    const [description, setDescription] = useState(boutique?.description || '');
+     const [logoFile, setLogoFile] = useState(null);
+     const [logoPreview, setLogoPreview] = useState(null);
+-    const [uploading, setUploading] = useState(false);
+ 
+-    useEffect(() => {
+-        const loadBoutique = async () => {
+-            try {
+-                const { data } = await axios.get('/api/boutiques/moi');
+-                if (data.success) {
+-                    setBoutique(data.boutique);
+-                    setFormData({
+-                        nom: data.boutique.nom || '',
+-                        description: data.boutique.description || '',
+-                        logo: data.boutique.logo || '',
+-                    });
+-                    if (data.boutique.logo) setLogoPreview(data.boutique.logo);
+-                }
+-            } catch (error) {
+-                toast.error(error.response?.data?.message || error.message);
+-            } finally {
+-                setLoading(false);
+-            }
+-        };
+-        loadBoutique();
+-    }, [axios]);
++    if (!boutique) {
++        return <div className="flex justify-center py-24"><Loader2 className="animate-spin text-burgundy-600" size={28} /></div>;
++    }
++
++    const startEditing = () => {
++        setNom(boutique.nom || '');
++        setDescription(boutique.description || '');
++        setLogoFile(null);
++        setLogoPreview(null);
++        setEditing(true);
++    };
+ 
+     const handleLogoChange = (e) => {
+-        const file = e.target.files[0];
++        const file = e.target.files?.[0];
+         if (file) {
+             setLogoFile(file);
+-            const reader = new FileReader();
+-            reader.onloadend = () => setLogoPreview(reader.result);
+-            reader.readAsDataURL(file);
++            setLogoPreview(URL.createObjectURL(file));
+         }
+     };
+ 
+@@ -52,26 +39,23 @@ const Boutique = () => {
+         e.preventDefault();
+         setUploading(true);
+         try {
+-            let logoUrl = formData.logo;
+-            if (logoFile) {
+-                const formDataUpload = new FormData();
+-                formDataUpload.append('image', logoFile);
+-                const { data: uploadData } = await axios.post('/api/upload', formDataUpload);
+-                if (uploadData.success) logoUrl = uploadData.url;
+-                else throw new Error('Erreur lors de l\'upload du logo');
+-            }
++            const formData = new FormData();
++            formData.append('nom', nom);
++            formData.append('description', description);
++            if (logoFile) formData.append('logo', logoFile);
+ 
+-            const { data } = await axios.patch('/api/boutiques/moi', {
+-                nom: formData.nom,
+-                description: formData.description,
+-                logo: logoUrl,
++            const { data } = await axios.patch('/api/boutiques/moi', formData, {
++                headers: { 'Content-Type': 'multipart/form-data' },
+             });
+ 
+             if (data.success) {
+-                toast.success('Boutique mise à jour avec succès');
++                toast.success('Boutique mise à jour');
+                 setBoutique(data.boutique);
+                 setEditing(false);
+                 setLogoFile(null);
++                setLogoPreview(null);
++            } else {
++                toast.error(data.message);
+             }
+         } catch (error) {
+             toast.error(error.response?.data?.message || error.message);
+@@ -80,118 +64,90 @@ const Boutique = () => {
+         }
+     };
+ 
+-    if (loading) {
+-        return (
+-            <div className="min-h-screen bg-ivory-200 flex items-center justify-center">
+-                <Loader2 className="animate-spin text-burgundy-600" size={40} />
++    return (
++        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
++            <div className="flex items-center justify-between mb-6">
++                <h1 className="font-display text-2xl font-semibold text-gray-900">Ma boutique</h1>
++                {!editing && (
++                    <button onClick={startEditing} className="flex items-center gap-2 bg-burgundy-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-burgundy-700 transition">
++                        <Edit size={15} /> Modifier
++                    </button>
++                )}
+             </div>
+-        );
+-    }
+ 
+-    return (
+-        <div className="min-h-screen bg-ivory-200">
+-            <div className="bg-burgundy-600 text-ivory-200 sticky top-0 z-10">
+-                <div className="max-w-3xl mx-auto px-4 py-4">
+-                    <div className="flex items-center justify-between">
+-                        <div className="flex items-center gap-3">
+-                            <Store size={24} />
+-                            <div>
+-                                <h1 className="text-lg font-bold">Ma boutique</h1>
+-                                <p className="text-sm text-blush-300">Gérez les informations de votre boutique</p>
+-                            </div>
++            <div className="bg-white rounded-2xl border border-blush-200 overflow-hidden">
++                <div className="p-6 border-b border-blush-100 flex items-center gap-5">
++                    <div className="relative shrink-0">
++                        <div className="w-20 h-20 rounded-2xl bg-blush-100 flex items-center justify-center overflow-hidden">
++                            {(logoPreview || boutique.logo) ? (
++                                <img src={logoPreview || boutique.logo} alt="Logo" className="w-full h-full object-cover" />
++                            ) : (
++                                <Camera size={26} className="text-blush-500" />
++                            )}
+                         </div>
+-                        {!editing && (
+-                            <button onClick={() => setEditing(true)} className="flex items-center gap-2 bg-blush-200 text-burgundy-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-blush-300 transition">
+-                                <Edit size={16} /> Modifier
+-                            </button>
++                        {editing && (
++                            <label className="absolute -bottom-1.5 -right-1.5 bg-burgundy-600 text-white p-1.5 rounded-full cursor-pointer hover:bg-burgundy-700 transition shadow-sm">
++                                <Upload size={13} />
++                                <input type="file" accept="image/*" onChange={handleLogoChange} className="hidden" />
++                            </label>
+                         )}
+                     </div>
++                    <div>
++                        <h2 className="font-display text-lg font-semibold text-gray-900">{boutique.nom}</h2>
++                        <p className="text-xs text-gray-400 mt-0.5">
++                            {boutique.statut === 'active' ? (
++                                <span className="text-green-600 font-medium">● Active</span>
++                            ) : (
++                                <span className="text-red-600 font-medium">● Suspendue</span>
++                            )}
++                            <span className="mx-1.5">·</span>
++                            Créée le {new Date(boutique.createdAt).toLocaleDateString('fr-FR')}
++                        </p>
++                    </div>
+                 </div>
+-            </div>
+ 
+-            <div className="max-w-3xl mx-auto px-4 py-6">
+-                <div className="bg-white rounded-xl shadow-sm border border-blush-300 overflow-hidden">
+-                    <div className="p-6 border-b border-blush-200">
+-                        <div className="flex items-center gap-6">
+-                            <div className="relative">
+-                                <div className="w-24 h-24 rounded-xl bg-blush-200 flex items-center justify-center overflow-hidden">
+-                                    {logoPreview ? (
+-                                        <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" />
+-                                    ) : (
+-                                        <Camera size={32} className="text-gray-400" />
+-                                    )}
+-                                </div>
+-                                {editing && (
+-                                    <label className="absolute -bottom-2 -right-2 bg-burgundy-600 text-ivory-200 p-1.5 rounded-full cursor-pointer hover:bg-burgundy-700 transition shadow-md">
+-                                        <Upload size={14} />
+-                                        <input type="file" accept="image/*" onChange={handleLogoChange} className="hidden" />
+-                                    </label>
+-                                )}
+-                            </div>
+-                            <div>
+-                                <h2 className="text-xl font-bold text-gray-800">{boutique?.nom || 'Ma boutique'}</h2>
+-                                <p className="text-sm text-gray-500">{boutique?.statut === 'active' ? '🟢 Active' : '🔴 Suspendue'}</p>
+-                            </div>
+-                        </div>
++                <form onSubmit={handleSubmit} className="p-6 space-y-4">
++                    <div>
++                        <label className="block text-sm font-medium text-gray-700 mb-1">Nom de la boutique</label>
++                        <input
++                            type="text"
++                            value={editing ? nom : boutique.nom}
++                            onChange={(e) => setNom(e.target.value)}
++                            disabled={!editing}
++                            className={`w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none transition ${
++                                editing ? 'border-blush-300 focus:border-burgundy-500 focus:ring-1 focus:ring-burgundy-500' : 'border-transparent bg-ivory-300 text-gray-600'
++                            }`}
++                            required
++                        />
++                    </div>
++                    <div>
++                        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
++                        <textarea
++                            value={editing ? description : (boutique.description || 'Aucune description')}
++                            onChange={(e) => setDescription(e.target.value)}
++                            disabled={!editing}
++                            rows={4}
++                            className={`w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none transition resize-none ${
++                                editing ? 'border-blush-300 focus:border-burgundy-500 focus:ring-1 focus:ring-burgundy-500' : 'border-transparent bg-ivory-300 text-gray-600'
++                            }`}
++                            placeholder="Décrivez votre boutique..."
++                        />
+                     </div>
+ 
+-                    <form onSubmit={handleSubmit} className="p-6 space-y-4">
+-                        <div>
+-                            <label className="block text-sm font-medium text-gray-700 mb-1">Nom de la boutique *</label>
+-                            <input
+-                                type="text"
+-                                value={formData.nom}
+-                                onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
+-                                disabled={!editing}
+-                                className={`w-full px-4 py-2.5 rounded-lg border ${
+-                                    editing ? 'border-blush-300 focus:border-burgundy-500 focus:ring-1 focus:ring-burgundy-500' : 'border-gray-200 bg-gray-50'
+-                                } outline-none transition text-sm`}
+-                                required
+-                            />
+-                        </div>
+-                        <div>
+-                            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+-                            <textarea
+-                                value={formData.description}
+-                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+-                                disabled={!editing}
+-                                rows={4}
+-                                className={`w-full px-4 py-2.5 rounded-lg border ${
+-                                    editing ? 'border-blush-300 focus:border-burgundy-500 focus:ring-1 focus:ring-burgundy-500' : 'border-gray-200 bg-gray-50'
+-                                } outline-none transition text-sm resize-none`}
+-                                placeholder="Décrivez votre boutique..."
+-                            />
++                    {editing && (
++                        <div className="flex items-center gap-3 pt-2">
++                            <button type="submit" disabled={uploading} className="flex items-center gap-2 bg-burgundy-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-burgundy-700 transition disabled:opacity-50">
++                                {uploading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Enregistrer
++                            </button>
++                            <button type="button" onClick={() => setEditing(false)} className="flex items-center gap-2 bg-ivory-300 text-gray-600 px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-blush-200 transition">
++                                <X size={16} /> Annuler
++                            </button>
+                         </div>
+-                        {editing && (
+-                            <div className="flex items-center gap-3 pt-4 border-t border-blush-200">
+-                                <button type="submit" disabled={uploading} className="flex items-center gap-2 bg-burgundy-600 text-ivory-200 px-6 py-2.5 rounded-lg font-medium hover:bg-burgundy-700 transition disabled:opacity-50">
+-                                    {uploading ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} Enregistrer
+-                                </button>
+-                                <button type="button" onClick={() => {
+-                                    setEditing(false);
+-                                    setFormData({ nom: boutique?.nom || '', description: boutique?.description || '', logo: boutique?.logo || '' });
+-                                    setLogoPreview(boutique?.logo || null);
+-                                    setLogoFile(null);
+-                                }} className="flex items-center gap-2 bg-gray-100 text-gray-700 px-6 py-2.5 rounded-lg font-medium hover:bg-gray-200 transition">
+-                                    <X size={18} /> Annuler
+-                                </button>
+-                            </div>
+-                        )}
+-                    </form>
+-                </div>
+-
+-                <div className="mt-4 bg-white rounded-xl shadow-sm border border-blush-300 p-6">
+-                    <h3 className="font-semibold text-gray-800 mb-2">📊 Informations</h3>
+-                    <div className="grid grid-cols-2 gap-4 text-sm">
+-                        <div><p className="text-gray-500">ID</p><p className="font-medium text-gray-800">{boutique?._id?.slice(-8)}</p></div>
+-                        <div><p className="text-gray-500">Créée le</p><p className="font-medium text-gray-800">{boutique?.createdAt ? new Date(boutique.createdAt).toLocaleDateString('fr-FR') : '-'}</p></div>
+-                        <div><p className="text-gray-500">Statut</p><p className={`font-medium ${boutique?.statut === 'active' ? 'text-green-600' : 'text-red-600'}`}>{boutique?.statut === 'active' ? 'Active' : 'Suspendue'}</p></div>
+-                        <div><p className="text-gray-500">Propriétaire</p><p className="font-medium text-gray-800">{boutique?.ownerId?.nom || '-'}</p></div>
+-                    </div>
+-                </div>
++                    )}
++                </form>
+             </div>
+         </div>
+     );
+ };
+ 
+-export default Boutique;
+\ No newline at end of file
++export default Boutique;
+diff --git a/client/src/pages/commercant/CommercantLayout.jsx b/client/src/pages/commercant/CommercantLayout.jsx
+new file mode 100644
+index 0000000..cf80f8c
+--- /dev/null
++++ b/client/src/pages/commercant/CommercantLayout.jsx
+@@ -0,0 +1,140 @@
++import React, { useEffect, useState } from 'react';
++import { NavLink, Outlet, useNavigate } from 'react-router-dom';
++import { useAppContext } from '../../context/AppContext';
++import {
++    LayoutDashboard, Store, Package, Wallet, Banknote, LogOut, Loader2, ShieldAlert
++} from 'lucide-react';
++
++const NAV_LINKS = [
++    { name: 'Tableau de bord', path: '/commercant/dashboard', icon: LayoutDashboard },
++    { name: 'Ma boutique', path: '/commercant/boutique', icon: Store },
++    { name: 'Produits', path: '/commercant/produits', icon: Package },
++    { name: 'Portefeuille', path: '/commercant/portefeuille', icon: Wallet },
++    { name: 'Retraits', path: '/commercant/retraits', icon: Banknote },
++];
++
++// Layout commun à tout l'espace commerçant. Vérifie l'accès UNE SEULE
++// FOIS ici (plutôt que dans chaque page séparément) et transmet le
++// compte + la boutique aux pages enfants via le contexte de route.
++const CommercantLayout = () => {
++    const { axios } = useAppContext();
++    const navigate = useNavigate();
++    const [authorized, setAuthorized] = useState(null);
++    const [moi, setMoi] = useState(null);
++    const [boutique, setBoutique] = useState(null);
++
++    useEffect(() => {
++        (async () => {
++            try {
++                const { data } = await axios.get('/api/staff/is-auth');
++                if (data.success && data.staffUser?.role === 'commercant') {
++                    setMoi(data.staffUser);
++                    setAuthorized(true);
++                    try {
++                        const boutiqueRes = await axios.get('/api/boutiques/moi');
++                        if (boutiqueRes.data.success) setBoutique(boutiqueRes.data.boutique);
++                    } catch (_) { /* la page Boutique gérera l'erreur si besoin */ }
++                } else {
++                    setAuthorized(false);
++                }
++            } catch (error) {
++                setAuthorized(false);
++            }
++        })();
++    }, [axios]);
++
++    const handleLogout = async () => {
++        try { await axios.get('/api/staff/logout'); } catch (_) { /* on quitte quand même */ }
++        navigate('/staff/login');
++    };
++
++    if (authorized === null) {
++        return (
++            <div className="min-h-screen flex items-center justify-center bg-ivory-200">
++                <Loader2 className="animate-spin text-burgundy-600" size={28} />
++            </div>
++        );
++    }
++
++    if (authorized === false) {
++        return (
++            <div className="min-h-screen flex items-center justify-center bg-ivory-200 px-4">
++                <div className="text-center max-w-sm">
++                    <ShieldAlert size={44} className="text-burgundy-600 mx-auto mb-3" />
++                    <h1 className="text-lg font-bold text-gray-900">Accès refusé</h1>
++                    <p className="text-sm text-gray-500 mt-1 mb-5">
++                        Cette page est réservée aux comptes commerçant.
++                    </p>
++                    <button
++                        onClick={() => navigate('/staff/login')}
++                        className="px-4 py-2 bg-burgundy-600 text-white rounded-xl text-sm font-medium hover:bg-burgundy-700 transition"
++                    >
++                        Aller à la connexion
++                    </button>
++                </div>
++            </div>
++        );
++    }
++
++    return (
++        <div className="min-h-screen bg-ivory-200">
++            {/* En-tête */}
++            <div className="flex items-center justify-between px-4 sm:px-6 border-b border-blush-300 py-3.5 bg-white sticky top-0 z-20">
++                <div className="flex items-center gap-3 min-w-0">
++                    <div className="w-9 h-9 rounded-xl bg-burgundy-600 flex items-center justify-center overflow-hidden shrink-0">
++                        {boutique?.logo ? (
++                            <img src={boutique.logo} alt={boutique.nom} className="w-full h-full object-cover" />
++                        ) : (
++                            <Store size={18} className="text-ivory-100" />
++                        )}
++                    </div>
++                    <span className="font-display text-lg font-semibold text-burgundy-800 tracking-tight truncate">
++                        {boutique?.nom || 'Ma boutique'}
++                    </span>
++                </div>
++                <div className="flex items-center gap-3 shrink-0">
++                    <div className="hidden sm:flex items-center gap-2 pr-3 border-r border-blush-300">
++                        <div className="w-8 h-8 bg-blush-300 rounded-full flex items-center justify-center text-burgundy-700 font-semibold text-sm">
++                            {moi?.nom?.[0]?.toUpperCase() || 'C'}
++                        </div>
++                        <span className="text-sm font-medium text-gray-700">{moi?.nom}</span>
++                    </div>
++                    <button
++                        onClick={handleLogout}
++                        className="flex items-center gap-2 px-3.5 py-2 text-sm font-medium text-burgundy-700 bg-blush-100 rounded-xl hover:bg-blush-200 transition"
++                    >
++                        <LogOut size={16} /> <span className="hidden sm:inline">Déconnexion</span>
++                    </button>
++                </div>
++            </div>
++
++            <div className="flex">
++                {/* Sidebar */}
++                <div className="w-16 lg:w-60 bg-white border-r border-blush-200 h-[calc(100vh-61px)] sticky top-[61px] flex flex-col shrink-0">
++                    <nav className="flex-1 py-4">
++                        {NAV_LINKS.map(({ name, path, icon: Icon }) => (
++                            <NavLink
++                                key={path}
++                                to={path}
++                                className={({ isActive }) => `
++                                    flex items-center gap-3 px-4 py-3 mx-2 rounded-xl text-sm font-medium transition-all
++                                    ${isActive ? 'bg-burgundy-50 text-burgundy-700' : 'text-gray-500 hover:bg-ivory-300 hover:text-gray-800'}
++                                `}
++                            >
++                                <Icon size={19} className="shrink-0" />
++                                <span className="hidden lg:inline">{name}</span>
++                            </NavLink>
++                        ))}
++                    </nav>
++                </div>
++
++                {/* Contenu de la page active */}
++                <div className="flex-1 min-w-0">
++                    <Outlet context={{ moi, boutique, setBoutique }} />
++                </div>
++            </div>
++        </div>
++    );
++};
++
++export default CommercantLayout;
+diff --git a/client/src/pages/commercant/Dashboard.jsx b/client/src/pages/commercant/Dashboard.jsx
+index 42e3e57..2746d36 100644
+--- a/client/src/pages/commercant/Dashboard.jsx
++++ b/client/src/pages/commercant/Dashboard.jsx
+@@ -1,15 +1,16 @@
+ import React, { useState, useEffect } from 'react';
+-import { useNavigate } from 'react-router-dom';
++import { useNavigate, useOutletContext, Link } from 'react-router-dom';
+ import { useAppContext } from '../../context/AppContext';
+ import toast from 'react-hot-toast';
+ import {
+-    LayoutDashboard, Package, Wallet, TrendingUp,
+-    ShoppingBag, DollarSign, Clock, Loader2, PlusCircle
++    Package, Wallet, TrendingUp,
++    ShoppingBag, Clock, Loader2, PlusCircle, Store, Banknote
+ } from 'lucide-react';
+ 
+ const Dashboard = () => {
+     const { axios } = useAppContext();
+     const navigate = useNavigate();
++    const { moi, boutique } = useOutletContext();
+ 
+     const [loading, setLoading] = useState(true);
+     const [stats, setStats] = useState({
+@@ -17,44 +18,39 @@ const Dashboard = () => {
+         totalCommandes: 0,
+         commandesEnCours: 0,
+         soldeWallet: 0,
+-        produitsEnStock: 0,
++        nombreProduits: 0,
+         produitsBasStock: 0,
+     });
+-    const [dernieresCommandes, setDernieresCommandes] = useState([]);
+-    const [moi, setMoi] = useState(null);
++    const [dernieresVentes, setDernieresVentes] = useState([]);
+ 
+     useEffect(() => {
++        if (!boutique) return; // attend que le layout ait chargé la boutique
++
+         const loadDashboard = async () => {
++            setLoading(true);
+             try {
+-                const { data: authData } = await axios.get('/api/staff/is-auth');
+-                if (!authData.success || authData.staffUser?.role !== 'commercant') {
+-                    navigate('/staff/login');
+-                    return;
+-                }
+-                setMoi(authData.staffUser);
+-
+-                const [walletRes, ordersRes, productsRes] = await Promise.all([
++                const [walletRes, ventesRes, productsRes] = await Promise.all([
+                     axios.get('/api/wallet/moi'),
+-                    axios.get('/api/order/seller'),
+-                    axios.get('/api/product/list?limit=100'),
++                    axios.get('/api/order/commercant/mes-ventes'),
++                    axios.get(`/api/product/list?limit=200&boutiqueId=${boutique._id}`),
+                 ]);
+ 
+                 const wallet = walletRes.data.wallet || { solde: 0 };
+-                const orders = ordersRes.data.orders || [];
+-                const totalCommandes = orders.length;
+-                const commandesEnCours = orders.filter(
+-                    o => !['Delivered', 'Cancelled', 'Returned'].includes(o.status)
++                const ventes = ventesRes.data.orders || [];
++                const totalCommandes = ventes.length;
++                const commandesEnCours = ventes.filter(
++                    (o) => !['Delivered', 'Cancelled', 'Returned'].includes(o.status)
+                 ).length;
+-                const totalVentes = orders
+-                    .filter(o => o.status === 'Delivered')
+-                    .reduce((sum, o) => sum + o.amount, 0);
+-
+-                const products = productsRes.data.products || [];
+-                const produitsEnStock = products.filter(p => p.inStock).length;
+-                const produitsBasStock = products.filter(p => {
+-                    if (p.variants && p.variants.length > 0) {
+-                        return p.variants.some(v => v.stock > 0 && v.stock < 5);
+-                    }
++                // Le chiffre d'affaires ne compte que les lignes d'articles qui
++                // appartiennent à CETTE boutique (montantBoutique), jamais le
++                // total de la commande qui peut mélanger d'autres vendeurs.
++                const totalVentes = ventes
++                    .filter((o) => o.status === 'Delivered')
++                    .reduce((sum, o) => sum + (o.montantBoutique || 0), 0);
++
++                const produits = productsRes.data.products || [];
++                const produitsBasStock = produits.filter((p) => {
++                    if (p.variants?.length > 0) return p.variants.some((v) => v.stock > 0 && v.stock < 5);
+                     return p.stock > 0 && p.stock < 5;
+                 }).length;
+ 
+@@ -63,158 +59,109 @@ const Dashboard = () => {
+                     totalCommandes,
+                     commandesEnCours,
+                     soldeWallet: wallet.solde || 0,
+-                    produitsEnStock,
++                    nombreProduits: produits.length,
+                     produitsBasStock,
+                 });
+-
+-                setDernieresCommandes(orders.slice(0, 5));
+-
++                setDernieresVentes(ventes.slice(0, 6));
+             } catch (error) {
+                 toast.error(error.response?.data?.message || error.message);
+-                if (error.response?.status === 401) {
+-                    navigate('/staff/login');
+-                }
+             } finally {
+                 setLoading(false);
+             }
+         };
+ 
+         loadDashboard();
+-    }, [axios, navigate]);
++    }, [axios, boutique]);
+ 
+     if (loading) {
+         return (
+-            <div className="min-h-screen bg-ivory-200 flex items-center justify-center">
+-                <Loader2 className="animate-spin text-burgundy-600" size={40} />
++            <div className="flex items-center justify-center py-24">
++                <Loader2 className="animate-spin text-burgundy-600" size={32} />
+             </div>
+         );
+     }
+ 
+     const statCards = [
+-        {
+-            title: 'Chiffre d\'affaires',
+-            value: `${stats.totalVentes.toLocaleString()} FCFA`,
+-            icon: TrendingUp,
+-            color: 'bg-emerald-50 text-emerald-600',
+-        },
+-        {
+-            title: 'Commandes totales',
+-            value: stats.totalCommandes,
+-            icon: ShoppingBag,
+-            color: 'bg-blue-50 text-blue-600',
+-        },
+-        {
+-            title: 'Commandes en cours',
+-            value: stats.commandesEnCours,
+-            icon: Clock,
+-            color: 'bg-amber-50 text-amber-600',
+-        },
+-        {
+-            title: 'Portefeuille',
+-            value: `${stats.soldeWallet.toLocaleString()} FCFA`,
+-            icon: Wallet,
+-            color: 'bg-burgundy-50 text-burgundy-600',
+-        },
+-        {
+-            title: 'Produits en stock',
+-            value: stats.produitsEnStock,
+-            icon: Package,
+-            color: 'bg-indigo-50 text-indigo-600',
+-        },
+-        {
+-            title: 'Stock bas (<5)',
+-            value: stats.produitsBasStock,
+-            icon: Package,
+-            color: 'bg-red-50 text-red-600',
+-        },
++        { title: "Chiffre d'affaires", value: `${stats.totalVentes.toLocaleString()} FCFA`, icon: TrendingUp, accent: 'text-emerald-600 bg-emerald-50' },
++        { title: 'Commandes', value: stats.totalCommandes, icon: ShoppingBag, accent: 'text-blue-600 bg-blue-50' },
++        { title: 'En cours', value: stats.commandesEnCours, icon: Clock, accent: 'text-amber-600 bg-amber-50' },
++        { title: 'Portefeuille', value: `${stats.soldeWallet.toLocaleString()} FCFA`, icon: Wallet, accent: 'text-burgundy-700 bg-burgundy-50' },
++        { title: 'Produits', value: stats.nombreProduits, icon: Package, accent: 'text-indigo-600 bg-indigo-50' },
++        { title: 'Stock bas (<5)', value: stats.produitsBasStock, icon: Package, accent: 'text-red-600 bg-red-50' },
+     ];
+ 
+     return (
+-        <div className="min-h-screen bg-ivory-200">
+-            <div className="bg-burgundy-600 text-ivory-200 sticky top-0 z-10">
+-                <div className="max-w-7xl mx-auto px-4 py-4">
+-                    <div className="flex items-center justify-between">
+-                        <div className="flex items-center gap-3">
+-                            <LayoutDashboard size={24} />
+-                            <div>
+-                                <h1 className="text-lg font-bold">Tableau de bord</h1>
+-                                <p className="text-sm text-blush-300">Bienvenue, {moi?.nom} 👋</p>
++        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
++            <div className="mb-7">
++                <p className="text-sm text-gray-400">Bonjour {moi?.nom?.split(' ')[0]}</p>
++                <h1 className="font-display text-2xl font-semibold text-gray-900">Vue d'ensemble</h1>
++            </div>
++
++            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
++                {statCards.map((s) => {
++                    const Icon = s.icon;
++                    return (
++                        <div key={s.title} className="bg-white rounded-2xl p-4 border border-blush-200 hover:border-blush-400 hover:shadow-sm transition">
++                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${s.accent}`}>
++                                <Icon size={17} />
+                             </div>
++                            <p className="text-[11px] text-gray-400 leading-tight">{s.title}</p>
++                            <p className="text-[15px] font-bold text-gray-900 mt-0.5 truncate">{s.value}</p>
+                         </div>
+-                        <span className="text-xs bg-blush-200/20 px-3 py-1 rounded-full">Commerçant</span>
+-                    </div>
+-                </div>
++                    );
++                })}
+             </div>
+ 
+-            <div className="max-w-7xl mx-auto px-4 py-6">
+-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+-                    {statCards.map((stat, index) => {
+-                        const Icon = stat.icon;
+-                        return (
+-                            <div key={index} className="bg-white rounded-xl p-4 shadow-sm border border-blush-300 hover:shadow-md transition">
+-                                <div className="flex items-center gap-3">
+-                                    <div className={`p-2 rounded-lg ${stat.color}`}>
+-                                        <Icon size={18} />
+-                                    </div>
+-                                    <div>
+-                                        <p className="text-xs text-gray-500">{stat.title}</p>
+-                                        <p className="text-sm font-bold text-gray-800 truncate">{stat.value}</p>
+-                                    </div>
+-                                </div>
+-                            </div>
+-                        );
+-                    })}
+-                </div>
++            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
++                <Link to="/commercant/produits/ajouter" className="bg-burgundy-600 text-white rounded-2xl p-4 text-center hover:bg-burgundy-700 transition">
++                    <PlusCircle className="mx-auto mb-1.5" size={22} />
++                    <p className="text-sm font-medium">Ajouter un produit</p>
++                </Link>
++                <Link to="/commercant/boutique" className="bg-white border border-blush-200 rounded-2xl p-4 text-center hover:border-burgundy-300 hover:shadow-sm transition">
++                    <Store className="mx-auto text-burgundy-600 mb-1.5" size={22} />
++                    <p className="text-sm font-medium text-gray-700">Ma boutique</p>
++                </Link>
++                <Link to="/commercant/portefeuille" className="bg-white border border-blush-200 rounded-2xl p-4 text-center hover:border-burgundy-300 hover:shadow-sm transition">
++                    <Wallet className="mx-auto text-burgundy-600 mb-1.5" size={22} />
++                    <p className="text-sm font-medium text-gray-700">Portefeuille</p>
++                </Link>
++                <Link to="/commercant/retraits" className="bg-white border border-blush-200 rounded-2xl p-4 text-center hover:border-burgundy-300 hover:shadow-sm transition">
++                    <Banknote className="mx-auto text-burgundy-600 mb-1.5" size={22} />
++                    <p className="text-sm font-medium text-gray-700">Demander un retrait</p>
++                </Link>
++            </div>
+ 
+-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+-                    <button onClick={() => navigate('/commercant/boutique')} className="bg-white border border-blush-300 rounded-xl p-4 text-center hover:shadow-md transition hover:border-burgundy-400">
+-                        <Package className="mx-auto text-burgundy-600 mb-1" size={24} />
+-                        <p className="text-sm font-medium text-gray-700">Ma boutique</p>
+-                    </button>
+-                    <button onClick={() => navigate('/commercant/produits')} className="bg-white border border-blush-300 rounded-xl p-4 text-center hover:shadow-md transition hover:border-burgundy-400">
+-                        <PlusCircle className="mx-auto text-emerald-600 mb-1" size={24} />
+-                        <p className="text-sm font-medium text-gray-700">Ajouter un produit</p>
+-                    </button>
+-                    <button onClick={() => navigate('/commercant/portefeuille')} className="bg-white border border-blush-300 rounded-xl p-4 text-center hover:shadow-md transition hover:border-burgundy-400">
+-                        <Wallet className="mx-auto text-blue-600 mb-1" size={24} />
+-                        <p className="text-sm font-medium text-gray-700">Portefeuille</p>
+-                    </button>
+-                    <button onClick={() => navigate('/commercant/retraits')} className="bg-white border border-blush-300 rounded-xl p-4 text-center hover:shadow-md transition hover:border-burgundy-400">
+-                        <DollarSign className="mx-auto text-amber-600 mb-1" size={24} />
+-                        <p className="text-sm font-medium text-gray-700">Demander un retrait</p>
+-                    </button>
++            <div className="bg-white rounded-2xl border border-blush-200 overflow-hidden">
++                <div className="px-6 py-4 border-b border-blush-100">
++                    <h2 className="font-semibold text-gray-900">Ventes récentes</h2>
+                 </div>
+-
+-                <div className="bg-white rounded-xl shadow-sm border border-blush-300 overflow-hidden">
+-                    <div className="px-6 py-4 border-b border-blush-200 flex items-center justify-between">
+-                        <h2 className="font-semibold text-gray-800">📦 Dernières commandes</h2>
+-                    </div>
+-                    {dernieresCommandes.length === 0 ? (
+-                        <div className="p-8 text-center text-gray-500">Aucune commande pour le moment</div>
+-                    ) : (
+-                        <div className="divide-y divide-blush-200">
+-                            {dernieresCommandes.map((order) => (
+-                                <div key={order._id} className="px-6 py-3 flex items-center justify-between">
+-                                    <div>
+-                                        <p className="text-sm font-medium text-gray-800">Commande #{order._id.slice(-8)}</p>
+-                                        <p className="text-xs text-gray-500">{new Date(order.createdAt).toLocaleDateString('fr-FR')} · {order.items.length} article(s)</p>
+-                                    </div>
+-                                    <div className="flex items-center gap-4">
+-                                        <span className="text-sm font-semibold text-gray-800">{order.amount.toLocaleString()} FCFA</span>
+-                                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+-                                            order.status === 'Delivered' ? 'bg-green-100 text-green-700' :
+-                                            order.status === 'Cancelled' || order.status === 'Returned' ? 'bg-red-100 text-red-700' :
+-                                            'bg-amber-100 text-amber-700'
+-                                        }`}>{order.status}</span>
+-                                    </div>
++                {dernieresVentes.length === 0 ? (
++                    <div className="p-10 text-center text-sm text-gray-400">Aucune vente pour l'instant.</div>
++                ) : (
++                    <div className="divide-y divide-blush-100">
++                        {dernieresVentes.map((order) => (
++                            <div key={order._id} className="px-6 py-3.5 flex items-center justify-between">
++                                <div>
++                                    <p className="text-sm font-medium text-gray-800">Commande #{order._id.slice(-8)}</p>
++                                    <p className="text-xs text-gray-400">
++                                        {new Date(order.createdAt).toLocaleDateString('fr-FR')} · {order.items.length} article(s) de votre boutique
++                                    </p>
+                                 </div>
+-                            ))}
+-                        </div>
+-                    )}
+-                </div>
++                                <div className="flex items-center gap-4">
++                                    <span className="text-sm font-semibold text-gray-800">{order.montantBoutique.toLocaleString()} FCFA</span>
++                                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${
++                                        order.status === 'Delivered' ? 'bg-green-100 text-green-700' :
++                                        (order.status === 'Cancelled' || order.status === 'Returned') ? 'bg-red-100 text-red-700' :
++                                        'bg-amber-100 text-amber-700'
++                                    }`}>{order.status}</span>
++                                </div>
++                            </div>
++                        ))}
++                    </div>
++                )}
+             </div>
+         </div>
+     );
+ };
+ 
+-export default Dashboard;
+\ No newline at end of file
++export default Dashboard;
+diff --git a/client/src/pages/commercant/DemandeRetrait.jsx b/client/src/pages/commercant/DemandeRetrait.jsx
+index a85fd51..5ec97db 100644
+--- a/client/src/pages/commercant/DemandeRetrait.jsx
++++ b/client/src/pages/commercant/DemandeRetrait.jsx
+@@ -1,12 +1,10 @@
+ import React, { useState, useEffect } from 'react';
+-import { useNavigate } from 'react-router-dom';
+ import { useAppContext } from '../../context/AppContext';
+ import toast from 'react-hot-toast';
+-import { DollarSign, Send, Loader2, Clock, CheckCircle, XCircle, Wallet } from 'lucide-react';
++import { Send, Loader2, Clock, CheckCircle, XCircle, Wallet } from 'lucide-react';
+ 
+ const DemandeRetrait = () => {
+     const { axios } = useAppContext();
+-    const navigate = useNavigate();
+ 
+     const [loading, setLoading] = useState(true);
+     const [submitting, setSubmitting] = useState(false);
+@@ -45,7 +43,7 @@ const DemandeRetrait = () => {
+                 moyenPaiement: formData.moyenPaiement.trim(),
+             });
+             if (data.success) {
+-                toast.success('Demande de retrait créée avec succès');
++                toast.success('Demande de retrait créée');
+                 setFormData({ montant: '', moyenPaiement: '' });
+                 loadData();
+             } else {
+@@ -63,7 +61,7 @@ const DemandeRetrait = () => {
+             en_attente: { label: 'En attente', className: 'bg-amber-100 text-amber-700', icon: Clock },
+             approuvee: { label: 'Approuvée', className: 'bg-blue-100 text-blue-700', icon: CheckCircle },
+             rejetee: { label: 'Rejetée', className: 'bg-red-100 text-red-700', icon: XCircle },
+-            payee: { label: 'Payée ✅', className: 'bg-green-100 text-green-700', icon: CheckCircle },
++            payee: { label: 'Payée', className: 'bg-green-100 text-green-700', icon: CheckCircle },
+         };
+         const c = config[statut] || config.en_attente;
+         const Icon = c.icon;
+@@ -75,76 +73,70 @@ const DemandeRetrait = () => {
+     };
+ 
+     if (loading) {
+-        return (
+-            <div className="min-h-screen bg-ivory-200 flex items-center justify-center">
+-                <Loader2 className="animate-spin text-burgundy-600" size={40} />
+-            </div>
+-        );
++        return <div className="flex justify-center py-24"><Loader2 className="animate-spin text-burgundy-600" size={28} /></div>;
+     }
+ 
+     return (
+-        <div className="min-h-screen bg-ivory-200">
+-            <div className="bg-burgundy-600 text-ivory-200 sticky top-0 z-10">
+-                <div className="max-w-3xl mx-auto px-4 py-4">
+-                    <div className="flex items-center gap-3">
+-                        <DollarSign size={24} />
+-                        <div><h1 className="text-lg font-bold">Demandes de retrait</h1><p className="text-sm text-blush-300">Retirez vos gains</p></div>
+-                    </div>
++        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
++            <h1 className="font-display text-2xl font-semibold text-gray-900 mb-6">Demandes de retrait</h1>
++
++            <div className="bg-gradient-to-br from-burgundy-600 to-burgundy-800 rounded-2xl p-5 mb-6 flex items-center justify-between">
++                <div>
++                    <p className="text-blush-200 text-sm">Solde disponible</p>
++                    <p className="text-2xl font-bold text-white">{wallet?.solde?.toLocaleString() || 0} FCFA</p>
+                 </div>
++                <Wallet size={30} className="text-blush-300/60" />
+             </div>
+ 
+-            <div className="max-w-3xl mx-auto px-4 py-6">
+-                <div className="bg-gradient-to-r from-burgundy-600 to-burgundy-800 rounded-xl shadow-lg p-4 mb-6">
+-                    <div className="flex items-center justify-between">
+-                        <div><p className="text-blush-300 text-sm">Solde disponible</p><p className="text-2xl font-bold text-ivory-200">{wallet?.solde?.toLocaleString() || 0} FCFA</p></div>
+-                        <Wallet size={32} className="text-blush-300/50" />
++            <div className="bg-white rounded-2xl border border-blush-200 p-6 mb-6">
++                <h2 className="font-semibold text-gray-900 mb-4">Nouvelle demande</h2>
++                <form onSubmit={handleSubmit} className="space-y-4">
++                    <div>
++                        <label className="block text-sm font-medium text-gray-700 mb-1">Montant (FCFA)</label>
++                        <input type="number" min="1000" step="100" value={formData.montant}
++                            onChange={(e) => setFormData({ ...formData, montant: e.target.value })}
++                            className="w-full px-3.5 py-2.5 rounded-xl border border-blush-300 focus:border-burgundy-500 focus:ring-1 focus:ring-burgundy-500 outline-none transition text-sm"
++                            placeholder="1000" required />
++                        <p className="text-xs text-gray-400 mt-1">Minimum : 1000 FCFA</p>
+                     </div>
+-                </div>
+-
+-                <div className="bg-white rounded-xl shadow-sm border border-blush-300 p-6 mb-6">
+-                    <h2 className="font-semibold text-gray-800 mb-4">💰 Nouvelle demande de retrait</h2>
+-                    <form onSubmit={handleSubmit} className="space-y-4">
+-                        <div>
+-                            <label className="block text-sm font-medium text-gray-700 mb-1">Montant (FCFA) *</label>
+-                            <input type="number" min="1000" step="100" value={formData.montant} onChange={(e) => setFormData({ ...formData, montant: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-blush-300 focus:border-burgundy-500 focus:ring-1 focus:ring-burgundy-500 outline-none transition text-sm" placeholder="1000" required />
+-                            <p className="text-xs text-gray-400 mt-1">Minimum : 1000 FCFA</p>
+-                        </div>
+-                        <div>
+-                            <label className="block text-sm font-medium text-gray-700 mb-1">Moyen de paiement *</label>
+-                            <input type="text" value={formData.moyenPaiement} onChange={(e) => setFormData({ ...formData, moyenPaiement: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border border-blush-300 focus:border-burgundy-500 focus:ring-1 focus:ring-burgundy-500 outline-none transition text-sm" placeholder="Orange Money 07 12 34 56 78" required />
+-                            <p className="text-xs text-gray-400 mt-1">Ex: Orange Money / MTN Mobile Money / Banque + numéro</p>
+-                        </div>
+-                        <button type="submit" disabled={submitting} className="w-full flex items-center justify-center gap-2 bg-burgundy-600 text-ivory-200 px-6 py-2.5 rounded-lg font-medium hover:bg-burgundy-700 transition disabled:opacity-50">
+-                            {submitting ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />} Soumettre la demande
+-                        </button>
+-                    </form>
+-                </div>
++                    <div>
++                        <label className="block text-sm font-medium text-gray-700 mb-1">Moyen de paiement</label>
++                        <input type="text" value={formData.moyenPaiement}
++                            onChange={(e) => setFormData({ ...formData, moyenPaiement: e.target.value })}
++                            className="w-full px-3.5 py-2.5 rounded-xl border border-blush-300 focus:border-burgundy-500 focus:ring-1 focus:ring-burgundy-500 outline-none transition text-sm"
++                            placeholder="Orange Money 07 12 34 56 78" required />
++                        <p className="text-xs text-gray-400 mt-1">Ex : Orange Money / MTN Mobile Money / Banque + numéro</p>
++                    </div>
++                    <button type="submit" disabled={submitting} className="w-full flex items-center justify-center gap-2 bg-burgundy-600 text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-burgundy-700 transition disabled:opacity-50">
++                        {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Soumettre la demande
++                    </button>
++                </form>
++            </div>
+ 
+-                <div className="bg-white rounded-xl shadow-sm border border-blush-300 overflow-hidden">
+-                    <div className="px-6 py-4 border-b border-blush-200"><h2 className="font-semibold text-gray-800">📋 Historique des demandes ({demandes.length})</h2></div>
+-                    {demandes.length === 0 ? (
+-                        <div className="p-8 text-center text-gray-500">Aucune demande de retrait pour le moment</div>
+-                    ) : (
+-                        <div className="divide-y divide-blush-200">
+-                            {demandes.map((demande) => (
+-                                <div key={demande._id} className="px-6 py-3 flex items-center justify-between">
+-                                    <div>
+-                                        <p className="text-sm font-medium text-gray-800">{demande.montant.toLocaleString()} FCFA</p>
+-                                        <p className="text-xs text-gray-500">{new Date(demande.createdAt).toLocaleString('fr-FR')}</p>
+-                                        <p className="text-xs text-gray-400">{demande.moyenPaiement}</p>
+-                                        {demande.noteAdmin && <p className="text-xs text-amber-600 mt-1">Note: {demande.noteAdmin}</p>}
+-                                    </div>
+-                                    <div className="text-right">
+-                                        {getStatusBadge(demande.statut)}
+-                                        {demande.preuvePaiement && (
+-                                            <button onClick={() => window.open(demande.preuvePaiement, '_blank')} className="block mt-1 text-xs text-burgundy-600 hover:underline">Voir la preuve</button>
+-                                        )}
+-                                    </div>
++            <div className="bg-white rounded-2xl border border-blush-200 overflow-hidden">
++                <div className="px-6 py-4 border-b border-blush-100"><h2 className="font-semibold text-gray-900">Historique ({demandes.length})</h2></div>
++                {demandes.length === 0 ? (
++                    <div className="p-10 text-center text-sm text-gray-400">Aucune demande pour le moment</div>
++                ) : (
++                    <div className="divide-y divide-blush-100">
++                        {demandes.map((demande) => (
++                            <div key={demande._id} className="px-6 py-3.5 flex items-center justify-between">
++                                <div>
++                                    <p className="text-sm font-medium text-gray-800">{demande.montant.toLocaleString()} FCFA</p>
++                                    <p className="text-xs text-gray-400">{new Date(demande.createdAt).toLocaleString('fr-FR')}</p>
++                                    <p className="text-xs text-gray-400">{demande.moyenPaiement}</p>
++                                    {demande.noteAdmin && <p className="text-xs text-amber-600 mt-1">Note : {demande.noteAdmin}</p>}
+                                 </div>
+-                            ))}
+-                        </div>
+-                    )}
+-                </div>
++                                <div className="text-right">
++                                    {getStatusBadge(demande.statut)}
++                                    {demande.preuvePaiement && (
++                                        <button onClick={() => window.open(demande.preuvePaiement, '_blank')} className="block mt-1 text-xs text-burgundy-700 hover:underline">Voir la preuve</button>
++                                    )}
++                                </div>
++                            </div>
++                        ))}
++                    </div>
++                )}
+             </div>
+         </div>
+     );
+diff --git a/client/src/pages/commercant/Portefeuille.jsx b/client/src/pages/commercant/Portefeuille.jsx
+index 617cf1e..9a769c7 100644
+--- a/client/src/pages/commercant/Portefeuille.jsx
++++ b/client/src/pages/commercant/Portefeuille.jsx
+@@ -1,12 +1,11 @@
+ import React, { useState, useEffect } from 'react';
+-import { useNavigate } from 'react-router-dom';
++import { Link } from 'react-router-dom';
+ import { useAppContext } from '../../context/AppContext';
+ import toast from 'react-hot-toast';
+-import { Wallet, TrendingUp, TrendingDown, Clock, Loader2, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
++import { Wallet, TrendingUp, TrendingDown, Clock, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+ 
+ const Portefeuille = () => {
+     const { axios } = useAppContext();
+-    const navigate = useNavigate();
+ 
+     const [loading, setLoading] = useState(true);
+     const [wallet, setWallet] = useState(null);
+@@ -56,85 +55,60 @@ const Portefeuille = () => {
+     };
+ 
+     if (loading) {
+-        return (
+-            <div className="min-h-screen bg-ivory-200 flex items-center justify-center">
+-                <Loader2 className="animate-spin text-burgundy-600" size={40} />
+-            </div>
+-        );
++        return <div className="flex justify-center py-24"><Loader2 className="animate-spin text-burgundy-600" size={28} /></div>;
+     }
+ 
+     return (
+-        <div className="min-h-screen bg-ivory-200">
+-            <div className="bg-burgundy-600 text-ivory-200 sticky top-0 z-10">
+-                <div className="max-w-4xl mx-auto px-4 py-4">
+-                    <div className="flex items-center justify-between">
+-                        <div className="flex items-center gap-3">
+-                            <Wallet size={24} />
+-                            <div><h1 className="text-lg font-bold">Portefeuille</h1><p className="text-sm text-blush-300">Gérez vos finances</p></div>
+-                        </div>
+-                        <button onClick={() => navigate('/commercant/retraits')} className="flex items-center gap-2 bg-blush-200 text-burgundy-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-blush-300 transition">
+-                            Demander un retrait
+-                        </button>
+-                    </div>
+-                </div>
++        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
++            <div className="flex items-center justify-between mb-6">
++                <h1 className="font-display text-2xl font-semibold text-gray-900">Portefeuille</h1>
++                <Link to="/commercant/retraits" className="text-sm font-medium text-burgundy-700 hover:underline">
++                    Demander un retrait
++                </Link>
+             </div>
+ 
+-            <div className="max-w-4xl mx-auto px-4 py-6">
+-                <div className="bg-gradient-to-r from-burgundy-600 to-burgundy-800 rounded-xl shadow-lg p-6 mb-6">
+-                    <p className="text-blush-300 text-sm">Solde disponible</p>
+-                    <p className="text-3xl font-bold text-ivory-200 mt-1">{wallet?.solde?.toLocaleString() || 0} FCFA</p>
+-                    <p className="text-blush-300 text-xs mt-2">Dernière mise à jour : {new Date().toLocaleString('fr-FR')}</p>
+-                </div>
+-
+-                <div className="grid grid-cols-2 gap-3 mb-6">
+-                    <button onClick={() => navigate('/commercant/retraits')} className="bg-white border border-blush-300 rounded-xl p-4 text-center hover:shadow-md transition hover:border-burgundy-400">
+-                        <TrendingDown className="mx-auto text-amber-600 mb-1" size={24} />
+-                        <p className="text-sm font-medium text-gray-700">Retirer</p>
+-                    </button>
+-                    <button onClick={() => navigate('/commercant/commandes')} className="bg-white border border-blush-300 rounded-xl p-4 text-center hover:shadow-md transition hover:border-burgundy-400">
+-                        <Eye className="mx-auto text-blue-600 mb-1" size={24} />
+-                        <p className="text-sm font-medium text-gray-700">Voir mes commandes</p>
+-                    </button>
+-                </div>
++            <div className="bg-gradient-to-br from-burgundy-600 to-burgundy-800 rounded-2xl p-6 mb-6">
++                <p className="text-blush-200 text-sm">Solde disponible</p>
++                <p className="text-3xl font-bold text-white mt-1">{wallet?.solde?.toLocaleString() || 0} FCFA</p>
++            </div>
+ 
+-                <div className="bg-white rounded-xl shadow-sm border border-blush-300 overflow-hidden">
+-                    <div className="px-6 py-4 border-b border-blush-200"><h2 className="font-semibold text-gray-800">📋 Historique des transactions ({totalItems})</h2></div>
+-                    {transactions.length === 0 ? (
+-                        <div className="p-8 text-center text-gray-500">Aucune transaction pour le moment</div>
+-                    ) : (
+-                        <>
+-                            <div className="divide-y divide-blush-200">
+-                                {transactions.map((tx) => (
+-                                    <div key={tx._id} className="px-6 py-3 flex items-center justify-between">
+-                                        <div className="flex items-center gap-3">
+-                                            <div className="p-2 rounded-lg bg-blush-200">{getTransactionIcon(tx.type)}</div>
+-                                            <div>
+-                                                <p className="text-sm font-medium text-gray-800">{getTransactionLabel(tx.type)}</p>
+-                                                <p className="text-xs text-gray-500">{new Date(tx.createdAt).toLocaleString('fr-FR')}</p>
+-                                                <p className="text-xs text-gray-400 truncate max-w-[150px]">{tx.description}</p>
+-                                            </div>
+-                                        </div>
+-                                        <div className="text-right">
+-                                            <p className={`text-sm font-bold ${tx.montant > 0 ? 'text-green-600' : 'text-red-600'}`}>
+-                                                {tx.montant > 0 ? '+' : ''}{tx.montant.toLocaleString()} FCFA
+-                                            </p>
+-                                            <p className="text-xs text-gray-400">Solde: {tx.soldeApres?.toLocaleString()} FCFA</p>
++            <div className="bg-white rounded-2xl border border-blush-200 overflow-hidden">
++                <div className="px-6 py-4 border-b border-blush-100"><h2 className="font-semibold text-gray-900">Historique des transactions ({totalItems})</h2></div>
++                {transactions.length === 0 ? (
++                    <div className="p-10 text-center text-sm text-gray-400">Aucune transaction pour le moment</div>
++                ) : (
++                    <>
++                        <div className="divide-y divide-blush-100">
++                            {transactions.map((tx) => (
++                                <div key={tx._id} className="px-6 py-3.5 flex items-center justify-between">
++                                    <div className="flex items-center gap-3">
++                                        <div className="p-2 rounded-xl bg-blush-100">{getTransactionIcon(tx.type)}</div>
++                                        <div>
++                                            <p className="text-sm font-medium text-gray-800">{getTransactionLabel(tx.type)}</p>
++                                            <p className="text-xs text-gray-400">{new Date(tx.createdAt).toLocaleString('fr-FR')}</p>
++                                            <p className="text-xs text-gray-400 truncate max-w-[200px]">{tx.description}</p>
+                                         </div>
+                                     </div>
+-                                ))}
+-                            </div>
+-                            {totalPages > 1 && (
+-                                <div className="px-6 py-4 border-t border-blush-200 flex items-center justify-between">
+-                                    <p className="text-sm text-gray-500">Page {page} sur {totalPages}</p>
+-                                    <div className="flex gap-1">
+-                                        <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="p-2 rounded-lg border border-blush-300 hover:bg-blush-200 disabled:opacity-50 transition"><ChevronLeft size={18} /></button>
+-                                        <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="p-2 rounded-lg border border-blush-300 hover:bg-blush-200 disabled:opacity-50 transition"><ChevronRight size={18} /></button>
++                                    <div className="text-right">
++                                        <p className={`text-sm font-bold ${tx.montant > 0 ? 'text-green-600' : 'text-red-600'}`}>
++                                            {tx.montant > 0 ? '+' : ''}{tx.montant.toLocaleString()} FCFA
++                                        </p>
++                                        <p className="text-xs text-gray-400">Solde : {tx.soldeApres?.toLocaleString()} FCFA</p>
+                                     </div>
+                                 </div>
+-                            )}
+-                        </>
+-                    )}
+-                </div>
++                            ))}
++                        </div>
++                        {totalPages > 1 && (
++                            <div className="px-6 py-4 border-t border-blush-100 flex items-center justify-between">
++                                <p className="text-sm text-gray-400">Page {page} sur {totalPages}</p>
++                                <div className="flex gap-1">
++                                    <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="p-2 rounded-xl border border-blush-200 hover:bg-blush-100 disabled:opacity-50 transition"><ChevronLeft size={18} /></button>
++                                    <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="p-2 rounded-xl border border-blush-200 hover:bg-blush-100 disabled:opacity-50 transition"><ChevronRight size={18} /></button>
++                                </div>
++                            </div>
++                        )}
++                    </>
++                )}
+             </div>
+         </div>
+     );
+diff --git a/client/src/pages/commercant/ProduitForm.jsx b/client/src/pages/commercant/ProduitForm.jsx
+new file mode 100644
+index 0000000..a2ba45f
+--- /dev/null
++++ b/client/src/pages/commercant/ProduitForm.jsx
+@@ -0,0 +1,285 @@
++import React, { useState, useEffect } from 'react';
++import { useNavigate, useParams, Link } from 'react-router-dom';
++import { useAppContext } from '../../context/AppContext';
++import toast from 'react-hot-toast';
++import { ArrowLeft, ImagePlus, X, Loader2, Save, Trash2 } from 'lucide-react';
++
++// Formulaire d'ajout / modification d'un produit pour l'espace commerçant.
++// Utilise EXACTEMENT les mêmes routes serveur que l'admin
++// (/api/product/staff/add, /staff/update, /staff/delete) — la boutique
++// est déterminée côté serveur à partir du compte connecté, jamais choisie
++// ici. Version "produit simple" (sans variantes couleur/taille) : le
++// mode variantes complet de l'admin pourra être ajouté dans un second
++// temps si besoin.
++const ProduitForm = () => {
++    const { axios } = useAppContext();
++    const navigate = useNavigate();
++    const { id } = useParams();
++    const isEdition = Boolean(id);
++
++    const [loading, setLoading] = useState(isEdition);
++    const [submitting, setSubmitting] = useState(false);
++    const [categoriesList, setCategoriesList] = useState([]);
++
++    const [name, setName] = useState('');
++    const [description, setDescription] = useState('');
++    const [selectedCategories, setSelectedCategories] = useState([]);
++    const [price, setPrice] = useState('');
++    const [offerPrice, setOfferPrice] = useState('');
++    const [stock, setStock] = useState('');
++
++    // Édition : images déjà en ligne (on peut en retirer)
++    const [existingImages, setExistingImages] = useState([]);
++    // Nouvelles images à uploader (création, ou ajout en édition)
++    const [newFiles, setNewFiles] = useState([]);
++    const [newPreviews, setNewPreviews] = useState([]);
++
++    useEffect(() => {
++        const loadCategories = async () => {
++            try {
++                const { data } = await axios.get('/api/category/list');
++                if (data.success) setCategoriesList(data.categories || []);
++            } catch (error) { console.error(error); }
++        };
++        loadCategories();
++    }, [axios]);
++
++    useEffect(() => {
++        if (!isEdition) return;
++        const loadProduct = async () => {
++            try {
++                const { data } = await axios.post('/api/product/id', { id });
++                if (data.success && data.product) {
++                    const p = data.product;
++                    setName(p.name || '');
++                    setDescription(p.description || '');
++                    setSelectedCategories(p.categories || []);
++                    setPrice(p.price ?? '');
++                    setOfferPrice(p.offerPrice ?? '');
++                    setStock(p.stock ?? '');
++                    setExistingImages(p.image || []);
++                } else {
++                    toast.error(data.message || 'Produit introuvable');
++                    navigate('/commercant/produits');
++                }
++            } catch (error) {
++                toast.error(error.response?.data?.message || error.message);
++                navigate('/commercant/produits');
++            } finally {
++                setLoading(false);
++            }
++        };
++        loadProduct();
++    }, [id, isEdition, axios, navigate]);
++
++    const toggleCategory = (name) => {
++        setSelectedCategories((prev) =>
++            prev.includes(name) ? prev.filter((c) => c !== name) : [...prev, name]
++        );
++    };
++
++    const onPickFiles = (e) => {
++        const files = Array.from(e.target.files || []).slice(0, 5 - existingImages.length);
++        setNewFiles(files);
++        setNewPreviews(files.map((f) => URL.createObjectURL(f)));
++    };
++
++    const removeExistingImage = (idx) => {
++        setExistingImages((prev) => prev.filter((_, i) => i !== idx));
++    };
++
++    const validate = () => {
++        if (!name.trim()) { toast.error('Le nom est requis'); return false; }
++        if (!description.trim()) { toast.error('La description est requise'); return false; }
++        if (!price || Number(price) <= 0) { toast.error('Le prix est requis'); return false; }
++        if (!isEdition && newFiles.length === 0) { toast.error('Au moins une photo est requise'); return false; }
++        return true;
++    };
++
++    const onSubmit = async (e) => {
++        e.preventDefault();
++        if (!validate()) return;
++        setSubmitting(true);
++
++        try {
++            if (!isEdition) {
++                // --- Création : multipart, mêmes routes que l'admin ---
++                const formData = new FormData();
++                formData.append('productData', JSON.stringify({
++                    name: name.trim(),
++                    description: description.trim(),
++                    categories: selectedCategories,
++                    price: Number(price),
++                    offerPrice: Number(offerPrice) || Number(price),
++                    stock: Number(stock) || 0,
++                    variants: [],
++                }));
++                newFiles.forEach((file) => formData.append('images', file));
++
++                const { data } = await axios.post('/api/product/staff/add', formData, {
++                    headers: { 'Content-Type': 'multipart/form-data' },
++                });
++                if (data.success) {
++                    toast.success('Produit ajouté');
++                    navigate('/commercant/produits');
++                } else {
++                    toast.error(data.message);
++                }
++            } else {
++                // --- Modification : JSON, + upload des nouvelles photos à part ---
++                const { data } = await axios.post('/api/product/staff/update', {
++                    id,
++                    name: name.trim(),
++                    description: description.trim(),
++                    categories: selectedCategories,
++                    price: Number(price),
++                    offerPrice: Number(offerPrice) || Number(price),
++                    stock: Number(stock) || 0,
++                    variants: [],
++                    image: existingImages,
++                });
++
++                if (!data.success) {
++                    toast.error(data.message);
++                    setSubmitting(false);
++                    return;
++                }
++
++                if (newFiles.length > 0) {
++                    const imgForm = new FormData();
++                    imgForm.append('productId', id);
++                    newFiles.forEach((file) => imgForm.append('images', file));
++                    await axios.post('/api/product/staff/add-images', imgForm, {
++                        headers: { 'Content-Type': 'multipart/form-data' },
++                    });
++                }
++
++                toast.success('Produit mis à jour');
++                navigate('/commercant/produits');
++            }
++        } catch (error) {
++            toast.error(error.response?.data?.message || error.message);
++        } finally {
++            setSubmitting(false);
++        }
++    };
++
++    if (loading) {
++        return <div className="flex justify-center py-24"><Loader2 className="animate-spin text-burgundy-600" size={28} /></div>;
++    }
++
++    return (
++        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
++            <Link to="/commercant/produits" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-burgundy-700 transition mb-4">
++                <ArrowLeft size={15} /> Retour aux produits
++            </Link>
++            <h1 className="font-display text-2xl font-semibold text-gray-900 mb-6">
++                {isEdition ? "Modifier l'article" : 'Ajouter un article'}
++            </h1>
++
++            <form onSubmit={onSubmit} className="bg-white rounded-2xl border border-blush-200 p-6 space-y-5">
++                <div>
++                    <label className="block text-sm font-medium text-gray-700 mb-1">Nom de l'article</label>
++                    <input value={name} onChange={(e) => setName(e.target.value)} required
++                        className="w-full px-3.5 py-2.5 border border-blush-300 rounded-xl text-sm outline-none focus:border-burgundy-500 focus:ring-1 focus:ring-burgundy-500" />
++                </div>
++
++                <div>
++                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
++                    <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} required
++                        className="w-full px-3.5 py-2.5 border border-blush-300 rounded-xl text-sm outline-none focus:border-burgundy-500 focus:ring-1 focus:ring-burgundy-500 resize-none" />
++                </div>
++
++                <div className="grid grid-cols-2 gap-4">
++                    <div>
++                        <label className="block text-sm font-medium text-gray-700 mb-1">Prix (FCFA)</label>
++                        <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} required min="0"
++                            className="w-full px-3.5 py-2.5 border border-blush-300 rounded-xl text-sm outline-none focus:border-burgundy-500 focus:ring-1 focus:ring-burgundy-500" />
++                    </div>
++                    <div>
++                        <label className="block text-sm font-medium text-gray-700 mb-1">Prix promo (optionnel)</label>
++                        <input type="number" value={offerPrice} onChange={(e) => setOfferPrice(e.target.value)} min="0"
++                            className="w-full px-3.5 py-2.5 border border-blush-300 rounded-xl text-sm outline-none focus:border-burgundy-500 focus:ring-1 focus:ring-burgundy-500" />
++                    </div>
++                </div>
++
++                <div>
++                    <label className="block text-sm font-medium text-gray-700 mb-1">Stock disponible</label>
++                    <input type="number" value={stock} onChange={(e) => setStock(e.target.value)} min="0"
++                        className="w-full sm:w-40 px-3.5 py-2.5 border border-blush-300 rounded-xl text-sm outline-none focus:border-burgundy-500 focus:ring-1 focus:ring-burgundy-500" />
++                </div>
++
++                {categoriesList.length > 0 && (
++                    <div>
++                        <label className="block text-sm font-medium text-gray-700 mb-2">Catégories</label>
++                        <div className="flex flex-wrap gap-2">
++                            {categoriesList.map((cat) => {
++                                const active = selectedCategories.includes(cat.name);
++                                return (
++                                    <button
++                                        type="button" key={cat._id}
++                                        onClick={() => toggleCategory(cat.name)}
++                                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
++                                            active
++                                                ? 'bg-burgundy-600 border-burgundy-600 text-white'
++                                                : 'bg-white border-blush-300 text-gray-600 hover:border-burgundy-400'
++                                        }`}
++                                    >
++                                        {cat.name}
++                                    </button>
++                                );
++                            })}
++                        </div>
++                    </div>
++                )}
++
++                <div>
++                    <label className="block text-sm font-medium text-gray-700 mb-2">Photos</label>
++
++                    {existingImages.length > 0 && (
++                        <div className="flex flex-wrap gap-2 mb-3">
++                            {existingImages.map((url, idx) => (
++                                <div key={url + idx} className="relative w-20 h-20 rounded-xl overflow-hidden border border-blush-200">
++                                    <img src={url} alt="" className="w-full h-full object-cover" />
++                                    <button type="button" onClick={() => removeExistingImage(idx)}
++                                        className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 hover:bg-red-600 transition">
++                                        <Trash2 size={12} />
++                                    </button>
++                                </div>
++                            ))}
++                        </div>
++                    )}
++
++                    {newPreviews.length > 0 && (
++                        <div className="flex flex-wrap gap-2 mb-3">
++                            {newPreviews.map((src, idx) => (
++                                <div key={idx} className="w-20 h-20 rounded-xl overflow-hidden border border-blush-300">
++                                    <img src={src} alt="" className="w-full h-full object-cover" />
++                                </div>
++                            ))}
++                        </div>
++                    )}
++
++                    <label className="flex items-center gap-1.5 text-xs font-medium text-burgundy-700 mb-1 cursor-pointer w-fit hover:underline">
++                        <ImagePlus size={14} /> {isEdition ? 'Ajouter des photos' : 'Choisir des photos (jusqu\'à 5)'}
++                        <input type="file" accept="image/*" multiple className="hidden" onChange={onPickFiles} />
++                    </label>
++                    {newFiles.length > 0 && <p className="text-xs text-gray-400">{newFiles.length} nouvelle(s) photo(s) sélectionnée(s)</p>}
++                </div>
++
++                <div className="flex items-center gap-3 pt-2 border-t border-blush-100">
++                    <button disabled={submitting}
++                        className="flex items-center gap-2 bg-burgundy-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-burgundy-700 transition disabled:opacity-50">
++                        {submitting ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
++                        {isEdition ? 'Enregistrer les modifications' : "Publier l'article"}
++                    </button>
++                    <Link to="/commercant/produits" className="flex items-center gap-2 bg-ivory-300 text-gray-600 px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-blush-200 transition">
++                        <X size={16} /> Annuler
++                    </Link>
++                </div>
++            </form>
++        </div>
++    );
++};
++
++export default ProduitForm;
+diff --git a/client/src/pages/commercant/Produits.jsx b/client/src/pages/commercant/Produits.jsx
+index 9bfb368..9fc48e0 100644
+--- a/client/src/pages/commercant/Produits.jsx
++++ b/client/src/pages/commercant/Produits.jsx
+@@ -1,12 +1,12 @@
+ import React, { useState, useEffect } from 'react';
+-import { useNavigate } from 'react-router-dom';
++import { Link, useOutletContext } from 'react-router-dom';
+ import { useAppContext } from '../../context/AppContext';
+ import toast from 'react-hot-toast';
+ import { Package, Plus, Edit, Trash2, Loader2, Search, ChevronLeft, ChevronRight, X } from 'lucide-react';
+ 
+ const Produits = () => {
+     const { axios } = useAppContext();
+-    const navigate = useNavigate();
++    const { boutique } = useOutletContext();
+ 
+     const [loading, setLoading] = useState(true);
+     const [produits, setProduits] = useState([]);
+@@ -18,18 +18,22 @@ const Produits = () => {
+     const [categories, setCategories] = useState([]);
+ 
+     const loadProduits = async () => {
++        if (!boutique) return;
+         setLoading(true);
+         try {
+             const params = new URLSearchParams();
+             params.append('page', page);
+             params.append('limit', 12);
++            // ✅ Scope obligatoire : sans ça, la liste renvoyée est le
++            // catalogue entier (tous les autres vendeurs inclus).
++            params.append('boutiqueId', boutique._id);
+             if (searchTerm) params.append('search', searchTerm);
+             if (filterCategory) params.append('category', filterCategory);
+ 
+             const { data } = await axios.get(`/api/product/list?${params.toString()}`);
+             if (data.success) {
+                 setProduits(data.products);
+-                setTotalItems(data.pagination?.totalProducts || 0);
++                setTotalItems(data.pagination?.totalProducts ?? data.products.length);
+                 setTotalPages(data.pagination?.totalPages || 1);
+             }
+         } catch (error) {
+@@ -39,7 +43,7 @@ const Produits = () => {
+         }
+     };
+ 
+-    useEffect(() => { loadProduits(); }, [page, searchTerm, filterCategory]);
++    useEffect(() => { loadProduits(); }, [page, searchTerm, filterCategory, boutique]);
+ 
+     useEffect(() => {
+         const loadCategories = async () => {
+@@ -52,7 +56,7 @@ const Produits = () => {
+     }, [axios]);
+ 
+     const handleDelete = async (id, name) => {
+-        if (!window.confirm(`Confirmer la suppression de "${name}" ?`)) return;
++        if (!window.confirm(`Supprimer "${name}" ?`)) return;
+         try {
+             const { data } = await axios.post('/api/product/staff/delete', { id });
+             if (data.success) { toast.success('Produit supprimé'); loadProduits(); }
+@@ -65,101 +69,104 @@ const Produits = () => {
+     const clearFilters = () => { setSearchTerm(''); setFilterCategory(''); setPage(1); };
+ 
+     return (
+-        <div className="min-h-screen bg-ivory-200">
+-            <div className="bg-burgundy-600 text-ivory-200 sticky top-0 z-10">
+-                <div className="max-w-7xl mx-auto px-4 py-4">
+-                    <div className="flex items-center justify-between">
+-                        <div className="flex items-center gap-3">
+-                            <Package size={24} />
+-                            <div><h1 className="text-lg font-bold">Mes produits</h1><p className="text-sm text-blush-300">{totalItems} produit{totalItems > 1 ? 's' : ''}</p></div>
+-                        </div>
+-                        <button onClick={() => navigate('/commercant/produits/ajouter')} className="flex items-center gap-2 bg-blush-200 text-burgundy-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-blush-300 transition">
+-                            <Plus size={16} /> Ajouter
+-                        </button>
+-                    </div>
++        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
++            <div className="flex items-center justify-between mb-6">
++                <div>
++                    <h1 className="font-display text-2xl font-semibold text-gray-900">Mes produits</h1>
++                    <p className="text-sm text-gray-400">{totalItems} article{totalItems > 1 ? 's' : ''}</p>
+                 </div>
++                <Link to="/commercant/produits/ajouter" className="flex items-center gap-2 bg-burgundy-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-burgundy-700 transition">
++                    <Plus size={16} /> Ajouter un article
++                </Link>
+             </div>
+ 
+-            <div className="max-w-7xl mx-auto px-4 py-6">
+-                <div className="bg-white rounded-xl shadow-sm border border-blush-300 p-4 mb-6">
+-                    <div className="flex flex-col sm:flex-row gap-3">
+-                        <div className="relative flex-1">
+-                            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+-                            <input type="text" placeholder="Rechercher un produit..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }} className="w-full pl-9 pr-3 py-2 border border-blush-300 rounded-lg text-sm outline-none focus:border-burgundy-500 focus:ring-1 focus:ring-burgundy-500" />
+-                        </div>
+-                        <select value={filterCategory} onChange={(e) => { setFilterCategory(e.target.value); setPage(1); }} className="px-3 py-2 border border-blush-300 rounded-lg text-sm outline-none focus:border-burgundy-500 focus:ring-1 focus:ring-burgundy-500">
+-                            <option value="">Toutes les catégories</option>
+-                            {categories.map((cat) => <option key={cat._id} value={cat.name}>{cat.name}</option>)}
+-                        </select>
+-                        {(searchTerm || filterCategory) && (
+-                            <button onClick={clearFilters} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition"><X size={18} /></button>
+-                        )}
++            <div className="bg-white rounded-2xl border border-blush-200 p-4 mb-6">
++                <div className="flex flex-col sm:flex-row gap-3">
++                    <div className="relative flex-1">
++                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
++                        <input
++                            type="text" placeholder="Rechercher un produit..."
++                            value={searchTerm}
++                            onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
++                            className="w-full pl-9 pr-3 py-2.5 border border-blush-200 rounded-xl text-sm outline-none focus:border-burgundy-500 focus:ring-1 focus:ring-burgundy-500"
++                        />
+                     </div>
++                    <select
++                        value={filterCategory}
++                        onChange={(e) => { setFilterCategory(e.target.value); setPage(1); }}
++                        className="px-3 py-2.5 border border-blush-200 rounded-xl text-sm outline-none focus:border-burgundy-500 focus:ring-1 focus:ring-burgundy-500"
++                    >
++                        <option value="">Toutes les catégories</option>
++                        {categories.map((cat) => <option key={cat._id} value={cat.name}>{cat.name}</option>)}
++                    </select>
++                    {(searchTerm || filterCategory) && (
++                        <button onClick={clearFilters} className="p-2.5 text-gray-400 hover:text-gray-600 rounded-xl hover:bg-ivory-300 transition"><X size={18} /></button>
++                    )}
+                 </div>
++            </div>
+ 
+-                {loading ? (
+-                    <div className="flex justify-center py-12"><Loader2 className="animate-spin text-burgundy-600" size={40} /></div>
+-                ) : produits.length === 0 ? (
+-                    <div className="bg-white rounded-xl shadow-sm border border-blush-300 p-12 text-center">
+-                        <Package className="mx-auto text-gray-400 mb-3" size={48} />
+-                        <h3 className="text-lg font-medium text-gray-800">Aucun produit</h3>
+-                        <p className="text-sm text-gray-500 mt-1">Commencez par ajouter votre premier produit</p>
+-                        <button onClick={() => navigate('/commercant/produits/ajouter')} className="mt-4 inline-flex items-center gap-2 bg-burgundy-600 text-ivory-200 px-6 py-2.5 rounded-lg font-medium hover:bg-burgundy-700 transition">
+-                            <Plus size={16} /> Ajouter un produit
+-                        </button>
+-                    </div>
+-                ) : (
+-                    <>
+-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+-                            {produits.map((product) => (
+-                                <div key={product._id} className="bg-white rounded-xl shadow-sm border border-blush-300 overflow-hidden hover:shadow-md transition group">
+-                                    <div className="relative aspect-square bg-blush-200">
+-                                        {product.image?.[0] ? (
+-                                            <img src={product.image[0]} alt={product.name} className="w-full h-full object-cover" />
+-                                        ) : (
+-                                            <div className="w-full h-full flex items-center justify-center text-gray-400"><Package size={32} /></div>
+-                                        )}
+-                                        {!product.inStock && (
+-                                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+-                                                <span className="text-white font-bold text-sm px-3 py-1 bg-red-600 rounded-full">Rupture</span>
+-                                            </div>
+-                                        )}
+-                                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition">
+-                                            <button onClick={() => navigate(`/commercant/produits/editer/${product._id}`)} className="p-1.5 bg-white rounded-lg shadow-md hover:bg-blush-200 transition"><Edit size={14} className="text-gray-700" /></button>
+-                                            <button onClick={() => handleDelete(product._id, product.name)} className="p-1.5 bg-white rounded-lg shadow-md hover:bg-red-50 transition"><Trash2 size={14} className="text-red-500" /></button>
++            {loading ? (
++                <div className="flex justify-center py-16"><Loader2 className="animate-spin text-burgundy-600" size={32} /></div>
++            ) : produits.length === 0 ? (
++                <div className="bg-white rounded-2xl border border-blush-200 p-14 text-center">
++                    <Package className="mx-auto text-blush-400 mb-3" size={40} />
++                    <h3 className="text-base font-medium text-gray-800">Aucun produit</h3>
++                    <p className="text-sm text-gray-400 mt-1">Commencez par ajouter votre premier article</p>
++                    <Link to="/commercant/produits/ajouter" className="mt-4 inline-flex items-center gap-2 bg-burgundy-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-burgundy-700 transition">
++                        <Plus size={16} /> Ajouter un article
++                    </Link>
++                </div>
++            ) : (
++                <>
++                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
++                        {produits.map((product) => (
++                            <div key={product._id} className="bg-white rounded-2xl border border-blush-200 overflow-hidden hover:shadow-md transition group">
++                                <div className="relative aspect-square bg-blush-100">
++                                    {product.image?.[0] ? (
++                                        <img src={product.image[0]} alt={product.name} className="w-full h-full object-cover" />
++                                    ) : (
++                                        <div className="w-full h-full flex items-center justify-center text-blush-400"><Package size={30} /></div>
++                                    )}
++                                    {!product.inStock && (
++                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
++                                            <span className="text-white font-semibold text-xs px-3 py-1 bg-burgundy-700 rounded-full">Rupture</span>
+                                         </div>
++                                    )}
++                                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition">
++                                        <Link to={`/commercant/produits/editer/${product._id}`} className="p-1.5 bg-white rounded-lg shadow-md hover:bg-blush-100 transition"><Edit size={14} className="text-gray-700" /></Link>
++                                        <button onClick={() => handleDelete(product._id, product.name)} className="p-1.5 bg-white rounded-lg shadow-md hover:bg-red-50 transition"><Trash2 size={14} className="text-red-500" /></button>
+                                     </div>
+-                                    <div className="p-3">
+-                                        <p className="text-sm font-medium text-gray-800 truncate">{product.name}</p>
+-                                        <div className="flex items-center justify-between mt-1">
+-                                            <div>
+-                                                <span className="text-sm font-bold text-burgundy-600">{product.offerPrice?.toLocaleString()} FCFA</span>
+-                                                {product.price > product.offerPrice && <span className="text-xs text-gray-400 line-through ml-2">{product.price.toLocaleString()} FCFA</span>}
+-                                            </div>
+-                                            <span className={`text-xs px-2 py-0.5 rounded-full ${product.inStock ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+-                                                {product.inStock ? 'En stock' : 'Rupture'}
+-                                            </span>
++                                </div>
++                                <div className="p-3">
++                                    <p className="text-sm font-medium text-gray-800 truncate">{product.name}</p>
++                                    <div className="flex items-center justify-between mt-1">
++                                        <div>
++                                            <span className="text-sm font-bold text-burgundy-700">{product.offerPrice?.toLocaleString()} FCFA</span>
++                                            {product.price > product.offerPrice && <span className="text-xs text-gray-400 line-through ml-2">{product.price.toLocaleString()}</span>}
+                                         </div>
+-                                        <p className="text-xs text-gray-400 mt-1">{product.categories?.join(', ') || 'Sans catégorie'}</p>
++                                        <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${product.inStock ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
++                                            {product.inStock ? 'En stock' : 'Rupture'}
++                                        </span>
+                                     </div>
++                                    <p className="text-xs text-gray-400 mt-1 truncate">{product.categories?.join(', ') || 'Sans catégorie'}</p>
+                                 </div>
+-                            ))}
+-                        </div>
++                            </div>
++                        ))}
++                    </div>
+ 
+-                        {totalPages > 1 && (
+-                            <div className="flex items-center justify-between mt-6">
+-                                <p className="text-sm text-gray-500">Page {page} sur {totalPages}</p>
+-                                <div className="flex gap-1">
+-                                    <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="p-2 rounded-lg border border-blush-300 hover:bg-blush-200 disabled:opacity-50 transition"><ChevronLeft size={18} /></button>
+-                                    <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="p-2 rounded-lg border border-blush-300 hover:bg-blush-200 disabled:opacity-50 transition"><ChevronRight size={18} /></button>
+-                                </div>
++                    {totalPages > 1 && (
++                        <div className="flex items-center justify-between mt-6">
++                            <p className="text-sm text-gray-400">Page {page} sur {totalPages}</p>
++                            <div className="flex gap-1">
++                                <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="p-2 rounded-xl border border-blush-200 hover:bg-blush-100 disabled:opacity-50 transition"><ChevronLeft size={18} /></button>
++                                <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="p-2 rounded-xl border border-blush-200 hover:bg-blush-100 disabled:opacity-50 transition"><ChevronRight size={18} /></button>
+                             </div>
+-                        )}
+-                    </>
+-                )}
+-            </div>
++                        </div>
++                    )}
++                </>
++            )}
+         </div>
+     );
+ };
+ 
+-export default Produits;
+\ No newline at end of file
++export default Produits;
+diff --git a/client/src/pages/commercant/index.js b/client/src/pages/commercant/index.js
+index dceca28..41b1aa9 100644
+--- a/client/src/pages/commercant/index.js
++++ b/client/src/pages/commercant/index.js
+@@ -1,5 +1,7 @@
++export { default as CommercantLayout } from './CommercantLayout';
+ export { default as Dashboard } from './Dashboard';
+ export { default as Boutique } from './Boutique';
+ export { default as Produits } from './Produits';
++export { default as ProduitForm } from './ProduitForm';
+ export { default as Portefeuille } from './Portefeuille';
+ export { default as DemandeRetrait } from './DemandeRetrait';
+\ No newline at end of file
+diff --git a/server/configs/multer.js b/server/configs/multer.js
+index 4c70b50..572299c 100644
+--- a/server/configs/multer.js
++++ b/server/configs/multer.js
+@@ -2,8 +2,8 @@ import multer from "multer";
+ 
+ // ✅ FILTRE : Accepter images ET vidéos
+ const fileFilter = (req, file, cb) => {
+-    // ✅ Accepter les images
+-    if (file.fieldname === 'images' && 
++    // ✅ Accepter les images (produits ET logo de boutique)
++    if ((file.fieldname === 'images' || file.fieldname === 'logo') &&
+         (file.mimetype.startsWith('image/'))) {
+         cb(null, true);
+     }
+diff --git a/server/controllers/boutiqueController.js b/server/controllers/boutiqueController.js
+index ce479c1..408addc 100644
+--- a/server/controllers/boutiqueController.js
++++ b/server/controllers/boutiqueController.js
+@@ -1,3 +1,4 @@
++import { v2 as cloudinary } from 'cloudinary';
+ import Boutique from '../models/Boutique.js';
+ import Product from '../models/Product.js';
+ import StaffUser from '../models/StaffUser.js';
+@@ -16,10 +17,10 @@ export const getMaBoutique = async (req, res) => {
+     }
+ };
+ 
+-// PATCH /api/boutiques/moi — Modifier sa boutique
++// PATCH /api/boutiques/moi — Modifier sa boutique (multipart, champ "logo" optionnel)
+ export const updateMaBoutique = async (req, res) => {
+     try {
+-        const { nom, description, logo } = req.body;
++        const { nom, description } = req.body;
+ 
+         const boutique = await Boutique.findOne({ ownerId: req.staffUser._id });
+         if (!boutique) {
+@@ -28,7 +29,27 @@ export const updateMaBoutique = async (req, res) => {
+ 
+         if (nom) boutique.nom = nom;
+         if (description !== undefined) boutique.description = description;
+-        if (logo) boutique.logo = logo;
++
++        // ✅ Upload direct du logo vers Cloudinary (le frontend envoie le
++        // fichier lui-même, pas une URL déjà hébergée ailleurs).
++        if (req.file) {
++            if (boutique.logoPublicId) {
++                try {
++                    await cloudinary.uploader.destroy(boutique.logoPublicId);
++                } catch (err) {
++                    console.log('Erreur suppression ancien logo:', err.message);
++                }
++            }
++            const result = await new Promise((resolve, reject) => {
++                const uploadStream = cloudinary.uploader.upload_stream(
++                    { resource_type: 'image', folder: 'boutiques/logos' },
++                    (error, uploadResult) => (error ? reject(error) : resolve(uploadResult))
++                );
++                uploadStream.end(req.file.buffer);
++            });
++            boutique.logo = result.secure_url;
++            boutique.logoPublicId = result.public_id;
++        }
+ 
+         await boutique.save();
+ 
+diff --git a/server/controllers/orderController.js b/server/controllers/orderController.js
+index c7b0ef9..1883c11 100644
+--- a/server/controllers/orderController.js
++++ b/server/controllers/orderController.js
+@@ -424,6 +424,52 @@ export const getAllOrders = async (req, res) => {
+     }
+ };
+ 
++// ✅ Commerçant : uniquement les commandes contenant au moins un article
++// de SA boutique, avec les montants recalculés sur ses seules lignes
++// (une commande peut mélanger des articles de plusieurs boutiques).
++export const getMesVentesCommercant = async (req, res) => {
++    try {
++        const boutiqueId = req.staffUser.boutiqueId;
++        if (!boutiqueId) {
++            return res.json({ success: false, message: 'Aucune boutique associée à ce compte' });
++        }
++
++        const produitsBoutique = await Product.find({ boutiqueId }).select('_id');
++        const produitIds = produitsBoutique.map((p) => p._id.toString());
++
++        if (produitIds.length === 0) {
++            return res.json({ success: true, orders: [] });
++        }
++
++        const orders = await Order.find({
++            'items.product': { $in: produitIds },
++            $or: [{ paymentType: 'COD' }, { isPaid: true }],
++        }).populate('items.product address').sort({ createdAt: -1 });
++
++        const ordersScoped = orders.map((order) => {
++            const itemsBoutique = order.items.filter(
++                (item) => item.product && produitIds.includes(item.product._id.toString())
++            );
++            const montantBoutique = itemsBoutique.reduce(
++                (sum, item) => sum + (item.priceAtOrder || 0) * (item.quantity || 0), 0
++            );
++            return {
++                _id: order._id,
++                status: order.status,
++                createdAt: order.createdAt,
++                address: order.address,
++                items: itemsBoutique,
++                montantBoutique,
++            };
++        });
++
++        res.json({ success: true, orders: ordersScoped });
++    } catch (error) {
++        console.log(error.message);
++        res.status(500).json({ success: false, message: error.message });
++    }
++};
++
+ export const getUserOrdersByAdmin = async (req, res) => {
+     try {
+         const { userId } = req.params;
+diff --git a/server/models/Boutique.js b/server/models/Boutique.js
+index c38bef0..f3155c9 100644
+--- a/server/models/Boutique.js
++++ b/server/models/Boutique.js
+@@ -18,6 +18,10 @@ const boutiqueSchema = new mongoose.Schema({
+         type: String,
+         default: null,
+     },
++    logoPublicId: {
++        type: String,
++        default: null,
++    },
+     ownerId: {
+         type: mongoose.Schema.Types.ObjectId,
+         ref: 'staffuser',
+diff --git a/server/routes/boutiqueRoute.js b/server/routes/boutiqueRoute.js
+index 34b0978..374ef5c 100644
+--- a/server/routes/boutiqueRoute.js
++++ b/server/routes/boutiqueRoute.js
+@@ -1,4 +1,5 @@
+ import express from 'express';
++import { upload } from '../configs/multer.js';
+ import authStaff, { requireRole } from '../middlewares/authStaff.js';
+ import {
+     getMaBoutique,
+@@ -15,7 +16,7 @@ boutiqueRouter.get('/:id', getBoutiqueById);
+ 
+ // Routes commerçant
+ boutiqueRouter.get('/moi', authStaff, requireRole('commercant'), getMaBoutique);
+-boutiqueRouter.patch('/moi', authStaff, requireRole('commercant'), updateMaBoutique);
++boutiqueRouter.patch('/moi', authStaff, requireRole('commercant'), upload.single('logo'), updateMaBoutique);
+ 
+ // Routes admin
+ boutiqueRouter.get('/', authStaff, requireRole('admin'), listAllBoutiques);
+diff --git a/server/routes/orderRoute.js b/server/routes/orderRoute.js
+index 3df26de..fc985a6 100644
+--- a/server/routes/orderRoute.js
++++ b/server/routes/orderRoute.js
+@@ -9,7 +9,8 @@ import {
+     getUserOrdersByAdmin,
+     assignerLivreur,
+     getLivraisonsLivreur,
+-    updateLivraisonStatus
++    updateLivraisonStatus,
++    getMesVentesCommercant
+ } from '../controllers/orderController.js';
+ import authSeller from '../middlewares/authSeller.js';
+ import { initiateGeniusPay } from '../controllers/geniuspayController.js';
+@@ -34,6 +35,9 @@ orderRouter.post('/admin/assigner-livreur', authStaff, requireRole('admin'), ass
+ orderRouter.get('/livreur/mes-livraisons', authStaff, requireRole('livreur'), getLivraisonsLivreur);
+ orderRouter.patch('/livreur/statut', authStaff, requireRole('livreur'), updateLivraisonStatus);
+ 
++// ✅ Commerçant : ses ventes uniquement (scopées à sa boutique)
++orderRouter.get('/commercant/mes-ventes', authStaff, requireRole('commercant'), getMesVentesCommercant);
++
+ // Récupérer une commande par son ID (client)
+ orderRouter.get('/:orderId', authUser, async (req, res) => {
+     try {
+diff --git a/server/routes/productRoute.js b/server/routes/productRoute.js
+index 875acce..5a5e687 100644
+--- a/server/routes/productRoute.js
++++ b/server/routes/productRoute.js
+@@ -88,5 +88,6 @@ productRouter.post('/staff/add', authStaff, requireRole('admin', 'commercant'),
+ 
+ productRouter.post('/staff/update', authStaff, requireRole('admin', 'commercant'), updateProduct);
+ productRouter.post('/staff/delete', authStaff, requireRole('admin', 'commercant'), deleteProduct);
++productRouter.post('/staff/add-images', authStaff, requireRole('admin', 'commercant'), upload.array('images', 10), addProductImages);
+ 
+ export default productRouter;
+\ No newline at end of file

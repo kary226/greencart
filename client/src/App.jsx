@@ -45,16 +45,18 @@ import StaffActivation from './pages/staff/StaffActivation';
 import AdminComptes from './pages/admin/AdminComptes';
 
 // ✅ PHASE 3 - Espace commerçant
+import CommercantLayout from './pages/commercant/CommercantLayout';
 import DashboardCommercant from './pages/commercant/Dashboard';
 import Boutique from './pages/commercant/Boutique';
 import Produits from './pages/commercant/Produits';
+import ProduitForm from './pages/commercant/ProduitForm';
 import Portefeuille from './pages/commercant/Portefeuille';
 import DemandeRetrait from './pages/commercant/DemandeRetrait';
 
 // ✅ PHASE 4 - Espace livreur
 import MesLivraisons from './pages/livreur/MesLivraisons';
 import LivraisonDetail from './pages/livreur/LivraisonDetail';
-//PHASE 5
+
 // ✅ PHASE 5 - Espace assistant Shein
 import Conversations from './pages/assistant/Conversations';
 import ChatDetail from './pages/assistant/ChatDetail';
@@ -185,11 +187,15 @@ const App = () => {
           <Route path='/staff/admin/comptes' element={<AdminComptes />} />
 
           {/* ✅ PHASE 3 - Routes Commerçant */}
-          <Route path='/commercant/dashboard' element={<DashboardCommercant />} />
-          <Route path='/commercant/boutique' element={<Boutique />} />
-          <Route path='/commercant/produits' element={<Produits />} />
-          <Route path='/commercant/portefeuille' element={<Portefeuille />} />
-          <Route path='/commercant/retraits' element={<DemandeRetrait />} />
+          <Route path='/commercant' element={<CommercantLayout />}>
+            <Route path='dashboard' element={<DashboardCommercant />} />
+            <Route path='boutique' element={<Boutique />} />
+            <Route path='produits' element={<Produits />} />
+            <Route path='produits/ajouter' element={<ProduitForm />} />
+            <Route path='produits/editer/:id' element={<ProduitForm />} />
+            <Route path='portefeuille' element={<Portefeuille />} />
+            <Route path='retraits' element={<DemandeRetrait />} />
+          </Route>
 
           {/* ✅ PHASE 4 - Routes Livreur */}
           <Route path='/livreur/mes-livraisons' element={<MesLivraisons />} />

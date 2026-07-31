@@ -88,5 +88,6 @@ productRouter.post('/staff/add', authStaff, requireRole('admin', 'commercant'), 
 
 productRouter.post('/staff/update', authStaff, requireRole('admin', 'commercant'), updateProduct);
 productRouter.post('/staff/delete', authStaff, requireRole('admin', 'commercant'), deleteProduct);
+productRouter.post('/staff/add-images', authStaff, requireRole('admin', 'commercant'), upload.array('images', 10), addProductImages);
 
 export default productRouter;
