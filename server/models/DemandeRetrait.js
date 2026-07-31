@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 
-// Demande de retrait faite par un commerçant, traitée par l'admin.
 const demandeRetraitSchema = new mongoose.Schema({
     commercialId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -10,7 +9,7 @@ const demandeRetraitSchema = new mongoose.Schema({
     montant: {
         type: Number,
         required: true,
-        min: 1000, // Montant minimum de retrait
+        min: 1000,
     },
     statut: {
         type: String,
@@ -21,10 +20,9 @@ const demandeRetraitSchema = new mongoose.Schema({
         type: String,
         required: true,
         trim: true,
-        // ex: "Orange Money 07 12 34 56 78" ou "Banque ABC - Compte 12345"
     },
     preuvePaiement: {
-        type: String, // URL Cloudinary (uploadé par l'admin)
+        type: String,
         default: null,
     },
     traitePar: {
@@ -39,7 +37,6 @@ const demandeRetraitSchema = new mongoose.Schema({
     },
 }, { timestamps: true });
 
-// Index pour accélérer les requêtes
 demandeRetraitSchema.index({ commercialId: 1, createdAt: -1 });
 demandeRetraitSchema.index({ statut: 1 });
 

@@ -54,6 +54,10 @@ import DemandeRetrait from './pages/commercant/DemandeRetrait';
 // ✅ PHASE 4 - Espace livreur
 import MesLivraisons from './pages/livreur/MesLivraisons';
 import LivraisonDetail from './pages/livreur/LivraisonDetail';
+//PHASE 5
+// ✅ PHASE 5 - Espace assistant Shein
+import Conversations from './pages/assistant/Conversations';
+import ChatDetail from './pages/assistant/ChatDetail';
 
 // 🔝 ScrollToTop intelligent
 const useSmartScroll = () => {
@@ -190,6 +194,10 @@ const App = () => {
           {/* ✅ PHASE 4 - Routes Livreur */}
           <Route path='/livreur/mes-livraisons' element={<MesLivraisons />} />
           <Route path='/livreur/commande/:orderId' element={<LivraisonDetail />} />
+
+          {/* ✅ PHASE 5 - Routes Assistant Shein */}
+          <Route path='/assistant/conversations' element={<Conversations />} />
+          <Route path='/assistant/conversation/:id' element={<ChatDetail />} />
 
           {/* Routes Seller */}
           <Route path='/seller' element={isSeller ? <SellerLayout /> : <SellerLogin />}>

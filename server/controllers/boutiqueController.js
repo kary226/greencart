@@ -2,9 +2,7 @@ import Boutique from '../models/Boutique.js';
 import Product from '../models/Product.js';
 import StaffUser from '../models/StaffUser.js';
 
-// ------------------------------------------------------------------ //
 // GET /api/boutiques/moi — Récupérer sa propre boutique
-// ------------------------------------------------------------------ //
 export const getMaBoutique = async (req, res) => {
     try {
         const boutique = await Boutique.findOne({ ownerId: req.staffUser._id });
@@ -18,9 +16,7 @@ export const getMaBoutique = async (req, res) => {
     }
 };
 
-// ------------------------------------------------------------------ //
 // PATCH /api/boutiques/moi — Modifier sa boutique
-// ------------------------------------------------------------------ //
 export const updateMaBoutique = async (req, res) => {
     try {
         const { nom, description, logo } = req.body;
@@ -47,9 +43,7 @@ export const updateMaBoutique = async (req, res) => {
     }
 };
 
-// ------------------------------------------------------------------ //
-// GET /api/boutiques/:id — Voir une boutique publique (lecture)
-// ------------------------------------------------------------------ //
+// GET /api/boutiques/:id — Voir une boutique publique
 export const getBoutiqueById = async (req, res) => {
     try {
         const { id } = req.params;
@@ -58,7 +52,6 @@ export const getBoutiqueById = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Boutique non trouvée' });
         }
 
-        // Récupérer les produits de la boutique
         const produits = await Product.find({
             boutiqueId: id,
             inStock: true
@@ -75,9 +68,7 @@ export const getBoutiqueById = async (req, res) => {
     }
 };
 
-// ------------------------------------------------------------------ //
 // GET /api/boutiques — Admin : lister toutes les boutiques
-// ------------------------------------------------------------------ //
 export const listAllBoutiques = async (req, res) => {
     try {
         const boutiques = await Boutique.find()
@@ -91,9 +82,7 @@ export const listAllBoutiques = async (req, res) => {
     }
 };
 
-// ------------------------------------------------------------------ //
 // POST /api/boutiques — Admin : créer une boutique pour un commerçant
-// ------------------------------------------------------------------ //
 export const createBoutiqueForCommercial = async (req, res) => {
     try {
         const { ownerId, nom, description, logo } = req.body;
@@ -116,7 +105,6 @@ export const createBoutiqueForCommercial = async (req, res) => {
             statut: 'active',
         });
 
-        // Mettre à jour le StaffUser
         commercial.boutiqueId = boutique._id;
         await commercial.save();
 

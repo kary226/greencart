@@ -358,3 +358,322 @@ export const setAgentTyping = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+// =============================================================
+// ✅ PHASE 5 : FONCTIONS POUR ASSISTANT SHEIN
+// =============================================================
+
+// RÉCUPÉRER LES CONVERSATIONS (Assistant/Admin)
+export const getConversations = async (req, res) => {
+    try {
+        const { statut, agentAssigneld } = req.query;
+        const filter = {};
+
+        if (statut) filter.statut = statut;
+
+        if (req.staffUser.role === 'assistant_shein') {
+            filter.agentAssigneld = req.staffUser._id;
+        } else if (agentAssigneld) {
+            filter.agentAssigneld = agentAssigneld;
+        }
+
+        const conversations = await ColisShein.find(filter)
+            .populate('agentAssigneld', 'nom email')
+            .populate('creePar', 'nom email')
+            .populate('userId', 'name email')
+            .sort({ createdAt: -1 });
+
+        return res.status(200).json({
+            success: true,
+            conversations,
+        });
+    } catch (error) {
+        console.error('Erreur getConversations:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// DÉTAIL D'UNE CONVERSATION (Assistant/Admin)
+export const getConversationDetail = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const conversation = await ColisShein.findById(id)
+            .populate('agentAssigneld', 'nom email')
+            .populate('creePar', 'nom email')
+            .populate('userId', 'name email');
+
+        if (!conversation) {
+            return res.status(404).json({ success: false, message: 'Conversation non trouvée' });
+        }
+
+        if (req.staffUser.role === 'assistant_shein') {
+            if (conversation.agentAssigneld?._id.toString() !== req.staffUser._id.toString()) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Vous n\'avez pas accès à cette conversation',
+                });
+            }
+        }
+
+        return res.status(200).json({
+            success: true,
+            conversation,
+        });
+    } catch (error) {
+        console.error('Erreur getConversationDetail:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// ASSIGNER UNE CONVERSATION (Admin uniquement)
+export const assignerConversation = async (req, res) => {
+    try {
+        const { colisId, assistantId } = req.body;
+
+        if (!colisId || !assistantId) {
+            return res.status(400).json({
+                success: false,
+                message: 'colisId et assistantId requis',
+            });
+        }
+
+        const assistant = await StaffUser.findOne({
+            _id: assistantId,
+            role: 'assistant_shein',
+            statut: 'actif',
+        });
+
+        if (!assistant) {
+            return res.status(404).json({
+                success: false,
+                message: 'Assistant non trouvé ou inactif',
+            });
+        }
+
+        const conversation = await ColisShein.findByIdAndUpdate(
+            colisId,
+            { agentAssigneld: assistantId },
+            { new: true }
+        ).populate('agentAssigneld', 'nom email');
+
+        if (!conversation) {
+            return res.status(404).json({
+                success: false,
+                message: 'Conversation non trouvée',
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: 'Conversation assignée avec succès',
+            conversation,
+        });
+    } catch (error) {
+        console.error('Erreur assignerConversation:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// LISTE DES ASSISTANTS DISPONIBLES (Admin)
+export const getAssistantsDisponibles = async (req, res) => {
+    try {
+        const assistants = await StaffUser.find({
+            role: 'assistant_shein',
+            statut: 'actif',
+        }).select('nom email');
+
+        const assistantsWithCount = await Promise.all(
+            assistants.map(async (assistant) => {
+                const count = await ColisShein.countDocuments({
+                    agentAssigneld: assistant._id,
+                    statut: { $nin: ['livre', 'annule'] },
+                });
+                return {
+                    ...assistant.toObject(),
+                    conversationsEnCours: count,
+                };
+            })
+        );
+
+        return res.status(200).json({
+            success: true,
+            assistants: assistantsWithCount,
+        });
+    } catch (error) {
+        console.error('Erreur getAssistantsDisponibles:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// STATISTIQUES (Admin)
+export const getConversationStats = async (req, res) => {
+    try {
+        const total = await ColisShein.countDocuments();
+        const enAttente = await ColisShein.countDocuments({
+            statut: { $in: ['soumis', 'en_verification'] },
+        });
+        const enCours = await ColisShein.countDocuments({
+            statut: { $in: ['devis_envoye', 'acompte_paye', 'achete', 'en_entrepot', 'pese', 'solde_du', 'solde_paye', 'en_livraison'] },
+        });
+        const termines = await ColisShein.countDocuments({
+            statut: { $in: ['livre', 'annule'] },
+        });
+        const sansAgent = await ColisShein.countDocuments({
+            agentAssigneld: null,
+            statut: { $nin: ['livre', 'annule'] },
+        });
+
+        return res.status(200).json({
+            success: true,
+            stats: {
+                total,
+                enAttente,
+                enCours,
+                termines,
+                sansAgent,
+            },
+        });
+    } catch (error) {
+        console.error('Erreur getConversationStats:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// CRÉER UNE CONVERSATION (Admin)
+export const createConversation = async (req, res) => {
+    try {
+        const {
+            userId,
+            numeroSuivi,
+            devise,
+            lienPartage,
+            captures,
+            extraction,
+            articlesValides,
+            statut,
+        } = req.body;
+
+        if (!userId) {
+            return res.status(400).json({
+                success: false,
+                message: 'userId est requis',
+            });
+        }
+
+        const conversation = await ColisShein.create({
+            userId,
+            numeroSuivi: numeroSuivi || undefined,
+            devise: devise || null,
+            lienPartage: lienPartage || '',
+            captures: captures || [],
+            extraction: extraction || { articles: [], totalAffiche: null },
+            articlesValides: articlesValides || [],
+            statut: statut || 'soumis',
+            creePar: req.staffUser._id,
+        });
+
+        return res.status(201).json({
+            success: true,
+            message: 'Conversation créée avec succès',
+            conversation,
+        });
+    } catch (error) {
+        console.error('Erreur createConversation:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// SUPPRIMER UNE CONVERSATION (Admin)
+export const deleteConversation = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const conversation = await ColisShein.findById(id);
+        if (!conversation) {
+            return res.status(404).json({
+                success: false,
+                message: 'Conversation non trouvée',
+            });
+        }
+
+        await MessageColis.deleteMany({ colisId: id });
+        await ColisShein.findByIdAndDelete(id);
+
+        return res.status(200).json({
+            success: true,
+            message: 'Conversation supprimée avec succès',
+        });
+    } catch (error) {
+        console.error('Erreur deleteConversation:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// METTRE À JOUR LE STATUT D'UNE CONVERSATION
+export const updateConversationStatut = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { statut, note } = req.body;
+
+        const validStatuses = [
+            'soumis', 'en_verification', 'devis_envoye',
+            'acompte_paye', 'achete', 'en_entrepot', 'pese',
+            'solde_du', 'solde_paye', 'en_livraison',
+            'livre', 'annule'
+        ];
+
+        if (!validStatuses.includes(statut)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Statut invalide',
+            });
+        }
+
+        const conversation = await ColisShein.findById(id);
+        if (!conversation) {
+            return res.status(404).json({
+                success: false,
+                message: 'Conversation non trouvée',
+            });
+        }
+
+        if (req.staffUser.role === 'assistant_shein') {
+            if (conversation.agentAssigneld?.toString() !== req.staffUser._id.toString()) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Vous n\'avez pas accès à cette conversation',
+                });
+            }
+        }
+
+        const ancienStatut = conversation.statut;
+        conversation.statut = statut;
+
+        conversation.historique.push({
+            action: `Statut changé de "${ancienStatut}" à "${statut}"`,
+            agent: req.staffUser.email || req.staffUser.nom,
+            note: note || '',
+        });
+
+        await conversation.save();
+
+        await MessageColis.create({
+            colisId: id,
+            expediteurRole: 'systeme',
+            expediteurId: null,
+            agentStaffId: null,
+            texte: `📌 Statut mis à jour : ${statut}`,
+            type: 'systeme',
+            payload: {},
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: 'Statut mis à jour avec succès',
+            conversation,
+        });
+    } catch (error) {
+        console.error('Erreur updateConversationStatut:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};

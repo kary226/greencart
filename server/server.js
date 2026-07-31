@@ -31,6 +31,11 @@ import boutiqueRouter from './routes/boutiqueRoute.js';
 import walletRouter from './routes/walletRoute.js';
 import retraitRouter from './routes/retraitRoute.js';
 
+// ✅ PHASE 5 - Routes Assistant Shein
+import colisSheinAdminRouter from './routes/colisSheinAdminRoute.js';
+import messageColisRouter from './routes/messageColisRoute.js';
+
+
 const app = express();
 const port = process.env.PORT || 4000;
 
@@ -105,6 +110,9 @@ app.use('/api/push', pushRouter);
 app.use('/api/boutiques', boutiqueRouter);
 app.use('/api/wallet', walletRouter);
 app.use('/api/retraits', retraitRouter);
+
+app.use('/api/shein-cart/admin', colisSheinAdminRouter);
+app.use('/api/message-colis', messageColisRouter);
 
 // Gestionnaire d'erreur global
 app.use((err, req, res, next) => {

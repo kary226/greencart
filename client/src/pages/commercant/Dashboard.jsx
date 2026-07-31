@@ -4,8 +4,7 @@ import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
 import {
     LayoutDashboard, Package, Wallet, TrendingUp,
-    ShoppingBag, DollarSign, Clock, CheckCircle,
-    XCircle, Loader2, PlusCircle
+    ShoppingBag, DollarSign, Clock, Loader2, PlusCircle
 } from 'lucide-react';
 
 const Dashboard = () => {

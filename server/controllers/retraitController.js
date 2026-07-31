@@ -2,9 +2,7 @@ import DemandeRetrait from '../models/DemandeRetrait.js';
 import Wallet from '../models/Wallet.js';
 import WalletTransaction from '../models/WalletTransaction.js';
 
-// ------------------------------------------------------------------ //
 // POST /api/retraits — Commerçant : créer une demande de retrait
-// ------------------------------------------------------------------ //
 export const createRetrait = async (req, res) => {
     try {
         const { montant, moyenPaiement } = req.body;
@@ -17,7 +15,6 @@ export const createRetrait = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Moyen de paiement requis' });
         }
 
-        // Vérifier le solde
         const wallet = await Wallet.findOne({ ownerId: req.staffUser._id });
         if (!wallet) {
             return res.status(404).json({ success: false, message: 'Portefeuille non trouvé' });
@@ -32,7 +29,6 @@ export const createRetrait = async (req, res) => {
             });
         }
 
-        // Vérifier s'il y a déjà une demande en attente
         const demandeExistante = await DemandeRetrait.findOne({
             commercialId: req.staffUser._id,
             statut: 'en_attente'
@@ -45,7 +41,6 @@ export const createRetrait = async (req, res) => {
             });
         }
 
-        // Créer la demande
         const demande = await DemandeRetrait.create({
             commercialId: req.staffUser._id,
             montant,
@@ -64,9 +59,7 @@ export const createRetrait = async (req, res) => {
     }
 };
 
-// ------------------------------------------------------------------ //
 // GET /api/retraits/moi — Commerçant : voir ses demandes
-// ------------------------------------------------------------------ //
 export const getMesRetraits = async (req, res) => {
     try {
         const demandes = await DemandeRetrait.find({
@@ -80,9 +73,7 @@ export const getMesRetraits = async (req, res) => {
     }
 };
 
-// ------------------------------------------------------------------ //
 // GET /api/retraits — Admin : lister toutes les demandes
-// ------------------------------------------------------------------ //
 export const listAllRetraits = async (req, res) => {
     try {
         const { statut } = req.query;
@@ -101,9 +92,7 @@ export const listAllRetraits = async (req, res) => {
     }
 };
 
-// ------------------------------------------------------------------ //
 // PATCH /api/retraits/:id — Admin : traiter une demande
-// ------------------------------------------------------------------ //
 export const traiterRetrait = async (req, res) => {
     try {
         const { id } = req.params;
@@ -122,7 +111,6 @@ export const traiterRetrait = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Cette demande est déjà payée' });
         }
 
-        // Si on approuve ou paye, vérifier le solde
         if (statut === 'approuvee' || statut === 'payee') {
             const wallet = await Wallet.findOne({ ownerId: demande.commercialId });
             if (wallet) {
@@ -136,11 +124,9 @@ export const traiterRetrait = async (req, res) => {
             }
         }
 
-        // Si statut = 'payee', on débite le wallet
         if (statut === 'payee') {
             const wallet = await Wallet.findOne({ ownerId: demande.commercialId });
             if (wallet) {
-                // Créer la transaction de retrait
                 await WalletTransaction.create({
                     walletId: wallet._id,
                     type: 'retrait',

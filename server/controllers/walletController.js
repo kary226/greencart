@@ -1,22 +1,17 @@
 import Wallet from '../models/Wallet.js';
 import WalletTransaction from '../models/WalletTransaction.js';
-import DemandeRetrait from '../models/DemandeRetrait.js';
 
-// ------------------------------------------------------------------ //
 // GET /api/wallet/moi — Consulter son portefeuille
-// ------------------------------------------------------------------ //
 export const getMyWallet = async (req, res) => {
     try {
         let wallet = await Wallet.findOne({ ownerId: req.staffUser._id });
         if (!wallet) {
-            // Créer le wallet si inexistant
             wallet = await Wallet.create({
                 ownerId: req.staffUser._id,
                 solde: 0,
             });
         }
 
-        // Recalculer le solde pour être sûr
         await wallet.recalculerSolde();
 
         return res.status(200).json({
@@ -34,9 +29,7 @@ export const getMyWallet = async (req, res) => {
     }
 };
 
-// ------------------------------------------------------------------ //
 // GET /api/wallet/moi/transactions — Historique des transactions
-// ------------------------------------------------------------------ //
 export const getMyTransactions = async (req, res) => {
     try {
         const wallet = await Wallet.findOne({ ownerId: req.staffUser._id });
@@ -72,9 +65,7 @@ export const getMyTransactions = async (req, res) => {
     }
 };
 
-// ------------------------------------------------------------------ //
 // GET /api/wallet/admin/:commercialId — Admin : voir wallet d'un commercial
-// ------------------------------------------------------------------ //
 export const getWalletByCommercial = async (req, res) => {
     try {
         const { commercialId } = req.params;
@@ -96,10 +87,7 @@ export const getWalletByCommercial = async (req, res) => {
     }
 };
 
-// ------------------------------------------------------------------ //
 // POST /api/wallet/admin/ajustement — Admin : ajuster manuellement
-// (utilisé en cas d'erreur, tracé via transactions)
-// ------------------------------------------------------------------ //
 export const adminAjustement = async (req, res) => {
     try {
         const { commercialId, montant, description } = req.body;
@@ -113,7 +101,6 @@ export const adminAjustement = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Portefeuille non trouvé' });
         }
 
-        // Créer la transaction
         const transaction = await WalletTransaction.create({
             walletId: wallet._id,
             type: 'ajustement',
@@ -121,7 +108,6 @@ export const adminAjustement = async (req, res) => {
             description: `Ajustement admin : ${description}`,
         });
 
-        // Recalculer le solde
         await wallet.recalculerSolde();
 
         return res.status(200).json({

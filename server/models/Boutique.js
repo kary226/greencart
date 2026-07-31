@@ -15,14 +15,14 @@ const boutiqueSchema = new mongoose.Schema({
         trim: true,
     },
     logo: {
-        type: String, // URL Cloudinary
+        type: String,
         default: null,
     },
     ownerId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'staffuser',
         required: true,
-        unique: true, // Un commerçant = une boutique
+        unique: true,
     },
     statut: {
         type: String,
@@ -31,7 +31,6 @@ const boutiqueSchema = new mongoose.Schema({
     },
 }, { timestamps: true });
 
-// Index pour accélérer les requêtes
 boutiqueSchema.index({ ownerId: 1 });
 boutiqueSchema.index({ nom: 1 });
 
