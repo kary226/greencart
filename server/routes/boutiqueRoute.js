@@ -11,15 +11,15 @@ import {
 
 const boutiqueRouter = express.Router();
 
-// Routes publiques
-boutiqueRouter.get('/:id', getBoutiqueById);
-
-// Routes commerçant
+// ✅ Routes COMMERCANT (spécifiques) — DOIVENT être AVANT la route avec :id
 boutiqueRouter.get('/moi', authStaff, requireRole('commercant'), getMaBoutique);
 boutiqueRouter.patch('/moi', authStaff, requireRole('commercant'), upload.single('logo'), updateMaBoutique);
 
-// Routes admin
+// ✅ Routes ADMIN
 boutiqueRouter.get('/', authStaff, requireRole('admin'), listAllBoutiques);
 boutiqueRouter.post('/', authStaff, requireRole('admin'), createBoutiqueForCommercial);
+
+// ✅ Routes PUBLIQUES (avec paramètre :id) — DOIVENT être EN DERNIER
+boutiqueRouter.get('/:id', getBoutiqueById);
 
 export default boutiqueRouter;
