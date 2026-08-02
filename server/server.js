@@ -54,6 +54,7 @@ const allowedOrigins = [
     'https://greencart-y.vercel.app',
     'https://ramci.vercel.app',
     'https://ramci.ci',
+    'https://api.ramci.ci',
     'https://www.ramci.ci'
 ];
 
