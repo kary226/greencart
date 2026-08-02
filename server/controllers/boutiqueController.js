@@ -6,24 +6,13 @@ import StaffUser from '../models/StaffUser.js';
 // GET /api/boutiques/moi — Récupérer sa propre boutique
 export const getMaBoutique = async (req, res) => {
     try {
-        console.log('🔍 getMaBoutique - staffUser:', req.staffUser);
-        console.log('🔍 getMaBoutique - staffUser._id:', req.staffUser?._id);
-        
-        if (!req.staffUser) {
-            console.log('❌ getMaBoutique - Aucun staffUser trouvé');
-            return res.status(401).json({ success: false, message: 'Non authentifié' });
-        }
-        
         const boutique = await Boutique.findOne({ ownerId: req.staffUser._id });
-        console.log('🔍 getMaBoutique - boutique trouvée:', boutique);
-        
         if (!boutique) {
             return res.status(404).json({ success: false, message: 'Boutique non trouvée' });
         }
         return res.status(200).json({ success: true, boutique });
     } catch (error) {
-        console.error('❌ Erreur getMaBoutique:', error.message);
-        console.error('📚 Stack:', error.stack);
+        console.error('Erreur getMaBoutique:', error.message);
         res.status(500).json({ success: false, message: error.message });
     }
 };
@@ -31,8 +20,6 @@ export const getMaBoutique = async (req, res) => {
 // PATCH /api/boutiques/moi — Modifier sa boutique (multipart, champ "logo" optionnel)
 export const updateMaBoutique = async (req, res) => {
     try {
-        console.log('🔍 updateMaBoutique - staffUser:', req.staffUser?._id);
-        
         const { nom, description } = req.body;
 
         const boutique = await Boutique.findOne({ ownerId: req.staffUser._id });
@@ -43,8 +30,7 @@ export const updateMaBoutique = async (req, res) => {
         if (nom) boutique.nom = nom;
         if (description !== undefined) boutique.description = description;
 
-        // ✅ Upload direct du logo vers Cloudinary (le frontend envoie le
-        // fichier lui-même, pas une URL déjà hébergée ailleurs).
+        // ✅ Upload direct du logo vers Cloudinary
         if (req.file) {
             if (boutique.logoPublicId) {
                 try {
@@ -72,8 +58,7 @@ export const updateMaBoutique = async (req, res) => {
             boutique
         });
     } catch (error) {
-        console.error('❌ Erreur updateMaBoutique:', error.message);
-        console.error('📚 Stack:', error.stack);
+        console.error('Erreur updateMaBoutique:', error.message);
         res.status(500).json({ success: false, message: error.message });
     }
 };
@@ -98,8 +83,7 @@ export const getBoutiqueById = async (req, res) => {
             produits
         });
     } catch (error) {
-        console.error('❌ Erreur getBoutiqueById:', error.message);
-        console.error('📚 Stack:', error.stack);
+        console.error('Erreur getBoutiqueById:', error.message);
         res.status(500).json({ success: false, message: error.message });
     }
 };
@@ -113,8 +97,7 @@ export const listAllBoutiques = async (req, res) => {
 
         return res.status(200).json({ success: true, boutiques });
     } catch (error) {
-        console.error('❌ Erreur listAllBoutiques:', error.message);
-        console.error('📚 Stack:', error.stack);
+        console.error('Erreur listAllBoutiques:', error.message);
         res.status(500).json({ success: false, message: error.message });
     }
 };
@@ -122,8 +105,6 @@ export const listAllBoutiques = async (req, res) => {
 // POST /api/boutiques — Admin : créer une boutique pour un commerçant
 export const createBoutiqueForCommercial = async (req, res) => {
     try {
-        console.log('🔍 createBoutiqueForCommercial - body:', req.body);
-        
         const { ownerId, nom, description, logo } = req.body;
 
         if (!ownerId) {
@@ -157,8 +138,7 @@ export const createBoutiqueForCommercial = async (req, res) => {
             boutique
         });
     } catch (error) {
-        console.error('❌ Erreur createBoutiqueForCommercial:', error.message);
-        console.error('📚 Stack:', error.stack);
+        console.error('Erreur createBoutiqueForCommercial:', error.message);
         res.status(500).json({ success: false, message: error.message });
     }
 };
