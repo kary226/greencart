@@ -132,20 +132,16 @@ const AddProduct = () => {
     const [editingSizeIndex, setEditingSizeIndex] = useState(null);
     const [openSizesPanel, setOpenSizesPanel] = useState(true);
 
-    const [colors, setColors] = useState([]);
-    const [colorInput, setColorInput] = useState('');
-    const [colorCodeInput, setColorCodeInput] = useState('#000000');
-    const [startImageIndexInput, setStartImageIndexInput] = useState(0);
-    const [editingColorIndex, setEditingColorIndex] = useState(null);
-    const [openColorIndex, setOpenColorIndex] = useState(null);
-    const [showColorForm, setShowColorForm] = useState(false);
-
-    const [variantSizeInput, setVariantSizeInput] = useState('');
-    const [variantStockInput, setVariantStockInput] = useState('');
-    const [variantPriceInput, setVariantPriceInput] = useState('');
-    const [variantOfferPriceInput, setVariantOfferPriceInput] = useState('');
-    const [editingSizeIndexInColor, setEditingSizeIndexInColor] = useState(null);
-    const [editingColorForSize, setEditingColorForSize] = useState(null);
+    // Mode "Couleurs + tailles" — modèle matriciel façon Shopify : deux listes de
+    // valeurs (couleurs, tailles) combinées automatiquement en tableau de variantes,
+    // plutôt que des formulaires imbriqués à remplir un par un.
+    const [variantColors, setVariantColors] = useState([]); // [{ name, colorCode, startImageIndex }]
+    const [variantSizes, setVariantSizes] = useState([]);   // ["S", "M", ...]
+    const [variantCells, setVariantCells] = useState({});   // { "Rouge__S": { stock, price, offerPrice } }
+    const [colorTagInput, setColorTagInput] = useState('');
+    const [colorCodeTagInput, setColorCodeTagInput] = useState('#000000');
+    const [sizeTagInput, setSizeTagInput] = useState('');
+    const [collapsedColorGroups, setCollapsedColorGroups] = useState({});
 
     const [showCropper, setShowCropper] = useState(false);
     const [tempImageFile, setTempImageFile] = useState(null);
@@ -235,132 +231,83 @@ const AddProduct = () => {
         }));
     };
 
-    const resetColorForm = () => {
-        setColorInput('');
-        setColorCodeInput('#000000');
-        setStartImageIndexInput(0);
-        setEditingColorIndex(null);
+    // Clé unique pour une cellule du tableau (une combinaison couleur × taille)
+    const cellKey = (colorName, size) => `${colorName}__${size ?? ''}`;
+
+    const updateCell = (colorName, size, field, value) => {
+        const key = cellKey(colorName, size);
+        setVariantCells(prev => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
     };
 
-    const resetVariantSizeForm = () => {
-        setVariantSizeInput('');
-        setVariantStockInput('');
-        setVariantPriceInput('');
-        setVariantOfferPriceInput('');
-        setEditingSizeIndexInColor(null);
-        setEditingColorForSize(null);
-    };
-
-    const addColor = () => {
-        const colorName = colorInput.trim() || 'Sans couleur';
-
-        if (colorInput.trim()) {
-            const existingColor = colors.find(c => c.color.toLowerCase() === colorInput.trim().toLowerCase());
-            if (existingColor) {
-                toast.error('Cette couleur existe déjà');
-                return;
-            }
-        }
-
-        const newColor = {
-            color: colorName,
-            colorCode: colorCodeInput,
-            startImageIndex: Number(startImageIndexInput) || 0,
-            sizes: []
-        };
-
-        if (editingColorIndex !== null) {
-            const updatedColors = [...colors];
-            updatedColors[editingColorIndex] = { ...updatedColors[editingColorIndex], ...newColor, sizes: updatedColors[editingColorIndex].sizes };
-            setColors(updatedColors);
-        } else {
-            setColors([...colors, newColor]);
-        }
-
-        resetColorForm();
-        setShowColorForm(false);
-    };
-
-    const addSizeToColor = (colorIndex) => {
-        if (!variantStockInput || Number(variantStockInput) < 0) {
-            toast.error('Entrez un stock valide');
+    const addColorTag = () => {
+        const trimmed = colorTagInput.trim();
+        if (!trimmed) return;
+        if (variantColors.some(c => c.name.toLowerCase() === trimmed.toLowerCase())) {
+            toast.error('Cette couleur existe déjà');
             return;
         }
+        setVariantColors(prev => [...prev, { name: trimmed, colorCode: colorCodeTagInput, startImageIndex: 0 }]);
+        setColorTagInput('');
+    };
 
-        const newSize = {
-            size: variantSizeInput.trim().toUpperCase() || null,
-            stock: Number(variantStockInput),
-            price: variantPriceInput !== '' ? Number(variantPriceInput) : null,
-            offerPrice: variantOfferPriceInput !== '' ? Number(variantOfferPriceInput) : null
-        };
+    const removeColorTag = (name) => {
+        setVariantColors(prev => prev.filter(c => c.name !== name));
+        setVariantCells(prev => {
+            const next = { ...prev };
+            Object.keys(next).forEach((k) => { if (k.startsWith(`${name}__`)) delete next[k]; });
+            return next;
+        });
+    };
 
-        const updatedColors = [...colors];
-        if (editingSizeIndexInColor !== null && editingColorForSize === colorIndex) {
-            updatedColors[colorIndex].sizes[editingSizeIndexInColor] = newSize;
-        } else {
-            updatedColors[colorIndex].sizes.push(newSize);
+    const updateColorMeta = (name, field, value) => {
+        setVariantColors(prev => prev.map(c => (c.name === name ? { ...c, [field]: value } : c)));
+    };
+
+    const addSizeTag = () => {
+        const trimmed = sizeTagInput.trim().toUpperCase();
+        if (!trimmed) return;
+        if (variantSizes.includes(trimmed)) {
+            toast.error('Cette taille existe déjà');
+            return;
         }
-        setColors(updatedColors);
-        resetVariantSizeForm();
+        setVariantSizes(prev => [...prev, trimmed]);
+        setSizeTagInput('');
     };
 
-    const editSizeInColor = (colorIndex, sizeIndex) => {
-        const size = colors[colorIndex].sizes[sizeIndex];
-        setVariantSizeInput(size.size || '');
-        setVariantStockInput(size.stock.toString());
-        setVariantPriceInput(size.price !== null ? size.price.toString() : '');
-        setVariantOfferPriceInput(size.offerPrice !== null ? size.offerPrice.toString() : '');
-        setEditingSizeIndexInColor(sizeIndex);
-        setEditingColorForSize(colorIndex);
+    const removeSizeTag = (size) => {
+        setVariantSizes(prev => prev.filter(s => s !== size));
+        setVariantCells(prev => {
+            const next = { ...prev };
+            Object.keys(next).forEach((k) => { if (k.endsWith(`__${size}`)) delete next[k]; });
+            return next;
+        });
     };
 
-    const removeSizeFromColor = (colorIndex, sizeIndex) => {
-        const updatedColors = [...colors];
-        updatedColors[colorIndex].sizes = updatedColors[colorIndex].sizes.filter((_, i) => i !== sizeIndex);
-        setColors(updatedColors);
-        if (editingSizeIndexInColor === sizeIndex && editingColorForSize === colorIndex) {
-            resetVariantSizeForm();
-        }
+    const toggleColorGroup = (name) => {
+        setCollapsedColorGroups(prev => ({ ...prev, [name]: !prev[name] }));
     };
 
-    const removeColor = (index) => {
-        setColors(colors.filter((_, i) => i !== index));
-        if (editingColorIndex === index) {
-            resetColorForm();
-            setShowColorForm(false);
-        }
-        if (openColorIndex === index) {
-            setOpenColorIndex(null);
-        }
-    };
-
-    const editColor = (index) => {
-        const color = colors[index];
-        setColorInput(color.color !== 'Sans couleur' ? color.color : '');
-        setColorCodeInput(color.colorCode || '#000000');
-        setStartImageIndexInput(color.startImageIndex || 0);
-        setEditingColorIndex(index);
-        setShowColorForm(true);
-        setOpenColorIndex(null);
-    };
-
-    const cancelColorForm = () => {
-        resetColorForm();
-        setShowColorForm(false);
+    // Total de stock saisi pour une couleur, toutes tailles confondues — affiché
+    // dans l'en-tête du groupe pour un aperçu rapide, comme sur Shopify.
+    const colorGroupStockTotal = (colorName) => {
+        const sizes = variantSizes.length > 0 ? variantSizes : [null];
+        return sizes.reduce((sum, sz) => sum + (Number(variantCells[cellKey(colorName, sz)]?.stock) || 0), 0);
     };
 
     const convertVariantsToApi = () => {
         const variants = [];
-        colors.forEach(color => {
-            color.sizes.forEach(size => {
+        const sizes = variantSizes.length > 0 ? variantSizes : [null];
+        variantColors.forEach(col => {
+            sizes.forEach(sz => {
+                const cell = variantCells[cellKey(col.name, sz)] || {};
                 variants.push({
-                    color: color.color !== 'Sans couleur' ? color.color : null,
-                    colorCode: color.colorCode || null,
-                    size: size.size,
-                    stock: size.stock,
-                    price: size.price,
-                    offerPrice: size.offerPrice,
-                    startImageIndex: color.startImageIndex || 0
+                    color: col.name,
+                    colorCode: col.colorCode || null,
+                    size: sz,
+                    stock: Number(cell.stock) || 0,
+                    price: cell.price !== undefined && cell.price !== '' ? Number(cell.price) : null,
+                    offerPrice: cell.offerPrice !== undefined && cell.offerPrice !== '' ? Number(cell.offerPrice) : null,
+                    startImageIndex: Number(col.startImageIndex) || 0,
                 });
             });
         });
@@ -446,14 +393,15 @@ const AddProduct = () => {
             }
             variants = convertSizesToVariants();
         } else if (productMode === 'variants') {
-            if (colors.length === 0) {
-                toast.error('Ajoutez au moins une couleur (ou laissez vide pour "Sans couleur")');
+            if (variantColors.length === 0) {
+                toast.error('Ajoutez au moins une couleur');
                 return;
             }
             let hasStock = false;
-            colors.forEach(color => {
-                color.sizes.forEach(size => {
-                    if (size.stock > 0) hasStock = true;
+            const sizesForCheck = variantSizes.length > 0 ? variantSizes : [null];
+            variantColors.forEach(col => {
+                sizesForCheck.forEach(sz => {
+                    if (Number(variantCells[cellKey(col.name, sz)]?.stock) > 0) hasStock = true;
                 });
             });
             if (!hasStock) {
@@ -511,14 +459,16 @@ const AddProduct = () => {
                 setSimpleStock('');
                 setSimpleSize('');
                 setSizesList([]);
-                setColors([]);
+                setVariantColors([]);
+                setVariantSizes([]);
+                setVariantCells({});
+                setColorTagInput('');
+                setColorCodeTagInput('#000000');
+                setSizeTagInput('');
+                setCollapsedColorGroups({});
                 setProductMode('simple');
                 setLabelType('size');
                 resetSizeForm();
-                resetColorForm();
-                resetVariantSizeForm();
-                setShowColorForm(false);
-                setOpenColorIndex(null);
             } else {
                 toast.error(data.message);
             }
@@ -829,158 +779,166 @@ const AddProduct = () => {
                         </div>
                     )}
 
-                    {/* Mode VARIANTS (Couleurs + Tailles) */}
+                    {/* Mode VARIANTS (Couleurs + Tailles) — modèle matriciel façon Shopify :
+                        on saisit les valeurs une fois, le tableau se génère tout seul. */}
                     {productMode === 'variants' && (
-                        <div className="flex flex-col gap-3 mt-4">
-                            {colors.length > 0 && (
-                                <div className="flex flex-col gap-2">
-                                    {colors.map((color, colorIndex) => {
-                                        const isOpen = openColorIndex === colorIndex;
-                                        const totalStock = color.sizes.reduce((sum, s) => sum + s.stock, 0);
-                                        return (
-                                            <div key={colorIndex} className="border border-gray-200 rounded-xl overflow-hidden">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setOpenColorIndex(isOpen ? null : colorIndex)}
-                                                    className="w-full flex items-center justify-between px-3.5 py-3 bg-gray-50 hover:bg-gray-100 transition"
-                                                >
-                                                    <div className="flex items-center gap-2">
-                                                        {color.color !== 'Sans couleur' && (
-                                                            <span className="w-3.5 h-3.5 rounded-full border border-gray-300" style={{ backgroundColor: color.colorCode }}></span>
-                                                        )}
-                                                        <span className="font-medium text-sm text-gray-900">{color.color}</span>
-                                                        <span className="text-xs text-gray-400">({color.sizes.length})</span>
-                                                        <span className="text-xs text-gray-500">Stock total : {totalStock}</span>
-                                                    </div>
-                                                    <ChevronDown size={16} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                        <div className="flex flex-col gap-4 mt-4">
+                            {/* Étape 1 — couleurs */}
+                            <div>
+                                <p className="text-sm font-medium text-gray-800 mb-2">Couleurs</p>
+                                {variantColors.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mb-2">
+                                        {variantColors.map((c) => (
+                                            <span key={c.name} className="flex items-center gap-1.5 pl-1.5 pr-2 py-1 bg-gray-100 rounded-full text-sm">
+                                                <span className="w-3.5 h-3.5 rounded-full border border-gray-300 shrink-0" style={{ backgroundColor: c.colorCode }} />
+                                                {c.name}
+                                                <button type="button" onClick={() => removeColorTag(c.name)} className="text-gray-400 hover:text-red-600">
+                                                    <X size={12} />
                                                 </button>
-                                                {isOpen && (
-                                                    <div className="px-3.5 py-3.5 border-t border-gray-200 bg-white space-y-3">
-                                                        {color.sizes.length > 0 && (
-                                                            <div className="space-y-2">
-                                                                {color.sizes.map((size, sizeIndex) => (
-                                                                    <div key={sizeIndex} className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg">
-                                                                        <div className="text-sm">
-                                                                            <span className="font-medium text-gray-800">{size.size || 'Sans taille'}</span>
-                                                                            <span className="text-xs text-gray-500 ml-2">Stock : {size.stock}</span>
-                                                                            {size.price && <span className="text-xs text-gray-400 ml-2">{size.price} FCFA</span>}
-                                                                        </div>
-                                                                        <div className="flex gap-0.5">
-                                                                            <IconButton onClick={() => editSizeInColor(colorIndex, sizeIndex)}><Pencil size={13} /></IconButton>
-                                                                            <IconButton variant="danger" onClick={() => removeSizeFromColor(colorIndex, sizeIndex)}><X size={14} /></IconButton>
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                        <div className="grid grid-cols-3 gap-2">
-                                                            <input
-                                                                value={variantSizeInput}
-                                                                onChange={e => setVariantSizeInput(e.target.value)}
-                                                                type="text"
-                                                                placeholder="Taille (optionnel)"
-                                                                className={`${inputClass} col-span-2`}
-                                                            />
-                                                            <input
-                                                                value={variantStockInput}
-                                                                onChange={e => setVariantStockInput(e.target.value)}
-                                                                type="number"
-                                                                placeholder="Stock *"
-                                                                className={inputClass}
-                                                                required
-                                                            />
-                                                        </div>
-                                                        <div className="grid grid-cols-2 gap-2">
-                                                            <input
-                                                                value={variantPriceInput}
-                                                                onChange={e => setVariantPriceInput(e.target.value)}
-                                                                type="number"
-                                                                placeholder="Prix (optionnel)"
-                                                                className={inputClass}
-                                                            />
-                                                            <input
-                                                                value={variantOfferPriceInput}
-                                                                onChange={e => setVariantOfferPriceInput(e.target.value)}
-                                                                type="number"
-                                                                placeholder="Promo (optionnel)"
-                                                                className={inputClass}
-                                                            />
-                                                        </div>
-                                                        <div className="flex gap-2">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => addSizeToColor(colorIndex)}
-                                                                className="flex-1 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:opacity-90 transition"
-                                                            >
-                                                                {editingSizeIndexInColor !== null && editingColorForSize === colorIndex ? 'Mettre à jour' : 'Ajouter une taille'}
-                                                            </button>
-                                                            {editingSizeIndexInColor !== null && editingColorForSize === colorIndex && (
-                                                                <button type="button" onClick={resetVariantSizeForm} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">Annuler</button>
-                                                            )}
-                                                        </div>
-                                                        <div className="flex gap-2 pt-2 border-t border-gray-100">
-                                                            <button type="button" onClick={() => editColor(colorIndex)} className="flex-1 py-2 text-gray-700 bg-gray-100 rounded-lg text-xs font-medium hover:bg-gray-200 transition">
-                                                                Modifier la couleur
-                                                            </button>
-                                                            <button type="button" onClick={() => removeColor(colorIndex)} className="flex-1 py-2 text-red-600 bg-red-50 rounded-lg text-xs font-medium hover:bg-red-100 transition">
-                                                                Supprimer la couleur
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-
-                            {!showColorForm && (
-                                <button
-                                    type="button"
-                                    onClick={() => setShowColorForm(true)}
-                                    className="flex items-center justify-center gap-1.5 w-full py-2.5 border-2 border-dashed border-gray-200 rounded-xl text-sm font-medium text-gray-500 hover:border-gray-400 hover:text-gray-700 transition"
-                                >
-                                    <Plus size={15} /> Ajouter une couleur (optionnel)
-                                </button>
-                            )}
-
-                            {showColorForm && (
-                                <div className="bg-gray-50 p-3.5 rounded-xl space-y-3 border border-gray-200">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm font-medium text-gray-900">
-                                            {editingColorIndex !== null ? 'Modifier la couleur' : 'Nouvelle couleur (optionnel)'}
-                                        </span>
-                                        <button type="button" onClick={cancelColorForm} className="text-xs text-gray-400 hover:text-gray-600">Annuler</button>
+                                            </span>
+                                        ))}
                                     </div>
-                                    <div className="flex gap-2 items-center">
-                                        <input
-                                            value={colorInput}
-                                            onChange={e => setColorInput(e.target.value)}
-                                            type="text"
-                                            placeholder="Nom de la couleur (optionnel)"
-                                            className={`${inputClass} flex-1`}
-                                        />
-                                        <input
-                                            value={colorCodeInput}
-                                            onChange={e => setColorCodeInput(e.target.value)}
-                                            type="color"
-                                            className="w-11 h-10 rounded-lg border border-gray-200 cursor-pointer"
-                                        />
-                                    </div>
-                                    <Field label="Position de départ dans les photos">
-                                        <input
-                                            value={startImageIndexInput}
-                                            onChange={e => setStartImageIndexInput(Number(e.target.value))}
-                                            type="number"
-                                            min="0"
-                                            placeholder="Ex : 0 pour la première couleur, 3 pour la suivante…"
-                                            className={inputClass}
-                                        />
-                                    </Field>
-                                    <Hint>Permet d'afficher d'abord les photos correspondant à cette couleur.</Hint>
-                                    <button type="button" onClick={addColor} className="w-full py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:opacity-90 transition">
-                                        {editingColorIndex !== null ? 'Mettre à jour la couleur' : 'Ajouter cette couleur'}
+                                )}
+                                <div className="flex gap-2">
+                                    <input
+                                        value={colorTagInput}
+                                        onChange={(e) => setColorTagInput(e.target.value)}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addColorTag(); } }}
+                                        type="text"
+                                        placeholder="Ex : Rouge — puis Entrée"
+                                        className={`${inputClass} flex-1`}
+                                    />
+                                    <input
+                                        value={colorCodeTagInput}
+                                        onChange={(e) => setColorCodeTagInput(e.target.value)}
+                                        type="color"
+                                        className="w-11 h-10 rounded-lg border border-gray-200 cursor-pointer shrink-0"
+                                    />
+                                    <button type="button" onClick={addColorTag} className="shrink-0 px-3.5 py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:opacity-90 transition">
+                                        Ajouter
                                     </button>
+                                </div>
+                            </div>
+
+                            {/* Étape 2 — tailles (optionnel) */}
+                            <div>
+                                <p className="text-sm font-medium text-gray-800 mb-2">
+                                    Tailles <span className="text-gray-400 font-normal">(optionnel)</span>
+                                </p>
+                                {variantSizes.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mb-2">
+                                        {variantSizes.map((s) => (
+                                            <span key={s} className="flex items-center gap-1.5 pl-2.5 pr-2 py-1 bg-gray-100 rounded-full text-sm">
+                                                {s}
+                                                <button type="button" onClick={() => removeSizeTag(s)} className="text-gray-400 hover:text-red-600">
+                                                    <X size={12} />
+                                                </button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                                <div className="flex gap-2">
+                                    <input
+                                        value={sizeTagInput}
+                                        onChange={(e) => setSizeTagInput(e.target.value)}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSizeTag(); } }}
+                                        type="text"
+                                        placeholder="Ex : S, M, L — puis Entrée"
+                                        className={`${inputClass} flex-1`}
+                                    />
+                                    <button type="button" onClick={addSizeTag} className="shrink-0 px-3.5 py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:opacity-90 transition">
+                                        Ajouter
+                                    </button>
+                                </div>
+                                <Hint>Sans taille, chaque couleur n'a qu'une seule ligne de stock.</Hint>
+                            </div>
+
+                            {/* Étape 3 — tableau généré automatiquement (couleurs × tailles), édition directe */}
+                            {variantColors.length > 0 && (
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <p className="text-sm font-medium text-gray-800">Stock &amp; prix par variante</p>
+                                        <span className="text-xs text-gray-400">
+                                            {variantColors.length} couleur(s) × {variantSizes.length || 1} taille(s)
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        {variantColors.map((col) => {
+                                            const sizesForRows = variantSizes.length > 0 ? variantSizes : [null];
+                                            const collapsed = !!collapsedColorGroups[col.name];
+                                            return (
+                                                <div key={col.name} className="border border-gray-200 rounded-xl overflow-hidden">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => toggleColorGroup(col.name)}
+                                                        className="w-full flex items-center justify-between px-3.5 py-3 bg-gray-50 hover:bg-gray-100 transition"
+                                                    >
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="w-3.5 h-3.5 rounded-full border border-gray-300 shrink-0" style={{ backgroundColor: col.colorCode }} />
+                                                            <span className="font-medium text-sm text-gray-900">{col.name}</span>
+                                                            <span className="text-xs text-gray-500">Stock total : {colorGroupStockTotal(col.name)}</span>
+                                                        </div>
+                                                        <ChevronDown size={16} className={`text-gray-400 transition-transform ${collapsed ? '' : 'rotate-180'}`} />
+                                                    </button>
+                                                    {!collapsed && (
+                                                        <div className="border-t border-gray-200 bg-white">
+                                                            <div className="px-3.5 py-2.5 border-b border-gray-100 flex items-center gap-2.5">
+                                                                <span className="text-xs text-gray-500 shrink-0">Départ photos :</span>
+                                                                <input
+                                                                    value={col.startImageIndex}
+                                                                    onChange={(e) => updateColorMeta(col.name, 'startImageIndex', Number(e.target.value))}
+                                                                    type="number"
+                                                                    min="0"
+                                                                    className={`${inputClass} w-20 py-1.5`}
+                                                                />
+                                                                <span className="text-xs text-gray-400">0 = premières photos, 3 = à partir de la 4ᵉ…</span>
+                                                            </div>
+                                                            <div className="grid grid-cols-[1fr_1fr_1fr_1fr] gap-2 px-3.5 pt-2.5 text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                                                                <span>{variantSizes.length > 0 ? 'Taille' : ''}</span>
+                                                                <span>Stock *</span>
+                                                                <span>Prix</span>
+                                                                <span>Promo</span>
+                                                            </div>
+                                                            <div className="divide-y divide-gray-100">
+                                                                {sizesForRows.map((sz) => {
+                                                                    const cell = variantCells[cellKey(col.name, sz)] || {};
+                                                                    return (
+                                                                        <div key={sz ?? '_'} className="grid grid-cols-[1fr_1fr_1fr_1fr] gap-2 items-center px-3.5 py-2">
+                                                                            <span className="text-sm font-medium text-gray-700">{sz || 'Toutes tailles'}</span>
+                                                                            <input
+                                                                                value={cell.stock ?? ''}
+                                                                                onChange={(e) => updateCell(col.name, sz, 'stock', e.target.value)}
+                                                                                type="number" min="0" placeholder="0"
+                                                                                className={`${inputClass} py-1.5`}
+                                                                            />
+                                                                            <input
+                                                                                value={cell.price ?? ''}
+                                                                                onChange={(e) => updateCell(col.name, sz, 'price', e.target.value)}
+                                                                                type="number" placeholder="Défaut"
+                                                                                className={`${inputClass} py-1.5`}
+                                                                            />
+                                                                            <input
+                                                                                value={cell.offerPrice ?? ''}
+                                                                                onChange={(e) => updateCell(col.name, sz, 'offerPrice', e.target.value)}
+                                                                                type="number" placeholder="Défaut"
+                                                                                className={`${inputClass} py-1.5`}
+                                                                            />
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                            <div className="px-3.5 py-2 border-t border-gray-100">
+                                                                <button type="button" onClick={() => removeColorTag(col.name)} className="text-xs font-medium text-red-600 hover:text-red-700">
+                                                                    Supprimer la couleur « {col.name} »
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    <Hint>Prix et promo vides → le produit utilise le prix par défaut défini plus haut.</Hint>
                                 </div>
                             )}
                         </div>
