@@ -22,19 +22,8 @@ import locationRouter from './routes/locationRoute.js';
 import deliveryRouter from './routes/deliveryRoute.js';
 import settingRouter from './routes/settingRoute.js';
 import pushRouter from './routes/pushRoute.js';
-import staffRouter from './routes/staffRoute.js';
 import { geniuspayWebhook } from './controllers/geniuspayController.js';
 import dns from 'dns';
-
-// ✅ PHASE 3 - Routes Commerçant
-import boutiqueRouter from './routes/boutiqueRoute.js';
-import walletRouter from './routes/walletRoute.js';
-import retraitRouter from './routes/retraitRoute.js';
-
-// ✅ PHASE 5 - Routes Assistant Shein
-import colisSheinAdminRouter from './routes/colisSheinAdminRoute.js';
-import messageColisRouter from './routes/messageColisRoute.js';
-
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -54,7 +43,6 @@ const allowedOrigins = [
     'https://greencart-y.vercel.app',
     'https://ramci.vercel.app',
     'https://ramci.ci',
-    'https://api.ramci.ci',
     'https://www.ramci.ci'
 ];
 
@@ -63,7 +51,6 @@ app.use(cors({
         if (!origin || allowedOrigins.includes(origin)) {
             return callback(null, true);
         }
-        console.log(`⚠️ Origine rejetée par CORS: ${origin}`);
         return callback(new Error('Origine non autorisée par CORS'));
     },
     credentials: true,
@@ -80,9 +67,17 @@ app.use(helmet({
     crossOriginResourcePolicy: false,
 }));
 
-app.use(express.json({ limit: '150mb' }));
-app.use(express.urlencoded({ limit: '150mb', extended: true }));
+// ✅ AJOUT : Middleware standard avec LIMITES AUGMENTÉES
+app.use(express.json({ 
+    limit: '150mb'  // Pour les gros JSON (productData)
+}));
+app.use(express.urlencoded({ 
+    limit: '150mb', 
+    extended: true 
+}));
 app.use(cookieParser());
+
+// [FIX défense en profondeur] Nettoie automatiquement req.body/req.query/
 app.use(mongoSanitize());
 
 // Route de test
@@ -92,7 +87,6 @@ app.get('/', (req, res) => res.send("API is Working"));
 app.use('/api/shein-cart', sheinCartRouter);
 app.use('/api/user', userRouter);
 app.use('/api/seller', sellerRouter);
-app.use('/api/staff', staffRouter);
 app.use('/api/product', productRouter);
 app.use('/api/cart', cartRouter);
 app.use('/api/address', addressRouter);
@@ -107,27 +101,35 @@ app.use('/api/delivery', deliveryRouter);
 app.use('/api/setting', settingRouter);
 app.use('/api/push', pushRouter);
 
-// ✅ PHASE 3 - Routes Commerçant
-app.use('/api/boutiques', boutiqueRouter);
-app.use('/api/wallet', walletRouter);
-app.use('/api/retraits', retraitRouter);
-
-app.use('/api/shein-cart/admin', colisSheinAdminRouter);
-app.use('/api/message-colis', messageColisRouter);
-
-// Gestionnaire d'erreur global
+// ✅ AJOUT : Gestionnaire d'erreur global pour les uploads
 app.use((err, req, res, next) => {
+    // Erreur CORS
     if (err && err.message === 'Origine non autorisée par CORS') {
         return res.status(403).json({ success: false, message: 'Origine non autorisée' });
     }
+    
+    // Erreur de taille de payload
     if (err.type === 'entity.too.large') {
-        return res.status(413).json({ success: false, message: 'Les données sont trop volumineuses. Taille max: 150MB' });
+        return res.status(413).json({ 
+            success: false, 
+            message: 'Les données sont trop volumineuses. Taille max: 150MB' 
+        });
     }
+    
+    // Erreur Multer déjà gérée dans productRoute.js
     if (err.code === 'LIMIT_FILE_SIZE' || err.code === 'LIMIT_FILE_COUNT') {
-        return res.status(400).json({ success: false, message: err.message });
+        return res.status(400).json({ 
+            success: false, 
+            message: err.message 
+        });
     }
+    
+    // Erreur inattendue
     console.error('❌ Erreur serveur non gérée:', err);
-    res.status(500).json({ success: false, message: 'Erreur interne du serveur' });
+    res.status(500).json({ 
+        success: false, 
+        message: 'Erreur interne du serveur' 
+    });
 });
 
 // Démarrage du serveur
@@ -135,4 +137,5 @@ app.listen(port, ()=>{
     console.log(`Server is running on http://localhost:${port}`);
 });
 
+// EXPORT POUR VERCEL (SERVERLESS FUNCTIONS)
 export default app;

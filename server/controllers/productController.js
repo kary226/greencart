@@ -5,8 +5,6 @@ import { scrapeProductPreview, fetchImagesAsDataUrls } from "../services/scraper
 // ✅ Add Product - AVEC VIDÉO ET BOUTIQUE
 export const addProduct = async (req, res) => {
     try {
-        console.log('📥 Début addProduct');
-        
         let productData = JSON.parse(req.body.productData);
         const images = req.files?.images || [];
         const videoFile = req.files?.video ? req.files.video[0] : null;
@@ -210,8 +208,6 @@ export const productList = async (req, res) => {
         if (req.staffUser && req.staffUser.role === 'commercant') {
             filter.boutiqueId = req.staffUser.boutiqueId;
         }
-
-        console.log(`📊 Tri par: ${sort}, Filtre:`, filter);
 
         if (sort === 'discount') {
             const matchStage = {
