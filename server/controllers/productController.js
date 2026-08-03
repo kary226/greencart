@@ -9,10 +9,8 @@ export const addProduct = async (req, res) => {
         const images = req.files?.images || [];
         const videoFile = req.files?.video ? req.files.video[0] : null;
 
-        // ✅ Récupérer la boutique
         let boutiqueId = null;
         
-        // CAS 1 : Staff (commerçant ou admin)
         if (req.staffUser) {
             if (req.staffUser.role === 'commercant') {
                 if (!req.staffUser.boutiqueId) {
@@ -31,14 +29,9 @@ export const addProduct = async (req, res) => {
                 });
             }
         } 
-        // CAS 2 : Seller (compte technique)
-        // [FIX 403] req.user n'existe jamais ici — authSeller pose req.isTechnicalSeller,
-        // pas req.user. C'est cette condition, toujours fausse, qui faisait tomber
-        // systématiquement dans le CAS 3 et renvoyait 403 pour un compte pourtant valide.
         else if (req.isTechnicalSeller) {
             boutiqueId = null;
         } 
-        // CAS 3 : Non authentifié
         else {
             return res.status(403).json({
                 success: false,
@@ -46,7 +39,6 @@ export const addProduct = async (req, res) => {
             });
         }
 
-        // Upload des images
         let imagesUrl = [];
         if (images.length > 0) {
             imagesUrl = await Promise.all(
@@ -71,7 +63,6 @@ export const addProduct = async (req, res) => {
             );
         }
 
-        // Upload de la vidéo
         let videoUrl = null;
         let videoPublicId = null;
         if (videoFile) {
@@ -139,7 +130,7 @@ export const addProduct = async (req, res) => {
     }
 };
 
-// ✅ Ajouter des images à un produit existant (avec vérification boutique)
+// ✅ Ajouter des images à un produit existant
 export const addProductImages = async (req, res) => {
     try {
         const { productId } = req.body;
@@ -159,7 +150,13 @@ export const addProductImages = async (req, res) => {
         }
 
         if (req.staffUser && req.staffUser.role === 'commercant') {
-            if (product.boutiqueId?.toString() !== req.staffUser.boutiqueId?.toString()) {
+            if (!product.boutiqueId) {
+                return res.status(403).json({
+                    success: false,
+                    message: "Ce produit n'appartient à aucune boutique"
+                });
+            }
+            if (product.boutiqueId.toString() !== req.staffUser.boutiqueId?.toString()) {
                 return res.status(403).json({ 
                     success: false, 
                     message: "Vous n'êtes pas autorisé à modifier ce produit" 
@@ -193,7 +190,7 @@ export const addProductImages = async (req, res) => {
     }
 };
 
-// ✅ Get Product : /api/product/list - AVEC FILTRE BOUTIQUE
+// ✅ Get Product : /api/product/list
 export const productList = async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
@@ -319,22 +316,43 @@ export const changeStock = async (req, res) => {
     }
 };
 
-// ✅ UPDATE PRODUCT - AVEC VÉRIFICATION BOUTIQUE
+// ✅ UPDATE PRODUCT - VERSION CORRIGÉE
 export const updateProduct = async (req, res) => {
     try {
         const { id, name, description, categories, price, offerPrice, variants, stock, size, videoUrl, videoPublicId, labelType, image } = req.body;
         const videoFile = req.file;
+
+        console.log('🔍 updateProduct - ID:', id);
+        console.log('🔍 updateProduct - req.staffUser:', req.staffUser);
 
         const existingProduct = await Product.findById(id);
         if (!existingProduct) {
             return res.status(404).json({ success: false, message: "Produit non trouvé" });
         }
 
+        console.log('🔍 updateProduct - existingProduct.boutiqueId:', existingProduct.boutiqueId);
+
+        // ✅ Vérification des droits pour le commerçant
         if (req.staffUser && req.staffUser.role === 'commercant') {
-            if (existingProduct.boutiqueId?.toString() !== req.staffUser.boutiqueId?.toString()) {
-                return res.status(403).json({ 
-                    success: false, 
-                    message: "Vous n'êtes pas autorisé à modifier ce produit" 
+            // Vérifier que le commerçant a une boutique
+            if (!req.staffUser.boutiqueId) {
+                return res.status(403).json({
+                    success: false,
+                    message: "Vous n'avez pas de boutique associée à votre compte"
+                });
+            }
+            // Vérifier que le produit a une boutique
+            if (!existingProduct.boutiqueId) {
+                return res.status(403).json({
+                    success: false,
+                    message: "Ce produit n'appartient à aucune boutique"
+                });
+            }
+            // Vérifier que le produit appartient bien à la boutique du commerçant
+            if (existingProduct.boutiqueId.toString() !== req.staffUser.boutiqueId.toString()) {
+                return res.status(403).json({
+                    success: false,
+                    message: "Vous n'êtes pas autorisé à modifier ce produit"
                 });
             }
         }
@@ -443,7 +461,13 @@ export const deleteProduct = async (req, res) => {
         }
 
         if (req.staffUser && req.staffUser.role === 'commercant') {
-            if (product.boutiqueId?.toString() !== req.staffUser.boutiqueId?.toString()) {
+            if (!product.boutiqueId) {
+                return res.status(403).json({
+                    success: false,
+                    message: "Ce produit n'appartient à aucune boutique"
+                });
+            }
+            if (product.boutiqueId.toString() !== req.staffUser.boutiqueId?.toString()) {
                 return res.status(403).json({ 
                     success: false, 
                     message: "Vous n'êtes pas autorisé à supprimer ce produit" 

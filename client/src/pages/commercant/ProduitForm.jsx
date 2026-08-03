@@ -49,7 +49,7 @@ const Field = ({ label, required, children, hint }) => (
 );
 
 const inputClass =
-    "outline-none py-2.5 px-3 rounded-lg border border-gray-200 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-400 transition";
+    "outline-none py-2.5 px-3 rounded-lg border border-gray-200 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-400 transition w-full";
 
 const quillModules = {
     toolbar: [
@@ -180,9 +180,12 @@ const ProduitForm = () => {
         if (!isEdition) return;
         const loadProduct = async () => {
             try {
+                console.log('🔍 Chargement du produit:', id);
                 const { data } = await axios.post('/api/product/id', { id });
+                console.log('🔍 Réponse:', data);
                 if (data.success && data.product) {
                     const p = data.product;
+                    console.log('✅ Produit chargé:', p);
                     setName(p.name || '');
                     setDescription(p.description || '');
                     setSelectedCategories(p.categories || []);
@@ -236,6 +239,7 @@ const ProduitForm = () => {
                     navigate('/commercant/produits');
                 }
             } catch (error) {
+                console.error('❌ Erreur chargement produit:', error);
                 toast.error(error.response?.data?.message || error.message);
                 navigate('/commercant/produits');
             } finally {
@@ -479,6 +483,17 @@ const ProduitForm = () => {
     // Soumission
     const onSubmit = async (e) => {
         e.preventDefault();
+        console.log('🚀 === DÉBUT SOUMISSION MODIFICATION ===');
+        console.log('📝 ID du produit:', id);
+        console.log('📝 Nom:', name);
+        console.log('📝 Catégories:', selectedCategories);
+        console.log('📝 Prix:', price);
+        console.log('📝 Prix promo:', offerPrice);
+        console.log('📝 Mode produit:', productMode);
+        console.log('📝 Images existantes:', existingImages.length);
+        console.log('📝 Nouvelles images:', files.length);
+        console.log('📝 Vidéo:', videoFile ? 'Oui' : 'Non');
+
         if (!validate()) return;
         setSubmitting(true);
 
@@ -513,6 +528,8 @@ const ProduitForm = () => {
             productData.size = null;
         }
 
+        console.log('📦 ProductData envoyé:', JSON.stringify(productData, null, 2));
+
         try {
             if (!isEdition) {
                 const formData = new FormData();
@@ -530,11 +547,14 @@ const ProduitForm = () => {
                     toast.error(data.message);
                 }
             } else {
+                console.log('📤 Envoi de la mise à jour...');
                 const { data } = await axios.post('/api/product/staff/update', {
                     id,
                     ...productData,
                     image: existingImages,
                 });
+
+                console.log('📥 Réponse update:', data);
 
                 if (!data.success) {
                     toast.error(data.message);
@@ -543,6 +563,7 @@ const ProduitForm = () => {
                 }
 
                 if (files.length > 0) {
+                    console.log('📸 Upload de nouvelles images...');
                     const imgForm = new FormData();
                     imgForm.append('productId', id);
                     files.forEach((file) => imgForm.append('images', file));
@@ -552,6 +573,7 @@ const ProduitForm = () => {
                 }
 
                 if (videoFile && typeof videoFile !== 'string') {
+                    console.log('🎬 Upload de la vidéo...');
                     const videoForm = new FormData();
                     videoForm.append('id', id);
                     videoForm.append('video', videoFile);
@@ -560,14 +582,18 @@ const ProduitForm = () => {
                     });
                 }
 
-                toast.success('Produit mis à jour');
+                toast.success('Produit mis à jour avec succès');
                 navigate('/commercant/produits');
             }
         } catch (error) {
+            console.error('❌ ERREUR SOUMISSION:', error);
+            console.error('❌ Response:', error.response);
+            console.error('❌ Response data:', error.response?.data);
             toast.error(error.response?.data?.message || error.message);
         } finally {
             setSubmitting(false);
         }
+        console.log('🚀 === FIN SOUMISSION MODIFICATION ===');
     };
 
     if (loading) {
