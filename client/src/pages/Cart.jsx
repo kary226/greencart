@@ -4,7 +4,7 @@ import toast from "react-hot-toast";
 import CouponInput from "../components/CouponInput";
 import {
     ShoppingBag, Trash2, ArrowRight, MapPin, Truck, CreditCard, Plus,
-    Minus, MoreVertical, Heart, Tag, X, Check, ChevronDown
+    Minus, MoreVertical, Heart, Tag, X, Check, ChevronDown, Home, Zap, PackageCheck, Edit2
 } from "lucide-react";
 
 const Cart = () => {
@@ -26,7 +26,17 @@ const Cart = () => {
     const [deliveryTypes, setDeliveryTypes] = useState([])
     const [selectedDeliveryType, setSelectedDeliveryType] = useState(null)
     const [deliveryPrice, setDeliveryPrice] = useState(0)
+    const [deliveryPricesByType, setDeliveryPricesByType] = useState({})
     const [loadingDelivery, setLoadingDelivery] = useState(false)
+
+    // Icône par type de livraison (déduite du nom — purement visuel)
+    const deliveryIcon = (name = '') => {
+        const n = name.toLowerCase();
+        if (n.includes('express') || n.includes('rapide')) return Zap;
+        if (n.includes('relais') || n.includes('point')) return PackageCheck;
+        return Home;
+    };
+
 
     const formatAddress = (address) => {
         if (!address) return "Aucune adresse trouvée";
@@ -140,6 +150,32 @@ const Cart = () => {
         }
     }
 
+    // Additif, purement pour l'affichage : le prix de CHAQUE option de
+    // livraison pour la commune choisie, afin de les lister comme des cartes
+    // (au lieu d'un <select> caché). Ne remplace pas fetchDeliveryPrice
+    // ci-dessus, qui reste la source de vérité utilisée à la commande.
+    const fetchAllDeliveryPrices = async () => {
+        if (!selectedAddress?.communeId || deliveryTypes.length === 0) {
+            setDeliveryPricesByType({})
+            return
+        }
+        try {
+            const results = await Promise.all(
+                deliveryTypes.map(async (type) => {
+                    try {
+                        const { data } = await axios.get(`/api/delivery/price/${selectedAddress.communeId}/${type._id}`)
+                        return [type._id, data.success && data.price ? data.price.price : null]
+                    } catch {
+                        return [type._id, null]
+                    }
+                })
+            )
+            setDeliveryPricesByType(Object.fromEntries(results))
+        } catch (error) {
+            console.error(error)
+        }
+    }
+
     const handleCouponApplied = (coupon) => {
         setAppliedCoupon(coupon);
         if (coupon) {
@@ -200,6 +236,10 @@ const Cart = () => {
             fetchDeliveryPrice()
         }
     }, [selectedAddress, selectedDeliveryType])
+
+    useEffect(() => {
+        fetchAllDeliveryPrices()
+    }, [selectedAddress, deliveryTypes])
 
     useEffect(() => {
         if (products.length > 0 && cartItems) {
@@ -545,26 +585,33 @@ const Cart = () => {
                                     <MapPin size={15} className="text-burgundy-600" />
                                     <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Adresse de livraison</span>
                                 </div>
-                                <div className="bg-blush-50 rounded-xl p-3">
+                                <div className="bg-blush-50 rounded-xl p-3.5">
                                     <div className="flex justify-between items-start gap-2">
-                                        <p className="text-xs text-gray-600 flex-1">{formatAddress(selectedAddress)}</p>
-                                        <button onClick={() => setShowAddress(!showAddress)} className="text-burgundy-700 text-xs font-medium shrink-0">
-                                            Changer
+                                        <div className="flex-1 min-w-0">
+                                            {user?.name && <p className="text-sm font-medium text-gray-900">{user.name}</p>}
+                                            <p className="text-xs text-gray-500 mt-0.5">{formatAddress(selectedAddress)}</p>
+                                        </div>
+                                        <button onClick={() => setShowAddress(!showAddress)} className="flex items-center gap-1 text-burgundy-700 text-xs font-medium shrink-0">
+                                            <Edit2 size={11} /> Modifier
                                         </button>
                                     </div>
                                     {showAddress && (
-                                        <div className="mt-2 pt-2 border-t border-blush-200 space-y-2">
+                                        <div className="mt-3 pt-3 border-t border-blush-200 space-y-2">
                                             {addresses.map((address, idx) => (
-                                                <div key={idx} className="flex justify-between items-center text-xs">
-                                                    <p className="text-gray-600 cursor-pointer hover:text-burgundy-700 flex-1" onClick={() => { setSelectedAddress(address); setShowAddress(false) }}>
-                                                        {formatAddress(address)}
-                                                    </p>
-                                                    <button onClick={() => deleteAddress(address._id)} className="text-burgundy-400 text-[10px] hover:text-burgundy-600 ml-2">
+                                                <div
+                                                    key={idx}
+                                                    onClick={() => { setSelectedAddress(address); setShowAddress(false) }}
+                                                    className={`flex justify-between items-center text-xs rounded-lg px-2.5 py-2 cursor-pointer transition ${
+                                                        selectedAddress?._id === address._id ? 'bg-white border border-burgundy-300' : 'hover:bg-white/60'
+                                                    }`}
+                                                >
+                                                    <p className="text-gray-600 flex-1">{formatAddress(address)}</p>
+                                                    <button onClick={(e) => { e.stopPropagation(); deleteAddress(address._id) }} className="text-burgundy-400 text-[10px] hover:text-burgundy-600 ml-2 shrink-0">
                                                         Supprimer
                                                     </button>
                                                 </div>
                                             ))}
-                                            <button onClick={() => navigate("/add-address")} className="flex items-center gap-1 text-burgundy-700 text-xs mt-2 font-medium">
+                                            <button onClick={() => navigate("/add-address")} className="flex items-center gap-1 text-burgundy-700 text-xs mt-1 font-medium px-2.5">
                                                 <Plus size={12} /> Ajouter une adresse
                                             </button>
                                         </div>
@@ -579,18 +626,40 @@ const Cart = () => {
                                         <Truck size={15} className="text-burgundy-600" />
                                         <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Mode de livraison</span>
                                     </div>
-                                    <div className="relative">
-                                        <select
-                                            value={selectedDeliveryType?._id || ''}
-                                            onChange={(e) => {
-                                                const type = deliveryTypes.find(t => t._id === e.target.value);
-                                                setSelectedDeliveryType(type);
-                                            }}
-                                            className="w-full appearance-none bg-blush-50 border border-transparent rounded-xl px-3 py-2.5 text-sm text-gray-700 focus:border-burgundy-400 outline-none"
-                                        >
-                                            {deliveryTypes.map(type => <option key={type._id} value={type._id}>{type.name}</option>)}
-                                        </select>
-                                        <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                    <div className="space-y-2">
+                                        {deliveryTypes.map((type) => {
+                                            const Icon = deliveryIcon(type.name);
+                                            const isSelected = selectedDeliveryType?._id === type._id;
+                                            const price = deliveryPricesByType[type._id];
+                                            return (
+                                                <button
+                                                    key={type._id}
+                                                    type="button"
+                                                    onClick={() => setSelectedDeliveryType(type)}
+                                                    className={`w-full flex items-center gap-3 rounded-xl px-3.5 py-2.5 border transition text-left ${
+                                                        isSelected ? 'border-burgundy-400 bg-blush-50' : 'border-blush-100 bg-white hover:border-blush-300'
+                                                    }`}
+                                                >
+                                                    <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                                                        isSelected ? 'bg-burgundy-600 text-white' : 'bg-blush-100 text-burgundy-500'
+                                                    }`}>
+                                                        <Icon size={14} />
+                                                    </span>
+                                                    <span className="flex-1 min-w-0">
+                                                        <span className="block text-sm font-medium text-gray-800 truncate">{type.name}</span>
+                                                        {type.description && <span className="block text-[11px] text-gray-400 truncate">{type.description}</span>}
+                                                    </span>
+                                                    <span className="text-sm font-semibold text-gray-800 shrink-0">
+                                                        {price === null || price === undefined ? '—' : price === 0 ? 'Gratuit' : `${price.toLocaleString()} ${currency}`}
+                                                    </span>
+                                                    <span className={`w-4.5 h-4.5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                                                        isSelected ? 'border-burgundy-600' : 'border-blush-300'
+                                                    }`}>
+                                                        {isSelected && <span className="w-2 h-2 rounded-full bg-burgundy-600" />}
+                                                    </span>
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             )}
