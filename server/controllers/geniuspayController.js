@@ -214,7 +214,11 @@ export const initiateGeniusPay = async (req, res) => {
                 quantity,
                 color: item.selectedColor || null,
                 size: item.selectedSize || null,
-                priceAtOrder
+                priceAtOrder,
+                // boutiqueId requis par le schéma Order (voir placeOrderCOD,
+                // qui le renseigne déjà) — nécessaire aussi pour le scope
+                // des coupons commerçant ci-dessous.
+                boutiqueId: product.boutiqueId || null,
             });
         }
 
@@ -277,7 +281,17 @@ export const initiateGeniusPay = async (req, res) => {
             if (!coupon.isValid()) {
                 return res.json({ success: false, message: "Code promo expiré ou désactivé" });
             }
-            if (itemsSubtotal < coupon.minPurchase) {
+            // Un coupon commerçant (boutiqueId renseigné) ne remise que les
+            // articles de sa boutique dans le panier — même logique que
+            // placeOrderCOD. Un coupon admin garde le comportement inchangé.
+            let baseAmount = itemsSubtotal;
+            if (coupon.boutiqueId) {
+                baseAmount = formattedItems
+                    .filter(it => it.boutiqueId && it.boutiqueId.toString() === coupon.boutiqueId.toString())
+                    .filter(it => coupon.eligibleProducts.length === 0 || coupon.eligibleProducts.some(p => p.toString() === it.product.toString()))
+                    .reduce((sum, it) => sum + it.priceAtOrder * it.quantity, 0);
+            }
+            if (baseAmount < coupon.minPurchase) {
                 return res.json({ success: false, message: `Montant minimum d'achat: ${coupon.minPurchase} FCFA` });
             }
             // Note : on n'appelle pas coupon.canUserUse(userId) ici, car
@@ -290,7 +304,7 @@ export const initiateGeniusPay = async (req, res) => {
             // coupon est toujours actif et la condition de montant minimum,
             // et de recalculer la remise depuis la base (jamais depuis la
             // valeur envoyée par le client).
-            discountAmount = coupon.calculateDiscount(itemsSubtotal);
+            discountAmount = coupon.calculateDiscount(baseAmount);
         }
 
         amount = itemsSubtotal + deliveryPrice - discountAmount;

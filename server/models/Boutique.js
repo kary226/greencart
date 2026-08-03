@@ -33,6 +33,13 @@ const boutiqueSchema = new mongoose.Schema({
         enum: ['active', 'suspendue'],
         default: 'active',
     },
+    // Zones où le commerçant livre lui-même. Uniquement les villes/communes
+    // (pas de prix ici : les tarifs de livraison restent gérés par l'admin
+    // au niveau plateforme). communeId à null = livre toute la ville.
+    zonesLivraison: [{
+        cityId: { type: mongoose.Schema.Types.ObjectId, ref: 'city', required: true },
+        communeId: { type: mongoose.Schema.Types.ObjectId, ref: 'commune', default: null },
+    }],
 }, { timestamps: true });
 
 boutiqueSchema.index({ ownerId: 1 });

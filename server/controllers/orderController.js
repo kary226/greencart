@@ -197,10 +197,22 @@ export const placeOrderCOD = async (req, res) => {
             if (!coupon.isValid()) {
                 return res.status(400).json({ success: false, message: "Code promo expiré ou désactivé" });
             }
-            if (itemsSubtotal < coupon.minPurchase) {
+            // Un coupon créé par un commerçant (boutiqueId renseigné) ne
+            // remise que les articles de sa boutique dans le panier (et,
+            // s'il restreint eligibleProducts, seulement ceux-là). Un
+            // coupon admin (boutiqueId null) garde le comportement
+            // inchangé : remise sur tout le panier.
+            let baseAmount = itemsSubtotal;
+            if (coupon.boutiqueId) {
+                baseAmount = itemsWithPrice
+                    .filter(it => it.boutiqueId && it.boutiqueId.toString() === coupon.boutiqueId.toString())
+                    .filter(it => coupon.eligibleProducts.length === 0 || coupon.eligibleProducts.some(p => p.toString() === it.product.toString()))
+                    .reduce((sum, it) => sum + it.priceAtOrder * it.quantity, 0);
+            }
+            if (baseAmount < coupon.minPurchase) {
                 return res.status(400).json({ success: false, message: `Montant minimum d'achat: ${coupon.minPurchase} FCFA` });
             }
-            discountAmount = coupon.calculateDiscount(itemsSubtotal);
+            discountAmount = coupon.calculateDiscount(baseAmount);
         }
 
         amount = itemsSubtotal + deliveryPrice - discountAmount;

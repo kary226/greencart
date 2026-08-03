@@ -50,6 +50,7 @@ import DashboardCommercant from './pages/commercant/Dashboard';
 import Boutique from './pages/commercant/Boutique';
 import Produits from './pages/commercant/Produits';
 import ProduitForm from './pages/commercant/ProduitForm';
+import CodesPromo from './pages/commercant/CodesPromo';
 import Portefeuille from './pages/commercant/Portefeuille';
 import DemandeRetrait from './pages/commercant/DemandeRetrait';
 
@@ -193,6 +194,7 @@ const App = () => {
             <Route path='produits' element={<Produits />} />
             <Route path='produits/ajouter' element={<ProduitForm />} />
             <Route path='produits/editer/:id' element={<ProduitForm />} />
+            <Route path='codes-promo' element={<CodesPromo />} />
             <Route path='portefeuille' element={<Portefeuille />} />
             <Route path='retraits' element={<DemandeRetrait />} />
           </Route>

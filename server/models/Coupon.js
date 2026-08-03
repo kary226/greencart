@@ -23,6 +23,16 @@ const couponSchema = new mongoose.Schema({
     eligibleProducts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'product' }],
     
     isActive: { type: Boolean, default: true },
+
+    // null = coupon admin, valable sur toute la plateforme (comportement
+    // inchangé). Renseigné = coupon créé par un commerçant : la remise ne
+    // s'applique alors qu'aux articles de sa boutique dans le panier.
+    boutiqueId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'boutique',
+        default: null,
+        index: true,
+    },
     
     // Suivi des utilisateurs avec compteur
     usedBy: [{
