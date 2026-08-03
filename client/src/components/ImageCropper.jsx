@@ -22,8 +22,9 @@ const PRESETS = [
 
 const MIN_CROP = 40;
 
-const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null, cropShape = 'rect' }) => {
+const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null, cropShape = 'rect', lockAspectRatio = false }) => {
     const containerRef = useRef(null);
+    const cropLayerRef = useRef(null);
     const imgRef = useRef(null);
     const [imgSrc, setImgSrc] = useState(null);
     const [naturalSize, setNaturalSize] = useState({ w: 0, h: 0 });
@@ -34,6 +35,17 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
     const [rotation, setRotation] = useState(0);
     const [flipH, setFlipH] = useState(false);
     const [flipV, setFlipV] = useState(false);
+
+    // Réglages colorimétriques (appliqués à l'aperçu ET au rendu final)
+    const [brightness, setBrightness] = useState(100);
+    const [contrast, setContrast] = useState(100);
+    const [saturate, setSaturate] = useState(100);
+
+    // Calques additionnels — un texte et une zone floutée, positionnés en coordonnées
+    // fractionnaires (0 à 1) RELATIVES à la zone de recadrage, pour rester cohérents
+    // quelle que soit la taille finale exportée.
+    const [textOverlay, setTextOverlay] = useState(null); // { content, size, color, fx, fy }
+    const [blurZone, setBlurZone] = useState(null); // { size, fx, fy }
 
     // Zone de recadrage en coordonnées d'affichage (px, relatives au conteneur d'image)
     const [crop, setCrop] = useState({ x: 0, y: 0, w: 0, h: 0 });
@@ -199,6 +211,26 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
         window.removeEventListener('pointerup', onPointerUp);
     };
 
+    // Déplacement du calque texte / de la zone floutée — position stockée en
+    // fraction (0..1) de la boîte de recadrage courante.
+    const startOverlayDrag = (kind) => (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const move = (ev) => {
+            const rect = cropLayerRef.current.getBoundingClientRect();
+            const fx = Math.min(1, Math.max(0, (ev.clientX - rect.left - crop.x) / crop.w));
+            const fy = Math.min(1, Math.max(0, (ev.clientY - rect.top - crop.y) / crop.h));
+            if (kind === 'text') setTextOverlay((prev) => (prev ? { ...prev, fx, fy } : prev));
+            if (kind === 'blur') setBlurZone((prev) => (prev ? { ...prev, fx, fy } : prev));
+        };
+        const up = () => {
+            window.removeEventListener('pointermove', move);
+            window.removeEventListener('pointerup', up);
+        };
+        window.addEventListener('pointermove', move);
+        window.addEventListener('pointerup', up);
+    };
+
     // Molette = zoom
     const onWheel = (e) => {
         e.preventDefault();
@@ -244,6 +276,7 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
         sctx.translate(sceneW / 2, sceneH / 2);
         sctx.rotate((rotation * Math.PI) / 180);
         sctx.scale((flipH ? -1 : 1) * zoom, (flipV ? -1 : 1) * zoom);
+        sctx.filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturate}%)`;
         sctx.drawImage(img, -naturalSize.w / 2, -naturalSize.h / 2, naturalSize.w, naturalSize.h);
         sctx.restore();
 
@@ -262,12 +295,47 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
             0, 0, outW, outH
         );
 
+        // Zone floutée — on floute une copie du rendu déjà recadré, puis on ne
+        // recopie que le patch concerné par-dessus l'image nette.
+        if (blurZone) {
+            const bw = Math.max(4, blurZone.size * Math.min(outW, outH));
+            const bx = blurZone.fx * outW - bw / 2;
+            const by = blurZone.fy * outH - bw / 2;
+            const blurCanvas = document.createElement('canvas');
+            blurCanvas.width = outW;
+            blurCanvas.height = outH;
+            const bctx = blurCanvas.getContext('2d');
+            bctx.filter = `blur(${Math.max(2, bw * 0.12)}px)`;
+            bctx.drawImage(canvas, 0, 0);
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(bx, by, bw, bw);
+            ctx.clip();
+            ctx.drawImage(blurCanvas, 0, 0);
+            ctx.restore();
+        }
+
+        // Texte — dessiné en dernier, par-dessus tout le reste, avec un léger
+        // contour sombre pour rester lisible sur n'importe quel fond.
+        if (textOverlay && textOverlay.content.trim()) {
+            const fontPx = (textOverlay.size / 100) * Math.min(outW, outH);
+            ctx.font = `700 ${fontPx}px -apple-system, "Segoe UI", Roboto, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.lineWidth = Math.max(1, fontPx * 0.08);
+            ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+            ctx.strokeText(textOverlay.content, textOverlay.fx * outW, textOverlay.fy * outH);
+            ctx.fillStyle = textOverlay.color;
+            ctx.fillText(textOverlay.content, textOverlay.fx * outW, textOverlay.fy * outH);
+        }
+
         canvas.toBlob((blob) => {
             if (blob) onCropComplete(blob);
         }, 'image/png', 0.95);
     };
 
     const imgTransform = `translate(-50%, -50%) rotate(${rotation}deg) scale(${zoom * (flipH ? -1 : 1)}, ${zoom * (flipV ? -1 : 1)})`;
+    const cssFilter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturate}%)`;
 
     return (
         <div className="ic-overlay" role="dialog" aria-modal="true">
@@ -299,12 +367,13 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                                     width: displaySize.w,
                                     height: displaySize.h,
                                     transform: imgTransform,
+                                    filter: cssFilter,
                                 }}
                                 draggable={false}
                             />
 
                             {displaySize.w > 0 && (
-                                <div className="ic-crop-layer" style={{ width: displaySize.w, height: displaySize.h }}>
+                                <div ref={cropLayerRef} className="ic-crop-layer" style={{ width: displaySize.w, height: displaySize.h }}>
                                     {/* Voile sombre avec trou = zone de crop */}
                                     <svg className="ic-mask" width={displaySize.w} height={displaySize.h}>
                                         <defs>
@@ -345,6 +414,38 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                                                 onPointerDown={onPointerDownResize(h)}
                                             />
                                         ))}
+
+                                        {/* Calque zone floutée */}
+                                        {blurZone && (
+                                            <div
+                                                className="ic-blur-layer"
+                                                onPointerDown={startOverlayDrag('blur')}
+                                                style={{
+                                                    left: crop.w * blurZone.fx,
+                                                    top: crop.h * blurZone.fy,
+                                                    width: Math.min(crop.w, crop.h) * blurZone.size,
+                                                    height: Math.min(crop.w, crop.h) * blurZone.size,
+                                                    transform: 'translate(-50%, -50%)',
+                                                }}
+                                            />
+                                        )}
+
+                                        {/* Calque texte */}
+                                        {textOverlay && (
+                                            <div
+                                                className="ic-text-layer"
+                                                onPointerDown={startOverlayDrag('text')}
+                                                style={{
+                                                    left: crop.w * textOverlay.fx,
+                                                    top: crop.h * textOverlay.fy,
+                                                    fontSize: (textOverlay.size / 100) * Math.min(crop.w, crop.h),
+                                                    color: textOverlay.color,
+                                                    transform: 'translate(-50%, -50%)',
+                                                }}
+                                            >
+                                                {textOverlay.content || 'Texte'}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -362,20 +463,22 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                     {/* Panneau latéral de contrôles */}
                     <div className="ic-controls">
                         {/* Formats */}
-                        <div className="ic-section">
-                            <span className="ic-section-label">Format</span>
-                            <div className="ic-presets">
-                                {PRESETS.map((p) => (
-                                    <button
-                                        key={p.label}
-                                        className={`ic-preset ${ratio === p.value ? 'active' : ''}`}
-                                        onClick={() => setRatio(p.value)}
-                                    >
-                                        {p.label}
-                                    </button>
-                                ))}
+                        {!lockAspectRatio && (
+                            <div className="ic-section">
+                                <span className="ic-section-label">Format</span>
+                                <div className="ic-presets">
+                                    {PRESETS.map((p) => (
+                                        <button
+                                            key={p.label}
+                                            className={`ic-preset ${ratio === p.value ? 'active' : ''}`}
+                                            onClick={() => setRatio(p.value)}
+                                        >
+                                            {p.label}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         {/* Zoom */}
                         <div className="ic-section">
@@ -432,8 +535,76 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                             </div>
                         </div>
 
+                        {/* Réglages colorimétriques */}
+                        <div className="ic-section">
+                            <span className="ic-section-label">Réglages</span>
+                            <div className="ic-slider-row">
+                                <span className="ic-mini-label">Luminosité</span>
+                                <input type="range" min={50} max={150} value={brightness} onChange={(e) => setBrightness(+e.target.value)} className="ic-slider" />
+                            </div>
+                            <div className="ic-slider-row">
+                                <span className="ic-mini-label">Contraste</span>
+                                <input type="range" min={50} max={150} value={contrast} onChange={(e) => setContrast(+e.target.value)} className="ic-slider" />
+                            </div>
+                            <div className="ic-slider-row">
+                                <span className="ic-mini-label">Saturation</span>
+                                <input type="range" min={0} max={200} value={saturate} onChange={(e) => setSaturate(+e.target.value)} className="ic-slider" />
+                            </div>
+                        </div>
+
+                        {/* Texte sur l'image */}
+                        <div className="ic-section">
+                            <span className="ic-section-label">Texte</span>
+                            {!textOverlay ? (
+                                <button
+                                    className="ic-toggle"
+                                    onClick={() => setTextOverlay({ content: 'Texte', size: 8, color: '#ffffff', fx: 0.5, fy: 0.5 })}
+                                >
+                                    + Ajouter du texte
+                                </button>
+                            ) : (
+                                <>
+                                    <input
+                                        type="text"
+                                        value={textOverlay.content}
+                                        onChange={(e) => setTextOverlay((p) => ({ ...p, content: e.target.value }))}
+                                        className="ic-text-input"
+                                        placeholder="Votre texte…"
+                                    />
+                                    <div className="ic-slider-row">
+                                        <span className="ic-mini-label">Taille</span>
+                                        <input type="range" min={3} max={20} value={textOverlay.size} onChange={(e) => setTextOverlay((p) => ({ ...p, size: +e.target.value }))} className="ic-slider" />
+                                    </div>
+                                    <div className="ic-flip-row">
+                                        <input type="color" value={textOverlay.color} onChange={(e) => setTextOverlay((p) => ({ ...p, color: e.target.value }))} className="ic-color-input" />
+                                        <button className="ic-toggle" onClick={() => setTextOverlay(null)}>Supprimer</button>
+                                    </div>
+                                    <p className="ic-mini-hint">Glissez le texte directement sur l'image pour le repositionner.</p>
+                                </>
+                            )}
+                        </div>
+
+                        {/* Zone floutée */}
+                        <div className="ic-section">
+                            <span className="ic-section-label">Zone floutée</span>
+                            {!blurZone ? (
+                                <button className="ic-toggle" onClick={() => setBlurZone({ size: 0.3, fx: 0.5, fy: 0.5 })}>
+                                    + Ajouter une zone floutée
+                                </button>
+                            ) : (
+                                <>
+                                    <div className="ic-slider-row">
+                                        <span className="ic-mini-label">Taille</span>
+                                        <input type="range" min={0.1} max={0.7} step={0.02} value={blurZone.size} onChange={(e) => setBlurZone((p) => ({ ...p, size: +e.target.value }))} className="ic-slider" />
+                                    </div>
+                                    <button className="ic-toggle" onClick={() => setBlurZone(null)}>Supprimer</button>
+                                    <p className="ic-mini-hint">Glissez le cadre pour masquer un visage, un logo…</p>
+                                </>
+                            )}
+                        </div>
+
                         {/* Réinitialiser */}
-                        <button className="ic-reset" onClick={() => { setZoom(1); setRotation(0); setFlipH(false); setFlipV(false); setRatio(aspectRatio); computeLayout(); }}>
+                        <button className="ic-reset" onClick={() => { setZoom(1); setRotation(0); setFlipH(false); setFlipV(false); setRatio(aspectRatio); setBrightness(100); setContrast(100); setSaturate(100); setTextOverlay(null); setBlurZone(null); computeLayout(); }}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 4v6h6" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" /></svg>
                             Réinitialiser
                         </button>
@@ -608,6 +779,61 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                 .ic-handle-w { left: -7px; top: 50%; transform: translateY(-50%); cursor: ew-resize; }
 
                 .is-round .ic-handle { border-radius: 50%; }
+
+                .ic-blur-layer {
+                    position: absolute;
+                    border-radius: 10px;
+                    border: 2px dashed rgba(255,255,255,0.9);
+                    backdrop-filter: blur(8px);
+                    -webkit-backdrop-filter: blur(8px);
+                    cursor: grab;
+                }
+                .ic-blur-layer:active { cursor: grabbing; }
+
+                .ic-text-layer {
+                    position: absolute;
+                    font-weight: 700;
+                    white-space: nowrap;
+                    text-shadow: 0 1px 3px rgba(0,0,0,0.6), 0 0 1px rgba(0,0,0,0.6);
+                    cursor: grab;
+                    user-select: none;
+                }
+                .ic-text-layer:active { cursor: grabbing; }
+
+                .ic-mini-label {
+                    font-size: 11px;
+                    color: #9a9ba6;
+                    width: 66px;
+                    flex-shrink: 0;
+                }
+
+                .ic-mini-hint {
+                    font-size: 11px;
+                    color: #6f7079;
+                    line-height: 1.4;
+                    margin: 0;
+                }
+
+                .ic-text-input {
+                    padding: 8px 10px;
+                    border-radius: 8px;
+                    border: 1px solid #2c2d35;
+                    background: #1d1e25;
+                    color: #e7e7ea;
+                    font-size: 13px;
+                    outline: none;
+                }
+                .ic-text-input:focus { border-color: #5b5ff7; }
+
+                .ic-color-input {
+                    width: 36px;
+                    height: 34px;
+                    border-radius: 8px;
+                    border: 1px solid #2c2d35;
+                    background: #1d1e25;
+                    cursor: pointer;
+                    padding: 2px;
+                }
 
                 .ic-hint {
                     display: flex;

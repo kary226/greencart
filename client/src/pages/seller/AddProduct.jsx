@@ -63,6 +63,21 @@ const Field = ({ label, required, children, hint }) => (
 const inputClass =
     "outline-none py-2.5 px-3 rounded-lg border border-gray-200 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-400 transition";
 
+// Barre d'outils épurée pour la description produit — inspirée de celle de Shopify :
+// juste ce qu'il faut (titres, gras/italique/souligné, couleur, liste, lien, image),
+// pas la totalité des options par défaut de Quill qui alourdit l'interface.
+const quillModules = {
+    toolbar: [
+        [{ header: [false, 2, 3] }],
+        ['bold', 'italic', 'underline'],
+        [{ color: [] }],
+        [{ list: 'ordered' }, { list: 'bullet' }],
+        ['link', 'image'],
+        ['clean'],
+    ],
+};
+const quillFormats = ['header', 'bold', 'italic', 'underline', 'color', 'list', 'link', 'image'];
+
 // Segmented control générique (remplace les boutons "stickers")
 const SegmentedControl = ({ options, value, onChange, columns = options.length }) => (
     <div
@@ -145,8 +160,7 @@ const AddProduct = () => {
 
     const [showCropper, setShowCropper] = useState(false);
     const [tempImageFile, setTempImageFile] = useState(null);
-    const [cropAspectRatio, setCropAspectRatio] = useState(16 / 9);
-    const [cropShape, setCropShape] = useState('rect');
+    const [previewIndex, setPreviewIndex] = useState(null);
     const [isConverting, setIsConverting] = useState(false);
 
     const [labelType, setLabelType] = useState('size');
@@ -477,12 +491,6 @@ const AddProduct = () => {
         }
     };
 
-    const cropPresets = [
-        { label: '16:9', ratio: 16 / 9 },
-        { label: '1:1', ratio: 1 },
-        { label: '4:3', ratio: 4 / 3 },
-    ];
-
     return (
         <div className="no-scrollbar flex-1 h-[95vh] overflow-y-scroll bg-gray-50">
             <form id="add-product-form" onSubmit={onSubmitHandler} className="max-w-3xl mx-auto p-4 md:p-8 pb-28 space-y-4">
@@ -507,14 +515,54 @@ const AddProduct = () => {
                         </Field>
 
                         <Field label="Description">
-                            <ReactQuill
-                                value={description}
-                                onChange={setDescription}
-                                theme="snow"
-                                placeholder="Décrivez votre produit…"
-                                className="bg-white rounded-lg"
-                                style={{ minHeight: '150px' }}
-                            />
+                            <div className="pd-quill">
+                                <ReactQuill
+                                    value={description}
+                                    onChange={setDescription}
+                                    theme="snow"
+                                    placeholder="Décrivez votre produit…"
+                                    modules={quillModules}
+                                    formats={quillFormats}
+                                    style={{ minHeight: '150px' }}
+                                />
+                            </div>
+                            <style>{`
+                                .pd-quill .ql-toolbar.ql-snow {
+                                    border: 1px solid #e5e7eb;
+                                    border-bottom: none;
+                                    border-radius: 10px 10px 0 0;
+                                    background: #fafafa;
+                                    padding: 8px 10px;
+                                }
+                                .pd-quill .ql-container.ql-snow {
+                                    border: 1px solid #e5e7eb;
+                                    border-radius: 0 0 10px 10px;
+                                    font-family: inherit;
+                                    font-size: 13.5px;
+                                }
+                                .pd-quill .ql-container.ql-snow:has(.ql-editor:focus) {
+                                    border-color: #9ca3af;
+                                }
+                                .pd-quill .ql-editor { min-height: 150px; color: #111827; line-height: 1.6; }
+                                .pd-quill .ql-editor.ql-blank::before { color: #9ca3af; font-style: normal; }
+                                .pd-quill .ql-snow .ql-stroke { stroke: #6b7280; }
+                                .pd-quill .ql-snow .ql-fill { fill: #6b7280; }
+                                .pd-quill .ql-picker-label { color: #6b7280; }
+                                .pd-quill .ql-toolbar.ql-snow .ql-formats { margin-right: 10px; }
+                                .pd-quill button.ql-active, .pd-quill .ql-picker-label.ql-active {
+                                    background: #e5e7eb;
+                                    border-radius: 6px;
+                                }
+                                .pd-quill button:hover, .pd-quill .ql-picker-label:hover {
+                                    background: #f0f0f0;
+                                    border-radius: 6px;
+                                }
+                                .pd-quill .ql-picker-options {
+                                    border-radius: 8px;
+                                    border-color: #e5e7eb;
+                                    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+                                }
+                            `}</style>
                         </Field>
 
                         <Field label="Catégories" required>
@@ -548,19 +596,8 @@ const AddProduct = () => {
                         <div>
                             <div className="flex items-center justify-between mb-2">
                                 <span className="text-sm font-medium text-gray-800">Photos, dans l'ordre d'affichage</span>
-                                <div className="flex items-center gap-1">
-                                    {cropPresets.map((p) => (
-                                        <button
-                                            key={p.label}
-                                            type="button"
-                                            onClick={() => { setCropAspectRatio(p.ratio); setCropShape('rect'); }}
-                                            className={`text-xs px-2.5 py-1 rounded-md transition ${
-                                                cropAspectRatio === p.ratio ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                                            }`}
-                                        >
-                                            {p.label}
-                                        </button>
-                                    ))}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[11px] text-gray-400">Carré 1:1 — identique à la fiche produit</span>
                                     <IconButton onClick={() => setShowCropper(false)}>
                                         <RotateCcw size={14} />
                                     </IconButton>
@@ -569,7 +606,12 @@ const AddProduct = () => {
 
                             <div className="grid grid-cols-4 sm:grid-cols-5 gap-2.5">
                                 {files.map((file, index) => (
-                                    <div key={index} className="relative group aspect-square">
+                                    <button
+                                        key={index}
+                                        type="button"
+                                        onClick={() => setPreviewIndex(index)}
+                                        className="relative group aspect-square"
+                                    >
                                         <img
                                             className="w-full h-full object-cover rounded-xl border border-gray-200"
                                             src={URL.createObjectURL(file)}
@@ -580,14 +622,15 @@ const AddProduct = () => {
                                                 Couverture
                                             </span>
                                         )}
-                                        <button
-                                            type="button"
-                                            onClick={() => { const newFiles = [...files]; newFiles.splice(index, 1); setFiles(newFiles); }}
+                                        <span
+                                            role="button"
+                                            tabIndex={0}
+                                            onClick={(e) => { e.stopPropagation(); const newFiles = [...files]; newFiles.splice(index, 1); setFiles(newFiles); }}
                                             className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-500 hover:text-red-600 hover:border-red-200 transition opacity-0 group-hover:opacity-100"
                                         >
                                             <X size={12} />
-                                        </button>
-                                    </div>
+                                        </span>
+                                    </button>
                                 ))}
                                 <label className="aspect-square border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition">
                                     <input onChange={handleImageSelect} type="file" accept="image/*" className="hidden" />
@@ -975,9 +1018,43 @@ const AddProduct = () => {
                         setShowCropper(false);
                         setTempImageFile(null);
                     }}
-                    aspectRatio={cropAspectRatio}
-                    cropShape={cropShape}
+                    aspectRatio={1}
+                    cropShape="rect"
+                    lockAspectRatio
                 />
+            )}
+
+            {/* Aperçu fidèle — reproduit exactement le conteneur d'image de la fiche
+                produit (aspect-ratio 1/1, object-fit cover) pour vérifier le rendu
+                final avant de publier. */}
+            {previewIndex !== null && files[previewIndex] && (
+                <div
+                    className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-6"
+                    onClick={() => setPreviewIndex(null)}
+                >
+                    <div className="w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-2.5">
+                            <span className="text-sm font-medium text-white">Aperçu — fiche produit</span>
+                            <button
+                                type="button"
+                                onClick={() => setPreviewIndex(null)}
+                                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+                        <div className="w-full bg-[#f7f5f2] rounded-none overflow-hidden" style={{ aspectRatio: '1/1' }}>
+                            <img
+                                src={URL.createObjectURL(files[previewIndex])}
+                                alt="Aperçu"
+                                className="w-full h-full object-cover"
+                            />
+                        </div>
+                        <p className="text-center text-xs text-white/50 mt-2.5">
+                            C'est exactement ce que verra le client sur la fiche produit.
+                        </p>
+                    </div>
+                </div>
             )}
         </div>
     )
