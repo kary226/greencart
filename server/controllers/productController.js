@@ -11,26 +11,37 @@ export const addProduct = async (req, res) => {
         const images = req.files?.images || [];
         const videoFile = req.files?.video ? req.files.video[0] : null;
 
-        // ✅ PHASE 3 : Récupérer la boutique du commerçant
-        // Si le user est un commerçant, on utilise sa boutiqueId
-        // Si c'est l'admin, boutiqueId = null (produit global)
+        // ✅ Récupérer la boutique
         let boutiqueId = null;
-        if (req.staffUser && req.staffUser.role === 'commercant') {
-            if (!req.staffUser.boutiqueId) {
-                return res.status(400).json({ 
-                    success: false, 
-                    message: 'Vous n\'avez pas de boutique. Contactez l\'administrateur.' 
+        
+        // CAS 1 : Staff (commerçant ou admin)
+        if (req.staffUser) {
+            if (req.staffUser.role === 'commercant') {
+                if (!req.staffUser.boutiqueId) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Vous n\'avez pas de boutique. Contactez l\'administrateur.'
+                    });
+                }
+                boutiqueId = req.staffUser.boutiqueId;
+            } else if (req.staffUser.role === 'admin') {
+                boutiqueId = null;
+            } else {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Accès refusé - Rôle non autorisé'
                 });
             }
-            boutiqueId = req.staffUser.boutiqueId;
-        } else if (req.staffUser && req.staffUser.role === 'admin') {
-            // L'admin peut ajouter des produits sans boutique (globaux)
+        } 
+        // CAS 2 : Seller (compte technique)
+        else if (req.user) {
             boutiqueId = null;
-        } else {
-            // Non-staff (client) ne peut pas ajouter de produits
-            return res.status(403).json({ 
-                success: false, 
-                message: 'Accès refusé' 
+        } 
+        // CAS 3 : Non authentifié
+        else {
+            return res.status(403).json({
+                success: false,
+                message: 'Accès refusé - Non authentifié'
             });
         }
 
@@ -112,7 +123,7 @@ export const addProduct = async (req, res) => {
             video: videoUrl,
             videoPublicId: videoPublicId,
             labelType: labelType,
-            boutiqueId: boutiqueId, // ✅ PHASE 3
+            boutiqueId: boutiqueId,
         });
 
         res.json({ 
@@ -146,7 +157,6 @@ export const addProductImages = async (req, res) => {
             return res.status(404).json({ success: false, message: "Produit non trouvé" });
         }
 
-        // ✅ PHASE 3 : Vérifier que le produit appartient à la boutique du commerçant
         if (req.staffUser && req.staffUser.role === 'commercant') {
             if (product.boutiqueId?.toString() !== req.staffUser.boutiqueId?.toString()) {
                 return res.status(403).json({ 
@@ -190,13 +200,10 @@ export const productList = async (req, res) => {
         const sort = req.query.sort || 'createdAt';
         const skip = (page - 1) * limit;
 
-        // ✅ PHASE 3 : Filtrer par boutique
         const filter = {};
         if (req.query.boutiqueId) {
             filter.boutiqueId = req.query.boutiqueId;
         }
-        // Si aucun boutiqueId spécifié, on affiche tous les produits (pour l'admin)
-        // Pour un commerçant, on filtre automatiquement
         if (req.staffUser && req.staffUser.role === 'commercant') {
             filter.boutiqueId = req.staffUser.boutiqueId;
         }
@@ -319,7 +326,6 @@ export const updateProduct = async (req, res) => {
         const { id, name, description, categories, price, offerPrice, variants, stock, size, videoUrl, videoPublicId, labelType, image } = req.body;
         const videoFile = req.file;
 
-        // ✅ PHASE 3 : Vérifier que le produit appartient à la boutique
         const existingProduct = await Product.findById(id);
         if (!existingProduct) {
             return res.status(404).json({ success: false, message: "Produit non trouvé" });
@@ -386,7 +392,6 @@ export const updateProduct = async (req, res) => {
             updateData.image = image;
         }
 
-        // Gestion de la vidéo
         if (videoFile) {
             if (existingProduct?.videoPublicId) {
                 try {
@@ -438,7 +443,6 @@ export const deleteProduct = async (req, res) => {
             return res.status(404).json({ success: false, message: "Produit non trouvé" });
         }
 
-        // ✅ PHASE 3 : Vérification boutique
         if (req.staffUser && req.staffUser.role === 'commercant') {
             if (product.boutiqueId?.toString() !== req.staffUser.boutiqueId?.toString()) {
                 return res.status(403).json({ 
