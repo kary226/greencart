@@ -111,7 +111,7 @@ const IconAttach = () => (
 
 const IconSend = () => (
     <svg viewBox="0 0 24 24" fill="currentColor">
-        <path d="M2 21l21-9L2 3v7l15 2-15 2z" />
+        <path d="M2 21l21-9L2 3v7l15 2-2 2z" />
     </svg>
 );
 
@@ -371,6 +371,25 @@ const ColisSheinDetail = () => {
     const tauxApplique = colis.devis?.tauxApplique || null;
     const serviceOuvert = estDansHoraires(horaires, maintenant);
 
+    const TIMELINE_LABELS = {
+        soumis: "Soumis",
+        en_verification: "En vérification",
+        devis_envoye: "Devis envoyé",
+        acompte_paye: "Acheté",
+        achete: "Acheté",
+        en_entrepot: "En entrepôt",
+        pese: "Expédié",
+        solde_du: "Expédié",
+        solde_paye: "Expédié",
+        en_livraison: "En livraison",
+        livre: "Livré",
+    };
+
+    const etapesTimeline = STATUT_ORDER.filter(s => 
+        ["soumis", "en_verification", "devis_envoye", "achete", "en_entrepot", "pese", "en_livraison", "livre"].includes(s)
+    );
+    const indexEtapeActuelle = etapesTimeline.indexOf(colis.statut);
+
     return (
         <div className="csd-page">
             <header className="csd-header">
@@ -437,10 +456,30 @@ const ColisSheinDetail = () => {
 
             <div className={`csd-infos ${infosOuvertes ? "open" : ""}`}>
                 {colis.statut !== "annule" && (
-                    <div className="csd-progress">
-                        {STATUT_ORDER.map((s, i) => (
-                            <div key={s} className={`csd-dot ${i <= etapeActuelle ? "done" : ""}`} />
-                        ))}
+                    <div className="csd-timeline-vertical">
+                        {etapesTimeline.map((s, i) => {
+                            const estFaite = i <= indexEtapeActuelle;
+                            const estEnCours = i === indexEtapeActuelle;
+                            return (
+                                <div key={s} className={`csd-timeline-item ${estFaite ? "done" : ""} ${estEnCours ? "current" : ""}`}>
+                                    <div className="csd-timeline-line-top" />
+                                    <div className="csd-timeline-dot-wrapper">
+                                        <div className="csd-timeline-dot">
+                                            {estFaite && <span className="csd-timeline-check">✓</span>}
+                                        </div>
+                                    </div>
+                                    <div className="csd-timeline-line-bottom" />
+                                    <div className="csd-timeline-content">
+                                        <span className="csd-timeline-label">{TIMELINE_LABELS[s]}</span>
+                                        {estFaite && (
+                                            <span className="csd-timeline-date">
+                                                {libelleJour(colis.updatedAt)}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
 
@@ -686,6 +725,17 @@ const ColisSheinDetail = () => {
                 )}
             </div>
 
+            <button 
+                className="csd-help-btn" 
+                onClick={() => {/* Action d'ouverture du support */}} 
+                aria-label="Besoin d'aide"
+            >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                <span>Besoin d'aide ?</span>
+            </button>
+
             <style>{`
                 .csd-page {
                     --primary: #E03131;
@@ -851,9 +901,45 @@ const ColisSheinDetail = () => {
                 .csd-infos { max-height: 0; overflow: hidden; transition: max-height .28s ease; }
                 .csd-infos.open { max-height: 600px; overflow-y: auto; }
 
-                .csd-progress { display: flex; gap: 4px; margin: 0 0 10px; }
-                .csd-dot { flex: 1; height: 3px; border-radius: 2px; background: var(--border); transition: .2s; }
-                .csd-dot.done { background: var(--primary); }
+                .csd-timeline-vertical {
+                    display: flex; flex-direction: column; padding: 10px 0 10px 10px; margin-bottom: 12px;
+                }
+                .csd-timeline-item {
+                    position: relative; display: flex; min-height: 60px; padding-left: 32px;
+                }
+                .csd-timeline-item:last-child { min-height: 30px; }
+                
+                .csd-timeline-line-top {
+                    position: absolute; left: 11px; top: 0; width: 2px; height: 14px; background: transparent;
+                }
+                .csd-timeline-line-bottom {
+                    position: absolute; left: 11px; top: 28px; width: 2px; height: calc(100% - 14px); background: #E4E7EC;
+                }
+                .csd-timeline-item.done .csd-timeline-line-bottom { background: #E03131; }
+                .csd-timeline-item:last-child .csd-timeline-line-bottom { display: none; }
+
+                .csd-timeline-dot-wrapper {
+                    position: absolute; left: 0; top: 18px; width: 24px; height: 24px;
+                    display: flex; align-items: center; justify-content: center; z-index: 2;
+                }
+                .csd-timeline-dot {
+                    width: 14px; height: 14px; border-radius: 50%; background: #E4E7EC; border: 2px solid #fff;
+                    transition: all 0.3s ease;
+                }
+                .csd-timeline-item.done .csd-timeline-dot { background: #E03131; width: 16px; height: 16px; }
+                .csd-timeline-item.current .csd-timeline-dot { 
+                    background: #fff; border: 2px solid #E03131; width: 16px; height: 16px; box-shadow: 0 0 0 3px rgba(224,49,49,0.2);
+                }
+                .csd-timeline-check { color: #fff; font-size: 10px; font-weight: 700; }
+
+                .csd-timeline-content {
+                    padding: 6px 0 0 10px; display: flex; flex-direction: column; justify-content: center;
+                }
+                .csd-timeline-label { font-size: 12px; font-weight: 600; color: #404040; }
+                .csd-timeline-item.done .csd-timeline-label { color: #111; font-weight: 700; }
+                .csd-timeline-item.current .csd-timeline-label { color: #E03131; }
+                
+                .csd-timeline-date { font-size: 10px; color: #9CA3AF; margin-top: 2px; }
 
                 .csd-card {
                     background: var(--card-bg); border: 1px solid var(--border); border-radius: 15px;
@@ -1115,8 +1201,24 @@ const ColisSheinDetail = () => {
 
                 .csd-closed-line { width: 25px; height: 1px; background: var(--border); }
 
+                .csd-help-btn {
+                    position: fixed; bottom: 24px; right: 20px;
+                    display: flex; align-items: center; gap: 8px;
+                    background: #E03131; color: #fff; border: none; border-radius: 40px;
+                    padding: 10px 16px 10px 12px; font-size: 12px; font-weight: 700; cursor: pointer;
+                    box-shadow: 0 6px 20px rgba(224,49,49,0.3); z-index: 50;
+                    transition: transform 0.15s, box-shadow 0.15s;
+                }
+                .csd-help-btn:active { transform: scale(0.95); }
+                .csd-help-btn svg { flex-shrink: 0; }
+                
                 @media (min-width: 700px) {
                     .csd-page { max-width: 640px; padding-left: 0; padding-right: 0; }
+                }
+
+                @media (max-width: 500px) {
+                    .csd-help-btn span { display: none; }
+                    .csd-help-btn { padding: 12px; border-radius: 50%; }
                 }
 
                 @media (max-width: 420px) {

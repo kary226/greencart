@@ -37,24 +37,18 @@ const STATUT_STYLE = {
 const money = (n, devise) => `${devise === "EUR" ? "€" : "$"}${Number(n || 0).toFixed(2)}`;
 const fcfa = (n) => `${Math.round(n || 0).toLocaleString("fr-FR")} FCFA`;
 
-// FONCTION AMÉLIORÉE
 const tempsEcoule = (date) => {
     const now = new Date();
     const d = new Date(date);
     
-    // Si c'est aujourd'hui
     if (now.toDateString() === d.toDateString()) {
         return d.toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' });
     }
-    
-    // Si c'est hier
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     if (yesterday.toDateString() === d.toDateString()) {
         return "Hier";
     }
-
-    // Sinon, afficher la date (ex: 15 Mai)
     return d.toLocaleDateString("fr-FR", { day: 'numeric', month: 'short' });
 };
 
@@ -196,7 +190,6 @@ const MesColisShein = () => {
                     const ferme = estFerme(c);
                     return (
                         <Link key={c._id} to={`/colis-shein/${c._id}`} className={`mcs-card ${ferme ? "mcs-card-ferme" : "mcs-card-active"}`}>
-                            {/* BARRE CORRIGÉE */}
                             <span className="mcs-card-bar" />
                             
                             <div className="mcs-card-icon">
@@ -279,7 +272,6 @@ const MesColisShein = () => {
         .mcs-card-active { box-shadow: 0 2px 12px rgba(17,17,17,0.05); }
         .mcs-card-ferme { opacity: .6; }
         
-        /* CSS DE LA BARRE CORRIGÉ */
         .mcs-card-bar { position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 4px; height: 28px; background: #e53935; border-radius: 0 4px 4px 0; }
         .mcs-card-ferme .mcs-card-bar { background: #e2ddd3; }
 
