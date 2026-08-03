@@ -1074,5 +1074,5 @@ const AddProduct = () => {
         </div>
     )
 }
-
+#ram
 export default AddProduct
