@@ -394,7 +394,6 @@ const AddProduct = () => {
         console.log('📝 Mode produit:', productMode);
         console.log('📝 Nombre d\'images:', files.length);
         console.log('📝 Vidéo:', videoFile ? 'Oui' : 'Non');
-        console.log('📝 Variantes:', variants);
         console.log('📝 Label type:', labelType);
 
         if (selectedCategories.length === 0) {
