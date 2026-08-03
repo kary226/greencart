@@ -457,6 +457,21 @@ const AddProduct = () => {
             formData.append('video', videoFile);
         }
 
+        // [FIX UX] Vercel plafonne le corps des Serverless Functions à 4.5MB,
+        // quelle que soit la limite Express configurée — au-delà, l'appel échoue
+        // en 403 sans message clair. On prévient avant l'envoi plutôt que de
+        // laisser l'utilisateur face à une erreur muette.
+        const totalBytes = files.reduce((sum, f) => sum + f.size, 0) + (videoFile ? videoFile.size : 0);
+        const VERCEL_BODY_LIMIT = 4.4 * 1024 * 1024;
+        if (totalBytes > VERCEL_BODY_LIMIT) {
+            toast.error(
+                videoFile
+                    ? "Trop volumineux pour être envoyé en une fois. Retirez la vidéo ou réduisez le nombre de photos."
+                    : "Trop de photos pour être envoyées en une fois. Réduisez-en le nombre et réessayez."
+            );
+            return;
+        }
+
         try {
             const { data } = await axios.post('/api/product/add', formData)
 

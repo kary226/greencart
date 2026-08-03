@@ -631,6 +631,9 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                     padding: 24px;
                     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
                 }
+                @media (max-width: 640px) {
+                    .ic-overlay { padding: 0; }
+                }
 
                 .ic-modal {
                     width: 100%;
@@ -644,6 +647,14 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                     flex-direction: column;
                     box-shadow: 0 30px 80px rgba(0,0,0,0.5);
                     color: #e7e7ea;
+                }
+                @media (max-width: 640px) {
+                    .ic-modal {
+                        max-height: 100dvh;
+                        height: 100dvh;
+                        border-radius: 0;
+                        border: none;
+                    }
                 }
 
                 .ic-header {
@@ -677,7 +688,7 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                 }
 
                 @media (max-width: 860px) {
-                    .ic-body { flex-direction: column; }
+                    .ic-body { flex-direction: column; overflow-y: auto; }
                 }
 
                 /* --- Zone de travail --- */
@@ -693,6 +704,10 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                         repeating-linear-gradient(45deg, #1a1b21 0 12px, #181920 12px 24px);
                     position: relative;
                     gap: 14px;
+                    touch-action: none;
+                }
+                @media (max-width: 640px) {
+                    .ic-stage { padding: 14px; flex: none; }
                 }
 
                 .ic-image-wrap {
@@ -706,6 +721,9 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                     max-height: 60vh;
                     border-radius: 4px;
                     background: #0c0d11;
+                }
+                @media (max-width: 640px) {
+                    .ic-image-wrap { height: 62vw; max-height: 46vh; }
                 }
 
                 .ic-image {
@@ -739,6 +757,7 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                     box-shadow: 0 0 0 1px rgba(255,255,255,0.85);
                     cursor: move;
                     pointer-events: auto;
+                    touch-action: none;
                 }
 
                 .ic-crop-frame.is-round { border-radius: 50%; }
@@ -767,6 +786,14 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                     border: 1.5px solid #15161b;
                     border-radius: 4px;
                     box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+                    touch-action: none;
+                }
+                /* Zone de préhension tactile agrandie sans changer la taille visuelle,
+                   pour rester facile à saisir du bout du doigt sans imprécision. */
+                .ic-handle::before {
+                    content: '';
+                    position: absolute;
+                    inset: -12px;
                 }
 
                 .ic-handle-nw { top: -7px; left: -7px; cursor: nwse-resize; }
@@ -787,6 +814,7 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                     backdrop-filter: blur(8px);
                     -webkit-backdrop-filter: blur(8px);
                     cursor: grab;
+                    touch-action: none;
                 }
                 .ic-blur-layer:active { cursor: grabbing; }
 
@@ -797,6 +825,8 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                     text-shadow: 0 1px 3px rgba(0,0,0,0.6), 0 0 1px rgba(0,0,0,0.6);
                     cursor: grab;
                     user-select: none;
+                    touch-action: none;
+                    padding: 8px;
                 }
                 .ic-text-layer:active { cursor: grabbing; }
 
@@ -867,6 +897,18 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                         gap: 16px;
                     }
                     .ic-section { flex: 1 1 130px; }
+                }
+
+                @media (max-width: 640px) {
+                    .ic-controls {
+                        flex-direction: column;
+                        flex-wrap: nowrap;
+                        padding: 16px;
+                        gap: 18px;
+                    }
+                    .ic-section { flex: none; }
+                    .ic-presets { grid-template-columns: repeat(3, 1fr); }
+                    .ic-preset, .ic-toggle, .ic-icon-btn { min-height: 38px; }
                 }
 
                 .ic-section { display: flex; flex-direction: column; gap: 10px; }
