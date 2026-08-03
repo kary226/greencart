@@ -386,6 +386,17 @@ const AddProduct = () => {
     const onSubmitHandler = async (event) => {
         event.preventDefault();
 
+        console.log('🚀 === DÉBUT SOUMISSION PRODUIT ===');
+        console.log('📝 Nom:', name);
+        console.log('📝 Catégories:', selectedCategories);
+        console.log('📝 Prix:', price);
+        console.log('📝 Prix promo:', offerPrice);
+        console.log('📝 Mode produit:', productMode);
+        console.log('📝 Nombre d\'images:', files.length);
+        console.log('📝 Vidéo:', videoFile ? 'Oui' : 'Non');
+        console.log('📝 Variantes:', variants);
+        console.log('📝 Label type:', labelType);
+
         if (selectedCategories.length === 0) {
             toast.error('Veuillez sélectionner au moins une catégorie');
             return;
@@ -400,12 +411,14 @@ const AddProduct = () => {
 
         if (productMode === 'simple') {
             variants = [];
+            console.log('📦 Mode simple - pas de variantes');
         } else if (productMode === 'multi-sizes') {
             if (sizesList.length === 0) {
                 toast.error('Ajoutez au moins une taille');
                 return;
             }
             variants = convertSizesToVariants();
+            console.log('📦 Mode multi-sizes - variantes:', variants);
         } else if (productMode === 'variants') {
             if (variantColors.length === 0) {
                 toast.error('Ajoutez au moins une couleur');
@@ -423,6 +436,7 @@ const AddProduct = () => {
                 return;
             }
             variants = convertVariantsToApi();
+            console.log('📦 Mode variants - variantes:', variants);
         }
 
         const productData = {
@@ -430,8 +444,6 @@ const AddProduct = () => {
             description,
             categories: selectedCategories,
             price: price ? Number(price) : 0,
-            // Prix promo laissé vide → pas de promo, on retombe sur le prix normal
-            // (le schéma backend exige toujours une valeur pour offerPrice).
             offerPrice: offerPrice ? Number(offerPrice) : Number(price) || 0,
             variants,
             labelType: labelType,
@@ -446,14 +458,18 @@ const AddProduct = () => {
             }
         }
 
+        console.log('📦 ProductData complet:', JSON.stringify(productData, null, 2));
+
         const formData = new FormData();
         formData.append('productData', JSON.stringify(productData));
 
         for (let i = 0; i < files.length; i++) {
+            console.log(`📸 Ajout de l'image ${i + 1}/${files.length}`);
             formData.append('images', files[i])
         }
 
         if (videoFile) {
+            console.log(`🎬 Ajout de la vidéo: ${videoFile.name}`);
             formData.append('video', videoFile);
         }
 
@@ -464,6 +480,7 @@ const AddProduct = () => {
         const totalBytes = files.reduce((sum, f) => sum + f.size, 0) + (videoFile ? videoFile.size : 0);
         const VERCEL_BODY_LIMIT = 4.4 * 1024 * 1024;
         if (totalBytes > VERCEL_BODY_LIMIT) {
+            console.warn(`⚠️ Taille totale: ${(totalBytes / 1024 / 1024).toFixed(2)}MB > ${(VERCEL_BODY_LIMIT / 1024 / 1024).toFixed(2)}MB`);
             toast.error(
                 videoFile
                     ? "Trop volumineux pour être envoyé en une fois. Retirez la vidéo ou réduisez le nombre de photos."
@@ -472,8 +489,19 @@ const AddProduct = () => {
             return;
         }
 
+        console.log(`📤 Envoi de la requête vers /api/product/add`);
+        console.log(`📊 Taille totale: ${(totalBytes / 1024 / 1024).toFixed(2)}MB`);
+        console.log(`🔑 withCredentials: true`);
+
         try {
-            const { data } = await axios.post('/api/product/add', formData)
+            const { data } = await axios.post('/api/product/add', formData, {
+                withCredentials: true,
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+
+            console.log('✅ Réponse reçue:', data);
 
             if (data.success) {
                 toast.success(data.message);
@@ -499,11 +527,20 @@ const AddProduct = () => {
                 setLabelType('size');
                 resetSizeForm();
             } else {
+                console.error('❌ Erreur serveur (data.success = false):', data.message);
                 toast.error(data.message);
             }
         } catch (error) {
-            toast.error(error.message);
+            console.error('❌ ERREUR COMPLÈTE:', error);
+            console.error('❌ Message:', error.message);
+            console.error('❌ Response:', error.response);
+            console.error('❌ Response data:', error.response?.data);
+            console.error('❌ Response status:', error.response?.status);
+            console.error('❌ Response headers:', error.response?.headers);
+            toast.error(error.response?.data?.message || error.message);
         }
+
+        console.log('🚀 === FIN SOUMISSION PRODUIT ===');
     };
 
     return (
