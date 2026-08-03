@@ -22,8 +22,18 @@ import locationRouter from './routes/locationRoute.js';
 import deliveryRouter from './routes/deliveryRoute.js';
 import settingRouter from './routes/settingRoute.js';
 import pushRouter from './routes/pushRoute.js';
+import staffRouter from './routes/staffRoute.js';
 import { geniuspayWebhook } from './controllers/geniuspayController.js';
 import dns from 'dns';
+
+// PHASE 3 - Routes Commerçant
+import boutiqueRouter from './routes/boutiqueRoute.js';
+import walletRouter from './routes/walletRoute.js';
+import retraitRouter from './routes/retraitRoute.js';
+
+// PHASE 5 - Routes Assistant Shein
+import colisSheinAdminRouter from './routes/colisSheinAdminRoute.js';
+import messageColisRouter from './routes/messageColisRoute.js';
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -100,6 +110,16 @@ app.use('/api/location', locationRouter);
 app.use('/api/delivery', deliveryRouter);
 app.use('/api/setting', settingRouter);
 app.use('/api/push', pushRouter);
+app.use('/api/staff', staffRouter);
+
+// PHASE 3 - Routes Commerçant
+app.use('/api/boutiques', boutiqueRouter);
+app.use('/api/wallet', walletRouter);
+app.use('/api/retraits', retraitRouter);
+
+// PHASE 5 - Routes Assistant Shein
+app.use('/api/shein-cart/admin', colisSheinAdminRouter);
+app.use('/api/message-colis', messageColisRouter);
 
 // ✅ AJOUT : Gestionnaire d'erreur global pour les uploads
 app.use((err, req, res, next) => {
