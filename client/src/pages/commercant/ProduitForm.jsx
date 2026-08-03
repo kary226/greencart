@@ -2,7 +2,109 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
-import { ArrowLeft, ImagePlus, X, Loader2, Save, Trash2, Plus, Layers } from 'lucide-react';
+import ImageCropper from '../../components/ImageCropper';
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
+import { resizeAndConvertToWebP } from '../../utils/resizeImage';
+import {
+    ArrowLeft, ImagePlus, X, Loader2, Save, Trash2,
+    Video, FileText, Tag, Layers, Plus, Pencil,
+    ChevronDown, Box, Ruler, Palette, Info, AlertCircle
+} from 'lucide-react';
+
+// ---------------------------------------------------------------------------
+// Composants réutilisés
+// ---------------------------------------------------------------------------
+
+const Section = ({ icon: Icon, title, subtitle, children }) => (
+    <section className="bg-white border border-gray-200 rounded-2xl p-5 md:p-6">
+        <div className="flex items-start gap-3 mb-5">
+            <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
+                <Icon size={18} className="text-gray-700" />
+            </div>
+            <div>
+                <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
+                {subtitle && <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>}
+            </div>
+        </div>
+        {children}
+    </section>
+);
+
+const Hint = ({ children }) => (
+    <p className="flex items-start gap-1.5 text-xs text-gray-400 mt-2">
+        <Info size={13} className="mt-[1px] shrink-0" />
+        <span>{children}</span>
+    </p>
+);
+
+const Field = ({ label, required, children, hint }) => (
+    <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-gray-800">
+            {label} {required && <span className="text-gray-400">*</span>}
+        </label>
+        {children}
+        {hint && <Hint>{hint}</Hint>}
+    </div>
+);
+
+const inputClass =
+    "outline-none py-2.5 px-3 rounded-lg border border-gray-200 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-400 transition";
+
+const quillModules = {
+    toolbar: [
+        [{ header: [false, 2, 3] }],
+        ['bold', 'italic', 'underline'],
+        [{ color: [] }],
+        [{ list: 'ordered' }, { list: 'bullet' }],
+        ['link', 'image'],
+        ['clean'],
+    ],
+};
+const quillFormats = ['header', 'bold', 'italic', 'underline', 'color', 'list', 'link', 'image'];
+
+const SegmentedControl = ({ options, value, onChange, columns = options.length }) => (
+    <div
+        className="grid gap-1.5 p-1 bg-gray-100 rounded-xl"
+        style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+    >
+        {options.map((opt) => {
+            const active = value === opt.value;
+            const OptIcon = opt.icon;
+            return (
+                <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => onChange(opt.value)}
+                    className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-sm font-medium transition ${
+                        active ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                >
+                    {OptIcon && <OptIcon size={15} />}
+                    {opt.label}
+                </button>
+            );
+        })}
+    </div>
+);
+
+const IconButton = ({ onClick, variant = 'default', children, className = '' }) => {
+    const variants = {
+        default: 'text-gray-400 hover:text-gray-700 hover:bg-gray-100',
+        danger: 'text-gray-400 hover:text-red-600 hover:bg-red-50',
+    };
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className={`w-7 h-7 rounded-lg flex items-center justify-center transition ${variants[variant]} ${className}`}
+        >
+            {children}
+        </button>
+    );
+};
+
+// ---------------------------------------------------------------------------
 
 const ProduitForm = () => {
     const { axios } = useAppContext();
@@ -10,29 +112,59 @@ const ProduitForm = () => {
     const { id } = useParams();
     const isEdition = Boolean(id);
 
+    // Chargement
     const [loading, setLoading] = useState(isEdition);
     const [submitting, setSubmitting] = useState(false);
-    const [categoriesList, setCategoriesList] = useState([]);
 
+    // Données du produit
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [selectedCategories, setSelectedCategories] = useState([]);
     const [price, setPrice] = useState('');
     const [offerPrice, setOfferPrice] = useState('');
-    const [stock, setStock] = useState('');
+    const [categoriesList, setCategoriesList] = useState([]);
 
-    // Mode simple (un seul stock) vs avec tailles/variantes (comme chez seller,
-    // sans la matrice couleurs — chaque entrée = une taille/variante avec son
-    // propre stock et, si besoin, son propre prix).
-    const [hasVariants, setHasVariants] = useState(false);
-    const [labelType, setLabelType] = useState('size'); // 'size' | 'variant'
-    const [variants, setVariants] = useState([]); // [{ size, stock, price, offerPrice }]
-    const [variantNameInput, setVariantNameInput] = useState('');
+    // Mode produit
+    const [productMode, setProductMode] = useState('simple');
+    const [labelType, setLabelType] = useState('size');
 
+    // Mode simple
+    const [simpleStock, setSimpleStock] = useState('');
+    const [simpleSize, setSimpleSize] = useState('');
+
+    // Mode multi-sizes
+    const [sizesList, setSizesList] = useState([]);
+    const [sizeInput, setSizeInput] = useState('');
+    const [stockInput, setStockInput] = useState('');
+    const [sizePriceInput, setSizePriceInput] = useState('');
+    const [sizeOfferPriceInput, setSizeOfferPriceInput] = useState('');
+    const [editingSizeIndex, setEditingSizeIndex] = useState(null);
+    const [openSizesPanel, setOpenSizesPanel] = useState(true);
+
+    // Mode variants (couleurs + tailles)
+    const [variantColors, setVariantColors] = useState([]);
+    const [variantSizes, setVariantSizes] = useState([]);
+    const [variantCells, setVariantCells] = useState({});
+    const [colorTagInput, setColorTagInput] = useState('');
+    const [colorCodeTagInput, setColorCodeTagInput] = useState('#000000');
+    const [sizeTagInput, setSizeTagInput] = useState('');
+    const [collapsedColorGroups, setCollapsedColorGroups] = useState({});
+
+    // Images et vidéo
+    const [files, setFiles] = useState([]);
     const [existingImages, setExistingImages] = useState([]);
-    const [newFiles, setNewFiles] = useState([]);
     const [newPreviews, setNewPreviews] = useState([]);
+    const [videoFile, setVideoFile] = useState(null);
+    const [videoPreview, setVideoPreview] = useState('');
+    const [showCropper, setShowCropper] = useState(false);
+    const [tempImageFile, setTempImageFile] = useState(null);
+    const [previewIndex, setPreviewIndex] = useState(null);
+    const [isConverting, setIsConverting] = useState(false);
 
+    // Helpers
+    const cellKey = (colorName, size) => `${colorName}__${size ?? ''}`;
+
+    // Chargement des catégories
     useEffect(() => {
         const loadCategories = async () => {
             try {
@@ -43,11 +175,12 @@ const ProduitForm = () => {
         loadCategories();
     }, [axios]);
 
+    // Chargement du produit en édition
     useEffect(() => {
         if (!isEdition) return;
         const loadProduct = async () => {
             try {
-                const { data } = await axios.get('/api/product/id', { params: { id } });
+                const { data } = await axios.post('/api/product/id', { id });
                 if (data.success && data.product) {
                     const p = data.product;
                     setName(p.name || '');
@@ -55,17 +188,48 @@ const ProduitForm = () => {
                     setSelectedCategories(p.categories || []);
                     setPrice(p.price ?? '');
                     setOfferPrice(p.offerPrice ?? '');
-                    setStock(p.stock ?? '');
                     setExistingImages(p.image || []);
-                    if (p.variants && p.variants.length > 0) {
-                        setHasVariants(true);
-                        setLabelType(p.labelType || 'size');
-                        setVariants(p.variants.map((v) => ({
-                            size: v.size || '',
-                            stock: v.stock ?? 0,
-                            price: v.price || '',
-                            offerPrice: v.offerPrice || '',
-                        })));
+                    setLabelType(p.labelType || 'size');
+                    setProductMode('simple');
+
+                    const hasVariants = p.variants && p.variants.length > 0;
+                    if (hasVariants) {
+                        const hasColors = p.variants.some(v => v.color);
+                        const hasSizes = p.variants.some(v => v.size);
+                        if (hasColors && hasSizes) {
+                            setProductMode('variants');
+                            const colors = [...new Set(p.variants.map(v => v.color).filter(Boolean))];
+                            const sizes = [...new Set(p.variants.map(v => v.size).filter(Boolean))];
+                            const cells = {};
+                            p.variants.forEach(v => {
+                                const key = cellKey(v.color, v.size);
+                                cells[key] = {
+                                    stock: v.stock || 0,
+                                    price: v.price || '',
+                                    offerPrice: v.offerPrice || '',
+                                };
+                            });
+                            setVariantColors(colors.map(c => ({ name: c, colorCode: '#000000', startImageIndex: 0 })));
+                            setVariantSizes(sizes);
+                            setVariantCells(cells);
+                        } else if (hasSizes) {
+                            setProductMode('multi-sizes');
+                            setSizesList(p.variants.map(v => ({
+                                size: v.size,
+                                stock: v.stock || 0,
+                                price: v.price || null,
+                                offerPrice: v.offerPrice || null,
+                            })));
+                        }
+                    } else {
+                        setProductMode('simple');
+                        setSimpleStock(p.stock ?? '');
+                        setSimpleSize(p.size || '');
+                    }
+
+                    if (p.video) {
+                        setVideoPreview(p.video);
+                        setVideoFile(p.video);
                     }
                 } else {
                     toast.error(data.message || 'Produit introuvable');
@@ -81,80 +245,280 @@ const ProduitForm = () => {
         loadProduct();
     }, [id, isEdition, axios, navigate]);
 
-    const toggleCategory = (name) => {
-        setSelectedCategories((prev) =>
-            prev.includes(name) ? prev.filter((c) => c !== name) : [...prev, name]
-        );
+    // Helpers pour les modes
+    const resetSizeForm = () => {
+        setSizeInput('');
+        setStockInput('');
+        setSizePriceInput('');
+        setSizeOfferPriceInput('');
+        setEditingSizeIndex(null);
     };
 
-    const addVariant = () => {
-        const trimmed = variantNameInput.trim();
-        if (!trimmed) return;
-        if (variants.some((v) => v.size.toLowerCase() === trimmed.toLowerCase())) {
-            toast.error('Cette valeur existe déjà');
+    const addSize = () => {
+        if (!sizeInput.trim()) {
+            toast.error('Entrez une taille');
             return;
         }
-        setVariants((prev) => [...prev, { size: trimmed, stock: 0, price: '', offerPrice: '' }]);
-        setVariantNameInput('');
+        if (!stockInput || Number(stockInput) < 0) {
+            toast.error('Entrez un stock valide');
+            return;
+        }
+
+        const newSize = {
+            size: sizeInput.trim().toUpperCase(),
+            stock: Number(stockInput),
+            price: sizePriceInput !== '' ? Number(sizePriceInput) : null,
+            offerPrice: sizeOfferPriceInput !== '' ? Number(sizeOfferPriceInput) : null
+        };
+
+        if (editingSizeIndex !== null) {
+            const updatedSizes = [...sizesList];
+            updatedSizes[editingSizeIndex] = newSize;
+            setSizesList(updatedSizes);
+        } else {
+            setSizesList([...sizesList, newSize]);
+        }
+        resetSizeForm();
     };
 
-    const removeVariant = (idx) => {
-        setVariants((prev) => prev.filter((_, i) => i !== idx));
+    const editSize = (index) => {
+        const size = sizesList[index];
+        setSizeInput(size.size);
+        setStockInput(size.stock.toString());
+        setSizePriceInput(size.price !== null ? size.price.toString() : '');
+        setSizeOfferPriceInput(size.offerPrice !== null ? size.offerPrice.toString() : '');
+        setEditingSizeIndex(index);
     };
 
-    const updateVariantField = (idx, field, value) => {
-        setVariants((prev) => prev.map((v, i) => (i === idx ? { ...v, [field]: value } : v)));
+    const removeSize = (index) => {
+        setSizesList(sizesList.filter((_, i) => i !== index));
+        if (editingSizeIndex === index) resetSizeForm();
     };
 
-    const onPickFiles = (e) => {
-        const files = Array.from(e.target.files || []).slice(0, 5 - existingImages.length);
-        setNewFiles(files);
-        setNewPreviews(files.map((f) => URL.createObjectURL(f)));
+    // Helpers pour les variants
+    const addColorTag = () => {
+        const trimmed = colorTagInput.trim();
+        if (!trimmed) return;
+        if (variantColors.some(c => c.name.toLowerCase() === trimmed.toLowerCase())) {
+            toast.error('Cette couleur existe déjà');
+            return;
+        }
+        setVariantColors(prev => [...prev, { name: trimmed, colorCode: colorCodeTagInput, startImageIndex: 0 }]);
+        setColorTagInput('');
+    };
+
+    const removeColorTag = (name) => {
+        setVariantColors(prev => prev.filter(c => c.name !== name));
+        setVariantCells(prev => {
+            const next = { ...prev };
+            Object.keys(next).forEach((k) => { if (k.startsWith(`${name}__`)) delete next[k]; });
+            return next;
+        });
+    };
+
+    const updateColorMeta = (name, field, value) => {
+        setVariantColors(prev => prev.map(c => (c.name === name ? { ...c, [field]: value } : c)));
+    };
+
+    const addSizeTag = () => {
+        const trimmed = sizeTagInput.trim().toUpperCase();
+        if (!trimmed) return;
+        if (variantSizes.includes(trimmed)) {
+            toast.error('Cette taille existe déjà');
+            return;
+        }
+        setVariantSizes(prev => [...prev, trimmed]);
+        setSizeTagInput('');
+    };
+
+    const removeSizeTag = (size) => {
+        setVariantSizes(prev => prev.filter(s => s !== size));
+        setVariantCells(prev => {
+            const next = { ...prev };
+            Object.keys(next).forEach((k) => { if (k.endsWith(`__${size}`)) delete next[k]; });
+            return next;
+        });
+    };
+
+    const toggleColorGroup = (name) => {
+        setCollapsedColorGroups(prev => ({ ...prev, [name]: !prev[name] }));
+    };
+
+    const colorGroupStockTotal = (colorName) => {
+        const sizes = variantSizes.length > 0 ? variantSizes : [null];
+        return sizes.reduce((sum, sz) => sum + (Number(variantCells[cellKey(colorName, sz)]?.stock) || 0), 0);
+    };
+
+    const updateCell = (colorName, size, field, value) => {
+        const key = cellKey(colorName, size);
+        setVariantCells(prev => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
+    };
+
+    const buildVariantsPayload = () => {
+        const variants = [];
+        const sizes = variantSizes.length > 0 ? variantSizes : [null];
+        variantColors.forEach(col => {
+            sizes.forEach(sz => {
+                const cell = variantCells[cellKey(col.name, sz)] || {};
+                variants.push({
+                    color: col.name,
+                    colorCode: col.colorCode || null,
+                    size: sz,
+                    stock: Number(cell.stock) || 0,
+                    price: cell.price !== undefined && cell.price !== '' ? Number(cell.price) : null,
+                    offerPrice: cell.offerPrice !== undefined && cell.offerPrice !== '' ? Number(cell.offerPrice) : null,
+                    startImageIndex: Number(col.startImageIndex) || 0,
+                });
+            });
+        });
+        return variants;
+    };
+
+    // Gestion des images
+    const handleImageSelect = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setTempImageFile(file);
+            setShowCropper(true);
+        }
+    };
+
+    const handleCropComplete = async (croppedFile) => {
+        setIsConverting(true);
+        try {
+            const webpFile = await resizeAndConvertToWebP(croppedFile);
+            setFiles(prev => [...prev, webpFile]);
+            setNewPreviews(prev => [...prev, URL.createObjectURL(webpFile)]);
+            toast.success('Image optimisée');
+        } catch (error) {
+            console.error("Erreur conversion WebP:", error);
+            toast.error("Erreur lors de l'optimisation de l'image");
+        } finally {
+            setIsConverting(false);
+            setShowCropper(false);
+            setTempImageFile(null);
+        }
+    };
+
+    const removeImage = (index) => {
+        setFiles(prev => prev.filter((_, i) => i !== index));
+        setNewPreviews(prev => prev.filter((_, i) => i !== index));
     };
 
     const removeExistingImage = (idx) => {
-        setExistingImages((prev) => prev.filter((_, i) => i !== idx));
+        setExistingImages(prev => prev.filter((_, i) => i !== idx));
     };
 
+    // Gestion de la vidéo
+    const handleVideoSelect = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            if (!file.type.startsWith('video/')) {
+                toast.error('Veuillez sélectionner une vidéo');
+                return;
+            }
+            if (file.size > 100 * 1024 * 1024) {
+                toast.error('La vidéo ne doit pas dépasser 100MB');
+                return;
+            }
+            setVideoFile(file);
+            setVideoPreview(URL.createObjectURL(file));
+            toast.success('Vidéo sélectionnée');
+        }
+    };
+
+    const removeVideo = () => {
+        setVideoFile(null);
+        setVideoPreview('');
+    };
+
+    // Catégories
+    const toggleCategory = (name) => {
+        setSelectedCategories(prev =>
+            prev.includes(name) ? prev.filter(c => c !== name) : [...prev, name]
+        );
+    };
+
+    // Validation
     const validate = () => {
         if (!name.trim()) { toast.error('Le nom est requis'); return false; }
         if (!description.trim()) { toast.error('La description est requise'); return false; }
         if (!price || Number(price) <= 0) { toast.error('Le prix est requis'); return false; }
-        if (!isEdition && newFiles.length === 0) { toast.error('Au moins une photo est requise'); return false; }
-        if (hasVariants && variants.length === 0) { toast.error('Ajoutez au moins une taille/variante, ou désactivez ce mode'); return false; }
+        if (!isEdition && files.length === 0 && existingImages.length === 0) {
+            toast.error('Au moins une photo est requise');
+            return false;
+        }
+
+        if (productMode === 'simple') {
+            // OK
+        } else if (productMode === 'multi-sizes') {
+            if (sizesList.length === 0) {
+                toast.error('Ajoutez au moins une taille');
+                return false;
+            }
+        } else if (productMode === 'variants') {
+            if (variantColors.length === 0) {
+                toast.error('Ajoutez au moins une couleur');
+                return false;
+            }
+            let hasStock = false;
+            const sizes = variantSizes.length > 0 ? variantSizes : [null];
+            variantColors.forEach(col => {
+                sizes.forEach(sz => {
+                    if (Number(variantCells[cellKey(col.name, sz)]?.stock) > 0) hasStock = true;
+                });
+            });
+            if (!hasStock) {
+                toast.error('Ajoutez au moins un stock pour une variante');
+                return false;
+            }
+        }
         return true;
     };
 
-    const buildVariantsPayload = () => variants.map((v) => ({
-        color: null,
-        colorCode: '#000000',
-        size: v.size,
-        price: v.price !== '' ? Number(v.price) : 0,
-        offerPrice: v.offerPrice !== '' ? Number(v.offerPrice) : 0,
-        stock: Number(v.stock) || 0,
-    }));
-
+    // Soumission
     const onSubmit = async (e) => {
         e.preventDefault();
         if (!validate()) return;
         setSubmitting(true);
 
-        const sharedData = {
+        const productData = {
             name: name.trim(),
             description: description.trim(),
             categories: selectedCategories,
             price: Number(price),
             offerPrice: Number(offerPrice) || Number(price),
-            stock: hasVariants ? 0 : (Number(stock) || 0),
-            variants: hasVariants ? buildVariantsPayload() : [],
-            labelType,
+            labelType: labelType,
         };
+
+        if (productMode === 'simple') {
+            productData.variants = [];
+            productData.stock = Number(simpleStock) || 0;
+            productData.size = simpleSize || null;
+        } else if (productMode === 'multi-sizes') {
+            productData.variants = sizesList.map(s => ({
+                color: null,
+                colorCode: '#000000',
+                size: s.size,
+                price: s.price || 0,
+                offerPrice: s.offerPrice || 0,
+                stock: s.stock || 0,
+                startImageIndex: 0
+            }));
+            productData.stock = 0;
+            productData.size = null;
+        } else if (productMode === 'variants') {
+            productData.variants = buildVariantsPayload();
+            productData.stock = 0;
+            productData.size = null;
+        }
 
         try {
             if (!isEdition) {
                 const formData = new FormData();
-                formData.append('productData', JSON.stringify(sharedData));
-                newFiles.forEach((file) => formData.append('images', file));
+                formData.append('productData', JSON.stringify(productData));
+                files.forEach((file) => formData.append('images', file));
+                if (videoFile) formData.append('video', videoFile);
 
                 const { data } = await axios.post('/api/product/staff/add', formData, {
                     headers: { 'Content-Type': 'multipart/form-data' },
@@ -168,7 +532,7 @@ const ProduitForm = () => {
             } else {
                 const { data } = await axios.post('/api/product/staff/update', {
                     id,
-                    ...sharedData,
+                    ...productData,
                     image: existingImages,
                 });
 
@@ -178,11 +542,20 @@ const ProduitForm = () => {
                     return;
                 }
 
-                if (newFiles.length > 0) {
+                if (files.length > 0) {
                     const imgForm = new FormData();
                     imgForm.append('productId', id);
-                    newFiles.forEach((file) => imgForm.append('images', file));
+                    files.forEach((file) => imgForm.append('images', file));
                     await axios.post('/api/product/staff/add-images', imgForm, {
+                        headers: { 'Content-Type': 'multipart/form-data' },
+                    });
+                }
+
+                if (videoFile && typeof videoFile !== 'string') {
+                    const videoForm = new FormData();
+                    videoForm.append('id', id);
+                    videoForm.append('video', videoFile);
+                    await axios.post('/api/product/staff/update', videoForm, {
                         headers: { 'Content-Type': 'multipart/form-data' },
                     });
                 }
@@ -202,181 +575,387 @@ const ProduitForm = () => {
     }
 
     return (
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
-            <Link to="/commercant/produits" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-burgundy-700 transition mb-4">
-                <ArrowLeft size={15} /> Retour aux produits
-            </Link>
-            <h1 className="font-display text-2xl font-semibold text-gray-900 mb-6">
-                {isEdition ? "Modifier l'article" : 'Ajouter un article'}
-            </h1>
-
-            <form onSubmit={onSubmit} className="bg-white rounded-2xl border border-blush-200 p-6 space-y-5">
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nom de l'article</label>
-                    <input value={name} onChange={(e) => setName(e.target.value)} required
-                        className="w-full px-3.5 py-2.5 border border-blush-300 rounded-xl text-sm outline-none focus:border-burgundy-500 focus:ring-1 focus:ring-burgundy-500" />
+        <div className="no-scrollbar flex-1 min-h-screen bg-gray-50">
+            <form id="add-product-form" onSubmit={onSubmit} className="max-w-3xl mx-auto p-4 md:p-8 pb-28 space-y-4">
+                <div className="mb-2">
+                    <h1 className="font-display text-xl font-semibold text-gray-900">
+                        {isEdition ? "Modifier l'article" : 'Ajouter un article'}
+                    </h1>
+                    <p className="text-sm text-gray-400 mt-0.5">
+                        {isEdition ? 'Modifiez les informations de votre article' : 'Renseignez les informations ci-dessous pour publier un article.'}
+                    </p>
                 </div>
 
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                    <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} required
-                        className="w-full px-3.5 py-2.5 border border-blush-300 rounded-xl text-sm outline-none focus:border-burgundy-500 focus:ring-1 focus:ring-burgundy-500 resize-none" />
-                </div>
+                {/* Informations générales */}
+                <Section icon={FileText} title="Informations générales">
+                    <div className="space-y-4">
+                        <Field label="Nom de l'article" required>
+                            <input value={name} onChange={(e) => setName(e.target.value)} required
+                                className={inputClass} />
+                        </Field>
 
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Prix (FCFA)</label>
-                        <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} required min="0"
-                            className="w-full px-3.5 py-2.5 border border-blush-300 rounded-xl text-sm outline-none focus:border-burgundy-500 focus:ring-1 focus:ring-burgundy-500" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Prix promo (optionnel)</label>
-                        <input type="number" value={offerPrice} onChange={(e) => setOfferPrice(e.target.value)} min="0"
-                            className="w-full px-3.5 py-2.5 border border-blush-300 rounded-xl text-sm outline-none focus:border-burgundy-500 focus:ring-1 focus:ring-burgundy-500" />
-                    </div>
-                    <p className="col-span-2 text-xs text-gray-400 -mt-2">Prix par défaut du produit — chaque taille/variante peut avoir son propre prix ci-dessous, sinon celui-ci s'applique.</p>
-                </div>
+                        <Field label="Description">
+                            <div className="pd-quill">
+                                <ReactQuill
+                                    value={description}
+                                    onChange={setDescription}
+                                    theme="snow"
+                                    placeholder="Décrivez votre produit…"
+                                    modules={quillModules}
+                                    formats={quillFormats}
+                                    style={{ minHeight: '150px' }}
+                                />
+                            </div>
+                            <style>{`
+                                .pd-quill .ql-toolbar.ql-snow {
+                                    border: 1px solid #e5e7eb;
+                                    border-bottom: none;
+                                    border-radius: 10px 10px 0 0;
+                                    background: #fafafa;
+                                    padding: 8px 10px;
+                                }
+                                .pd-quill .ql-container.ql-snow {
+                                    border: 1px solid #e5e7eb;
+                                    border-radius: 0 0 10px 10px;
+                                    font-family: inherit;
+                                    font-size: 13.5px;
+                                }
+                                .pd-quill .ql-editor { min-height: 150px; color: #111827; line-height: 1.6; }
+                                .pd-quill .ql-editor.ql-blank::before { color: #9ca3af; font-style: normal; }
+                                .pd-quill .ql-snow .ql-stroke { stroke: #6b7280; }
+                                .pd-quill .ql-snow .ql-fill { fill: #6b7280; }
+                            `}</style>
+                        </Field>
 
-                <div className="border-t border-blush-100 pt-4">
-                    <div className="flex items-center justify-between mb-3">
-                        <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-                            <Layers size={15} /> Tailles / variantes
-                        </label>
-                        <button type="button" onClick={() => setHasVariants((v) => !v)}
-                            className={`text-xs font-medium px-3 py-1.5 rounded-full border transition ${
-                                hasVariants ? 'bg-burgundy-600 border-burgundy-600 text-white' : 'bg-white border-blush-300 text-gray-600 hover:border-burgundy-400'
-                            }`}
-                        >
-                            {hasVariants ? 'Activé' : 'Désactivé'}
-                        </button>
+                        <Field label="Catégories" required>
+                            <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2.5 border border-gray-200 rounded-lg">
+                                {categoriesList.map((item) => (
+                                    <button
+                                        key={item._id}
+                                        type="button"
+                                        onClick={() => toggleCategory(item.name)}
+                                        className={`px-3 py-1.5 rounded-full text-sm transition ${
+                                            selectedCategories.includes(item.name)
+                                                ? 'bg-gray-900 text-white'
+                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                        }`}
+                                    >
+                                        {item.name}
+                                    </button>
+                                ))}
+                            </div>
+                        </Field>
                     </div>
+                </Section>
 
-                    {!hasVariants ? (
+                {/* Médias */}
+                <Section icon={ImagePlus} title="Médias" subtitle="Photos et vidéo de présentation">
+                    <div className="space-y-5">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Stock disponible</label>
-                            <input type="number" value={stock} onChange={(e) => setStock(e.target.value)} min="0"
-                                className="w-full sm:w-40 px-3.5 py-2.5 border border-blush-300 rounded-xl text-sm outline-none focus:border-burgundy-500 focus:ring-1 focus:ring-burgundy-500" />
-                        </div>
-                    ) : (
-                        <div className="space-y-3">
-                            <div className="flex gap-2 items-center">
-                                <span className="text-xs text-gray-500">Libellé :</span>
-                                <button type="button" onClick={() => setLabelType('size')}
-                                    className={`text-xs px-2.5 py-1 rounded-full border transition ${labelType === 'size' ? 'bg-burgundy-600 border-burgundy-600 text-white' : 'bg-white border-blush-300 text-gray-600'}`}>
-                                    Taille
-                                </button>
-                                <button type="button" onClick={() => setLabelType('variant')}
-                                    className={`text-xs px-2.5 py-1 rounded-full border transition ${labelType === 'variant' ? 'bg-burgundy-600 border-burgundy-600 text-white' : 'bg-white border-blush-300 text-gray-600'}`}>
-                                    Variante
-                                </button>
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-medium text-gray-800">Photos, dans l'ordre d'affichage</span>
+                                <span className="text-[11px] text-gray-400">Carré 1:1</span>
                             </div>
 
-                            <div className="flex gap-2">
-                                <input value={variantNameInput} onChange={(e) => setVariantNameInput(e.target.value)}
-                                    placeholder={labelType === 'size' ? 'Ex: M, L, XL...' : 'Ex: Fraise, Orange...'}
-                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addVariant(); } }}
-                                    className="flex-1 px-3.5 py-2.5 border border-blush-300 rounded-xl text-sm outline-none focus:border-burgundy-500 focus:ring-1 focus:ring-burgundy-500" />
-                                <button type="button" onClick={addVariant} className="flex items-center gap-1.5 bg-blush-100 text-burgundy-700 px-3.5 rounded-xl text-sm font-medium hover:bg-blush-200 transition">
-                                    <Plus size={15} /> Ajouter
-                                </button>
-                            </div>
-
-                            {variants.length > 0 && (
-                                <div className="border border-blush-200 rounded-xl overflow-hidden">
-                                    <div className="grid grid-cols-[1fr_80px_90px_90px_28px] gap-2 px-3 py-2 bg-ivory-200 text-[11px] font-medium text-gray-500">
-                                        <span>{labelType === 'size' ? 'Taille' : 'Variante'}</span>
-                                        <span>Stock</span>
-                                        <span>Prix</span>
-                                        <span>Promo</span>
-                                        <span />
+                            <div className="grid grid-cols-4 sm:grid-cols-5 gap-2.5">
+                                {existingImages.map((url, index) => (
+                                    <div key={`existing-${index}`} className="relative group aspect-square">
+                                        <img src={url} alt="" className="w-full h-full object-cover rounded-xl border border-gray-200" />
+                                        {index === 0 && <span className="absolute bottom-1 left-1 text-[10px] bg-gray-900/80 text-white px-1.5 py-0.5 rounded">Couverture</span>}
+                                        <button type="button" onClick={() => removeExistingImage(index)}
+                                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-500 hover:text-red-600 transition opacity-0 group-hover:opacity-100">
+                                            <X size={12} />
+                                        </button>
                                     </div>
-                                    {variants.map((v, idx) => (
-                                        <div key={idx} className="grid grid-cols-[1fr_80px_90px_90px_28px] gap-2 px-3 py-2 border-t border-blush-100 items-center">
-                                            <span className="text-sm text-gray-800 truncate">{v.size}</span>
-                                            <input type="number" min="0" value={v.stock} onChange={(e) => updateVariantField(idx, 'stock', e.target.value)}
-                                                className="w-full px-2 py-1.5 border border-blush-200 rounded-lg text-xs outline-none focus:border-burgundy-500" />
-                                            <input type="number" min="0" placeholder="—" value={v.price} onChange={(e) => updateVariantField(idx, 'price', e.target.value)}
-                                                className="w-full px-2 py-1.5 border border-blush-200 rounded-lg text-xs outline-none focus:border-burgundy-500" />
-                                            <input type="number" min="0" placeholder="—" value={v.offerPrice} onChange={(e) => updateVariantField(idx, 'offerPrice', e.target.value)}
-                                                className="w-full px-2 py-1.5 border border-blush-200 rounded-lg text-xs outline-none focus:border-burgundy-500" />
-                                            <button type="button" onClick={() => removeVariant(idx)} className="text-red-400 hover:text-red-600 transition"><X size={14} /></button>
+                                ))}
+                                {newPreviews.map((src, index) => (
+                                    <div key={`new-${index}`} className="relative group aspect-square">
+                                        <img src={src} alt="" className="w-full h-full object-cover rounded-xl border border-gray-200" />
+                                        <button type="button" onClick={() => removeImage(index)}
+                                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-500 hover:text-red-600 transition opacity-0 group-hover:opacity-100">
+                                            <X size={12} />
+                                        </button>
+                                    </div>
+                                ))}
+                                {(existingImages.length + newPreviews.length) < 5 && (
+                                    <label className="aspect-square border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition">
+                                        <input onChange={handleImageSelect} type="file" accept="image/*" className="hidden" />
+                                        <Plus size={18} className="text-gray-400" />
+                                        <span className="text-[11px] text-gray-400">Ajouter</span>
+                                    </label>
+                                )}
+                            </div>
+                            {isConverting && <p className="text-xs text-gray-600">🔄 Optimisation en cours...</p>}
+                        </div>
+
+                        <div>
+                            <span className="text-sm font-medium text-gray-800">Vidéo (optionnel)</span>
+                            <div className="flex flex-wrap items-center gap-3 mt-2">
+                                <label className="flex items-center gap-2 px-3.5 py-2.5 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition">
+                                    <input onChange={handleVideoSelect} type="file" accept="video/*" className="hidden" />
+                                    <Video size={16} className="text-gray-400" />
+                                    <span className="text-sm text-gray-500">Choisir une vidéo</span>
+                                </label>
+                                {videoPreview && (
+                                    <div className="relative">
+                                        <video src={videoPreview} className="w-16 h-16 object-cover rounded-xl border border-gray-200" controls muted />
+                                        <button type="button" onClick={removeVideo}
+                                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-500 hover:text-red-600 transition">
+                                            <X size={12} />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                            <Hint>Format MP4, WebM ou MOV, 100 Mo maximum.</Hint>
+                        </div>
+                    </div>
+                </Section>
+
+                {/* Tarification */}
+                <Section icon={Tag} title="Tarification" subtitle="Prix appliqués par défaut à tout le produit">
+                    <div className="grid grid-cols-2 gap-4">
+                        <Field label="Prix" required>
+                            <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} required min="0"
+                                className={inputClass} placeholder="0" />
+                        </Field>
+                        <Field label="Prix promo" hint="Vide = pas de promo">
+                            <input type="number" value={offerPrice} onChange={(e) => setOfferPrice(e.target.value)} min="0"
+                                className={inputClass} placeholder="Optionnel" />
+                        </Field>
+                    </div>
+                    <Hint>Une variante peut avoir son propre prix ; à défaut, elle utilise ceux-ci.</Hint>
+                </Section>
+
+                {/* Stock & variantes */}
+                <Section icon={Layers} title="Stock & variantes">
+                    <SegmentedControl
+                        value={productMode}
+                        onChange={setProductMode}
+                        options={[
+                            { value: 'simple', label: 'Simple', icon: Box },
+                            { value: 'multi-sizes', label: 'Tailles', icon: Ruler },
+                            { value: 'variants', label: 'Couleurs + tailles', icon: Palette },
+                        ]}
+                    />
+
+                    {/* Mode SIMPLE */}
+                    {productMode === 'simple' && (
+                        <div className="grid grid-cols-2 gap-4 mt-4">
+                            <Field label="Stock (optionnel)">
+                                <input type="number" value={simpleStock} onChange={(e) => setSimpleStock(e.target.value)} min="0"
+                                    className={inputClass} placeholder="Quantité" />
+                            </Field>
+                            <Field label="Taille (optionnel)">
+                                <input type="text" value={simpleSize} onChange={(e) => setSimpleSize(e.target.value)}
+                                    className={inputClass} placeholder="S, M, L..." />
+                            </Field>
+                        </div>
+                    )}
+
+                    {/* Mode MULTI-TAILLES */}
+                    {productMode === 'multi-sizes' && (
+                        <div className="flex flex-col gap-4 mt-4">
+                            <div className="border border-gray-200 rounded-xl p-3.5 bg-gray-50">
+                                <p className="text-sm font-medium text-gray-800 mb-1">Type de libellé</p>
+                                <SegmentedControl
+                                    value={labelType}
+                                    onChange={setLabelType}
+                                    options={[
+                                        { value: 'size', label: 'Taille', icon: Ruler },
+                                        { value: 'variant', label: 'Variante', icon: Box },
+                                    ]}
+                                />
+                            </div>
+
+                            <div className="border border-gray-200 rounded-xl overflow-hidden">
+                                <button type="button" onClick={() => setOpenSizesPanel(!openSizesPanel)}
+                                    className="w-full flex items-center justify-between px-3.5 py-3 bg-gray-50 hover:bg-gray-100 transition">
+                                    <span className="font-medium text-sm text-gray-900">
+                                        {labelType === 'size' ? 'Tailles' : 'Variantes'} disponibles ({sizesList.length})
+                                    </span>
+                                    <ChevronDown size={16} className={`text-gray-400 transition-transform ${openSizesPanel ? 'rotate-180' : ''}`} />
+                                </button>
+                                {openSizesPanel && (
+                                    <div className="px-3.5 py-3.5 border-t border-gray-200 space-y-3">
+                                        {sizesList.map((size, idx) => (
+                                            <div key={idx} className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg">
+                                                <div className="text-sm">
+                                                    <span className="font-medium text-gray-800">{size.size}</span>
+                                                    <span className="text-xs text-gray-500 ml-2">Stock: {size.stock}</span>
+                                                    {size.price && <span className="text-xs text-gray-400 ml-2">{size.price} FCFA</span>}
+                                                </div>
+                                                <div className="flex gap-0.5">
+                                                    <IconButton onClick={() => editSize(idx)}><Pencil size={13} /></IconButton>
+                                                    <IconButton variant="danger" onClick={() => removeSize(idx)}><X size={14} /></IconButton>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        <div className="grid grid-cols-3 gap-2">
+                                            <input value={sizeInput} onChange={e => setSizeInput(e.target.value)} type="text" placeholder={labelType === 'size' ? "Taille" : "Variante"} className={`${inputClass} col-span-2`} />
+                                            <input value={stockInput} onChange={e => setStockInput(e.target.value)} type="number" placeholder="Stock" className={inputClass} />
                                         </div>
-                                    ))}
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <input value={sizePriceInput} onChange={e => setSizePriceInput(e.target.value)} type="number" placeholder="Prix (optionnel)" className={inputClass} />
+                                            <input value={sizeOfferPriceInput} onChange={e => setSizeOfferPriceInput(e.target.value)} type="number" placeholder="Promo" className={inputClass} />
+                                        </div>
+                                        <button type="button" onClick={addSize} className="w-full py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:opacity-90 transition">
+                                            {editingSizeIndex !== null ? 'Mettre à jour' : 'Ajouter'}
+                                        </button>
+                                        {editingSizeIndex !== null && (
+                                            <button type="button" onClick={resetSizeForm} className="text-sm text-gray-500 hover:text-gray-700">Annuler</button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Mode VARIANTS */}
+                    {productMode === 'variants' && (
+                        <div className="flex flex-col gap-4 mt-4">
+                            <div>
+                                <p className="text-sm font-medium text-gray-800 mb-2">Couleurs</p>
+                                {variantColors.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mb-2">
+                                        {variantColors.map(c => (
+                                            <span key={c.name} className="flex items-center gap-1.5 pl-1.5 pr-2 py-1 bg-gray-100 rounded-full text-sm">
+                                                <span className="w-3.5 h-3.5 rounded-full border border-gray-300" style={{ backgroundColor: c.colorCode }} />
+                                                {c.name}
+                                                <button type="button" onClick={() => removeColorTag(c.name)} className="text-gray-400 hover:text-red-600"><X size={12} /></button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                                <div className="flex gap-2">
+                                    <input value={colorTagInput} onChange={(e) => setColorTagInput(e.target.value)}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addColorTag(); } }}
+                                        type="text" placeholder="Ex: Rouge" className={`${inputClass} flex-1`} />
+                                    <input value={colorCodeTagInput} onChange={(e) => setColorCodeTagInput(e.target.value)} type="color" className="w-11 h-10 rounded-lg border border-gray-200 cursor-pointer shrink-0" />
+                                    <button type="button" onClick={addColorTag} className="shrink-0 px-3.5 py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:opacity-90 transition">Ajouter</button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <p className="text-sm font-medium text-gray-800 mb-2">Tailles <span className="text-gray-400 font-normal">(optionnel)</span></p>
+                                {variantSizes.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mb-2">
+                                        {variantSizes.map(s => (
+                                            <span key={s} className="flex items-center gap-1.5 pl-2.5 pr-2 py-1 bg-gray-100 rounded-full text-sm">
+                                                {s}
+                                                <button type="button" onClick={() => removeSizeTag(s)} className="text-gray-400 hover:text-red-600"><X size={12} /></button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                                <div className="flex gap-2">
+                                    <input value={sizeTagInput} onChange={(e) => setSizeTagInput(e.target.value)}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSizeTag(); } }}
+                                        type="text" placeholder="Ex: S, M, L" className={`${inputClass} flex-1`} />
+                                    <button type="button" onClick={addSizeTag} className="shrink-0 px-3.5 py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:opacity-90 transition">Ajouter</button>
+                                </div>
+                            </div>
+
+                            {variantColors.length > 0 && (
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <p className="text-sm font-medium text-gray-800">Stock & prix par variante</p>
+                                        <span className="text-xs text-gray-400">{variantColors.length} couleur(s) × {variantSizes.length || 1} taille(s)</span>
+                                    </div>
+                                    {variantColors.map(col => {
+                                        const sizes = variantSizes.length > 0 ? variantSizes : [null];
+                                        const collapsed = !!collapsedColorGroups[col.name];
+                                        return (
+                                            <div key={col.name} className="border border-gray-200 rounded-xl overflow-hidden mb-2">
+                                                <button type="button" onClick={() => toggleColorGroup(col.name)} className="w-full flex items-center justify-between px-3.5 py-3 bg-gray-50 hover:bg-gray-100 transition">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="w-3.5 h-3.5 rounded-full border border-gray-300" style={{ backgroundColor: col.colorCode }} />
+                                                        <span className="font-medium text-sm text-gray-900">{col.name}</span>
+                                                        <span className="text-xs text-gray-500">Stock: {colorGroupStockTotal(col.name)}</span>
+                                                    </div>
+                                                    <ChevronDown size={16} className={`text-gray-400 transition-transform ${collapsed ? '' : 'rotate-180'}`} />
+                                                </button>
+                                                {!collapsed && (
+                                                    <div className="border-t border-gray-200 bg-white">
+                                                        <div className="px-3.5 py-2.5 border-b border-gray-100 flex items-center gap-2.5">
+                                                            <span className="text-xs text-gray-500">Départ photos:</span>
+                                                            <input value={col.startImageIndex} onChange={(e) => updateColorMeta(col.name, 'startImageIndex', Number(e.target.value))} type="number" min="0" className={`${inputClass} w-20 py-1.5`} />
+                                                        </div>
+                                                        <div className="grid grid-cols-[1fr_1fr_1fr_1fr] gap-2 px-3.5 pt-2.5 text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                                                            <span>{variantSizes.length > 0 ? 'Taille' : ''}</span>
+                                                            <span>Stock *</span>
+                                                            <span>Prix</span>
+                                                            <span>Promo</span>
+                                                        </div>
+                                                        {sizes.map(sz => {
+                                                            const cell = variantCells[cellKey(col.name, sz)] || {};
+                                                            return (
+                                                                <div key={sz ?? '_'} className="grid grid-cols-[1fr_1fr_1fr_1fr] gap-2 items-center px-3.5 py-2">
+                                                                    <span className="text-sm font-medium text-gray-700">{sz || 'Toutes'}</span>
+                                                                    <input value={cell.stock ?? ''} onChange={(e) => updateCell(col.name, sz, 'stock', e.target.value)} type="number" min="0" placeholder="0" className={`${inputClass} py-1.5`} />
+                                                                    <input value={cell.price ?? ''} onChange={(e) => updateCell(col.name, sz, 'price', e.target.value)} type="number" placeholder="Défaut" className={`${inputClass} py-1.5`} />
+                                                                    <input value={cell.offerPrice ?? ''} onChange={(e) => updateCell(col.name, sz, 'offerPrice', e.target.value)} type="number" placeholder="Défaut" className={`${inputClass} py-1.5`} />
+                                                                </div>
+                                                            );
+                                                        })}
+                                                        <div className="px-3.5 py-2 border-t border-gray-100">
+                                                            <button type="button" onClick={() => removeColorTag(col.name)} className="text-xs font-medium text-red-600 hover:text-red-700">Supprimer « {col.name} »</button>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
                     )}
-                </div>
+                </Section>
 
-                {categoriesList.length > 0 && (
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Catégories</label>
-                        <div className="flex flex-wrap gap-2">
-                            {categoriesList.map((cat) => {
-                                const active = selectedCategories.includes(cat.name);
-                                return (
-                                    <button
-                                        type="button" key={cat._id}
-                                        onClick={() => toggleCategory(cat.name)}
-                                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
-                                            active
-                                                ? 'bg-burgundy-600 border-burgundy-600 text-white'
-                                                : 'bg-white border-blush-300 text-gray-600 hover:border-burgundy-400'
-                                        }`}
-                                    >
-                                        {cat.name}
-                                    </button>
-                                );
-                            })}
-                        </div>
+                {/* Rappel */}
+                {selectedCategories.length === 0 && (
+                    <div className="flex items-center gap-2 text-xs text-gray-400 px-1">
+                        <AlertCircle size={13} /> Une catégorie est requise pour publier ce produit.
                     </div>
                 )}
-
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Photos</label>
-
-                    {existingImages.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mb-3">
-                            {existingImages.map((url, idx) => (
-                                <div key={url + idx} className="relative w-20 h-20 rounded-xl overflow-hidden border border-blush-200">
-                                    <img src={url} alt="" className="w-full h-full object-cover" />
-                                    <button type="button" onClick={() => removeExistingImage(idx)}
-                                        className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 hover:bg-red-600 transition">
-                                        <Trash2 size={12} />
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {newPreviews.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mb-3">
-                            {newPreviews.map((src, idx) => (
-                                <div key={idx} className="w-20 h-20 rounded-xl overflow-hidden border border-blush-300">
-                                    <img src={src} alt="" className="w-full h-full object-cover" />
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    <label className="flex items-center gap-1.5 text-xs font-medium text-burgundy-700 mb-1 cursor-pointer w-fit hover:underline">
-                        <ImagePlus size={14} /> {isEdition ? 'Ajouter des photos' : 'Choisir des photos (jusqu\'à 5)'}
-                        <input type="file" accept="image/*" multiple className="hidden" onChange={onPickFiles} />
-                    </label>
-                    {newFiles.length > 0 && <p className="text-xs text-gray-400">{newFiles.length} nouvelle(s) photo(s) sélectionnée(s)</p>}
-                </div>
-
-                <div className="flex items-center gap-3 pt-2 border-t border-blush-100">
-                    <button disabled={submitting}
-                        className="flex items-center gap-2 bg-burgundy-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-burgundy-700 transition disabled:opacity-50">
-                        {submitting ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                        {isEdition ? 'Enregistrer les modifications' : "Publier l'article"}
-                    </button>
-                    <Link to="/commercant/produits" className="flex items-center gap-2 bg-ivory-300 text-gray-600 px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-blush-200 transition">
-                        <X size={16} /> Annuler
-                    </Link>
-                </div>
             </form>
+
+            {/* Barre d'action collante */}
+            <div className="sticky bottom-0 left-0 right-0 bg-white/90 backdrop-blur border-t border-gray-200 px-4 md:px-8 py-3">
+                <div className="max-w-3xl mx-auto flex justify-end gap-3">
+                    <Link to="/commercant/produits" className="px-6 py-2.5 bg-gray-100 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-200 transition">
+                        Annuler
+                    </Link>
+                    <button type="submit" form="add-product-form" disabled={submitting} className="px-6 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-xl hover:opacity-90 transition disabled:opacity-50 flex items-center gap-2">
+                        {submitting ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                        {isEdition ? 'Enregistrer' : 'Publier'}
+                    </button>
+                </div>
+            </div>
+
+            {showCropper && (
+                <ImageCropper
+                    imageFile={tempImageFile}
+                    onCropComplete={handleCropComplete}
+                    onCancel={() => { setShowCropper(false); setTempImageFile(null); }}
+                    aspectRatio={1}
+                    cropShape="rect"
+                    lockAspectRatio
+                />
+            )}
+
+            {previewIndex !== null && newPreviews[previewIndex] && (
+                <div className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-6" onClick={() => setPreviewIndex(null)}>
+                    <div className="w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-2.5">
+                            <span className="text-sm font-medium text-white">Aperçu</span>
+                            <button type="button" onClick={() => setPreviewIndex(null)} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition"><X size={16} /></button>
+                        </div>
+                        <div className="w-full bg-[#f7f5f2] rounded-none overflow-hidden" style={{ aspectRatio: '1/1' }}>
+                            <img src={newPreviews[previewIndex]} alt="Aperçu" className="w-full h-full object-cover" />
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
