@@ -128,6 +128,43 @@ const ColisSheinManager = () => {
         }
     };
 
+    // --- Message de bienvenue automatique (Setting "sheinMessageBienvenue") ---
+    const MESSAGE_BIENVENUE_DEFAUT =
+        "Merci pour votre commande ! Elle a bien été reçue et un agent vous répondra très prochainement pour vous envoyer votre devis.";
+    const [messageBienvenue, setMessageBienvenue] = useState(MESSAGE_BIENVENUE_DEFAUT);
+    const [messageBienvenueSaved, setMessageBienvenueSaved] = useState(MESSAGE_BIENVENUE_DEFAUT);
+    const [savingMessageBienvenue, setSavingMessageBienvenue] = useState(false);
+    const messageBienvenueModifie = messageBienvenue !== messageBienvenueSaved;
+
+    const fetchMessageBienvenue = async () => {
+        try {
+            const { data } = await axios.get("/api/setting/sheinMessageBienvenue");
+            if (data.success && data.data) {
+                setMessageBienvenue(data.data);
+                setMessageBienvenueSaved(data.data);
+            }
+        } catch (error) {
+            // pas encore configuré — reste sur le texte par défaut
+        }
+    };
+
+    const enregistrerMessageBienvenue = async () => {
+        setSavingMessageBienvenue(true);
+        try {
+            const { data } = await axios.post("/api/setting/update", { key: "sheinMessageBienvenue", value: messageBienvenue });
+            if (data.success) {
+                toast.success("Message de bienvenue enregistré");
+                setMessageBienvenueSaved(messageBienvenue);
+            } else {
+                toast.error(data.message);
+            }
+        } catch (error) {
+            toast.error("Erreur d'enregistrement du message");
+        } finally {
+            setSavingMessageBienvenue(false);
+        }
+    };
+
     // --- Vue "Livraisons" : suivi des dates estimées pour tous les colis en cours de livraison ---
     const [vue, setVue] = useState("suivi"); // "suivi" | "livraisons"
     const [colisLivraison, setColisLivraison] = useState([]);
@@ -292,7 +329,7 @@ const ColisSheinManager = () => {
         }
     };
 
-    useEffect(() => { fetchTaux(); fetchHoraires(); }, []);
+    useEffect(() => { fetchTaux(); fetchHoraires(); fetchMessageBienvenue(); }, []);
     useEffect(() => {
         axios.get("/api/setting/sheinReponsesRapides")
             .then(({ data }) => { if (data.success && Array.isArray(data.data)) setReponsesRapides(data.data); })
@@ -480,6 +517,26 @@ const ColisSheinManager = () => {
                     {savingHoraires ? "Enregistrement…" : "Enregistrer"}
                 </button>
                 <span className="csm-horaires-info">Le client voit "Fermé" en dehors de cette plage</span>
+            </div>
+
+            <div className="csm-taux-bar" style={{ flexDirection: "column", alignItems: "stretch", gap: "8px" }}>
+                <span className="csm-taux-label">Message de bienvenue automatique</span>
+                <p className="csm-horaires-info" style={{ margin: 0 }}>
+                    Envoyé automatiquement au client dès qu'il soumet une commande, avant qu'un agent ne réponde.
+                </p>
+                <textarea
+                    value={messageBienvenue}
+                    onChange={(e) => setMessageBienvenue(e.target.value)}
+                    rows={3}
+                    maxLength={500}
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: "10px", border: "1px solid #e5c6c6", fontFamily: "inherit", fontSize: "13px", resize: "vertical" }}
+                />
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <button onClick={enregistrerMessageBienvenue} disabled={!messageBienvenueModifie || savingMessageBienvenue} className="csm-taux-save">
+                        {savingMessageBienvenue ? "Enregistrement…" : "Enregistrer"}
+                    </button>
+                    <span className="csm-horaires-info">{messageBienvenue.length}/500</span>
+                </div>
             </div>
 
             <div className="csm-tabs">

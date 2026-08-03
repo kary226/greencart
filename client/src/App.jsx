@@ -111,7 +111,7 @@ const App = () => {
   useSmartScroll();
 
   const showFooter = !isSellerPath && !isStaffPath && !isColisSheinPath && !isLivreurPath && !isCommercantPath;
-  const showBottomNav = !isSellerPath && !isStaffPath && !isLivreurPath && !isCommercantPath;
+  const showBottomNav = !isSellerPath && !isStaffPath && !isLivreurPath && !isCommercantPath && !isChatFullScreenPath;
 
   return (
     <div className='text-default min-h-screen text-gray-700 bg-white'>

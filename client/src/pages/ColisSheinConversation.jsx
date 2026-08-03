@@ -66,6 +66,8 @@ const ColisSheinConversation = () => {
     const tickRef = useRef(null);
     const fileInputRef = useRef(null);
     const dernierSignalFrappe = useRef(0);
+    const etaitProcheDuBas = useRef(true); // suit si l'utilisateur regardait déjà le bas du chat
+    const premierChargement = useRef(true);
 
     const fetchColis = async () => {
         try {
@@ -113,10 +115,22 @@ const ColisSheinConversation = () => {
     const agentEnTrainDecrire =
         !!colis?.agentTypingAt && maintenant - new Date(colis.agentTypingAt).getTime() < TYPING_TTL_MS;
 
+    const gererScroll = () => {
+        const el = messagesContainerRef.current;
+        if (!el) return;
+        const distanceDuBas = el.scrollHeight - el.scrollTop - el.clientHeight;
+        etaitProcheDuBas.current = distanceDuBas < 120; // marge de tolérance
+    };
+
     useEffect(() => {
         const el = messagesContainerRef.current;
         if (!el) return;
-        el.scrollTop = el.scrollHeight;
+        // Toujours défiler au tout premier chargement, sinon seulement si l'utilisateur
+        // était déjà proche du bas (il suit la conversation en direct).
+        if (premierChargement.current || etaitProcheDuBas.current) {
+            el.scrollTop = el.scrollHeight;
+        }
+        premierChargement.current = false;
     }, [messages, agentEnTrainDecrire]);
 
     const signalerFrappe = () => {
@@ -140,6 +154,7 @@ const ColisSheinConversation = () => {
             });
 
             if (data.success) {
+                etaitProcheDuBas.current = true;
                 setMessages((prev) => [...prev, data.message]);
                 setTexte("");
                 setImageChoisie(null);
@@ -237,7 +252,7 @@ const ColisSheinConversation = () => {
             </header>
 
             {/* Messages */}
-            <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 bg-ivory-100">
+            <div ref={messagesContainerRef} onScroll={gererScroll} className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 bg-ivory-100">
                 {messages.length === 0 && (
                     <div className="text-center py-16">
                         <p className="text-sm font-semibold text-gray-700">Aucun message pour l'instant</p>

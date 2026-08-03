@@ -2,6 +2,11 @@ import { v2 as cloudinary } from "cloudinary";
 import axios from "axios";
 import mongoose from "mongoose";
 import ColisShein from "../models/ColisShein.js";
+import MessageColis from "../models/MessageColis.js";
+import Setting from "../models/Setting.js";
+
+const MESSAGE_BIENVENUE_DEFAUT =
+    "Merci pour votre commande ! Elle a bien été reçue et un agent vous répondra très prochainement pour vous envoyer votre devis.";
 
 const EXTRACTION_PROMPT = `Tu extrais les données d'une ou plusieurs captures d'écran du panier de l'app SHEIN.
 
@@ -150,6 +155,24 @@ export const submitCart = async (req, res) => {
             statut: "soumis",
             historique: [{ action: "soumission_client", note: "Panier soumis par le client" }],
         });
+
+        // Message de bienvenue automatique — texte personnalisable par l'admin
+        // via le réglage "sheinMessageBienvenue" (back-office > Colis Shein).
+        try {
+            const reglage = await Setting.findOne({ key: "sheinMessageBienvenue" });
+            const texteBienvenue = reglage?.value?.trim() || MESSAGE_BIENVENUE_DEFAUT;
+            await MessageColis.create({
+                colisId: colis._id,
+                expediteurRole: "agent",
+                type: "texte",
+                texte: texteBienvenue,
+            });
+            colis.dernierMessageAgentAt = new Date();
+            await colis.save();
+        } catch (err) {
+            // Ne bloque jamais la création du colis si l'envoi du message échoue
+            console.error("Erreur envoi message de bienvenue:", err);
+        }
 
         res.json({ success: true, colis });
     } catch (error) {
