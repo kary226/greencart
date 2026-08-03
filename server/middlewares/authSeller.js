@@ -2,17 +2,12 @@ import jwt from 'jsonwebtoken';
 import StaffUser from '../models/StaffUser.js';
 
 const authSeller = async (req, res, next) => {
-    console.log('🔍 authSeller - cookies:', req.cookies);
-    console.log('🔍 authSeller - sellerToken:', req.cookies?.sellerToken);
-    console.log('🔍 authSeller - staffToken:', req.cookies?.staffToken);
-    
+    // ✅ Accepter le cookie sellerToken OU staffToken
     const token = req.cookies?.sellerToken
         || req.cookies?.staffToken
         || (req.headers.authorization?.startsWith('Bearer ')
             ? req.headers.authorization.split(' ')[1]
             : null);
-
-    console.log('🔍 authSeller - token extrait:', token ? 'Présent' : 'Manquant');
 
     if (!token) {
         return res.json({ success: false, message: 'Not Authorized - Token manquant' });
@@ -20,32 +15,30 @@ const authSeller = async (req, res, next) => {
 
     try {
         const tokenDecode = jwt.verify(token, process.env.JWT_SECRET);
-        console.log('🔍 authSeller - tokenDecode:', tokenDecode);
 
         // ✅ Cas 1 : C'est le seller technique (SELLER_EMAIL)
         if (tokenDecode.email === process.env.SELLER_EMAIL) {
-            // ✅ AJOUT : Définir req.user pour que productController le reconnaisse
-            req.user = { email: tokenDecode.email, role: 'seller' };
-            console.log('✅ authSeller - Seller authentifié');
+            // [FIX 403] addProduct (et consorts) distinguent le compte technique
+            // du staff via ce flag — sans lui, aucune branche de la logique en
+            // aval n'est vraie et la requête est rejetée à tort.
+            req.isTechnicalSeller = true;
             return next();
         }
 
         // ✅ Cas 2 : C'est un StaffUser avec le rôle 'admin'
         if (tokenDecode.id) {
-            const staffUser = await StaffUser.findById(tokenDecode.id).select('role');
+            const staffUser = await StaffUser.findById(tokenDecode.id).select('role boutiqueId');
             if (staffUser && staffUser.role === 'admin') {
-                // ✅ AJOUT : Définir req.user pour que productController le reconnaisse
-                req.user = { id: tokenDecode.id, email: tokenDecode.email, role: 'admin' };
-                console.log('✅ authSeller - Admin Staff authentifié');
+                // [FIX 403] Même chose ici : on attache le staffUser trouvé pour
+                // que les contrôleurs en aval (qui lisent req.staffUser) le voient.
+                req.staffUser = staffUser;
                 return next();
             }
         }
 
         // ❌ Accès refusé
-        console.log('❌ authSeller - Accès refusé');
         return res.json({ success: false, message: 'Not Authorized - Accès refusé' });
     } catch (error) {
-        console.error('❌ authSeller - Erreur:', error.message);
         res.json({ success: false, message: error.message });
     }
 };

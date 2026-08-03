@@ -34,7 +34,10 @@ export const addProduct = async (req, res) => {
             }
         } 
         // CAS 2 : Seller (compte technique)
-        else if (req.user) {
+        // [FIX 403] req.user n'existe jamais ici — authSeller pose req.isTechnicalSeller,
+        // pas req.user. C'est cette condition, toujours fausse, qui faisait tomber
+        // systématiquement dans le CAS 3 et renvoyait 403 pour un compte pourtant valide.
+        else if (req.isTechnicalSeller) {
             boutiqueId = null;
         } 
         // CAS 3 : Non authentifié
