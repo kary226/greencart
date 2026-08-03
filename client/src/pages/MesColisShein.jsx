@@ -38,18 +38,16 @@ const money = (n, devise) => `${devise === "EUR" ? "€" : "$"}${Number(n || 0).
 const fcfa = (n) => `${Math.round(n || 0).toLocaleString("fr-FR")} FCFA`;
 
 const tempsEcoule = (date) => {
-    const now = new Date();
-    const d = new Date(date);
-    
-    if (now.toDateString() === d.toDateString()) {
-        return d.toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' });
+    const diff = Date.now() - new Date(date).getTime();
+    const h = Math.floor(diff / 3600000);
+    if (h < 1) {
+        const m = Math.max(1, Math.floor(diff / 60000));
+        return `il y a ${m} min`;
     }
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    if (yesterday.toDateString() === d.toDateString()) {
-        return "Hier";
-    }
-    return d.toLocaleDateString("fr-FR", { day: 'numeric', month: 'short' });
+    if (h < 24) return `il y a ${h}h`;
+    const j = Math.floor(h / 24);
+    if (j === 1) return "hier";
+    return `il y a ${j}j`;
 };
 
 const IconCoeur = ({ className }) => (
@@ -191,7 +189,6 @@ const MesColisShein = () => {
                     return (
                         <Link key={c._id} to={`/colis-shein/${c._id}`} className={`mcs-card ${ferme ? "mcs-card-ferme" : "mcs-card-active"}`}>
                             <span className="mcs-card-bar" />
-                            
                             <div className="mcs-card-icon">
                                 {ferme ? (
                                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="2">
@@ -271,8 +268,7 @@ const MesColisShein = () => {
         .mcs-card:active { transform: scale(0.985); }
         .mcs-card-active { box-shadow: 0 2px 12px rgba(17,17,17,0.05); }
         .mcs-card-ferme { opacity: .6; }
-        
-        .mcs-card-bar { position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 4px; height: 28px; background: #e53935; border-radius: 0 4px 4px 0; }
+        .mcs-card-bar { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: #e53935; border-radius: 0 4px 4px 0; }
         .mcs-card-ferme .mcs-card-bar { background: #e2ddd3; }
 
         .mcs-card-icon { width: 42px; height: 42px; min-width: 42px; border-radius: 50%; background: #fdf1f0; display: flex; align-items: center; justify-content: center; }
