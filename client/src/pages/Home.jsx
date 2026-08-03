@@ -171,7 +171,7 @@ const Home = () => {
 
         {activeCategories.length > 0 && (
           <section className="ramci-cats-section">
-            <Link to="/products" className="ramci-cat-item">
+            <Link to="/categories" className="ramci-cat-item">
               <div className="ramci-cat-circle ramci-cat-circle-all">
                 <svg width="22" height="22" viewBox="0 0 22 22" fill="currentColor">
                   <rect x="0" y="0" width="9" height="9" rx="2"/>
