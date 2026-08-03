@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
+import { Search, SlidersHorizontal, Package, PackageCheck, Plus } from "lucide-react";
 
 const STATUT_LABELS = {
     soumis: "En attente de vérification",
@@ -18,20 +19,21 @@ const STATUT_LABELS = {
     annule: "Annulé",
 };
 
+// Palette de statut, alignée sur burgundy/blush/ivory plutôt que le rouge générique d'origine
 const STATUT_STYLE = {
-    soumis: "mcs-pill-attente",
-    en_verification: "mcs-pill-attente",
-    devis_envoye: "mcs-pill-devis",
-    acompte_paye: "mcs-pill-ok",
-    achete: "mcs-pill-ok",
-    en_entrepot: "mcs-pill-ok",
-    arrive_abidjan: "mcs-pill-livraison",
-    pese: "mcs-pill-paiement",
-    solde_du: "mcs-pill-paiement",
-    solde_paye: "mcs-pill-ok",
-    en_livraison: "mcs-pill-livraison",
-    livre: "mcs-pill-clos",
-    annule: "mcs-pill-annule",
+    soumis: "bg-blush-100 text-burgundy-700",
+    en_verification: "bg-blush-100 text-burgundy-700",
+    devis_envoye: "bg-ivory-500/60 text-ivory-900",
+    acompte_paye: "bg-emerald-50 text-emerald-700",
+    achete: "bg-emerald-50 text-emerald-700",
+    en_entrepot: "bg-emerald-50 text-emerald-700",
+    arrive_abidjan: "bg-blush-200 text-burgundy-700",
+    pese: "bg-ivory-500/60 text-ivory-900",
+    solde_du: "bg-ivory-500/60 text-ivory-900",
+    solde_paye: "bg-emerald-50 text-emerald-700",
+    en_livraison: "bg-blush-200 text-burgundy-700",
+    livre: "bg-gray-100 text-gray-500",
+    annule: "bg-gray-100 text-gray-400",
 };
 
 const money = (n, devise) => `${devise === "EUR" ? "€" : "$"}${Number(n || 0).toFixed(2)}`;
@@ -49,42 +51,6 @@ const tempsEcoule = (date) => {
     if (j === 1) return "hier";
     return `il y a ${j}j`;
 };
-
-const IconCoeur = ({ className }) => (
-    <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 21s-6.7-4.35-9.3-8.1C1 10.2 1.8 6.6 5 5.2c2.1-.9 4.3-.1 5.6 1.6C11.9 5.1 14.1 4.3 16.2 5.2c3.2 1.4 4 5 2.3 7.7C15.9 16.65 12 21 12 21z" />
-    </svg>
-);
-const IconHorloge = ({ className }) => (
-    <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" />
-    </svg>
-);
-const IconClos = ({ className }) => (
-    <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <rect x="3" y="8" width="18" height="12" rx="2" /><path d="M3 8l2-4h14l2 4" /><path d="M10 12h4" />
-    </svg>
-);
-const IconRecherche = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2">
-        <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" />
-    </svg>
-);
-const IconFiltre = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2">
-        <path d="M4 6h16M7 12h10M10 18h4" />
-    </svg>
-);
-const IconPlus = () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
-        <path d="M12 5v14M5 12h14" />
-    </svg>
-);
-const IconBoite = () => (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="2">
-        <path d="M21 8l-9-5-9 5 9 5 9-5z" /><path d="M3 8v8l9 5 9-5V8" /><path d="M12 13v8" />
-    </svg>
-);
 
 const MesColisShein = () => {
     const { axios, user } = useAppContext();
@@ -129,177 +95,150 @@ const MesColisShein = () => {
         return true;
     });
 
+    const onglets = [
+        { key: "tous", label: "Tous", count: compteurs.tous },
+        { key: "actifs", label: "En cours", count: compteurs.actifs },
+        { key: "clos", label: "Terminés", count: compteurs.clos },
+    ];
+
     return (
-        <div className="mcs-page">
-            <div className="mcs-header">
+        <div className="max-w-lg mx-auto px-4 sm:px-6 pb-10">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3 pt-6 pb-5">
                 <div>
-                    <h1>Bienvennu(e){prenom ? `, ${prenom}` : ""} <span className="mcs-wave">👋</span></h1>
-                    <p className="mcs-subtitle">Tous vos échanges avec nos agents.</p>
+                    <h1 className="font-display text-2xl font-semibold text-gray-900 flex items-center gap-1.5">
+                        Bienvenue{prenom ? `, ${prenom}` : ""} <span className="text-xl">👋</span>
+                    </h1>
+                    <p className="text-[13px] text-gray-400 mt-0.5">Tous vos échanges avec nos agents.</p>
                 </div>
-                <Link to="/valider-panier-shein" className="mcs-new-btn"><IconPlus /> Nouveau</Link>
+                <Link
+                    to="/valider-panier-shein"
+                    className="shrink-0 flex items-center gap-1.5 bg-burgundy-600 text-white text-xs font-semibold px-4 py-2.5 rounded-full whitespace-nowrap shadow-sm shadow-burgundy-600/30 hover:bg-burgundy-700 transition"
+                >
+                    <Plus size={14} /> Nouveau
+                </Link>
             </div>
 
-            {!loading && colisListe.length > 0 && (
-                <>
-                    <div className="mcs-search-row">
-                        <div className="mcs-search-box">
-                            <IconRecherche />
-                            <input
-                                type="text"
-                                placeholder="Rechercher un colis, une conversation..."
-                                value={recherche}
-                                onChange={(e) => setRecherche(e.target.value)}
-                            />
-                        </div>
-                        <button className="mcs-filtre-btn" aria-label="Filtrer"><IconFiltre /></button>
-                    </div>
+            {/* Recherche */}
+            <div className="flex items-center gap-2 mb-4">
+                <div className="flex-1 flex items-center gap-2 bg-blush-50 rounded-full px-4 py-2.5">
+                    <Search size={16} className="text-gray-400 shrink-0" />
+                    <input
+                        value={recherche}
+                        onChange={(e) => setRecherche(e.target.value)}
+                        placeholder="Rechercher une conversation…"
+                        className="flex-1 bg-transparent outline-none text-sm text-gray-700 placeholder-gray-400"
+                    />
+                </div>
+                <button
+                    type="button"
+                    className="shrink-0 w-10 h-10 rounded-full bg-blush-50 flex items-center justify-center text-gray-500 hover:bg-blush-100 transition"
+                    aria-label="Filtrer"
+                >
+                    <SlidersHorizontal size={15} />
+                </button>
+            </div>
 
-                    <div className="mcs-filters">
-                        <button className={`mcs-filter-tab ${filtre === "tous" ? "active" : ""}`} onClick={() => setFiltre("tous")}>
-                            <IconCoeur className="mcs-tab-icon" /> Tous <span className="mcs-filter-count">{compteurs.tous}</span>
-                        </button>
-                        <button className={`mcs-filter-tab ${filtre === "actifs" ? "active" : ""}`} onClick={() => setFiltre("actifs")}>
-                            <IconHorloge className="mcs-tab-icon" /> Actifs <span className="mcs-filter-count">{compteurs.actifs}</span>
-                        </button>
-                        <button className={`mcs-filter-tab ${filtre === "clos" ? "active" : ""}`} onClick={() => setFiltre("clos")}>
-                            <IconClos className="mcs-tab-icon" /> Clos <span className="mcs-filter-count">{compteurs.clos}</span>
-                        </button>
-                    </div>
-                </>
-            )}
+            {/* Onglets filtre */}
+            <div className="flex items-center gap-1 bg-blush-50 rounded-full p-1 mb-5">
+                {onglets.map((o) => (
+                    <button
+                        key={o.key}
+                        onClick={() => setFiltre(o.key)}
+                        className={`flex-1 flex items-center justify-center gap-1.5 rounded-full py-2 text-xs font-semibold transition ${
+                            filtre === o.key
+                                ? "bg-white text-burgundy-700 shadow-sm"
+                                : "text-gray-400 hover:text-gray-600"
+                        }`}
+                    >
+                        {o.label}
+                        <span
+                            className={`text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[16px] text-center ${
+                                filtre === o.key ? "bg-burgundy-600 text-white" : "bg-black/5 text-gray-500"
+                            }`}
+                        >
+                            {o.count}
+                        </span>
+                    </button>
+                ))}
+            </div>
 
+            {/* Contenu */}
             {loading ? (
-                <p className="mcs-loading">Chargement…</p>
+                <p className="text-center text-sm text-gray-400 py-10">Chargement…</p>
             ) : colisListe.length === 0 ? (
-                <div className="mcs-empty-state">
-                    <div className="mcs-empty-illustration">
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#e53935" strokeWidth="1.6">
-                            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-                        </svg>
+                <div className="text-center px-6 py-14">
+                    <div className="w-20 h-20 rounded-full bg-blush-100 flex items-center justify-center mx-auto mb-4">
+                        <Package size={32} className="text-burgundy-400" />
                     </div>
-                    <p className="mcs-empty-title">Aucun colis SHEIN pour l'instant</p>
-                    <p className="mcs-empty-text">Lorsque vous validerez un panier, une conversation avec votre agent apparaîtra ici.</p>
-                    <Link to="/valider-panier-shein" className="mcs-new-btn mcs-new-btn-big">Valider mon premier panier</Link>
+                    <p className="text-[15px] font-semibold text-gray-900 mb-1.5">Aucun colis SHEIN pour l'instant</p>
+                    <p className="text-[13px] text-gray-400 mb-5 leading-relaxed">
+                        Lorsque vous validerez un panier, une conversation avec votre agent apparaîtra ici.
+                    </p>
+                    <Link
+                        to="/valider-panier-shein"
+                        className="inline-flex items-center gap-2 bg-burgundy-600 text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-burgundy-700 transition"
+                    >
+                        Valider mon premier panier
+                    </Link>
                 </div>
             ) : listeAffichee.length === 0 ? (
-                <p className="mcs-loading">Aucun résultat pour cette recherche.</p>
+                <p className="text-center text-sm text-gray-400 py-10">Aucun résultat pour cette recherche.</p>
             ) : (
-                listeAffichee.map((c) => {
-                    const ferme = estFerme(c);
-                    return (
-                        <Link key={c._id} to={`/colis-shein/${c._id}`} className={`mcs-card ${ferme ? "mcs-card-ferme" : "mcs-card-active"}`}>
-                            <span className="mcs-card-bar" />
-                            <div className="mcs-card-icon">
-                                {ferme ? (
-                                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="2">
-                                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                                    </svg>
-                                ) : (
-                                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#e53935" strokeWidth="2">
-                                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                                    </svg>
-                                )}
-                            </div>
-                            <div className="mcs-card-body">
-                                <div className="mcs-card-top">
-                                    <span className="mcs-numero">{c.numeroSuivi}</span>
-                                    <span className="mcs-card-top-right">
-                                        <span className="mcs-temps">{tempsEcoule(c.updatedAt)}</span>
-                                        {c.nonLuClient && !ferme && <span className="mcs-icon-dot" />}
-                                        <span className="mcs-menu-dots">⋮</span>
-                                    </span>
+                <div className="space-y-2.5">
+                    {listeAffichee.map((c) => {
+                        const ferme = estFerme(c);
+                        return (
+                            <Link
+                                key={c._id}
+                                to={`/colis-shein/${c._id}`}
+                                className={`relative flex gap-3 bg-white border border-blush-100 rounded-2xl pl-5 pr-4 py-3.5 overflow-hidden transition active:scale-[0.985] ${
+                                    ferme ? "opacity-60" : "shadow-sm shadow-black/[0.03]"
+                                }`}
+                            >
+                                <span className={`absolute left-0 top-0 bottom-0 w-1 rounded-r-full ${ferme ? "bg-gray-200" : "bg-burgundy-600"}`} />
+
+                                <div className={`w-11 h-11 shrink-0 rounded-full flex items-center justify-center ${ferme ? "bg-gray-100" : "bg-blush-100"}`}>
+                                    {ferme ? <PackageCheck size={18} className="text-gray-400" /> : <Package size={18} className="text-burgundy-600" />}
                                 </div>
-                                <span className={`mcs-pill ${STATUT_STYLE[c.statut] || "mcs-pill-attente"}`}>
-                                    <span className="mcs-pill-dot" /> {STATUT_LABELS[c.statut] || c.statut}
-                                </span>
-                                <p className="mcs-derniere-activite">Agent · {STATUT_LABELS[c.statut] || "Mise à jour du colis"}</p>
-                                <div className="mcs-card-bottom">
-                                    <span className="mcs-articles-count"><IconBoite /> {c.articlesValides?.length || 0} article(s)</span>
-                                    {c.devis?.montantArticles > 0 && (
-                                        <span className="mcs-montant-bloc">
-                                            <span className="mcs-montant">{money(c.devis.montantArticles, c.devise)}</span>
-                                            {c.devis?.montantArticlesFCFA != null && (
-                                                <span className="mcs-montant-fcfa">≈ {fcfa(c.devis.montantArticlesFCFA)}</span>
-                                            )}
+
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <span className="text-[13.5px] font-bold text-gray-900">{c.numeroSuivi}</span>
+                                        <span className="flex items-center gap-1.5 shrink-0">
+                                            <span className="text-[10.5px] text-gray-300 whitespace-nowrap">{tempsEcoule(c.updatedAt)}</span>
+                                            {c.nonLuClient && !ferme && <span className="w-1.5 h-1.5 rounded-full bg-burgundy-600" />}
                                         </span>
-                                    )}
+                                    </div>
+
+                                    <span className={`inline-flex items-center gap-1.5 text-[10.5px] font-bold px-2.5 py-1 rounded-full mb-1.5 ${STATUT_STYLE[c.statut] || "bg-blush-100 text-burgundy-700"}`}>
+                                        <span className="w-1 h-1 rounded-full bg-current" />
+                                        {STATUT_LABELS[c.statut] || c.statut}
+                                    </span>
+
+                                    <p className="text-xs text-gray-500 truncate mb-2">
+                                        Agent · {STATUT_LABELS[c.statut] || "Mise à jour du colis"}
+                                    </p>
+
+                                    <div className="flex items-center justify-between">
+                                        <span className="flex items-center gap-1.5 text-[11px] text-gray-400">
+                                            <Package size={12} /> {c.articlesValides?.length || 0} article(s)
+                                        </span>
+                                        {c.devis?.montantArticles > 0 && (
+                                            <span className="flex flex-col items-end">
+                                                <span className="text-sm font-bold text-gray-900">{money(c.devis.montantArticles, c.devise)}</span>
+                                                {c.devis?.montantArticlesFCFA != null && (
+                                                    <span className="text-[10.5px] text-burgundy-600 mt-0.5">≈ {fcfa(c.devis.montantArticlesFCFA)}</span>
+                                                )}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        </Link>
-                    );
-                })
+                            </Link>
+                        );
+                    })}
+                </div>
             )}
-
-            <style>{`
-        .mcs-page { max-width: 480px; margin: 0 auto; font-family: 'DM Sans', sans-serif; padding-bottom: 24px; }
-
-        .mcs-header { display: flex; align-items: flex-start; justify-content: space-between; margin: 18px 0 16px; gap: 12px; }
-        .mcs-header h1 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 24px; font-weight: 600; color: #111; margin: 0; display: flex; align-items: center; gap: 6px; }
-        .mcs-wave { font-size: 20px; display: inline-block; animation: mcs-wave-anim 2.2s ease-in-out infinite; transform-origin: 70% 70%; }
-        @keyframes mcs-wave-anim { 0%,100% { transform: rotate(0deg); } 10% { transform: rotate(14deg); } 20% { transform: rotate(-8deg); } 30% { transform: rotate(14deg); } 40% { transform: rotate(-4deg); } 50% { transform: rotate(10deg); } 60% { transform: rotate(0deg); } }
-        .mcs-subtitle { font-size: 12.5px; color: #999; margin: 2px 0 0; }
-        .mcs-new-btn { display: flex; align-items: center; gap: 6px; background: #e53935; color: #fff; text-decoration: none; font-size: 12.5px; font-weight: 700; padding: 10px 18px; border-radius: 40px; white-space: nowrap; flex-shrink: 0; transition: opacity .15s, transform .1s; box-shadow: 0 4px 14px rgba(229,57,53,0.28); }
-        .mcs-new-btn:hover { opacity: .9; }
-        .mcs-new-btn:active { transform: scale(0.97); }
-        .mcs-new-btn-big { display: inline-flex; padding: 12px 24px; font-size: 13px; }
-
-        .mcs-search-row { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
-        .mcs-search-box { flex: 1; display: flex; align-items: center; gap: 8px; background: #f7f5f2; border-radius: 40px; padding: 11px 16px; }
-        .mcs-search-box input { flex: 1; border: none; background: none; outline: none; font-size: 13px; color: #333; font-family: inherit; }
-        .mcs-search-box input::placeholder { color: #bbb; }
-        .mcs-filtre-btn { flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; border: none; background: #f7f5f2; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-
-        .mcs-filters { display: flex; align-items: center; gap: 4px; margin-bottom: 18px; background: #f7f5f2; border-radius: 40px; padding: 4px; }
-        .mcs-filter-tab { flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px; background: none; border: none; border-radius: 36px; padding: 9px 10px; font-size: 12px; font-weight: 700; color: #999; cursor: pointer; transition: all .15s; }
-        .mcs-tab-icon { flex-shrink: 0; opacity: .7; }
-        .mcs-filter-tab.active { background: #fff; color: #e53935; box-shadow: 0 2px 8px rgba(17,17,17,0.06); }
-        .mcs-filter-tab.active .mcs-tab-icon { opacity: 1; color: #e53935; }
-        .mcs-filter-count { background: rgba(0,0,0,0.06); color: inherit; font-size: 10px; font-weight: 700; border-radius: 10px; padding: 1px 6px; min-width: 15px; text-align: center; }
-        .mcs-filter-tab.active .mcs-filter-count { background: #e53935; color: #fff; }
-
-        .mcs-loading { text-align: center; color: #999; font-size: 13px; padding: 40px 0; }
-
-        .mcs-empty-state { text-align: center; padding: 50px 24px; }
-        .mcs-empty-illustration { width: 84px; height: 84px; border-radius: 50%; background: #fdf1f0; display: flex; align-items: center; justify-content: center; margin: 0 auto 18px; }
-        .mcs-empty-title { font-size: 15px; font-weight: 700; color: #111; margin: 0 0 6px; }
-        .mcs-empty-text { font-size: 12.5px; color: #999; margin: 0 0 20px; line-height: 1.5; }
-
-        .mcs-card { position: relative; display: flex; gap: 12px; background: #fff; border: 1px solid #f0ede8; border-radius: 16px; padding: 14px 16px 14px 20px; margin-bottom: 10px; text-decoration: none; transition: transform .12s, box-shadow .12s; overflow: hidden; }
-        .mcs-card:active { transform: scale(0.985); }
-        .mcs-card-active { box-shadow: 0 2px 12px rgba(17,17,17,0.05); }
-        .mcs-card-ferme { opacity: .6; }
-        .mcs-card-bar { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: #e53935; border-radius: 0 4px 4px 0; }
-        .mcs-card-ferme .mcs-card-bar { background: #e2ddd3; }
-
-        .mcs-card-icon { width: 42px; height: 42px; min-width: 42px; border-radius: 50%; background: #fdf1f0; display: flex; align-items: center; justify-content: center; }
-        .mcs-card-ferme .mcs-card-icon { background: #f0ede8; }
-
-        .mcs-card-body { flex: 1; min-width: 0; }
-        .mcs-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-        .mcs-numero { font-size: 13.5px; font-weight: 700; color: #111; }
-        .mcs-card-top-right { display: flex; align-items: center; gap: 6px; }
-        .mcs-temps { font-size: 10.5px; color: #bbb; white-space: nowrap; }
-        .mcs-icon-dot { width: 7px; height: 7px; border-radius: 50%; background: #e53935; flex-shrink: 0; }
-        .mcs-menu-dots { font-size: 14px; color: #ccc; line-height: 1; padding: 0 2px; }
-
-        .mcs-pill { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 700; padding: 3px 10px; border-radius: 20px; margin-bottom: 6px; }
-        .mcs-pill-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
-        .mcs-pill-attente { background: #fdf1f0; color: #c62828; }
-        .mcs-pill-devis { background: #fdecea; color: #e53935; }
-        .mcs-pill-paiement { background: #fff4e0; color: #b7791f; }
-        .mcs-pill-ok { background: #eef7f0; color: #2e7d32; }
-        .mcs-pill-livraison { background: #e8f5e9; color: #2e7d32; }
-        .mcs-pill-clos { background: #f0ede8; color: #888; }
-        .mcs-pill-annule { background: #f5eaea; color: #a33; }
-
-        .mcs-derniere-activite { font-size: 12px; color: #555; margin: 0 0 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-        .mcs-card-bottom { display: flex; align-items: center; justify-content: space-between; }
-        .mcs-articles-count { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #999; }
-        .mcs-montant-bloc { display: flex; flex-direction: column; align-items: flex-end; }
-        .mcs-montant { font-size: 14px; font-weight: 700; color: #111; }
-        .mcs-montant-fcfa { font-size: 10.5px; color: #e53935; margin-top: 1px; }
-      `}</style>
         </div>
     );
 };
