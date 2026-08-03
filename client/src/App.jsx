@@ -40,6 +40,7 @@ import NotificationPrompt from './components/Notificationprompt';
 import ValiderPanierShein from './pages/ValiderPanierShein';
 import ColisSheinDetail from './pages/ColisSheinDetail';
 import ColisSheinConversation from './pages/ColisSheinConversation';
+import ColisSheinDetailPage from './pages/ColisSheinDetailPage';
 import MesColisShein from './pages/MesColisShein';
 import StaffLogin from './pages/staff/StaffLogin';
 import StaffActivation from './pages/staff/StaffActivation';
@@ -182,6 +183,7 @@ const App = () => {
           <Route path='/valider-panier-shein' element={<ValiderPanierShein />} />
           <Route path='/mes-colis-shein' element={<MesColisShein />} />
           <Route path='/colis-shein-test/:id' element={<ColisSheinConversation />} />
+          <Route path='/colis-shein/:id/detail' element={<ColisSheinDetailPage />} />
           <Route path='/colis-shein/:id' element={<ColisSheinDetail />} />
           
           {/* Routes Staff */}
