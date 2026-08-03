@@ -38,7 +38,6 @@ import BottomNav from './components/BottomNav';
 import InstallApp from './pages/InstallApp';
 import NotificationPrompt from './components/Notificationprompt';
 import ValiderPanierShein from './pages/ValiderPanierShein';
-import ColisSheinDetail from './pages/ColisSheinDetail';
 import ColisSheinConversation from './pages/ColisSheinConversation';
 import ColisSheinDetailPage from './pages/ColisSheinDetailPage';
 import MesColisShein from './pages/MesColisShein';
@@ -182,9 +181,9 @@ const App = () => {
           <Route path='/install' element={<InstallApp />} />
           <Route path='/valider-panier-shein' element={<ValiderPanierShein />} />
           <Route path='/mes-colis-shein' element={<MesColisShein />} />
-          <Route path='/colis-shein-test/:id' element={<ColisSheinConversation />} />
+          <Route path='/colis-shein/:id' element={<ColisSheinConversation />} />
           <Route path='/colis-shein/:id/detail' element={<ColisSheinDetailPage />} />
-          <Route path='/colis-shein/:id' element={<ColisSheinDetail />} />
+          
           
           {/* Routes Staff */}
           <Route path='/staff/login' element={<StaffLogin />} />
