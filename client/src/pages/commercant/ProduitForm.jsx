@@ -181,7 +181,8 @@ const ProduitForm = () => {
         const loadProduct = async () => {
             try {
                 console.log('🔍 Chargement du produit:', id);
-                const { data } = await axios.post('/api/product/id', { id });
+                // ✅ CORRECTION : GET au lieu de POST
+                const { data } = await axios.get(`/api/product/id?id=${id}`);
                 console.log('🔍 Réponse:', data);
                 if (data.success && data.product) {
                     const p = data.product;
