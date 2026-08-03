@@ -2,8 +2,8 @@ import multer from "multer";
 
 // ✅ FILTRE : Accepter images ET vidéos
 const fileFilter = (req, file, cb) => {
-    // ✅ Accepter les images (produits ET logo de boutique)
-    if ((file.fieldname === 'images' || file.fieldname === 'logo') &&
+    // ✅ Accepter les images (produits, logo, catégorie, etc.)
+    if ((file.fieldname === 'images' || file.fieldname === 'logo' || file.fieldname === 'image') &&
         (file.mimetype.startsWith('image/'))) {
         cb(null, true);
     }
