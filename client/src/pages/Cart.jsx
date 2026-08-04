@@ -4,7 +4,7 @@ import toast from "react-hot-toast";
 import CouponInput from "../components/CouponInput";
 import {
     ShoppingBag, Trash2, ArrowRight, MapPin, Truck, CreditCard, Plus,
-    Minus, MoreVertical, Heart, Tag, X, Check, Home, Zap, PackageCheck, Edit2
+    Minus, MoreVertical, Heart, Tag, X, Check, Home, Zap, PackageCheck, Edit2, Loader2
 } from "lucide-react";
 
 const Cart = () => {
@@ -20,6 +20,7 @@ const Cart = () => {
     const [showAddress, setShowAddress] = useState(false)
     const [selectedAddress, setSelectedAddress] = useState(null)
     const [paymentOption, setPaymentOption] = useState("")
+    const [placingOrder, setPlacingOrder] = useState(false)
     const [appliedCoupon, setAppliedCoupon] = useState(null)
     const [discountedAmount, setDiscountedAmount] = useState(null)
 
@@ -291,6 +292,12 @@ const Cart = () => {
                 return
             }
 
+            // [FIX UX] Un seul état de chargement, posé dès la validation passée et
+            // levé uniquement sur erreur — jamais avant la redirection effective vers
+            // la page sécurisée, pour ne pas laisser un "trou" où rien ne semble se
+            // passer entre la réponse de l'API et l'arrivée réelle sur GeniusPay.
+            setPlacingOrder(true)
+
             const items = selectedArray.map(item => ({
                 product: item._id,
                 quantity: item.quantity,
@@ -323,6 +330,7 @@ const Cart = () => {
                     selectedArray.forEach(item => removeFromCart(item.cartKey))
                     navigate('/my-orders')
                 } else {
+                    setPlacingOrder(false)
                     toast.error(data.message)
                 }
             } else if (paymentOption === "Online") {
@@ -336,14 +344,15 @@ const Cart = () => {
                     deliveryType: selectedDeliveryType?.name
                 })
                 if (data.success) {
+                    // Navigation complète vers Stripe — on laisse placingOrder à true,
+                    // le bouton reste "en chargement" jusqu'à ce que la page quitte.
                     window.location.replace(data.url)
                 } else {
+                    setPlacingOrder(false)
                     toast.error(data.message)
                 }
             } else if (paymentOption === "GeniusPay") {
                 try {
-                    toast.loading("Préparation du paiement...", { id: "geniuspay" });
-
                     const { data } = await axios.post('/api/order/geniuspay/initiate', {
                         userId: user._id,
                         items: selectedArray.map(item => ({
@@ -361,21 +370,24 @@ const Cart = () => {
                         discountAmount: appliedCoupon ? (originalAmount - discountedAmount) : 0
                     });
 
-                    toast.dismiss("geniuspay");
-
                     if (data.success && data.checkout_url) {
                         sessionStorage.setItem('pendingOrderId', data.orderId);
+                        // Pas de toast.dismiss ni de setPlacingOrder(false) ici : le bouton
+                        // reste visuellement "en chargement" sans interruption jusqu'à ce
+                        // que le navigateur ait fini de charger la page GeniusPay.
                         window.location.href = data.checkout_url;
                     } else {
+                        setPlacingOrder(false)
                         toast.error(data.message || "Erreur lors de l'initiation du paiement");
                     }
                 } catch (error) {
-                    toast.dismiss("geniuspay");
+                    setPlacingOrder(false)
                     console.error("Erreur GeniusPay:", error);
                     toast.error(error.response?.data?.message || "Erreur de connexion au service de paiement");
                 }
             }
         } catch (error) {
+            setPlacingOrder(false)
             toast.error(error.message)
         }
     }
@@ -727,10 +739,17 @@ const Cart = () => {
 
                             <button
                                 onClick={placeOrder}
-                                disabled={selectedArray.length === 0}
-                                className="w-full mt-5 bg-burgundy-600 text-white py-3.5 rounded-full font-semibold text-sm hover:bg-burgundy-700 transition shadow-md shadow-burgundy-900/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                                disabled={selectedArray.length === 0 || placingOrder}
+                                className="w-full mt-5 bg-burgundy-600 text-white py-3.5 rounded-full font-semibold text-sm hover:bg-burgundy-700 transition shadow-md shadow-burgundy-900/10 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             >
-                                Passer la commande {selectedArray.length > 0 && `(${selectedArray.length})`}
+                                {placingOrder ? (
+                                    <>
+                                        <Loader2 size={16} className="animate-spin" />
+                                        Redirection en cours…
+                                    </>
+                                ) : (
+                                    <>Passer la commande {selectedArray.length > 0 && `(${selectedArray.length})`}</>
+                                )}
                             </button>
                         </div>
                     </div>
@@ -745,10 +764,17 @@ const Cart = () => {
                 </div>
                 <button
                     onClick={placeOrder}
-                    disabled={selectedArray.length === 0}
-                    className="flex-1 max-w-[220px] bg-burgundy-600 text-white py-3 rounded-full font-semibold text-sm hover:bg-burgundy-700 transition disabled:opacity-40"
+                    disabled={selectedArray.length === 0 || placingOrder}
+                    className="flex-1 max-w-[220px] bg-burgundy-600 text-white py-3 rounded-full font-semibold text-sm hover:bg-burgundy-700 transition disabled:opacity-60 flex items-center justify-center gap-2"
                 >
-                    Passer la commande
+                    {placingOrder ? (
+                        <>
+                            <Loader2 size={16} className="animate-spin" />
+                            Redirection…
+                        </>
+                    ) : (
+                        'Passer la commande'
+                    )}
                 </button>
             </div>
         </div>
