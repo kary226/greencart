@@ -6,11 +6,16 @@ const orderItemSchema = new mongoose.Schema({
     color: { type: String, default: null },
     size: { type: String, default: null },
     priceAtOrder: { type: Number, required: true },
-    // ✅ NOUVEAU PHASE 3 : Boutique du produit au moment de la commande
+    // ✅ NOUVEAU PHASE 3 : Boutique du produit au moment de la commande.
+    // [FIX] null est une valeur valide et volontaire (produit du magasin
+    // principal, hors système commerçant) — geniuspayController.js et
+    // orderController.js écrivent explicitement `product.boutiqueId || null`.
+    // required:true rejetait donc toute commande contenant un produit
+    // "normal", ce qui est la quasi-totalité des commandes.
     boutiqueId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'boutique',
-        required: true,
+        default: null,
     }
 });
 
