@@ -1,24 +1,33 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useAppContext } from '../context/AppContext'
 import { useSearchParams } from 'react-router-dom'
 import ProductCard from '../components/ProductCard'
 import SEO from '../components/SEO'
+import { buildSearchIndex, searchProducts } from '../utils/searchEngine'
 
 const AllProducts = () => {
 
     const { products } = useAppContext()
     const [searchParams] = useSearchParams()
     const [filteredProducts, setFilteredProducts] = useState([])
+    const [isFuzzyMatch, setIsFuzzyMatch] = useState(false)
+
+    // Construit l'index de recherche une seule fois par changement de
+    // catalogue, plutôt qu'à chaque frappe/filtre.
+    const searchIndex = useMemo(() => buildSearchIndex(products), [products])
 
     useEffect(() => {
         let result = [...products]
+        let fuzzy = false
 
-        // 1. Filtre par recherche
+        // 1. Filtre par recherche — tolérant aux fautes de frappe, accents,
+        // ordre des mots, et se rabat sur les résultats les plus proches
+        // plutôt que de renvoyer une liste vide.
         const searchQuery = searchParams.get('search')
         if (searchQuery) {
-            result = result.filter(product => 
-                product.name.toLowerCase().includes(searchQuery.toLowerCase())
-            )
+            const { results, fuzzy: isFuzzy } = searchProducts(searchIndex, searchQuery)
+            result = results
+            fuzzy = isFuzzy
         }
 
         // 2. Filtre par prix min
@@ -47,7 +56,8 @@ const AllProducts = () => {
         result = result.filter(product => product.inStock)
 
         setFilteredProducts(result)
-    }, [products, searchParams])
+        setIsFuzzyMatch(fuzzy)
+    }, [products, searchParams, searchIndex])
 
     const getPageTitle = () => {
         const searchQuery = searchParams.get('search')
@@ -77,6 +87,12 @@ const AllProducts = () => {
                     <p className='text-2xl font-medium uppercase'>Tous nos articles</p>
                     <div className='w-16 h-0.5 bg-primary rounded-full'></div>
                 </div>
+
+                {isFuzzyMatch && filteredProducts.length > 0 && searchParams.get('search') && (
+                    <p className='text-sm text-gray-500 mt-4'>
+                        Aucun résultat exact pour « {searchParams.get('search')} » — voici les articles les plus proches :
+                    </p>
+                )}
 
                 <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-6 lg:grid-cols-5 mt-6'>
                     {filteredProducts.length === 0 ? (

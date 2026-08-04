@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
+import { buildSearchIndex, searchProductsAndCategories } from "../utils/searchEngine";
 
 const Navbar = () => {
   const { cartItems, wishlist, user, searchQuery, setSearchQuery, axios, products, logoutUser, setShowUserLogin, canInstallPWA, isPWAInstalled, installPWA, subscribeToPushNotifications } = useAppContext();
@@ -135,50 +136,13 @@ const Navbar = () => {
     fetchCategories();
   }, []);
 
+  // Index construit une seule fois par changement de catalogue, réutilisé
+  // à chaque frappe pour rester réactif.
+  const searchIndex = useMemo(() => buildSearchIndex(products), [products]);
+
   const computeSuggestions = (searchTerm) => {
     if (!searchTerm.trim()) return [];
-
-    const term = searchTerm.toLowerCase().trim();
-    const words = term.split(/\s+/).filter(Boolean);
-
-    const scoreProduct = (name) => {
-      const n = name.toLowerCase();
-      if (n === term) return 100;
-      if (n.startsWith(term)) return 80;
-      if (n.includes(term)) return 60;
-      const matched = words.filter(w => n.includes(w));
-      if (matched.length > 0) return 20 + matched.length * 10;
-      return 0;
-    };
-
-    const scoreCategory = (name) => {
-      const n = name.toLowerCase();
-      if (n === term) return 110;
-      if (n.startsWith(term)) return 85;
-      if (n.includes(term)) return 65;
-      const matched = words.filter(w => n.includes(w));
-      if (matched.length > 0) return 25 + matched.length * 10;
-      return 0;
-    };
-
-    const catResults = categories
-      .map(c => ({ _type: 'category', text: c.name, slug: c.slug || c.name, score: scoreCategory(c.name) }))
-      .filter(c => c.score > 0);
-
-    const seenNames = new Set();
-    const prodResults = products
-      .map(p => ({ _type: 'product', text: p.name, score: scoreProduct(p.name) }))
-      .filter(p => p.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .filter(p => {
-        if (seenNames.has(p.text)) return false;
-        seenNames.add(p.text);
-        return true;
-      });
-
-    return [...catResults, ...prodResults]
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 10);
+    return searchProductsAndCategories(searchIndex, categories, searchTerm, { limit: 10 });
   };
 
   useEffect(() => {
