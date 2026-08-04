@@ -121,7 +121,7 @@ export const initiateGeniusPay = async (req, res) => {
         // ne sont plus utilisés non plus : seuls 'deliveryType' (le nom du
         // type choisi) et 'couponApplied' (le code) servent d'entrée, tout
         // le reste est recalculé côté serveur ci-dessous.
-        let { userId, items, address, deliveryType, couponApplied, operator } = req.body;
+        let { userId, items, address, deliveryType, couponApplied } = req.body;
 
         // Si address est un ID, récupérer l'adresse complète
         let addressDoc = address;
@@ -342,24 +342,10 @@ export const initiateGeniusPay = async (req, res) => {
         }
         phone = `+${phone}`;
 
-        // Mapping opérateur (choix utilisateur) → code payment_method GeniusPay.
-        // Documenté sur geniuspay.ci/docs/api : en fournissant payment_method,
-        // l'API redirige directement vers le gateway de cet opérateur au lieu
-        // de la page de checkout générique. Si l'opérateur est absent/inconnu,
-        // on omet le champ et GeniusPay retombe sur la page de checkout
-        // (comportement d'origine, inchangé).
-        const OPERATOR_TO_PAYMENT_METHOD = {
-            orange: 'orange_money',
-            mtn: 'mtn_money',
-            moov: 'moov_money',
-        };
-        const paymentMethod = OPERATOR_TO_PAYMENT_METHOD[operator];
-
         // Préparer la requête vers GeniusPay
         const geniusPayload = {
             amount: finalAmount,
             description: `Commande #${order._id.toString().slice(-8)}`,
-            ...(paymentMethod ? { payment_method: paymentMethod } : {}),
             customer: {
                 name: `${completeAddress.firstName} ${completeAddress.lastName}`.substring(0, 100),
                 phone: phone,
@@ -368,7 +354,7 @@ export const initiateGeniusPay = async (req, res) => {
             error_url: `${process.env.FRONTEND_URL}/payment/error?orderId=${order._id}`,
             metadata: {
                 order_id: order._id.toString(),
-                user_id: userId.toString(),
+                user_id: userId.toString()
             }
         };
 
@@ -386,9 +372,7 @@ export const initiateGeniusPay = async (req, res) => {
         );
 
         if (response.data.success) {
-            // Mode checkout (aucun opérateur choisi) → checkout_url.
-            // Mode direct (payment_method fourni) → payment_url vers le gateway.
-            const checkoutUrl = response.data.data.checkout_url || response.data.data.payment_url;
+            const checkoutUrl = response.data.data.checkout_url;
 
             await Order.findByIdAndUpdate(order._id, {
                 geniuspay_reference: response.data.data.reference,
