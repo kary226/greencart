@@ -1,11 +1,27 @@
-import { Link, NavLink, Outlet } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { assets } from "../../assets/assets";
 import { useAppContext } from "../../context/AppContext";
 import toast from "react-hot-toast";
+import { Menu, X as CloseIcon } from "lucide-react";
 
 const SellerLayout = () => {
 
     const { axios, navigate, setIsSeller } = useAppContext();
+    const location = useLocation();
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+
+    // Fermer le tiroir automatiquement dès qu'on navigue vers une autre page,
+    // sinon il reste ouvert par-dessus la nouvelle page sur mobile.
+    useEffect(() => {
+        setSidebarOpen(false);
+    }, [location.pathname]);
+
+    // Empêche le contenu derrière le tiroir de scroller pendant qu'il est ouvert.
+    useEffect(() => {
+        document.body.style.overflow = sidebarOpen ? "hidden" : "";
+        return () => { document.body.style.overflow = ""; };
+    }, [sidebarOpen]);
 
     const sidebarLinks = [
         { name: "Tableau de bord", path: "/seller", icon: "dashboard" },
@@ -151,36 +167,71 @@ const SellerLayout = () => {
     return (
         <div className="min-h-screen bg-gray-50">
             {/* Header */}
-            <div className="flex items-center justify-between px-6 border-b border-gray-200 py-4 bg-white sticky top-0 z-10">
-                <Link to='/'>
-                    <img src={assets.logo} alt="logo" className="h-8 w-auto" />
-                </Link>
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between gap-2 px-3 sm:px-6 border-b border-gray-200 py-3 sm:py-4 bg-white sticky top-0 z-30">
+                <div className="flex items-center gap-2 min-w-0">
+                    <button
+                        onClick={() => setSidebarOpen(true)}
+                        className="lg:hidden shrink-0 w-9 h-9 flex items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 transition -ml-1"
+                        aria-label="Ouvrir le menu"
+                    >
+                        <Menu size={22} />
+                    </button>
+                    <Link to='/' className="shrink-0">
+                        <img src={assets.logo} alt="logo" className="h-6 sm:h-8 w-auto" />
+                    </Link>
+                </div>
+                <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                    <div className="hidden sm:flex items-center gap-2">
                         <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
                             A
                         </div>
                         <span className="text-sm font-medium text-gray-700">Admin</span>
                     </div>
-                    <button 
-                        onClick={logout} 
-                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition"
+                    <button
+                        onClick={logout}
+                        className="flex items-center gap-2 px-2.5 sm:px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition"
                     >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
                             <polyline points="16 17 21 12 16 7"/>
                             <line x1="21" y1="12" x2="9" y2="12"/>
                         </svg>
-                        Déconnexion
+                        <span className="hidden sm:inline">Déconnexion</span>
                     </button>
                 </div>
             </div>
 
             {/* Sidebar + Content */}
             <div className="flex">
-                {/* Sidebar */}
-                <div className="w-20 lg:w-64 bg-white border-r border-gray-200 h-[calc(100vh-65px)] sticky top-[65px] flex flex-col">
-                    <nav className="flex-1 py-4">
+                {/* Overlay mobile — ferme le tiroir au clic en dehors */}
+                {sidebarOpen && (
+                    <div
+                        className="fixed inset-0 bg-black/40 z-30 lg:hidden"
+                        onClick={() => setSidebarOpen(false)}
+                    />
+                )}
+
+                {/* Sidebar : tiroir plein écran sur mobile, colonne fixe dès lg */}
+                <div
+                    className={`
+                        fixed lg:sticky inset-y-0 lg:top-[65px] left-0 z-40 lg:z-0
+                        w-72 lg:w-64 bg-white border-r border-gray-200
+                        h-screen lg:h-[calc(100vh-65px)] flex flex-col
+                        transition-transform duration-200 ease-out
+                        ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0
+                    `}
+                >
+                    <div className="flex items-center justify-between px-4 py-3.5 border-b border-gray-100 lg:hidden">
+                        <span className="text-sm font-semibold text-gray-900">Menu</span>
+                        <button
+                            onClick={() => setSidebarOpen(false)}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 transition"
+                            aria-label="Fermer le menu"
+                        >
+                            <CloseIcon size={18} />
+                        </button>
+                    </div>
+                    <nav className="flex-1 py-4 overflow-y-auto">
                         {sidebarLinks.map((item) => (
                             <NavLink 
                                 to={item.path} 
@@ -194,17 +245,17 @@ const SellerLayout = () => {
                                     }
                                 `}
                             >
-                                <span className="w-5 h-5 flex items-center justify-center">
+                                <span className="w-5 h-5 flex items-center justify-center shrink-0">
                                     {getIcon(item.icon)}
                                 </span>
-                                <span className="hidden lg:inline">{item.name}</span>
+                                <span>{item.name}</span>
                             </NavLink>
                         ))}
                     </nav>
                 </div>
 
                 {/* Main Content */}
-                <div className="flex-1 overflow-auto">
+                <div className="flex-1 min-w-0 overflow-auto">
                     <Outlet />
                 </div>
             </div>
