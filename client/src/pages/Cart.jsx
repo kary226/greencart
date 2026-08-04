@@ -20,7 +20,6 @@ const Cart = () => {
     const [showAddress, setShowAddress] = useState(false)
     const [selectedAddress, setSelectedAddress] = useState(null)
     const [paymentOption, setPaymentOption] = useState("")
-    const [selectedOperator, setSelectedOperator] = useState("")
     const [appliedCoupon, setAppliedCoupon] = useState(null)
     const [discountedAmount, setDiscountedAmount] = useState(null)
 
@@ -288,7 +287,7 @@ const Cart = () => {
             }
 
             if (!paymentOption) {
-                toast.error("Veuillez choisir un opérateur Mobile Money")
+                toast.error("Veuillez choisir un moyen de paiement")
                 return
             }
 
@@ -359,8 +358,7 @@ const Cart = () => {
                         deliveryPrice: deliveryPrice,
                         deliveryType: selectedDeliveryType?.name,
                         couponApplied: appliedCoupon ? appliedCoupon.code : null,
-                        discountAmount: appliedCoupon ? (originalAmount - discountedAmount) : 0,
-                        operator: selectedOperator || null
+                        discountAmount: appliedCoupon ? (originalAmount - discountedAmount) : 0
                     });
 
                     toast.dismiss("geniuspay");
@@ -666,40 +664,34 @@ const Cart = () => {
                                 </div>
                             )}
 
-                            {/* Paiement — uniquement Mobile Money, avec choix de l'opérateur */}
+                            {/* Paiement — un seul point d'entrée, GeniusPay gère lui-même le
+                                choix entre Mobile Money / Wave / Carte sur sa page de checkout.
+                                [SIMPLIFICATION] On demandait avant l'opérateur ici (Orange/MTN/
+                                Moov) pour tenter de sauter l'écran GeniusPay, mais ce dernier
+                                redemande de toute façon la confirmation à l'utilisateur — ça
+                                doublait la sélection sans rien accélérer. */}
                             <div className="mb-4">
                                 <div className="flex items-center gap-2 mb-2">
                                     <CreditCard size={15} className="text-burgundy-600" />
                                     <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Moyen de paiement</span>
                                 </div>
-                                <div className="grid grid-cols-3 gap-2">
-                                    {[
-                                        { id: 'orange', label: 'Orange Money', color: '#FF6600' },
-                                        { id: 'mtn', label: 'MTN Money', color: '#FFCB05', textDark: true },
-                                        { id: 'moov', label: 'Moov Money', color: '#0072CE' },
-                                    ].map((op) => {
-                                        const isSelected = selectedOperator === op.id;
-                                        return (
-                                            <button
-                                                key={op.id}
-                                                type="button"
-                                                onClick={() => { setSelectedOperator(op.id); setPaymentOption('GeniusPay'); }}
-                                                className={`flex flex-col items-center gap-1.5 rounded-xl py-3 px-2 border-2 transition ${
-                                                    isSelected ? 'border-burgundy-500 bg-blush-50' : 'border-blush-100 bg-white hover:border-blush-300'
-                                                }`}
-                                            >
-                                                <span
-                                                    className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold ${op.textDark ? 'text-gray-800' : 'text-white'}`}
-                                                    style={{ backgroundColor: op.color }}
-                                                >
-                                                    {op.label[0]}
-                                                </span>
-                                                <span className="text-[11px] font-medium text-gray-700 text-center leading-tight">{op.label}</span>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                                <p className="text-[11px] text-gray-400 mt-2">Vous confirmerez le paiement sur la page sécurisée Mobile Money.</p>
+                                <button
+                                    type="button"
+                                    onClick={() => setPaymentOption('GeniusPay')}
+                                    className={`w-full flex items-center justify-between rounded-xl py-3.5 px-4 border-2 transition ${
+                                        paymentOption === 'GeniusPay' ? 'border-burgundy-500 bg-blush-50' : 'border-blush-100 bg-white hover:border-blush-300'
+                                    }`}
+                                >
+                                    <div className="text-left">
+                                        <p className="text-sm font-medium text-gray-800">Mobile Money, Wave, Carte</p>
+                                        <p className="text-[11px] text-gray-400 mt-0.5">Vous choisirez votre moyen de paiement sur la page sécurisée suivante.</p>
+                                    </div>
+                                    <span className={`w-4.5 h-4.5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                                        paymentOption === 'GeniusPay' ? 'border-burgundy-600' : 'border-blush-300'
+                                    }`}>
+                                        {paymentOption === 'GeniusPay' && <span className="w-2 h-2 rounded-full bg-burgundy-600" />}
+                                    </span>
+                                </button>
                             </div>
 
                             {/* Code promo */}

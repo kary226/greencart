@@ -342,7 +342,12 @@ export const initiateGeniusPay = async (req, res) => {
         }
         phone = `+${phone}`;
 
-        // Préparer la requête vers GeniusPay
+        // [SIMPLIFICATION] On tentait avant de fournir payment_method pour sauter
+        // la page de checkout GeniusPay et aller directement vers le gateway de
+        // l'opérateur choisi côté client — mais GeniusPay redemande de toute façon
+        // une confirmation à l'utilisateur sur cette page, donc ça n'accélérait
+        // rien et doublait la sélection. On repasse systématiquement par le mode
+        // checkout générique (Mobile Money / Wave / Carte réunis sur une seule page).
         const geniusPayload = {
             amount: finalAmount,
             description: `Commande #${order._id.toString().slice(-8)}`,
@@ -354,7 +359,7 @@ export const initiateGeniusPay = async (req, res) => {
             error_url: `${process.env.FRONTEND_URL}/payment/error?orderId=${order._id}`,
             metadata: {
                 order_id: order._id.toString(),
-                user_id: userId.toString()
+                user_id: userId.toString(),
             }
         };
 
@@ -372,7 +377,9 @@ export const initiateGeniusPay = async (req, res) => {
         );
 
         if (response.data.success) {
-            const checkoutUrl = response.data.data.checkout_url;
+            // Mode checkout (aucun opérateur choisi) → checkout_url.
+            // Mode direct (payment_method fourni) → payment_url vers le gateway.
+            const checkoutUrl = response.data.data.checkout_url || response.data.data.payment_url;
 
             await Order.findByIdAndUpdate(order._id, {
                 geniuspay_reference: response.data.data.reference,
