@@ -254,7 +254,7 @@ const Dashboard = () => {
 
     return (
         <div className="bg-gray-50 min-h-screen">
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-6 space-y-5 sm:space-y-6">
 
                 {/* ── HEADER ── */}
                 <div className="flex justify-between items-center flex-wrap gap-3">

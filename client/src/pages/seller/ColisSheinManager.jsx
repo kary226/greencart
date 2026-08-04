@@ -552,7 +552,8 @@ const ColisSheinManager = () => {
                     ) : colisLivraison.length === 0 ? (
                         <p className="csm-empty">Aucun colis en cours de livraison</p>
                     ) : (
-                        <table className="csm-livraisons-table">
+                        <div className="csm-table-scroll">
+                            <table className="csm-livraisons-table">
                             <thead>
                                 <tr>
                                     <th>Colis</th>
@@ -587,6 +588,7 @@ const ColisSheinManager = () => {
                                 })}
                             </tbody>
                         </table>
+                        </div>
                     )}
                 </div>
             ) : vue === "avis" ? (
@@ -638,7 +640,7 @@ const ColisSheinManager = () => {
                 </div>
             ) : (
             <div className="csm-wrap">
-                <div className="csm-liste">
+                <div className={`csm-liste ${selection ? "csm-liste-hidden-mobile" : ""}`}>
                     <h2>Colis SHEIN</h2>
                     <select value={filtreStatut} onChange={(e) => setFiltreStatut(e.target.value)}>
                         <option value="">Tous les statuts</option>
@@ -665,11 +667,14 @@ const ColisSheinManager = () => {
                     )}
                 </div>
 
-                <div className="csm-detail">
+                <div className={`csm-detail ${!selection ? "csm-detail-hidden-mobile" : ""}`}>
                     {!selection ? (
                         <p className="csm-empty">Sélectionne un colis dans la liste</p>
                     ) : (
                         <>
+                            <button type="button" className="csm-back-mobile" onClick={() => setSelection(null)}>
+                                ← Retour à la liste
+                            </button>
                             <div className="csm-detail-header">
                                 <h3>{selection.numeroSuivi}</h3>
                                 <span className="csm-badge">{selection.statut}</span>
@@ -990,7 +995,21 @@ const ColisSheinManager = () => {
         .csm-tab { background: #f7f5f2; border: none; border-radius: 20px; padding: 8px 16px; font-size: 12.5px; font-weight: 600; color: #666; cursor: pointer; }
         .csm-tab.active { background: #111; color: #fff; }
         .csm-livraisons { padding: 20px; }
-        .csm-livraisons-table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #f0ede8; border-radius: 10px; overflow: hidden; }
+        .csm-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .csm-livraisons-table { width: 100%; min-width: 480px; border-collapse: collapse; background: #fff; border: 1px solid #f0ede8; border-radius: 10px; overflow: hidden; }
+        .csm-back-mobile { display: none; background: none; border: none; color: #e53935; font-size: 13px; font-weight: 600; padding: 0 0 12px; cursor: pointer; }
+        @media (max-width: 768px) {
+            .csm-wrap { flex-direction: column; gap: 0; padding: 12px; }
+            .csm-liste { width: 100%; }
+            .csm-liste-hidden-mobile { display: none; }
+            .csm-detail-hidden-mobile { display: none; }
+            .csm-back-mobile { display: inline-block; }
+            .csm-avis-summary { gap: 16px; padding: 16px; }
+            .csm-avis-moyenne { min-width: 100px; }
+            .csm-taux-bar { padding: 10px 14px; }
+            .csm-tabs { padding: 10px 14px 0; overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; }
+            .csm-tab { flex-shrink: 0; }
+        }
         .csm-livraisons-table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: #999; padding: 10px 14px; background: #f7f5f2; }
         .csm-livraisons-table td { padding: 10px 14px; font-size: 13px; border-top: 1px solid #f0ede8; }
         .csm-retard { color: #c62828; font-weight: 600; }
