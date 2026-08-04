@@ -4,7 +4,7 @@ import toast from "react-hot-toast";
 import CouponInput from "../components/CouponInput";
 import {
     ShoppingBag, Trash2, ArrowRight, MapPin, Truck, CreditCard, Plus,
-    Minus, MoreVertical, Heart, Tag, X, Check, ChevronDown, Home, Zap, PackageCheck, Edit2
+    Minus, MoreVertical, Heart, Tag, X, Check, Home, Zap, PackageCheck, Edit2
 } from "lucide-react";
 
 const Cart = () => {
@@ -20,6 +20,7 @@ const Cart = () => {
     const [showAddress, setShowAddress] = useState(false)
     const [selectedAddress, setSelectedAddress] = useState(null)
     const [paymentOption, setPaymentOption] = useState("")
+    const [selectedOperator, setSelectedOperator] = useState("")
     const [appliedCoupon, setAppliedCoupon] = useState(null)
     const [discountedAmount, setDiscountedAmount] = useState(null)
 
@@ -287,7 +288,7 @@ const Cart = () => {
             }
 
             if (!paymentOption) {
-                toast.error("Veuillez sélectionner un moyen de paiement")
+                toast.error("Veuillez choisir un opérateur Mobile Money")
                 return
             }
 
@@ -358,7 +359,8 @@ const Cart = () => {
                         deliveryPrice: deliveryPrice,
                         deliveryType: selectedDeliveryType?.name,
                         couponApplied: appliedCoupon ? appliedCoupon.code : null,
-                        discountAmount: appliedCoupon ? (originalAmount - discountedAmount) : 0
+                        discountAmount: appliedCoupon ? (originalAmount - discountedAmount) : 0,
+                        operator: selectedOperator || null
                     });
 
                     toast.dismiss("geniuspay");
@@ -664,23 +666,40 @@ const Cart = () => {
                                 </div>
                             )}
 
-                            {/* Paiement */}
+                            {/* Paiement — uniquement Mobile Money, avec choix de l'opérateur */}
                             <div className="mb-4">
                                 <div className="flex items-center gap-2 mb-2">
                                     <CreditCard size={15} className="text-burgundy-600" />
                                     <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Moyen de paiement</span>
                                 </div>
-                                <div className="relative">
-                                    <select
-                                        onChange={e => setPaymentOption(e.target.value)}
-                                        value={paymentOption}
-                                        className="w-full appearance-none bg-blush-50 border border-transparent rounded-xl px-3 py-2.5 text-sm text-gray-700 focus:border-burgundy-400 outline-none"
-                                    >
-                                        <option value="" disabled>Sélectionner un moyen de paiement</option>
-                                        <option value="GeniusPay">Mobile Money (Orange, MTN, Moov)</option>
-                                    </select>
-                                    <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                <div className="grid grid-cols-3 gap-2">
+                                    {[
+                                        { id: 'orange', label: 'Orange Money', color: '#FF6600' },
+                                        { id: 'mtn', label: 'MTN Money', color: '#FFCB05', textDark: true },
+                                        { id: 'moov', label: 'Moov Money', color: '#0072CE' },
+                                    ].map((op) => {
+                                        const isSelected = selectedOperator === op.id;
+                                        return (
+                                            <button
+                                                key={op.id}
+                                                type="button"
+                                                onClick={() => { setSelectedOperator(op.id); setPaymentOption('GeniusPay'); }}
+                                                className={`flex flex-col items-center gap-1.5 rounded-xl py-3 px-2 border-2 transition ${
+                                                    isSelected ? 'border-burgundy-500 bg-blush-50' : 'border-blush-100 bg-white hover:border-blush-300'
+                                                }`}
+                                            >
+                                                <span
+                                                    className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold ${op.textDark ? 'text-gray-800' : 'text-white'}`}
+                                                    style={{ backgroundColor: op.color }}
+                                                >
+                                                    {op.label[0]}
+                                                </span>
+                                                <span className="text-[11px] font-medium text-gray-700 text-center leading-tight">{op.label}</span>
+                                            </button>
+                                        );
+                                    })}
                                 </div>
+                                <p className="text-[11px] text-gray-400 mt-2">Vous confirmerez le paiement sur la page sécurisée Mobile Money.</p>
                             </div>
 
                             {/* Code promo */}
