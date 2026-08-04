@@ -4,19 +4,21 @@ import {
     getAllDeliveryPrices, getDeliveryPrice, addDeliveryPrice, addBulkDeliveryPrices, updateDeliveryPrice, deleteDeliveryPrice
 } from '../controllers/deliveryController.js';
 import authSeller from '../middlewares/authSeller.js';
+import cacheControl from '../middlewares/cacheControl.js';
 
 const deliveryRouter = express.Router();
 
 // ==================== TYPES DE LIVRAISON ====================
 deliveryRouter.get('/types/admin', authSeller, getAllDeliveryTypes);
-deliveryRouter.get('/types', getActiveDeliveryTypes);
+// [PHASE 0 - PERF] Types/tarifs de livraison publics, très peu volatils.
+deliveryRouter.get('/types', cacheControl(300), getActiveDeliveryTypes);
 deliveryRouter.post('/type/add', authSeller, addDeliveryType);
 deliveryRouter.post('/type/update', authSeller, updateDeliveryType);
 deliveryRouter.post('/type/delete', authSeller, deleteDeliveryType);
 
 // ==================== PRIX DE LIVRAISON ====================
 deliveryRouter.get('/prices/admin', authSeller, getAllDeliveryPrices);
-deliveryRouter.get('/price/:communeId/:deliveryTypeId', getDeliveryPrice);
+deliveryRouter.get('/price/:communeId/:deliveryTypeId', cacheControl(300), getDeliveryPrice);
 deliveryRouter.post('/price/add', authSeller, addDeliveryPrice);
 deliveryRouter.post('/price/bulk', authSeller, addBulkDeliveryPrices);
 deliveryRouter.post('/price/update', authSeller, updateDeliveryPrice);

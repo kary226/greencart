@@ -8,6 +8,11 @@ import DeliveryType from "../models/DeliveryType.js";
 import Commune from "../models/Commune.js";
 import Wallet from "../models/Wallet.js";
 import WalletTransaction from "../models/WalletTransaction.js";
+// [PHASE 0 - PERF] Import statique au lieu de l'import dynamique répété à
+// chaque itération de boucle dans crediterWallets — l'import dynamique
+// était re-résolu (et son cache re-consulté) pour chaque boutique du
+// panier, un coût inutile sur le chemin de la commande.
+import Boutique from "../models/Boutique.js";
 import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
 import { sendPushToUser } from './pushController.js';
 
@@ -42,45 +47,96 @@ const calculateEstimatedDeliveryDates = (orderDate) => {
 };
 
 // Réduire le stock ET incrémenter les ventes
+//
+// [PHASE 0 - PERF] Avant : un Product.findById + un Product.findByIdAndUpdate
+// (+ un product.save() pour les variantes) PAR article du panier, en série.
+// Pour un panier de 5 articles c'était jusqu'à 10-15 allers-retours MongoDB
+// évitables sur le chemin critique de la commande. Maintenant : un seul
+// Product.find({_id: {$in: [...]}}) pour tout charger, puis un seul
+// bulkWrite() pour appliquer toutes les mises à jour (ventes + stock) en une
+// requête groupée.
 const reduceVariantStock = async (items) => {
+    if (!items.length) return;
+
+    const productIds = [...new Set(items.map(item => item.product.toString()))];
+    const products = await Product.find({ _id: { $in: productIds } });
+    const productsById = new Map(products.map(p => [p._id.toString(), p]));
+
+    const bulkOps = [];
+
     for (const item of items) {
-        const product = await Product.findById(item.product);
+        const product = productsById.get(item.product.toString());
         if (!product) continue;
-        
-        await Product.findByIdAndUpdate(item.product, {
-            $inc: { salesCount: item.quantity }
+
+        bulkOps.push({
+            updateOne: {
+                filter: { _id: product._id },
+                update: { $inc: { salesCount: item.quantity } }
+            }
         });
-        
-        if (product && product.variants?.length > 0) {
-            const variant = product.variants.find(v => 
+
+        if (product.variants?.length > 0) {
+            const variant = product.variants.find(v =>
                 (item.color ? v.color === item.color : !v.color) &&
                 (item.size ? v.size === item.size : !v.size)
             );
             if (variant) {
+                // On simule la décrémentation en mémoire pour recalculer
+                // inStock correctement même si plusieurs items du même
+                // panier touchent des variantes du même produit.
                 variant.stock = Math.max(0, variant.stock - item.quantity);
-                product.inStock = product.variants.some(v => v.stock > 0);
-                await product.save();
+                const inStock = product.variants.some(v => v.stock > 0);
+                bulkOps.push({
+                    updateOne: {
+                        filter: { _id: product._id, 'variants._id': variant._id },
+                        update: {
+                            $set: {
+                                'variants.$.stock': variant.stock,
+                                inStock
+                            }
+                        }
+                    }
+                });
             }
-        } else if (product && product.stock !== null && product.stock !== undefined) {
+        } else if (product.stock !== null && product.stock !== undefined) {
             const newStock = Math.max(0, product.stock - item.quantity);
-            const inStock = newStock > 0;
-            await Product.findByIdAndUpdate(item.product, {
-                stock: newStock,
-                inStock
+            product.stock = newStock; // pour cohérence si réutilisé plus bas
+            bulkOps.push({
+                updateOne: {
+                    filter: { _id: product._id },
+                    update: { $set: { stock: newStock, inStock: newStock > 0 } }
+                }
             });
         }
+    }
+
+    if (bulkOps.length > 0) {
+        await Product.bulkWrite(bulkOps);
     }
 };
 
 // Créditer les wallets des commerçants
+//
+// [PHASE 0 - PERF] Avant : un Product.findById PAR article, puis à
+// l'intérieur un import dynamique + un Boutique.findById PAR boutique
+// concernée. Maintenant : un seul Product.find({$in}) pour tous les
+// articles, et un seul Boutique.find({$in}) pour toutes les boutiques
+// concernées (import de Boutique désormais statique en haut du fichier).
 const crediterWallets = async (items) => {
+    if (!items.length) return;
+
+    const productIds = [...new Set(items.map(item => item.product.toString()))];
+    const products = await Product.find({ _id: { $in: productIds } }).select('boutiqueId');
+    const boutiqueIdByProductId = new Map(
+        products.map(p => [p._id.toString(), p.boutiqueId ? p.boutiqueId.toString() : null])
+    );
+
     const ventesParBoutique = {};
-    
+
     for (const item of items) {
-        const product = await Product.findById(item.product).select('boutiqueId');
-        if (!product || !product.boutiqueId) continue;
-        
-        const boutiqueId = product.boutiqueId.toString();
+        const boutiqueId = boutiqueIdByProductId.get(item.product.toString());
+        if (!boutiqueId) continue;
+
         if (!ventesParBoutique[boutiqueId]) {
             ventesParBoutique[boutiqueId] = {
                 montantTotal: 0,
@@ -90,25 +146,30 @@ const crediterWallets = async (items) => {
         ventesParBoutique[boutiqueId].montantTotal += item.priceAtOrder * item.quantity;
         ventesParBoutique[boutiqueId].items.push(item);
     }
-    
+
+    const boutiqueIds = Object.keys(ventesParBoutique);
+    if (boutiqueIds.length === 0) return;
+
+    const boutiques = await Boutique.find({ _id: { $in: boutiqueIds } }).select('ownerId');
+    const ownerIdByBoutiqueId = new Map(boutiques.map(b => [b._id.toString(), b.ownerId]));
+
     for (const [boutiqueId, data] of Object.entries(ventesParBoutique)) {
-        const Boutique = await import('../models/Boutique.js').then(m => m.default);
-        const boutique = await Boutique.findById(boutiqueId).select('ownerId');
-        if (!boutique) continue;
-        
-        const wallet = await Wallet.findOne({ ownerId: boutique.ownerId });
+        const ownerId = ownerIdByBoutiqueId.get(boutiqueId);
+        if (!ownerId) continue;
+
+        const wallet = await Wallet.findOne({ ownerId });
         if (!wallet) continue;
-        
+
         const montant = data.montantTotal;
         const description = `Vente - ${data.items.length} article(s)`;
-        
+
         await WalletTransaction.create({
             walletId: wallet._id,
             type: 'vente',
             montant: montant,
             description: description,
         });
-        
+
         await wallet.recalculerSolde();
     }
 };

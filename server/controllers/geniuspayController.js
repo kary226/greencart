@@ -167,8 +167,16 @@ export const initiateGeniusPay = async (req, res) => {
         let amount = 0;
         const formattedItems = [];
 
+        // [PHASE 0 - PERF] Avant : un Product.findById PAR article du panier,
+        // en série (chemin le plus critique du site : le paiement). Un seul
+        // Product.find({$in}) charge tous les produits d'un coup, puis on
+        // fait correspondre chaque item en mémoire ci-dessous.
+        const productIds = [...new Set(items.map(item => item.product))];
+        const products = await Product.find({ _id: { $in: productIds } });
+        const productsById = new Map(products.map(p => [p._id.toString(), p]));
+
         for (const item of items) {
-            const product = await Product.findById(item.product);
+            const product = productsById.get(item.product.toString());
             if (!product) {
                 return res.json({ success: false, message: "Produit introuvable" });
             }
@@ -653,9 +661,19 @@ export const geniuspayWebhook = async (req, res) => {
             console.log(`✅ Commande ${orderId} marquée comme payée`);
 
             // 4. Mettre à jour le stock pour chaque produit
+            //
+            // [PHASE 0 - PERF] Avant : un ProductModel.findById + un
+            // product.save() PAR article de la commande, en série. Un seul
+            // find({$in}) charge tout, puis un seul bulkWrite() applique
+            // toutes les mises à jour de stock en une requête groupée.
             const ProductModel = mongoose.model('product');
+            const productIds = [...new Set(order.items.map(item => item.product.toString()))];
+            const products = await ProductModel.find({ _id: { $in: productIds } });
+            const productsById = new Map(products.map(p => [p._id.toString(), p]));
+            const bulkOps = [];
+
             for (const item of order.items) {
-                const product = await ProductModel.findById(item.product);
+                const product = productsById.get(item.product.toString());
                 if (!product) {
                     console.warn(`⚠️ Produit ${item.product} non trouvé, stock non mis à jour`);
                     continue;
@@ -671,17 +689,30 @@ export const geniuspayWebhook = async (req, res) => {
                         // baissait bien, mais le produit continuait d'apparaître
                         // "en stock" côté boutique tant que personne n'allait le
                         // resauvegarder manuellement dans le panneau admin.
-                        product.inStock = product.variants.some(v => v.stock > 0);
-                        await product.save();
+                        const inStock = product.variants.some(v => v.stock > 0);
+                        bulkOps.push({
+                            updateOne: {
+                                filter: { _id: product._id, 'variants._id': variant._id },
+                                update: { $set: { 'variants.$.stock': variant.stock, inStock } }
+                            }
+                        });
                     } else {
                         console.warn(`⚠️ Variant (${item.color}/${item.size}) non trouvé pour produit ${product.name}`);
                     }
                 } else {
-                    product.stock = Math.max(0, (product.stock || 0) - item.quantity);
-                    // [FIX] Même correctif pour les produits sans variantes.
-                    product.inStock = product.stock > 0;
-                    await product.save();
+                    const newStock = Math.max(0, (product.stock || 0) - item.quantity);
+                    product.stock = newStock;
+                    bulkOps.push({
+                        updateOne: {
+                            filter: { _id: product._id },
+                            update: { $set: { stock: newStock, inStock: newStock > 0 } }
+                        }
+                    });
                 }
+            }
+
+            if (bulkOps.length > 0) {
+                await ProductModel.bulkWrite(bulkOps);
             }
 
             // 5. Vider le panier de l'utilisateur

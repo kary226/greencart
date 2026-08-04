@@ -1,7 +1,11 @@
 import mongoose from "mongoose";
 
 const addressSchema = new mongoose.Schema({
-    userId: {type: String, required: true},
+    // [PHASE 0 - PERF] Index manquant : userId est utilisé pour lister les
+    // adresses d'un utilisateur (page compte, checkout) — sans index, ces
+    // requêtes forcent un scan complet de la collection à mesure qu'elle
+    // grossit.
+    userId: {type: String, required: true, index: true},
     firstName: {type: String, required: true},
     lastName: {type: String, required: true},
     email: {type: String, default: ''},

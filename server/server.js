@@ -2,6 +2,7 @@ import cookieParser from 'cookie-parser';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import compression from 'compression';
 import mongoSanitize from 'express-mongo-sanitize';
 import connectDB from './configs/db.js';
 import 'dotenv/config';
@@ -76,6 +77,12 @@ app.use(helmet({
     contentSecurityPolicy: false,
     crossOriginResourcePolicy: false,
 }));
+
+// [PHASE 0 - PERF] Compression gzip/brotli des réponses (JSON, HTML, etc.)
+// Coût CPU négligeable comparé au gain réseau, surtout utile pour les
+// grosses réponses (listings produits paginés, etc.). Placé tôt dans la
+// chaîne pour compresser toutes les routes API en dessous.
+app.use(compression());
 
 // ✅ AJOUT : Middleware standard avec LIMITES AUGMENTÉES
 app.use(express.json({ 
