@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
 import ImageCropper from '../../components/ImageCropper';
+// [PHASE 1 - PERF] Transformation Cloudinary (f_auto, q_auto, largeur adaptée)
+import { getPresetImageUrl } from '../../utils/cloudinaryImage';
 
 const CategoryManager = () => {
     const { axios } = useAppContext();
@@ -585,9 +587,10 @@ const CategoryManager = () => {
                                     <div className="p-5 flex items-start gap-4">
                                         {category.image && (
                                             <img 
-                                                src={category.image} 
+                                                src={getPresetImageUrl(category.image, 'thumbnail')} 
                                                 alt={category.name} 
                                                 className="w-14 h-14 object-cover rounded-full border border-gray-100 group-hover:scale-105 transition"
+                                                loading="lazy"
                                             />
                                         )}
                                         <div className="flex-1">
