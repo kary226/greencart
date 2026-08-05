@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { Suspense, lazy, useEffect } from 'react'
 import Navbar from './components/Navbar'
 import { Route, Routes, useLocation } from 'react-router-dom'
 import Home from './pages/Home'
@@ -16,20 +16,6 @@ import Wishlist from './pages/Wishlist';
 import Account from './pages/Account';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
-import SellerLogin from './components/seller/SellerLogin';
-import SellerLayout from './pages/seller/SellerLayout';
-import Dashboard from './pages/seller/Dashboard';
-import AddProduct from './pages/seller/AddProduct';
-import ProductList from './pages/seller/ProductList';
-import Orders from './pages/seller/Orders';
-import ClientsManager from './pages/seller/ClientsManager';
-import BannerManager from './pages/seller/BannerManager';
-import CategoryManager from './pages/seller/CategoryManager';
-import CouponManager from './pages/seller/CouponManager';
-import LocationManager from './pages/seller/LocationManager';
-import DeliveryManager from './pages/seller/DeliveryManager';
-import SettingsManager from './pages/seller/SettingsManager';
-import ColisSheinManager from './pages/seller/ColisSheinManager';
 import AllCategories from './pages/AllCategories';
 import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentError from './pages/PaymentError';
@@ -37,31 +23,59 @@ import Loading from './components/Loading';
 import BottomNav from './components/BottomNav';
 import InstallApp from './pages/InstallApp';
 import NotificationPrompt from './components/Notificationprompt';
-import ValiderPanierShein from './pages/ValiderPanierShein';
-import ColisSheinConversation from './pages/ColisSheinConversation';
-import ColisSheinDetailPage from './pages/ColisSheinDetailPage';
-import MesColisShein from './pages/MesColisShein';
-import StaffLogin from './pages/staff/StaffLogin';
-import StaffActivation from './pages/staff/StaffActivation';
-import AdminComptes from './pages/admin/AdminComptes';
+import PageLoader from './components/PageLoader';
 
-// ✅ PHASE 3 - Espace commerçant
-import CommercantLayout from './pages/commercant/CommercantLayout';
-import DashboardCommercant from './pages/commercant/Dashboard';
-import Boutique from './pages/commercant/Boutique';
-import Produits from './pages/commercant/Produits';
-import ProduitForm from './pages/commercant/ProduitForm';
-import CodesPromo from './pages/commercant/CodesPromo';
-import Portefeuille from './pages/commercant/Portefeuille';
-import DemandeRetrait from './pages/commercant/DemandeRetrait';
+// ⚡ PHASE 1 - Code splitting (React.lazy)
+// Ces zones ne sont utilisées que par une partie des visiteurs (vendeurs,
+// staff, commerçants, livreurs, assistants Shein). Les charger dynamiquement
+// évite qu'un client qui vient simplement acheter un produit télécharge
+// aussi le code de toutes les interfaces de gestion.
 
-// ✅ PHASE 4 - Espace livreur
-import MesLivraisons from './pages/livreur/MesLivraisons';
-import LivraisonDetail from './pages/livreur/LivraisonDetail';
+// Zone Seller
+const SellerLogin = lazy(() => import('./components/seller/SellerLogin'));
+const SellerLayout = lazy(() => import('./pages/seller/SellerLayout'));
+const Dashboard = lazy(() => import('./pages/seller/Dashboard'));
+const AddProduct = lazy(() => import('./pages/seller/AddProduct'));
+const ProductList = lazy(() => import('./pages/seller/ProductList'));
+const Orders = lazy(() => import('./pages/seller/Orders'));
+const ClientsManager = lazy(() => import('./pages/seller/ClientsManager'));
+const BannerManager = lazy(() => import('./pages/seller/BannerManager'));
+const CategoryManager = lazy(() => import('./pages/seller/CategoryManager'));
+const CouponManager = lazy(() => import('./pages/seller/CouponManager'));
+const LocationManager = lazy(() => import('./pages/seller/LocationManager'));
+const DeliveryManager = lazy(() => import('./pages/seller/DeliveryManager'));
+const SettingsManager = lazy(() => import('./pages/seller/SettingsManager'));
+const ColisSheinManager = lazy(() => import('./pages/seller/ColisSheinManager'));
 
-// ✅ PHASE 5 - Espace assistant Shein
-import Conversations from './pages/assistant/Conversations';
-import ChatDetail from './pages/assistant/ChatDetail';
+// Zone Staff / Admin
+const StaffLogin = lazy(() => import('./pages/staff/StaffLogin'));
+const StaffActivation = lazy(() => import('./pages/staff/StaffActivation'));
+const AdminComptes = lazy(() => import('./pages/admin/AdminComptes'));
+
+// Zone Commerçant
+const CommercantLayout = lazy(() => import('./pages/commercant/CommercantLayout'));
+const DashboardCommercant = lazy(() => import('./pages/commercant/Dashboard'));
+const Boutique = lazy(() => import('./pages/commercant/Boutique'));
+const Produits = lazy(() => import('./pages/commercant/Produits'));
+const ProduitForm = lazy(() => import('./pages/commercant/ProduitForm'));
+const CodesPromo = lazy(() => import('./pages/commercant/CodesPromo'));
+const Portefeuille = lazy(() => import('./pages/commercant/Portefeuille'));
+const DemandeRetrait = lazy(() => import('./pages/commercant/DemandeRetrait'));
+
+// Zone Livreur
+const MesLivraisons = lazy(() => import('./pages/livreur/MesLivraisons'));
+const LivraisonDetail = lazy(() => import('./pages/livreur/LivraisonDetail'));
+
+// Zone Assistant Shein (back-office)
+const Conversations = lazy(() => import('./pages/assistant/Conversations'));
+const ChatDetail = lazy(() => import('./pages/assistant/ChatDetail'));
+
+// Zone ColisShein (côté client — fonctionnalité optionnelle, pas du parcours
+// d'achat principal, donc également séparée du bundle initial)
+const ValiderPanierShein = lazy(() => import('./pages/ValiderPanierShein'));
+const ColisSheinConversation = lazy(() => import('./pages/ColisSheinConversation'));
+const ColisSheinDetailPage = lazy(() => import('./pages/ColisSheinDetailPage'));
+const MesColisShein = lazy(() => import('./pages/MesColisShein'));
 
 // 🔝 ScrollToTop intelligent
 const useSmartScroll = () => {
@@ -162,70 +176,72 @@ const App = () => {
       />
 
       <div className={`${isSellerPath || isStaffPath || isChatFullScreenPath || isLivreurPath || isCommercantPath ? "" : "px-4 pb-20"}`}>
-        <Routes>
-          <Route path='/' element={<Home />} />
-          <Route path='/products' element={<AllProducts />} />
-          <Route path='/products/:category' element={<ProductCategory />} />
-          <Route path='/products/:category/:id' element={<ProductDetails />} />
-          <Route path='/cart' element={<Cart />} />
-          <Route path='/add-address' element={<AddAddress />} />
-          <Route path='/my-orders' element={<MyOrders />} />
-          <Route path='/loader' element={<Loading />} />
-          <Route path='/categories' element={<AllCategories />} />
-          <Route path='/wishlist' element={<Wishlist />} />
-          <Route path='/account' element={<Account />} />
-          <Route path='/payment/success' element={<PaymentSuccess />} />
-          <Route path='/payment/error' element={<PaymentError />} />
-          <Route path='/forgot-password' element={<ForgotPassword />} />
-          <Route path='/reset-password' element={<ResetPassword />} />
-          <Route path='/install' element={<InstallApp />} />
-          <Route path='/valider-panier-shein' element={<ValiderPanierShein />} />
-          <Route path='/mes-colis-shein' element={<MesColisShein />} />
-          <Route path='/colis-shein/:id' element={<ColisSheinConversation />} />
-          <Route path='/colis-shein/:id/detail' element={<ColisSheinDetailPage />} />
-          
-          
-          {/* Routes Staff */}
-          <Route path='/staff/login' element={<StaffLogin />} />
-          <Route path='/staff/activation/:token' element={<StaffActivation />} />
-          <Route path='/staff/admin/comptes' element={<AdminComptes />} />
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path='/' element={<Home />} />
+            <Route path='/products' element={<AllProducts />} />
+            <Route path='/products/:category' element={<ProductCategory />} />
+            <Route path='/products/:category/:id' element={<ProductDetails />} />
+            <Route path='/cart' element={<Cart />} />
+            <Route path='/add-address' element={<AddAddress />} />
+            <Route path='/my-orders' element={<MyOrders />} />
+            <Route path='/loader' element={<Loading />} />
+            <Route path='/categories' element={<AllCategories />} />
+            <Route path='/wishlist' element={<Wishlist />} />
+            <Route path='/account' element={<Account />} />
+            <Route path='/payment/success' element={<PaymentSuccess />} />
+            <Route path='/payment/error' element={<PaymentError />} />
+            <Route path='/forgot-password' element={<ForgotPassword />} />
+            <Route path='/reset-password' element={<ResetPassword />} />
+            <Route path='/install' element={<InstallApp />} />
+            <Route path='/valider-panier-shein' element={<ValiderPanierShein />} />
+            <Route path='/mes-colis-shein' element={<MesColisShein />} />
+            <Route path='/colis-shein/:id' element={<ColisSheinConversation />} />
+            <Route path='/colis-shein/:id/detail' element={<ColisSheinDetailPage />} />
+            
+            
+            {/* Routes Staff */}
+            <Route path='/staff/login' element={<StaffLogin />} />
+            <Route path='/staff/activation/:token' element={<StaffActivation />} />
+            <Route path='/staff/admin/comptes' element={<AdminComptes />} />
 
-          {/* ✅ PHASE 3 - Routes Commerçant */}
-          <Route path='/commercant' element={<CommercantLayout />}>
-            <Route path='dashboard' element={<DashboardCommercant />} />
-            <Route path='boutique' element={<Boutique />} />
-            <Route path='produits' element={<Produits />} />
-            <Route path='produits/ajouter' element={<ProduitForm />} />
-            <Route path='produits/editer/:id' element={<ProduitForm />} />
-            <Route path='codes-promo' element={<CodesPromo />} />
-            <Route path='portefeuille' element={<Portefeuille />} />
-            <Route path='retraits' element={<DemandeRetrait />} />
-          </Route>
+            {/* ✅ PHASE 3 - Routes Commerçant */}
+            <Route path='/commercant' element={<CommercantLayout />}>
+              <Route path='dashboard' element={<DashboardCommercant />} />
+              <Route path='boutique' element={<Boutique />} />
+              <Route path='produits' element={<Produits />} />
+              <Route path='produits/ajouter' element={<ProduitForm />} />
+              <Route path='produits/editer/:id' element={<ProduitForm />} />
+              <Route path='codes-promo' element={<CodesPromo />} />
+              <Route path='portefeuille' element={<Portefeuille />} />
+              <Route path='retraits' element={<DemandeRetrait />} />
+            </Route>
 
-          {/* ✅ PHASE 4 - Routes Livreur */}
-          <Route path='/livreur/mes-livraisons' element={<MesLivraisons />} />
-          <Route path='/livreur/commande/:orderId' element={<LivraisonDetail />} />
+            {/* ✅ PHASE 4 - Routes Livreur */}
+            <Route path='/livreur/mes-livraisons' element={<MesLivraisons />} />
+            <Route path='/livreur/commande/:orderId' element={<LivraisonDetail />} />
 
-          {/* ✅ PHASE 5 - Routes Assistant Shein */}
-          <Route path='/assistant/conversations' element={<Conversations />} />
-          <Route path='/assistant/conversation/:id' element={<ChatDetail />} />
+            {/* ✅ PHASE 5 - Routes Assistant Shein */}
+            <Route path='/assistant/conversations' element={<Conversations />} />
+            <Route path='/assistant/conversation/:id' element={<ChatDetail />} />
 
-          {/* Routes Seller */}
-          <Route path='/seller' element={isSeller ? <SellerLayout /> : <SellerLogin />}>
-            <Route index element={<Dashboard />} />
-            <Route path='add-product' element={<AddProduct />} />
-            <Route path='product-list' element={<ProductList />} />
-            <Route path='orders' element={<Orders />} />
-            <Route path='clients' element={<ClientsManager />} />
-            <Route path='banners' element={<BannerManager />} />
-            <Route path='categories' element={<CategoryManager />} />
-            <Route path='coupons' element={<CouponManager />} />
-            <Route path='locations' element={<LocationManager />} />
-            <Route path='delivery' element={<DeliveryManager />} />
-            <Route path='settings' element={<SettingsManager />} />
-            <Route path='colis-shein' element={<ColisSheinManager />} />
-          </Route>
-        </Routes>
+            {/* Routes Seller */}
+            <Route path='/seller' element={isSeller ? <SellerLayout /> : <SellerLogin />}>
+              <Route index element={<Dashboard />} />
+              <Route path='add-product' element={<AddProduct />} />
+              <Route path='product-list' element={<ProductList />} />
+              <Route path='orders' element={<Orders />} />
+              <Route path='clients' element={<ClientsManager />} />
+              <Route path='banners' element={<BannerManager />} />
+              <Route path='categories' element={<CategoryManager />} />
+              <Route path='coupons' element={<CouponManager />} />
+              <Route path='locations' element={<LocationManager />} />
+              <Route path='delivery' element={<DeliveryManager />} />
+              <Route path='settings' element={<SettingsManager />} />
+              <Route path='colis-shein' element={<ColisSheinManager />} />
+            </Route>
+          </Routes>
+        </Suspense>
       </div>
       
       {showFooter && <Footer />}

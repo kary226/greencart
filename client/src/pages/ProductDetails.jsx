@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import SEO from "../components/SEO";
 import RecentlyViewed from "../components/RecentlyViewed";
 import DOMPurify from "dompurify";
+import { getPresetImageUrl } from "../utils/cloudinaryImage";
 
 const ProductDetails = () => {
   const {
@@ -461,7 +462,10 @@ const ProductDetails = () => {
             onTouchEnd={handleTouchEnd}
           >
             {!isCurrentVideo ? (
-              <img src={currentMedia?.url} alt={product.name} />
+              // Pas de loading="lazy" ici : c'est l'image principale visible
+              // au premier affichage (LCP), on veut qu'elle charge tout de
+              // suite — seule la largeur est optimisée via Cloudinary.
+              <img src={getPresetImageUrl(currentMedia?.url, "detail")} alt={product.name} />
             ) : (
               <div className="pd-video-slide">
                 {isYouTube(currentMedia?.url) ? (
@@ -543,10 +547,14 @@ const ProductDetails = () => {
                   onClick={() => setCurrentMediaIndex(i)}
                 >
                   {media.type === "image" ? (
-                    <img src={media.url} alt="" />
+                    <img src={getPresetImageUrl(media.url, "thumbnail")} alt="" loading="lazy" />
                   ) : (
                     <div className="pd-thumb-video">
-                      <img src={media.poster || allImages[0] || "/placeholder.jpg"} alt="Vidéo" />
+                      <img
+                        src={getPresetImageUrl(media.poster || allImages[0] || "/placeholder.jpg", "thumbnail")}
+                        alt="Vidéo"
+                        loading="lazy"
+                      />
                       <div className="pd-thumb-play-icon">▶</div>
                     </div>
                   )}

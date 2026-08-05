@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
+import { getPresetImageUrl } from '../../utils/cloudinaryImage';
 import {
     Package, Wallet, TrendingUp,
     ShoppingBag, Clock, Loader2, PlusCircle, Store, Banknote, Tag, Trophy,
@@ -290,7 +291,7 @@ const Dashboard = () => {
                                             {idx + 1}
                                         </span>
                                         <div className="w-10 h-10 rounded-full bg-blush-100 overflow-hidden shrink-0 border border-blush-200">
-                                            {p.image ? <img src={p.image} alt={p.name} className="w-full h-full object-cover" /> : null}
+                                            {p.image ? <img src={getPresetImageUrl(p.image, "thumbnail")} alt={p.name} className="w-full h-full object-cover" loading="lazy" /> : null}
                                         </div>
                                         <div className="min-w-0 flex-1">
                                             <p className="text-sm font-medium text-gray-800 truncate">{p.name}</p>

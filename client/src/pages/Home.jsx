@@ -4,6 +4,7 @@ import { useAppContext } from "../context/AppContext";
 import ProductCard from "../components/ProductCard";
 import SEO from "../components/SEO";
 import BannerCarousel from "../components/BannerCarousel";
+import { getPresetImageUrl } from "../utils/cloudinaryImage";
 
 const SECTIONS = [
   { id: "trends", label: "Tendances du moment" },
@@ -191,7 +192,7 @@ const Home = () => {
               >
                 <div className="ramci-cat-circle">
                   {cat.image
-                    ? <img src={cat.image} alt={cat.name} className="ramci-cat-img" />
+                    ? <img src={getPresetImageUrl(cat.image, "thumbnail")} alt={cat.name} className="ramci-cat-img" />
                     : <span className="ramci-cat-placeholder">{cat.name?.[0]}</span>
                   }
                 </div>

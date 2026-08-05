@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
+import { getPresetImageUrl } from '../../utils/cloudinaryImage';
 import { Package, Plus, Edit, Trash2, Loader2, Search, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 const Produits = () => {
@@ -123,7 +124,7 @@ const Produits = () => {
                             <div key={product._id} className="bg-white rounded-2xl border border-blush-200 overflow-hidden hover:shadow-md transition group">
                                 <div className="relative aspect-square bg-blush-100">
                                     {product.image?.[0] ? (
-                                        <img src={product.image[0]} alt={product.name} className="w-full h-full object-cover" />
+                                        <img src={getPresetImageUrl(product.image[0], "thumbnail")} alt={product.name} className="w-full h-full object-cover" loading="lazy" />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center text-blush-400"><Package size={30} /></div>
                                     )}

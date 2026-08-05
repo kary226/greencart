@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
+import { getPresetImageUrl } from '../utils/cloudinaryImage';
 
 const BannerCarousel = ({ position = 'top', className = '' }) => {
     const { axios, navigate } = useAppContext();
@@ -190,10 +191,14 @@ const BannerCarousel = ({ position = 'top', className = '' }) => {
                         onClick={() => handleBannerClick(banner)}
                     >
                         <img
-                            src={banner.image}
+                            src={getPresetImageUrl(banner.image, "banner")}
                             alt={banner.title || 'Bannière'}
                             className="w-full h-[200px] md:h-[280px] lg:h-[320px] object-cover"
                             draggable={false}
+                            // Le premier slide est visible dès le chargement de la page
+                            // (candidat LCP) : on ne le lazy-load pas, contrairement
+                            // aux suivants qui ne sont vus qu'après interaction.
+                            loading={index === 0 ? undefined : 'lazy'}
                         />
                         {/* Overlay texte */}
                         {(banner.title || banner.subtitle) && (

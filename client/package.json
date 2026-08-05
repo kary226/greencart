@@ -30,6 +30,7 @@
     "recharts": "^3.9.0",
     "swiper": "^12.1.4",
     "tailwindcss": "^4.0.17",
+    "workbox-cacheable-response": "^7.4.1",
     "workbox-expiration": "^7.4.1",
     "workbox-precaching": "^7.4.1",
     "workbox-routing": "^7.4.1",
@@ -53,6 +54,7 @@
     "workbox-routing@7.4.1": true,
     "workbox-strategies@7.4.1": true,
     "workbox-expiration@7.4.1": true,
+    "workbox-cacheable-response@7.4.1": true,
     "dompurify@3.4.11": true
   }
 }

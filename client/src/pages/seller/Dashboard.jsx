@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useAppContext } from '../../context/AppContext'
 import toast from 'react-hot-toast'
+import { getPresetImageUrl } from '../../utils/cloudinaryImage'
 import {
     AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
@@ -496,7 +497,7 @@ const Dashboard = () => {
                                         <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-white text-xs flex-shrink-0 ${idx === 0 ? 'bg-red-500' : idx === 1 ? 'bg-gray-700' : 'bg-gray-400'}`}>
                                             {idx + 1}
                                         </div>
-                                        {product.image && <img src={product.image} alt={product.name} className="w-10 h-10 object-cover rounded-lg border border-gray-100 flex-shrink-0"/>}
+                                        {product.image && <img src={getPresetImageUrl(product.image, "thumbnail")} alt={product.name} className="w-10 h-10 object-cover rounded-lg border border-gray-100 flex-shrink-0" loading="lazy"/>}
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center justify-between mb-1">
                                                 <p className="text-sm font-medium text-gray-800 truncate">{product.name}</p>
@@ -528,7 +529,7 @@ const Dashboard = () => {
                             else if (product.stock !== null) minStock = product.stock
                             return (
                                 <div key={idx} className="p-4 hover:bg-gray-50 transition flex items-center gap-3">
-                                    <img src={product.image?.[0]} alt={product.name} className="w-10 h-10 object-cover rounded-lg border border-gray-200"/>
+                                    <img src={getPresetImageUrl(product.image?.[0], "thumbnail")} alt={product.name} className="w-10 h-10 object-cover rounded-lg border border-gray-200" loading="lazy"/>
                                     <div className="flex-1">
                                         <p className="font-medium text-gray-800 text-sm">{product.name}</p>
                                         <p className="text-xs text-gray-400">{product.category || product.categories?.[0] || '-'}</p>

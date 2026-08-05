@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
+import { getPresetImageUrl } from '../utils/cloudinaryImage';
 
 const AllCategories = () => {
     const { axios, navigate } = useAppContext();
@@ -80,7 +81,7 @@ const AllCategories = () => {
                         >
                             <div className="ramci-cat-circle">
                                 {cat.image
-                                    ? <img src={cat.image} alt={cat.name} className="ramci-cat-img" />
+                                    ? <img src={getPresetImageUrl(cat.image, "thumbnail")} alt={cat.name} className="ramci-cat-img" loading="lazy" />
                                     : <span className="ramci-cat-placeholder">{cat.name?.[0]}</span>
                                 }
                             </div>

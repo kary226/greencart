@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAppContext } from '../context/AppContext'
-import { PDFDownloadLink } from '@react-pdf/renderer'
-import OrderReceiptPDF from '../components/OrderReceiptPDF'
+import { getPresetImageUrl } from '../utils/cloudinaryImage'
+import ReceiptDownloadButton from '../components/ReceiptDownloadButton'
 import toast from 'react-hot-toast'
 import {
     Package, CreditCard, MapPin, Phone, FileText, Search, SlidersHorizontal,
@@ -365,7 +365,7 @@ export default function MyOrders() {
                                             <div key={idx2} className={`flex gap-2.5 py-2.5 ${idx2 < order.items.length - 1 ? 'border-b border-blush-50' : ''}`}>
                                                 <div className="w-12 h-12 rounded-lg overflow-hidden bg-blush-50 shrink-0">
                                                     {item.product?.image?.[0] ? (
-                                                        <img src={item.product.image[0]} alt="" className="w-full h-full object-cover" />
+                                                        <img src={getPresetImageUrl(item.product.image[0], "thumbnail")} alt="" className="w-full h-full object-cover" loading="lazy" />
                                                     ) : (
                                                         <div className="w-full h-full flex items-center justify-center"><Package size={16} className="text-blush-300" /></div>
                                                     )}
@@ -440,13 +440,7 @@ export default function MyOrders() {
                                             </button>
                                         )}
                                         {isDelivered && (
-                                            <PDFDownloadLink
-                                                document={<OrderReceiptPDF order={order} currency={currency} />}
-                                                fileName={`facture_${order._id.slice(-8)}.pdf`}
-                                                className="inline-flex items-center gap-1.5 bg-gray-900 text-white rounded-full px-4 py-2 text-[12.5px] font-medium hover:opacity-90 transition no-underline"
-                                            >
-                                                {({ loading: pdfLoading }) => pdfLoading ? 'Préparation…' : (<><FileText size={13} /> Voir facture</>)}
-                                            </PDFDownloadLink>
+                                            <ReceiptDownloadButton order={order} currency={currency} />
                                         )}
                                     </div>
                                 </div>

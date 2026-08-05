@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { useAppContext } from '../../context/AppContext'
 import { assets } from '../../assets/assets'
 import toast from 'react-hot-toast'
+import { getPresetImageUrl } from '../../utils/cloudinaryImage'
 import * as XLSX from 'xlsx'
 import { PDFDownloadLink } from '@react-pdf/renderer'
 import OrderReceiptPDF from '../../components/OrderReceiptPDF'
@@ -649,9 +650,10 @@ const Orders = () => {
                                                             onClick={() => setSelectedImage(item.product.image[0])}
                                                         >
                                                             <img 
-                                                                src={item.product.image[0]} 
+                                                                src={getPresetImageUrl(item.product.image[0], "thumbnail")} 
                                                                 alt={item.product?.name || 'Produit'}
                                                                 className="w-full h-full object-cover hover:opacity-80 transition"
+                                                                loading="lazy"
                                                             />
                                                         </div>
                                                     )}
@@ -812,7 +814,7 @@ const Orders = () => {
                 >
                     <div className="relative max-w-[90vw] max-h-[90vh]">
                         <img 
-                            src={selectedImage} 
+                            src={getPresetImageUrl(selectedImage, "detail")} 
                             alt="Agrandissement"
                             className="max-w-full max-h-[90vh] object-contain rounded-xl"
                         />

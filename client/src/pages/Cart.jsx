@@ -6,6 +6,7 @@ import {
     ShoppingBag, Trash2, ArrowRight, MapPin, Truck, CreditCard, Plus,
     Minus, MoreVertical, Heart, Tag, X, Check, Home, Zap, PackageCheck, Edit2, Loader2
 } from "lucide-react";
+import { getPresetImageUrl } from "../utils/cloudinaryImage";
 
 const Cart = () => {
     const {
@@ -478,7 +479,7 @@ const Cart = () => {
                                                 }}
                                                 className="w-20 h-20 rounded-xl overflow-hidden cursor-pointer bg-blush-50 flex-shrink-0"
                                             >
-                                                <img src={product.image[0]} alt={product.name} className="w-full h-full object-cover" />
+                                                <img src={getPresetImageUrl(product.image[0], "thumbnail")} alt={product.name} className="w-full h-full object-cover" loading="lazy" />
                                             </div>
 
                                             <div className="flex-1 min-w-0">

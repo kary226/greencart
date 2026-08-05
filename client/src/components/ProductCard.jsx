@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
+import { getPresetImageUrl } from "../utils/cloudinaryImage";
 
 const LOW_STOCK_THRESHOLD = 5;
 
@@ -70,7 +71,7 @@ const ProductCard = ({ product }) => {
         
         {mainImg ? (
           <img
-            src={mainImg}
+            src={getPresetImageUrl(mainImg, "card")}
             alt={name}
             className={`sc-img${imgLoaded ? ' loaded' : ''}`}
             loading="lazy"

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAppContext } from '../../context/AppContext'
+import { getPresetImageUrl } from '../../utils/cloudinaryImage'
 import toast from 'react-hot-toast'
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
@@ -923,7 +924,7 @@ const ProductList = () => {
                                                 <td className="px-4 py-3.5">
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-11 h-11 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                                                            <img src={product.image?.[0]} alt={product.name} className="w-full h-full object-cover" />
+                                                            <img src={getPresetImageUrl(product.image?.[0], "thumbnail")} alt={product.name} className="w-full h-full object-cover" loading="lazy" />
                                                         </div>
                                                         <span className="font-medium text-sm text-gray-900">{product.name}</span>
                                                     </div>
@@ -1129,7 +1130,7 @@ const ProductList = () => {
                                 <div className="flex flex-wrap gap-2 mb-3">
                                     {editProduct.image?.map((img, idx) => (
                                         <div key={idx} className="relative">
-                                            <img src={img} alt="" className="w-14 h-14 object-cover rounded-lg border border-gray-200" />
+                                            <img src={getPresetImageUrl(img, "thumbnail")} alt="" className="w-14 h-14 object-cover rounded-lg border border-gray-200" />
                                             <button
                                                 type="button"
                                                 onClick={() => handleRemoveExistingImage(idx)}
