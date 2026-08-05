@@ -209,7 +209,7 @@ const Categories = () => {
                                     >
                                         {category.image ? (
                                             <img 
-                                                src={getPresetImageUrl(category.image, 'thumbnail')} 
+                                                src={getPresetImageUrl(category.image, 'categoryIcon')} 
                                                 alt={category.name} 
                                                 className='w-full h-full object-cover transition-transform duration-300 group-hover:scale-110'
                                                 loading="lazy"

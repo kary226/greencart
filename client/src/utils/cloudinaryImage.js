@@ -44,10 +44,11 @@ export function getOptimizedImageUrl(url, options = {}) {
 // Multipliées par ~1.5-2x la taille d'affichage réelle pour rester nettes
 // sur les écrans à forte densité (Retina) sans télécharger l'original.
 export const IMAGE_PRESETS = {
-  thumbnail: 100,  // miniature panier / commande / liste seller
-  card: 500,       // carte produit dans une grille (Home, AllProducts, ProductCategory)
-  detail: 900,      // image principale sur la fiche produit
-  banner: 1400,     // bannières pleine largeur
+  thumbnail: 100,     // miniature panier / commande / liste seller
+  categoryIcon: 240,  // cercles catégories (Home, AllCategories, carrousel, seller) — jusqu'à ~120px d'affichage x2 DPR
+  card: 500,          // carte produit dans une grille (Home, AllProducts, ProductCategory)
+  detail: 900,        // image principale sur la fiche produit
+  banner: 1400,       // bannières pleine largeur
 };
 
 /**

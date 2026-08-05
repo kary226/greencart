@@ -587,7 +587,7 @@ const CategoryManager = () => {
                                     <div className="p-5 flex items-start gap-4">
                                         {category.image && (
                                             <img 
-                                                src={getPresetImageUrl(category.image, 'thumbnail')} 
+                                                src={getPresetImageUrl(category.image, 'categoryIcon')} 
                                                 alt={category.name} 
                                                 className="w-14 h-14 object-cover rounded-full border border-gray-100 group-hover:scale-105 transition"
                                                 loading="lazy"

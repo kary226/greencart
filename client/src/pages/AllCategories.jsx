@@ -81,7 +81,7 @@ const AllCategories = () => {
                         >
                             <div className="ramci-cat-circle">
                                 {cat.image
-                                    ? <img src={getPresetImageUrl(cat.image, "thumbnail")} alt={cat.name} className="ramci-cat-img" loading="lazy" />
+                                    ? <img src={getPresetImageUrl(cat.image, "categoryIcon")} alt={cat.name} className="ramci-cat-img" loading="lazy" />
                                     : <span className="ramci-cat-placeholder">{cat.name?.[0]}</span>
                                 }
                             </div>
