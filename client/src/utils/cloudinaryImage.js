@@ -33,7 +33,7 @@ export function getOptimizedImageUrl(url, options = {}) {
 
   const { width, quality = "auto", crop = "limit" } = options;
 
-  const params = ["f_auto", `q_${quality}`];
+  const params = ["f_auto", `q_${quality}`, "dpr_auto"];
   if (width) params.push(`w_${Math.round(width)}`, `c_${crop}`);
 
   const insertAt = markerIndex + CLOUDINARY_UPLOAD_MARKER.length;

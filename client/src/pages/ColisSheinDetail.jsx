@@ -605,7 +605,7 @@ const ColisSheinDetail = () => {
                                 <div className={`csd-msg ${estClient ? "csd-msg-client" : "csd-msg-agent"}`}>
                                     {!estClient && <div className="csd-agent-label">Assistance</div>}
                                     {m.imageUrl && (
-                                        <img src={getPresetImageUrl(m.imageUrl, 'thumbnail')} alt="" loading="lazy" className="csd-msg-img" onClick={() => window.open(m.imageUrl, "_blank")} />
+                                        <img src={getPresetImageUrl(m.imageUrl, 'card')} alt="" loading="lazy" className="csd-msg-img" onClick={() => window.open(m.imageUrl, "_blank")} />
                                     )}
                                     {m.texte && <p>{m.texte}</p>}
                                     <span className="csd-msg-meta">
