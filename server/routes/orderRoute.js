@@ -1,6 +1,7 @@
 import express from 'express';
 import authUser from '../middlewares/authUser.js';
 import authStaff, { requireRole } from '../middlewares/authStaff.js';
+import { orderCreationLimiter, paymentLimiter } from '../middlewares/rateLimiters.js';
 import { 
     getAllOrders, 
     getUserOrders, 
@@ -19,9 +20,9 @@ import Order from '../models/Order.js';
 const orderRouter = express.Router();
 
 // Routes client
-orderRouter.post('/cod', authUser, placeOrderCOD);
+orderRouter.post('/cod', authUser, orderCreationLimiter, placeOrderCOD);
 orderRouter.get('/user', authUser, getUserOrders);
-orderRouter.post('/geniuspay/initiate', authUser, initiateGeniusPay);
+orderRouter.post('/geniuspay/initiate', authUser, paymentLimiter, initiateGeniusPay);
 
 // Routes admin (seller)
 orderRouter.get('/seller', authSeller, getAllOrders);

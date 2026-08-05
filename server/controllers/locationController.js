@@ -6,7 +6,7 @@ import Commune from "../models/Commune.js";
 // Récupérer toutes les villes (ordre alphabétique)
 export const getCities = async (req, res) => {
     try {
-        const cities = await City.find({ isActive: true }).sort({ name: 1 });
+        const cities = await City.find({ isActive: true }).sort({ name: 1 }).lean(); // [PHASE 2 - PERF] lecture pure
         res.json({ success: true, cities });
     } catch (error) {
         res.json({ success: false, message: error.message });
@@ -70,7 +70,7 @@ export const deleteCity = async (req, res) => {
 export const getCommunesByCity = async (req, res) => {
     try {
         const { cityId } = req.params;
-        const communes = await Commune.find({ cityId, isActive: true }).sort({ name: 1 });
+        const communes = await Commune.find({ cityId, isActive: true }).sort({ name: 1 }).lean(); // [PHASE 2 - PERF] lecture pure
         res.json({ success: true, communes });
     } catch (error) {
         res.json({ success: false, message: error.message });

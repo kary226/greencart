@@ -84,12 +84,18 @@ app.use(helmet({
 // chaîne pour compresser toutes les routes API en dessous.
 app.use(compression());
 
-// ✅ AJOUT : Middleware standard avec LIMITES AUGMENTÉES
+// [PHASE 2 - PERF] Limite de payload resserrée pour les routes JSON/urlencoded.
+// Les 150MB historiques n'ont jamais servi qu'aux uploads d'images/vidéos,
+// qui passent par Multer (multipart/form-data, limite dédiée dans
+// configs/multer.js) et ne transitent donc jamais par ces middlewares.
+// Appliquer 150MB ici exposait toutes les routes JSON (login, panier,
+// commande, etc.) à des requêtes anormalement volumineuses pour rien.
+// 2MB reste très large pour n'importe quel payload JSON légitime du site.
 app.use(express.json({ 
-    limit: '150mb'  // Pour les gros JSON (productData)
+    limit: '2mb'
 }));
 app.use(express.urlencoded({ 
-    limit: '150mb', 
+    limit: '2mb', 
     extended: true 
 }));
 app.use(cookieParser());
@@ -135,11 +141,11 @@ app.use((err, req, res, next) => {
         return res.status(403).json({ success: false, message: 'Origine non autorisée' });
     }
     
-    // Erreur de taille de payload
+    // Erreur de taille de payload (JSON/urlencoded — voir limite resserrée plus haut)
     if (err.type === 'entity.too.large') {
         return res.status(413).json({ 
             success: false, 
-            message: 'Les données sont trop volumineuses. Taille max: 150MB' 
+            message: 'Les données envoyées sont trop volumineuses.' 
         });
     }
     

@@ -16,6 +16,7 @@ import {
 import authSeller from '../middlewares/authSeller.js';
 import authUser from '../middlewares/authUser.js';
 import authStaff, { requireRole } from '../middlewares/authStaff.js';
+import { couponLimiter } from '../middlewares/rateLimiters.js';
 
 const couponRouter = express.Router();
 
@@ -34,7 +35,7 @@ couponRouter.post('/mes-coupons/delete', authStaff, requireRole('commercant'), d
 couponRouter.post('/mes-coupons/toggle', authStaff, requireRole('commercant'), toggleMonCouponStatus);
 
 // Routes client
-couponRouter.post('/validate', authUser, validateCoupon);
-couponRouter.post('/apply', authUser, applyCoupon);
+couponRouter.post('/validate', authUser, couponLimiter, validateCoupon);
+couponRouter.post('/apply', authUser, couponLimiter, applyCoupon);
 
 export default couponRouter;

@@ -2,6 +2,7 @@ import DeliveryType from "../models/DeliveryType.js";
 import DeliveryPrice from "../models/DeliveryPrice.js";
 import City from "../models/City.js";
 import Commune from "../models/Commune.js";
+import { withCache, invalidateCache, CACHE_KEYS } from "../configs/redisCache.js";
 
 // ==================== TYPES DE LIVRAISON ====================
 
@@ -16,9 +17,12 @@ export const getAllDeliveryTypes = async (req, res) => {
 };
 
 // Récupérer les types actifs (client)
+// [PHASE 2 - PERF] Cache Redis 5 min, invalidé à chaque écriture admin.
 export const getActiveDeliveryTypes = async (req, res) => {
     try {
-        const types = await DeliveryType.find({ isActive: true }).sort({ order: 1 });
+        const types = await withCache(CACHE_KEYS.deliveryTypesActive, 300, () =>
+            DeliveryType.find({ isActive: true }).sort({ order: 1 }).lean()
+        );
         res.json({ success: true, types });
     } catch (error) {
         res.json({ success: false, message: error.message });
@@ -36,6 +40,7 @@ export const addDeliveryType = async (req, res) => {
         }
         
         const type = await DeliveryType.create({ name, description, order: order || 0 });
+        await invalidateCache(CACHE_KEYS.deliveryTypesActive); // [PHASE 2 - PERF]
         res.json({ success: true, message: "Type ajouté", type });
     } catch (error) {
         res.json({ success: false, message: error.message });
@@ -47,6 +52,7 @@ export const updateDeliveryType = async (req, res) => {
     try {
         const { id, name, description, isActive, order } = req.body;
         await DeliveryType.findByIdAndUpdate(id, { name, description, isActive, order });
+        await invalidateCache(CACHE_KEYS.deliveryTypesActive); // [PHASE 2 - PERF]
         res.json({ success: true, message: "Type modifié" });
     } catch (error) {
         res.json({ success: false, message: error.message });
@@ -59,6 +65,7 @@ export const deleteDeliveryType = async (req, res) => {
         const { id } = req.body;
         await DeliveryPrice.deleteMany({ deliveryTypeId: id });
         await DeliveryType.findByIdAndDelete(id);
+        await invalidateCache(CACHE_KEYS.deliveryTypesActive); // [PHASE 2 - PERF]
         res.json({ success: true, message: "Type supprimé" });
     } catch (error) {
         res.json({ success: false, message: error.message });
@@ -82,29 +89,41 @@ export const getAllDeliveryPrices = async (req, res) => {
 };
 
 // Récupérer le prix de livraison pour une commune et un type (client)
+// [PHASE 2 - PERF] Une paire (commune, type de livraison) = une clé de cache
+// dédiée. Il en existe potentiellement des centaines (une par commune), donc
+// pas d'invalidation ciblée à l'écriture ici (il faudrait retrouver la
+// commune/le type concernés depuis un simple `id` de tarif, ce qui ajoute de
+// la complexité pour un gain marginal). TTL court (5 min) à la place : un
+// changement de tarif met au pire quelques minutes à se propager, ce qui
+// est un compromis raisonnable pour une donnée qui change rarement.
 export const getDeliveryPrice = async (req, res) => {
     try {
         const { communeId, deliveryTypeId } = req.params;
-        
-        let price = await DeliveryPrice.findOne({ 
-            communeId, 
-            deliveryTypeId,
-            isActive: true 
-        });
-        
-        if (!price) {
-            const commune = await Commune.findById(communeId);
-            if (commune) {
-                price = await DeliveryPrice.findOne({ 
-                    cityId: commune.cityId, 
-                    communeId: null,
-                    deliveryTypeId,
-                    isActive: true 
-                });
+        const cacheKey = CACHE_KEYS.deliveryPrices(communeId, deliveryTypeId);
+
+        const price = await withCache(cacheKey, 300, async () => {
+            let result = await DeliveryPrice.findOne({
+                communeId,
+                deliveryTypeId,
+                isActive: true
+            }).lean();
+
+            if (!result) {
+                const commune = await Commune.findById(communeId).lean();
+                if (commune) {
+                    result = await DeliveryPrice.findOne({
+                        cityId: commune.cityId,
+                        communeId: null,
+                        deliveryTypeId,
+                        isActive: true
+                    }).lean();
+                }
             }
-        }
-        
-        res.json({ success: true, price: price || null });
+
+            return result || null;
+        });
+
+        res.json({ success: true, price });
     } catch (error) {
         res.json({ success: false, message: error.message });
     }

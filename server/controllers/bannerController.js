@@ -1,18 +1,25 @@
 import { v2 as cloudinary } from "cloudinary";
 import Banner from "../models/Banner.js";
+import { withCache, invalidateCache, CACHE_KEYS } from "../configs/redisCache.js";
 
 // Récupérer les bannières actives par position (top ou bottom)
+// [PHASE 2 - PERF] Donnée peu volatile, très lue (chaque chargement de la
+// Home) : cache Redis 5 min par position, invalidé à chaque écriture admin.
 export const getBanners = async (req, res) => {
     try {
         const { position } = req.query;
         let filter = { active: true };
-        
+        let cacheKey = CACHE_KEYS.bannersAll;
+
         if (position && (position === 'top' || position === 'bottom')) {
             filter.position = position;
+            cacheKey = position === 'top' ? CACHE_KEYS.bannersTop : CACHE_KEYS.bannersBottom;
         }
-        
-        const banners = await Banner.find(filter).sort({ order: 1 });
-        
+
+        const banners = await withCache(cacheKey, 300, () =>
+            Banner.find(filter).sort({ order: 1 }).lean()
+        );
+
         res.json({ success: true, banners });
     } catch (error) {
         console.error(error);
@@ -74,6 +81,7 @@ export const addBanner = async (req, res) => {
             active: true
         });
 
+        await invalidateCache(CACHE_KEYS.bannersTop, CACHE_KEYS.bannersBottom, CACHE_KEYS.bannersAll); // [PHASE 2 - PERF]
         res.json({ success: true, message: "Bannière ajoutée", banner });
     } catch (error) {
         console.error("❌ Erreur addBanner:", error);
@@ -124,6 +132,7 @@ export const updateBanner = async (req, res) => {
         }
 
         await Banner.findByIdAndUpdate(id, updateData);
+        await invalidateCache(CACHE_KEYS.bannersTop, CACHE_KEYS.bannersBottom, CACHE_KEYS.bannersAll); // [PHASE 2 - PERF]
         res.json({ success: true, message: "Bannière modifiée" });
     } catch (error) {
         console.error("❌ Erreur updateBanner:", error);
@@ -140,6 +149,7 @@ export const deleteBanner = async (req, res) => {
             await cloudinary.uploader.destroy(banner.publicId);
         }
         await Banner.findByIdAndDelete(id);
+        await invalidateCache(CACHE_KEYS.bannersTop, CACHE_KEYS.bannersBottom, CACHE_KEYS.bannersAll); // [PHASE 2 - PERF]
         res.json({ success: true, message: "Bannière supprimée" });
     } catch (error) {
         console.error("❌ Erreur deleteBanner:", error);

@@ -1,6 +1,7 @@
 import { v2 as cloudinary } from "cloudinary";
 import Product from "../models/Product.js";
 import { scrapeProductPreview, fetchImagesAsDataUrls } from "../services/scraper.js";
+import { withCache, CACHE_KEYS } from "../configs/redisCache.js";
 
 // ✅ Add Product - AVEC VIDÉO ET BOUTIQUE
 export const addProduct = async (req, res) => {
@@ -271,7 +272,8 @@ export const productList = async (req, res) => {
         const products = await Product.find(filter)
             .sort(sortOption)
             .skip(skip)
-            .limit(limit);
+            .limit(limit)
+            .lean(); // [PHASE 2 - PERF] lecture pure, jamais .save() sur ces résultats
 
         const totalProducts = await Product.countDocuments(filter);
         const totalPages = Math.ceil(totalProducts / limit);
@@ -296,7 +298,7 @@ export const productList = async (req, res) => {
 export const productById = async (req, res) => {
     try {
         const id = req.body?.id || req.query?.id;
-        const product = await Product.findById(id);
+        const product = await Product.findById(id).lean(); // [PHASE 2 - PERF] lecture pure
         res.json({ success: true, product });
     } catch (error) {
         console.log(error.message);
@@ -519,45 +521,53 @@ export const reduceVariantStock = async (productId, color, size, quantity) => {
 };
 
 // Get Les plus populaires : /api/product/bestsellers
+// [PHASE 2 - PERF] Ce calcul charge actuellement TOUTES les commandes payées
+// en mémoire à chaque appel pour les agréger côté Node — ça ne passera pas
+// à l'échelle au-delà de quelques milliers de commandes (à remplacer par un
+// pipeline d'agrégation Mongo dès que le volume le justifie, cf Phase 4).
+// En attendant, un cache Redis de quelques minutes absorbe l'essentiel du
+// trafic répété sur cet endpoint déjà protégé par un Cache-Control (Phase 0).
 export const getBestSellers = async (req, res) => {
     try {
-        const Order = await import('../models/Order.js').then(m => m.default);
-        
-        const orders = await Order.find({
-            $or: [{ paymentType: "COD" }, { isPaid: true }]
-        });
+        const products = await withCache(CACHE_KEYS.bestSellers, 300, async () => {
+            const Order = await import('../models/Order.js').then(m => m.default);
 
-        const productSales = new Map();
+            const orders = await Order.find({
+                $or: [{ paymentType: "COD" }, { isPaid: true }]
+            }).lean();
 
-        orders.forEach(order => {
-            order.items.forEach(item => {
-                const productId = item.product.toString();
-                const quantity = item.quantity;
-                
-                if (productSales.has(productId)) {
-                    productSales.set(productId, productSales.get(productId) + quantity);
-                } else {
-                    productSales.set(productId, quantity);
-                }
+            const productSales = new Map();
+
+            orders.forEach(order => {
+                order.items.forEach(item => {
+                    const productId = item.product.toString();
+                    const quantity = item.quantity;
+
+                    if (productSales.has(productId)) {
+                        productSales.set(productId, productSales.get(productId) + quantity);
+                    } else {
+                        productSales.set(productId, quantity);
+                    }
+                });
             });
+
+            const sortedProducts = Array.from(productSales.entries())
+                .sort((a, b) => b[1] - a[1])
+                .map(entry => entry[0]);
+
+            const Product = await import('../models/Product.js').then(m => m.default);
+            const bestSellers = await Product.find({
+                _id: { $in: sortedProducts.slice(0, 10) },
+                inStock: true
+            }).lean();
+
+            return sortedProducts
+                .filter(id => bestSellers.some(p => p._id.toString() === id))
+                .slice(0, 10)
+                .map(id => bestSellers.find(p => p._id.toString() === id));
         });
 
-        const sortedProducts = Array.from(productSales.entries())
-            .sort((a, b) => b[1] - a[1])
-            .map(entry => entry[0]);
-
-        const Product = await import('../models/Product.js').then(m => m.default);
-        const bestSellers = await Product.find({
-            _id: { $in: sortedProducts.slice(0, 10) },
-            inStock: true
-        });
-
-        const orderedBestSellers = sortedProducts
-            .filter(id => bestSellers.some(p => p._id.toString() === id))
-            .slice(0, 10)
-            .map(id => bestSellers.find(p => p._id.toString() === id));
-
-        res.json({ success: true, products: orderedBestSellers });
+        res.json({ success: true, products });
     } catch (error) {
         console.error(error);
         res.status(500).json({ success: false, message: error.message });

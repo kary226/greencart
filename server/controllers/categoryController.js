@@ -1,5 +1,6 @@
 import { v2 as cloudinary } from "cloudinary";
 import Category from "../models/Category.js";
+import { withCache, invalidateCache, CACHE_KEYS } from "../configs/redisCache.js";
 
 const uploadToCloudinary = (buffer, folder) => {
     return new Promise((resolve, reject) => {
@@ -15,9 +16,13 @@ const uploadToCloudinary = (buffer, folder) => {
 };
 
 // Récupérer toutes les catégories actives
+// [PHASE 2 - PERF] Donnée peu volatile, très lue (chaque chargement de la
+// Home) : cache Redis 5 min, invalidée explicitement à chaque écriture admin.
 export const getCategories = async (req, res) => {
     try {
-        const categories = await Category.find({ active: true }).sort({ order: 1 });
+        const categories = await withCache(CACHE_KEYS.categoriesActive, 300, () =>
+            Category.find({ active: true }).sort({ order: 1 }).lean()
+        );
         res.json({ success: true, categories });
     } catch (error) {
         res.json({ success: false, message: error.message });
@@ -70,6 +75,7 @@ export const addCategory = async (req, res) => {
             active: true
         });
 
+        await invalidateCache(CACHE_KEYS.categoriesActive); // [PHASE 2 - PERF]
         res.json({ success: true, message: "Catégorie ajoutée", category });
     } catch (error) {
         res.json({ success: false, message: error.message });
@@ -98,6 +104,7 @@ export const updateCategory = async (req, res) => {
         }
 
         await Category.findByIdAndUpdate(id, updateData);
+        await invalidateCache(CACHE_KEYS.categoriesActive); // [PHASE 2 - PERF]
         res.json({ success: true, message: "Catégorie modifiée" });
     } catch (error) {
         res.json({ success: false, message: error.message });
@@ -113,6 +120,7 @@ export const deleteCategory = async (req, res) => {
             await cloudinary.uploader.destroy(category.publicId);
         }
         await Category.findByIdAndDelete(id);
+        await invalidateCache(CACHE_KEYS.categoriesActive); // [PHASE 2 - PERF]
         res.json({ success: true, message: "Catégorie supprimée" });
     } catch (error) {
         res.json({ success: false, message: error.message });
@@ -129,6 +137,7 @@ export const toggleCategoryStatus = async (req, res) => {
         }
         const newStatus = !category.active;
         await Category.findByIdAndUpdate(id, { active: newStatus });
+        await invalidateCache(CACHE_KEYS.categoriesActive); // [PHASE 2 - PERF]
         res.json({ success: true, message: newStatus ? "Catégorie activée" : "Catégorie désactivée", active: newStatus });
     } catch (error) {
         res.json({ success: false, message: error.message });
