@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useAppContext } from "../context/AppContext";
-import { ArrowLeft, Check, MessageCircle, Scale, Package2 } from "lucide-react";
+import { ArrowLeft, MessageCircle, Scale, Package2, ChevronRight } from "lucide-react";
 
 const STATUT_LABELS = {
     soumis: "Commande soumise",
@@ -38,8 +38,25 @@ const STATUT_ORDER = [
     "en_livraison", "livre",
 ];
 
-// Étapes affichées dans le résumé condensé (6 jalons principaux, comme le mockup)
+// Jalons affichés au client. Les statuts intermédiaires existent en base mais
+// n'apportent rien à sa lecture — il veut savoir où en est son colis, pas
+// suivre la machine à états.
 const ETAPES_PRINCIPALES = ["soumis", "en_verification", "devis_envoye", "achete", "en_livraison", "livre"];
+
+const STATUT_VARIANTE = {
+    soumis: "info",
+    en_verification: "info",
+    devis_envoye: "warn",
+    acompte_paye: "neutral",
+    achete: "neutral",
+    en_entrepot: "neutral",
+    pese: "warn",
+    solde_du: "warn",
+    solde_paye: "neutral",
+    en_livraison: "info",
+    livre: "ok",
+    annule: "done",
+};
 
 const fcfa = (n) => `${Math.round(n || 0).toLocaleString("fr-FR")} FCFA`;
 const dateHeure = (d) =>
@@ -72,10 +89,23 @@ const ColisSheinDetailPage = () => {
     };
 
     if (loading) {
-        return <div className="flex items-center justify-center py-24 text-sm text-gray-400">Chargement…</div>;
+        return (
+            <div className="flex flex-col items-center justify-center py-24 gap-3">
+                <div className="rs-typing"><span /><span /><span /></div>
+                <p className="text-[13px] text-ink-400">Chargement du colis…</p>
+            </div>
+        );
     }
     if (!colis) {
-        return <div className="flex items-center justify-center py-24 text-sm text-gray-400">Colis introuvable</div>;
+        return (
+            <div className="flex flex-col items-center justify-center py-24 gap-2 px-6 text-center">
+                <p className="rs-h2">Colis introuvable</p>
+                <p className="text-[13px] text-ink-400">Ce colis n'existe plus ou ne vous appartient pas.</p>
+                <button onClick={() => navigate("/mes-colis-shein")} className="rs-btn rs-btn--secondary mt-2">
+                    Retour à mes colis
+                </button>
+            </div>
+        );
     }
 
     const indexActuel = STATUT_ORDER.indexOf(colis.statut);
@@ -86,136 +116,152 @@ const ColisSheinDetailPage = () => {
         (colis.devis?.montantArticlesFCFA != null
             ? colis.devis.montantArticlesFCFA + (colis.devis.fraisLivraisonEstime || 0)
             : null);
+    const clos = colis.statut === "livre" || colis.statut === "annule";
 
     return (
-        <div className="max-w-lg mx-auto pb-10">
-            {/* Header */}
-            <header className="flex items-center gap-3 px-4 sm:px-6 py-4 border-b border-blush-100">
-                <button onClick={() => navigate(-1)} className="text-gray-400 hover:text-gray-700 transition" aria-label="Retour">
-                    <ArrowLeft size={19} />
+        <div className="max-w-[720px] mx-auto pb-12">
+
+            {/* ── En-tête ────────────────────────────────────────────────── */}
+            <header className="sticky top-0 z-10 flex items-center gap-2 px-2 sm:px-3 py-2 rs-surface border-b border-ink-100">
+                <button onClick={() => navigate(-1)} className="rs-icon-btn" aria-label="Retour">
+                    <ArrowLeft size={20} />
                 </button>
-                <h1 className="text-[15px] font-bold text-gray-900">Détails du colis</h1>
+                <div className="min-w-0">
+                    <p className="text-[14px] font-extrabold text-ink-900 tracking-tight truncate">
+                        {colis.numeroSuivi}
+                    </p>
+                    <p className="text-[11px] text-ink-400">Détail du colis</p>
+                </div>
             </header>
 
-            <div className="px-4 sm:px-6 pt-5 space-y-4">
-                {/* Carte identité colis */}
-                <div className="flex items-center gap-3 bg-white border border-blush-100 rounded-2xl p-4 shadow-sm shadow-black/[0.03]">
-                    <div className="w-11 h-11 shrink-0 rounded-full bg-blush-100 flex items-center justify-center">
-                        <Package2 size={18} className="text-burgundy-600" />
-                    </div>
-                    <div className="min-w-0">
-                        <p className="text-sm font-bold text-gray-900">Commande #{colis.numeroSuivi}</p>
-                        <p className="text-xs text-gray-400">Créée le {dateHeure(colis.createdAt)}</p>
+            <div className="px-4 sm:px-6 pt-5 grid gap-3">
+
+                {/* ── Statut en cours ────────────────────────────────────── */}
+                <div className="rs-card">
+                    <div className="flex items-start gap-3">
+                        <div className="w-11 h-11 shrink-0 rounded-full bg-ramses-50 flex items-center justify-center">
+                            <Package2 size={19} className="text-ramses-600" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <div aria-live="polite">
+                                <span className={`rs-badge rs-badge--${STATUT_VARIANTE[colis.statut] || "neutral"}`}>
+                                    {STATUT_LABELS[colis.statut] || colis.statut}
+                                </span>
+                            </div>
+                            <p className="text-[13px] text-ink-500 mt-2 leading-relaxed">
+                                {STATUT_DESCRIPTIONS[colis.statut] || "Votre colis suit son cours."}
+                            </p>
+                            <p className="text-[11px] text-ink-400 mt-1.5 tabular-nums">
+                                Mis à jour le {dateHeure(colis.updatedAt)}
+                            </p>
+                        </div>
                     </div>
                 </div>
 
-                {/* Résumé */}
-                <div className="bg-white border border-blush-100 rounded-2xl p-4 shadow-sm shadow-black/[0.03]">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Résumé</p>
-                    <div className="space-y-2.5">
+                {/* ── Résumé chiffré ─────────────────────────────────────── */}
+                <div className="rs-card">
+                    <p className="rs-label text-ink-400 mb-3">Résumé</p>
+                    <dl className="grid gap-2.5 m-0">
+                        <div className="flex items-center justify-between gap-3">
+                            <dt className="text-[13px] text-ink-500">Articles</dt>
+                            <dd className="text-[13px] font-semibold text-ink-900 m-0 tabular-nums">
+                                {nbArticles} article{nbArticles > 1 ? "s" : ""}
+                            </dd>
+                        </div>
+
                         {poids != null && (
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="flex items-center gap-1.5 text-gray-500"><Scale size={13} /> Poids réel</span>
-                                <span className="font-semibold text-gray-900">{poids} kg</span>
+                            <div className="flex items-center justify-between gap-3">
+                                <dt className="flex items-center gap-1.5 text-[13px] text-ink-500">
+                                    <Scale size={14} /> Poids réel
+                                </dt>
+                                <dd className="text-[13px] font-semibold text-ink-900 m-0 tabular-nums">{poids} kg</dd>
                             </div>
                         )}
-                        <div className="flex items-center justify-between text-sm">
-                            <span className="text-gray-500">Articles</span>
-                            <span className="font-semibold text-gray-900">{nbArticles} article{nbArticles > 1 ? "s" : ""}</span>
+
+                        <div className="flex items-center justify-between gap-3">
+                            <dt className="text-[13px] text-ink-500">Commande créée le</dt>
+                            <dd className="text-[13px] font-semibold text-ink-900 m-0 tabular-nums">
+                                {dateHeure(colis.createdAt)}
+                            </dd>
                         </div>
-                        {montantTotalFCFA != null && (
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="text-gray-500">Montant total</span>
-                                <span className="font-semibold text-gray-900">{fcfa(montantTotalFCFA)}</span>
+                    </dl>
+
+                    {montantTotalFCFA != null && (
+                        <div className="mt-3.5 pt-3.5 border-t border-ink-100 flex items-baseline justify-between gap-3">
+                            <span className="text-[13px] font-semibold text-ink-700">Montant total</span>
+                            <span className="rs-money text-[20px]">{fcfa(montantTotalFCFA)}</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* ── Suivi ──────────────────────────────────────────────── */}
+                {/* Une seule frise. L'écran d'origine en affichait deux qui
+                    parcouraient la même liste d'étapes : « Étapes du colis » et
+                    « Suivi détaillé » répétaient les mêmes jalons, l'une sans
+                    description, l'autre avec. Celle-ci les remplace toutes deux. */}
+                <div className="rs-card">
+                    <p className="rs-label text-ink-400 mb-4">Suivi</p>
+
+                    {ETAPES_PRINCIPALES.map((cle, i) => {
+                        const idxEtape = STATUT_ORDER.indexOf(cle);
+                        const fait = idxEtape !== -1 && idxEtape < indexActuel;
+                        const enCours = idxEtape === indexActuel;
+                        const date = dateEtape(cle);
+                        const dernier = i === ETAPES_PRINCIPALES.length - 1;
+
+                        return (
+                            <div
+                                key={cle}
+                                className={`rs-step ${fait ? "rs-step--done" : ""} ${enCours ? "rs-step--now" : ""}`}
+                            >
+                                <div className="rs-step__rail">
+                                    <span className="rs-step__dot" />
+                                    {!dernier && <span className="rs-step__line" />}
+                                </div>
+
+                                <div className={dernier ? "" : "flex-1 min-w-0"}>
+                                    <div className="rs-step__label">
+                                        {STATUT_LABELS[cle]}
+                                        {date && (
+                                            <span className="block text-[11px] font-normal text-ink-400 mt-0.5 tabular-nums">
+                                                {dateHeure(date)}
+                                            </span>
+                                        )}
+                                        {(fait || enCours) && (
+                                            <span className="block text-[12px] font-normal text-ink-500 mt-1 leading-relaxed">
+                                                {STATUT_DESCRIPTIONS[cle]}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
-                        )}
-                    </div>
-                    <div className="mt-3 pt-3 border-t border-blush-100">
-                        <p className="text-xs text-gray-400 mb-1">Statut actuel</p>
-                        <span className="inline-block text-xs font-bold text-burgundy-700 bg-blush-100 px-2.5 py-1 rounded-full">
-                            {STATUT_LABELS[colis.statut] || colis.statut}
-                        </span>
-                        <p className="text-[11px] text-gray-300 mt-1.5">Mis à jour le {dateHeure(colis.updatedAt)}</p>
-                    </div>
+                        );
+                    })}
                 </div>
 
-                {/* Étapes du colis */}
-                <div className="bg-white border border-blush-100 rounded-2xl p-4 shadow-sm shadow-black/[0.03]">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Étapes du colis</p>
-                    <div className="space-y-3.5">
-                        {ETAPES_PRINCIPALES.map((cle) => {
-                            const idxEtape = STATUT_ORDER.indexOf(cle);
-                            const fait = idxEtape !== -1 && idxEtape <= indexActuel;
-                            const date = dateEtape(cle);
-                            return (
-                                <div key={cle} className="flex items-center gap-3">
-                                    <span className={`w-5 h-5 shrink-0 rounded-full flex items-center justify-center ${fait ? "bg-emerald-500" : "bg-gray-200"}`}>
-                                        {fait && <Check size={12} className="text-white" strokeWidth={3} />}
-                                    </span>
-                                    <span className={`flex-1 text-sm ${fait ? "text-gray-800 font-medium" : "text-gray-400"}`}>
-                                        {STATUT_LABELS[cle]}
-                                    </span>
-                                    <span className="text-xs text-gray-300 shrink-0">
-                                        {date ? dateHeure(date) : "—"}
-                                    </span>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                {/* Timeline détaillée avec descriptions (façon écran statut) */}
-                <div className="bg-white border border-blush-100 rounded-2xl p-4 shadow-sm shadow-black/[0.03]">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-4">Suivi détaillé</p>
-                    <div className="relative pl-6">
-                        <span className="absolute left-[9px] top-1 bottom-1 w-px bg-blush-200" />
-                        {ETAPES_PRINCIPALES.map((cle) => {
-                            const idxEtape = STATUT_ORDER.indexOf(cle);
-                            const fait = idxEtape !== -1 && idxEtape < indexActuel;
-                            const enCours = idxEtape === indexActuel;
-                            const date = dateEtape(cle);
-                            return (
-                                <div key={cle} className="relative pb-5 last:pb-0">
-                                    <span
-                                        className={`absolute -left-6 top-0.5 w-[19px] h-[19px] rounded-full border-2 flex items-center justify-center ${
-                                            fait
-                                                ? "bg-emerald-500 border-emerald-500"
-                                                : enCours
-                                                ? "bg-white border-burgundy-500"
-                                                : "bg-white border-gray-200"
-                                        }`}
-                                    >
-                                        {fait && <Check size={10} className="text-white" strokeWidth={3} />}
-                                        {enCours && <span className="w-1.5 h-1.5 rounded-full bg-burgundy-500" />}
-                                    </span>
-                                    <p className={`text-sm font-semibold ${fait || enCours ? "text-gray-900" : "text-gray-300"}`}>
-                                        {STATUT_LABELS[cle]}
-                                    </p>
-                                    {date && <p className="text-[11px] text-gray-300 mb-0.5">{dateHeure(date)}</p>}
-                                    <p className={`text-xs leading-relaxed ${fait || enCours ? "text-gray-500" : "text-gray-300"}`}>
-                                        {STATUT_DESCRIPTIONS[cle]}
-                                    </p>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                {colis.statut !== "livre" && colis.statut !== "annule" && (
-                    <div className="bg-blush-50 border border-blush-200 rounded-2xl p-4 flex items-center justify-between gap-3">
-                        <div>
-                            <p className="text-sm font-semibold text-gray-800">Besoin d'aide ?</p>
-                            <p className="text-xs text-gray-500">Contactez votre assistant dans la conversation.</p>
-                        </div>
-                        <MessageCircle size={20} className="text-burgundy-500 shrink-0" />
-                    </div>
-                )}
-
+                {/* ── Accès à la conversation ────────────────────────────── */}
+                {/* La carte « Besoin d'aide ? » d'origine portait une icône de chat
+                    mais n'était pas cliquable, et un second bouton « Voir la
+                    conversation » la doublait juste en dessous. Les deux sont
+                    fusionnés en un seul point d'entrée. */}
                 <Link
                     to={`/colis-shein/${id}`}
-                    className="block text-center bg-white border border-burgundy-600 text-burgundy-700 font-semibold text-sm py-3 rounded-xl hover:bg-blush-50 transition"
+                    className="rs-card flex items-center gap-3 no-underline transition active:scale-[.99] hover:border-ink-200"
                 >
-                    Voir la conversation
+                    <div className="w-11 h-11 shrink-0 rounded-full bg-ramses-50 flex items-center justify-center">
+                        <MessageCircle size={19} className="text-ramses-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-[14px] font-bold text-ink-900">
+                            {clos ? "Voir la conversation" : "Une question ?"}
+                        </p>
+                        <p className="text-[12px] text-ink-500 mt-0.5">
+                            {clos
+                                ? "L'historique reste consultable."
+                                : "Votre agent vous répond directement dans la conversation."}
+                        </p>
+                    </div>
+                    <ChevronRight size={18} className="text-ink-300 shrink-0" />
                 </Link>
             </div>
         </div>

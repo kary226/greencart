@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
-import { Search, SlidersHorizontal, Package, PackageCheck, Plus } from "lucide-react";
+import { Search, Package, PackageCheck, Plus, ChevronRight, X } from "lucide-react";
 
 const STATUT_LABELS = {
     soumis: "En attente de vérification",
@@ -19,22 +19,29 @@ const STATUT_LABELS = {
     annule: "Annulé",
 };
 
-// Palette de statut, alignée sur burgundy/blush/ivory plutôt que le rouge générique d'origine
-const STATUT_STYLE = {
-    soumis: "bg-blush-100 text-burgundy-700",
-    en_verification: "bg-blush-100 text-burgundy-700",
-    devis_envoye: "bg-ivory-500/60 text-ivory-900",
-    acompte_paye: "bg-emerald-50 text-emerald-700",
-    achete: "bg-emerald-50 text-emerald-700",
-    en_entrepot: "bg-emerald-50 text-emerald-700",
-    arrive_abidjan: "bg-blush-200 text-burgundy-700",
-    pese: "bg-ivory-500/60 text-ivory-900",
-    solde_du: "bg-ivory-500/60 text-ivory-900",
-    solde_paye: "bg-emerald-50 text-emerald-700",
-    en_livraison: "bg-blush-200 text-burgundy-700",
-    livre: "bg-gray-100 text-gray-500",
-    annule: "bg-gray-100 text-gray-400",
+// [DESIGN.md §4] Trois familles seulement : ce qui attend le client (warn),
+// ce qui avance (info/neutral), ce qui est acquis (ok). Le rouge de marque
+// n'est jamais un statut — il resterait en concurrence avec les boutons
+// d'action, et un colis annulé n'est pas une alerte : c'est un dossier clos.
+const STATUT_VARIANTE = {
+    soumis: "info",
+    en_verification: "info",
+    devis_envoye: "warn",
+    acompte_paye: "neutral",
+    achete: "neutral",
+    en_entrepot: "neutral",
+    arrive_abidjan: "neutral",
+    pese: "warn",
+    solde_du: "warn",
+    solde_paye: "neutral",
+    en_livraison: "info",
+    livre: "ok",
+    annule: "done",
 };
+
+// Statuts où la balle est dans le camp du client : ils remontent en tête de
+// carte avec le rail rouge, c'est la seule chose qu'il doit voir en scrollant.
+const ATTEND_LE_CLIENT = new Set(["devis_envoye", "pese", "solde_du"]);
 
 const money = (n, devise) => `${devise === "EUR" ? "€" : "$"}${Number(n || 0).toFixed(2)}`;
 const fcfa = (n) => `${Math.round(n || 0).toLocaleString("fr-FR")} FCFA`;
@@ -46,10 +53,10 @@ const tempsEcoule = (date) => {
         const m = Math.max(1, Math.floor(diff / 60000));
         return `il y a ${m} min`;
     }
-    if (h < 24) return `il y a ${h}h`;
+    if (h < 24) return `il y a ${h} h`;
     const j = Math.floor(h / 24);
     if (j === 1) return "hier";
-    return `il y a ${j}j`;
+    return `il y a ${j} j`;
 };
 
 const MesColisShein = () => {
@@ -101,143 +108,196 @@ const MesColisShein = () => {
         { key: "clos", label: "Terminés", count: compteurs.clos },
     ];
 
+    const nbAAction = colisListe.filter((c) => ATTEND_LE_CLIENT.has(c.statut)).length;
+
     return (
-        <div className="max-w-lg mx-auto px-4 sm:px-6 pb-10">
-            {/* Header */}
-            <div className="flex items-start justify-between gap-3 pt-6 pb-5">
-                <div>
-                    <h1 className="font-display text-2xl font-semibold text-gray-900 flex items-center gap-1.5">
-                        Bienvenue{prenom ? `, ${prenom}` : ""} <span className="text-xl">👋</span>
+        <div className="max-w-[720px] mx-auto px-4 sm:px-6 pb-12">
+
+            {/* ── En-tête ────────────────────────────────────────────────── */}
+            <div className="flex items-start justify-between gap-4 pt-6 pb-5">
+                <div className="min-w-0">
+                    <h1 className="rs-display">
+                        Mes colis{prenom ? <span className="text-ink-400 font-extrabold"> · {prenom}</span> : ""}
                     </h1>
-                    <p className="text-[13px] text-gray-400 mt-0.5">Tous vos échanges avec nos agents.</p>
+                    <p className="text-[13px] text-ink-400 mt-1.5">
+                        {nbAAction > 0
+                            ? `${nbAAction} colis ${nbAAction > 1 ? "attendent" : "attend"} une action de votre part.`
+                            : "Tous vos échanges avec nos agents."}
+                    </p>
                 </div>
-                <Link
-                    to="/valider-panier-shein"
-                    className="shrink-0 flex items-center gap-1.5 bg-burgundy-600 text-white text-xs font-semibold px-4 py-2.5 rounded-full whitespace-nowrap shadow-sm shadow-burgundy-600/30 hover:bg-burgundy-700 transition"
-                >
-                    <Plus size={14} /> Nouveau
+
+                <Link to="/valider-panier-shein" className="rs-btn rs-btn--primary shrink-0">
+                    <Plus size={16} /> Nouveau
                 </Link>
             </div>
 
-            {/* Recherche */}
-            <div className="flex items-center gap-2 mb-4">
-                <div className="flex-1 flex items-center gap-2 bg-blush-50 rounded-full px-4 py-2.5">
-                    <Search size={16} className="text-gray-400 shrink-0" />
-                    <input
-                        value={recherche}
-                        onChange={(e) => setRecherche(e.target.value)}
-                        placeholder="Rechercher une conversation…"
-                        className="flex-1 bg-transparent outline-none text-sm text-gray-700 placeholder-gray-400"
-                    />
-                </div>
-                <button
-                    type="button"
-                    className="shrink-0 w-10 h-10 rounded-full bg-blush-50 flex items-center justify-center text-gray-500 hover:bg-blush-100 transition"
-                    aria-label="Filtrer"
-                >
-                    <SlidersHorizontal size={15} />
-                </button>
+            {/* ── Recherche ──────────────────────────────────────────────── */}
+            {/* Le bouton « Filtrer » d'origine n'avait aucun gestionnaire : il a été
+                retiré plutôt que laissé en place. Les onglets ci-dessous couvrent
+                déjà le filtrage, et un contrôle qui ne réagit pas est pire que pas
+                de contrôle du tout. */}
+            <div className="relative mb-3">
+                <Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none" />
+                <input
+                    value={recherche}
+                    onChange={(e) => setRecherche(e.target.value)}
+                    placeholder="Numéro de suivi ou article…"
+                    aria-label="Rechercher un colis"
+                    className="rs-input rs-input--pill pl-11 pr-11"
+                />
+                {recherche && (
+                    <button
+                        type="button"
+                        onClick={() => setRecherche("")}
+                        className="absolute right-1 top-1/2 -translate-y-1/2 rs-icon-btn"
+                        aria-label="Effacer la recherche"
+                    >
+                        <X size={16} />
+                    </button>
+                )}
             </div>
 
-            {/* Onglets filtre */}
-            <div className="flex items-center gap-1 bg-blush-50 rounded-full p-1 mb-5">
-                {onglets.map((o) => (
-                    <button
-                        key={o.key}
-                        onClick={() => setFiltre(o.key)}
-                        className={`flex-1 flex items-center justify-center gap-1.5 rounded-full py-2 text-xs font-semibold transition ${
-                            filtre === o.key
-                                ? "bg-white text-burgundy-700 shadow-sm"
-                                : "text-gray-400 hover:text-gray-600"
-                        }`}
-                    >
-                        {o.label}
-                        <span
-                            className={`text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[16px] text-center ${
-                                filtre === o.key ? "bg-burgundy-600 text-white" : "bg-black/5 text-gray-500"
+            {/* ── Onglets ────────────────────────────────────────────────── */}
+            <div className="flex items-center gap-1 bg-ink-50 rounded-full p-1 mb-5" role="tablist">
+                {onglets.map((o) => {
+                    const actif = filtre === o.key;
+                    return (
+                        <button
+                            key={o.key}
+                            role="tab"
+                            aria-selected={actif}
+                            onClick={() => setFiltre(o.key)}
+                            className={`flex-1 flex items-center justify-center gap-1.5 rounded-full py-2.5 text-[13px] font-semibold transition ${
+                                actif ? "bg-ink-0 text-ink-900 shadow-sm" : "text-ink-400 hover:text-ink-600"
                             }`}
                         >
-                            {o.count}
-                        </span>
-                    </button>
-                ))}
+                            {o.label}
+                            <span
+                                className={`text-[10px] font-extrabold rounded-full px-1.5 py-0.5 min-w-[18px] text-center tabular-nums ${
+                                    actif ? "bg-ramses-600 text-white" : "bg-ink-100 text-ink-500"
+                                }`}
+                            >
+                                {o.count}
+                            </span>
+                        </button>
+                    );
+                })}
             </div>
 
-            {/* Contenu */}
+            {/* ── Contenu ────────────────────────────────────────────────── */}
             {loading ? (
-                <p className="text-center text-sm text-gray-400 py-10">Chargement…</p>
+                <div className="flex flex-col items-center gap-3 py-16">
+                    <div className="rs-typing"><span /><span /><span /></div>
+                    <p className="text-[13px] text-ink-400">Chargement de vos colis…</p>
+                </div>
             ) : colisListe.length === 0 ? (
                 <div className="text-center px-6 py-14">
-                    <div className="w-20 h-20 rounded-full bg-blush-100 flex items-center justify-center mx-auto mb-4">
-                        <Package size={32} className="text-burgundy-400" />
+                    <div className="w-16 h-16 rounded-full bg-ramses-50 flex items-center justify-center mx-auto mb-4">
+                        <Package size={26} className="text-ramses-600" />
                     </div>
-                    <p className="text-[15px] font-semibold text-gray-900 mb-1.5">Aucun colis SHEIN pour l'instant</p>
-                    <p className="text-[13px] text-gray-400 mb-5 leading-relaxed">
-                        Lorsque vous validerez un panier, une conversation avec votre agent apparaîtra ici.
+                    <p className="rs-h2 mb-1.5">Aucun colis pour l'instant</p>
+                    <p className="text-[13px] text-ink-400 mb-6 leading-relaxed max-w-[300px] mx-auto">
+                        Validez un panier SHEIN et une conversation avec votre agent apparaîtra ici.
                     </p>
-                    <Link
-                        to="/valider-panier-shein"
-                        className="inline-flex items-center gap-2 bg-burgundy-600 text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-burgundy-700 transition"
-                    >
+                    <Link to="/valider-panier-shein" className="rs-btn rs-btn--primary">
                         Valider mon premier panier
                     </Link>
                 </div>
             ) : listeAffichee.length === 0 ? (
-                <p className="text-center text-sm text-gray-400 py-10">Aucun résultat pour cette recherche.</p>
+                <div className="text-center py-14 px-6">
+                    <p className="rs-h2 mb-1.5">Aucun résultat</p>
+                    <p className="text-[13px] text-ink-400 mb-5">
+                        {recherche
+                            ? <>Rien ne correspond à « {recherche} ».</>
+                            : "Aucun colis dans cette catégorie."}
+                    </p>
+                    {recherche && (
+                        <button onClick={() => setRecherche("")} className="rs-btn rs-btn--secondary">
+                            Effacer la recherche
+                        </button>
+                    )}
+                </div>
             ) : (
-                <div className="space-y-2.5">
+                <ul className="grid gap-3 list-none p-0 m-0">
                     {listeAffichee.map((c) => {
                         const ferme = estFerme(c);
+                        const aAgir = ATTEND_LE_CLIENT.has(c.statut);
+                        const nbArticles = c.articlesValides?.length || 0;
+
                         return (
-                            <Link
-                                key={c._id}
-                                to={`/colis-shein/${c._id}`}
-                                className={`relative flex gap-3 bg-white border border-blush-100 rounded-2xl pl-5 pr-4 py-3.5 overflow-hidden transition active:scale-[0.985] ${
-                                    ferme ? "opacity-60" : "shadow-sm shadow-black/[0.03]"
-                                }`}
-                            >
-                                <span className={`absolute left-0 top-0 bottom-0 w-1 rounded-r-full ${ferme ? "bg-gray-200" : "bg-burgundy-600"}`} />
-
-                                <div className={`w-11 h-11 shrink-0 rounded-full flex items-center justify-center ${ferme ? "bg-gray-100" : "bg-blush-100"}`}>
-                                    {ferme ? <PackageCheck size={18} className="text-gray-400" /> : <Package size={18} className="text-burgundy-600" />}
-                                </div>
-
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center justify-between mb-1.5">
-                                        <span className="text-[13.5px] font-bold text-gray-900">{c.numeroSuivi}</span>
-                                        <span className="flex items-center gap-1.5 shrink-0">
-                                            <span className="text-[10.5px] text-gray-300 whitespace-nowrap">{tempsEcoule(c.updatedAt)}</span>
-                                            {c.nonLuClient && !ferme && <span className="w-1.5 h-1.5 rounded-full bg-burgundy-600" />}
-                                        </span>
+                            <li key={c._id}>
+                                <Link
+                                    to={`/colis-shein/${c._id}`}
+                                    className={`rs-card ${aAgir ? "rs-card--action" : ""} ${ferme ? "rs-card--muted" : ""} flex gap-3 items-start transition active:scale-[.99] hover:border-ink-200 no-underline`}
+                                >
+                                    <div className={`w-11 h-11 shrink-0 rounded-full flex items-center justify-center ${
+                                        ferme ? "bg-ink-100" : aAgir ? "bg-ramses-50" : "bg-ink-50"
+                                    }`}>
+                                        {ferme
+                                            ? <PackageCheck size={19} className="text-ink-400" />
+                                            : <Package size={19} className={aAgir ? "text-ramses-600" : "text-ink-500"} />}
                                     </div>
 
-                                    <span className={`inline-flex items-center gap-1.5 text-[10.5px] font-bold px-2.5 py-1 rounded-full mb-1.5 ${STATUT_STYLE[c.statut] || "bg-blush-100 text-burgundy-700"}`}>
-                                        <span className="w-1 h-1 rounded-full bg-current" />
-                                        {STATUT_LABELS[c.statut] || c.statut}
-                                    </span>
-
-                                    <p className="text-xs text-gray-500 truncate mb-2">
-                                        Agent · {STATUT_LABELS[c.statut] || "Mise à jour du colis"}
-                                    </p>
-
-                                    <div className="flex items-center justify-between">
-                                        <span className="flex items-center gap-1.5 text-[11px] text-gray-400">
-                                            <Package size={12} /> {c.articlesValides?.length || 0} article(s)
-                                        </span>
-                                        {c.devis?.montantArticles > 0 && (
-                                            <span className="flex flex-col items-end">
-                                                <span className="text-sm font-bold text-gray-900">{money(c.devis.montantArticles, c.devise)}</span>
-                                                {c.devis?.montantArticlesFCFA != null && (
-                                                    <span className="text-[10.5px] text-burgundy-600 mt-0.5">≈ {fcfa(c.devis.montantArticlesFCFA)}</span>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-baseline justify-between gap-3 mb-2">
+                                            <span className="text-[14px] font-extrabold text-ink-900 tracking-tight truncate">
+                                                {c.numeroSuivi}
+                                            </span>
+                                            <span className="flex items-center gap-2 shrink-0">
+                                                <span className="text-[11px] text-ink-400 whitespace-nowrap tabular-nums">
+                                                    {tempsEcoule(c.updatedAt)}
+                                                </span>
+                                                {c.nonLuClient && !ferme && (
+                                                    <span
+                                                        className="w-2 h-2 rounded-full bg-ramses-600"
+                                                        aria-label="Nouveau message non lu"
+                                                    />
                                                 )}
                                             </span>
-                                        )}
+                                        </div>
+
+                                        {/* Le statut porte déjà l'information ; la ligne
+                                            « Agent · <même statut> » d'origine la répétait
+                                            mot pour mot et a été supprimée. */}
+                                        <span className={`rs-badge rs-badge--${STATUT_VARIANTE[c.statut] || "neutral"}`}>
+                                            {STATUT_LABELS[c.statut] || c.statut}
+                                        </span>
+
+                                        <div className="flex items-end justify-between gap-3 mt-3">
+                                            <span className="flex items-center gap-1.5 text-[12px] text-ink-400">
+                                                <Package size={13} />
+                                                {nbArticles} article{nbArticles > 1 ? "s" : ""}
+                                            </span>
+
+                                            {c.devis?.montantArticles > 0 && (
+                                                <span className="flex flex-col items-end leading-tight">
+                                                    {/* Le FCFA passe devant : c'est la devise
+                                                        dans laquelle le client paie réellement. */}
+                                                    {c.devis?.montantArticlesFCFA != null ? (
+                                                        <>
+                                                            <span className="rs-money text-[15px]">
+                                                                {fcfa(c.devis.montantArticlesFCFA)}
+                                                            </span>
+                                                            <span className="text-[11px] text-ink-400 mt-0.5 tabular-nums">
+                                                                {money(c.devis.montantArticles, c.devise)}
+                                                            </span>
+                                                        </>
+                                                    ) : (
+                                                        <span className="rs-money text-[15px]">
+                                                            {money(c.devis.montantArticles, c.devise)}
+                                                        </span>
+                                                    )}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            </Link>
+
+                                    <ChevronRight size={18} className="text-ink-300 shrink-0 self-center" />
+                                </Link>
+                            </li>
                         );
                     })}
-                </div>
+                </ul>
             )}
         </div>
     );

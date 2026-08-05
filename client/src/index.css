@@ -2,6 +2,10 @@
 
 @import "tailwindcss";
 
+/* Système RAMSES — couche composants de la surface Colis SHEIN.
+   Voir DESIGN.md à la racine du dépôt. */
+@import "./styles/ramses.css";
+
 /* ✅ PALETTE BURGUNDY + BLUSH + IVORY — Ajout des tokens Tailwind v4 */
 @theme {
   --color-burgundy-50: #FDF3F3;
@@ -38,6 +42,44 @@
   --color-ivory-900: #9C813C;
 
   --font-display: "Playfair Display", Georgia, serif;
+
+  /* ═══════════════════════════════════════════════════════════════════
+     SYSTÈME RAMSES — surface Colis SHEIN (voir DESIGN.md à la racine)
+     Rouge / noir / blanc, repris de la communication promotionnelle.
+     Cohabite avec la palette bordeaux : celle-ci reste la palette du
+     site (boutique, back-office), ces jetons ne s'appliquent qu'aux
+     écrans Colis SHEIN. Aucun jeton existant n'est modifié.
+     ═══════════════════════════════════════════════════════════════════ */
+
+  --color-ramses-50:  #FFF1F1;
+  --color-ramses-100: #FFDFE0;
+  --color-ramses-200: #FFC2C4;
+  --color-ramses-300: #FF9497;
+  --color-ramses-400: #FA5A5F;
+  --color-ramses-500: #EE2A32;
+  --color-ramses-600: #E31E24;  /* rouge de marque */
+  --color-ramses-700: #BF1319;
+  --color-ramses-800: #9C1116;
+  --color-ramses-900: #7F1418;
+
+  --color-ink-0:   #FFFFFF;
+  --color-ink-50:  #F7F7F8;
+  --color-ink-100: #EDEDEF;
+  --color-ink-200: #DCDCE0;
+  --color-ink-300: #B9B9C0;
+  --color-ink-400: #8A8A93;
+  --color-ink-500: #5F5F68;
+  --color-ink-600: #3D3D45;
+  --color-ink-700: #26262C;
+  --color-ink-800: #17171B;
+  --color-ink-900: #0B0B0D;  /* noir de marque */
+
+  --color-ok-50:   #E7F7F0;
+  --color-ok-500:  #0E9F6E;
+  --color-warn-50: #FEF6E7;
+  --color-warn-500:#D97706;
+  --color-info-50: #EAF1FE;
+  --color-info-500:#2563EB;
 }
 
 /* FORCER LE MODE CLAIR - Empêche tout mode sombre */
