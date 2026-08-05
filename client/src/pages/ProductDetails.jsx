@@ -36,6 +36,10 @@ const ProductDetails = () => {
   const [showRelatedNext, setShowRelatedNext] = useState(true);
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
+  // Léger effet de swipe : décalage visuel de l'image pendant le glissement
+  // du doigt, et animation de retour au centre au relâchement.
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [averageRating, setAverageRating] = useState(4);
   const [totalReviews, setTotalReviews] = useState(0);
@@ -172,6 +176,28 @@ const ProductDetails = () => {
     }
   }, [product]);
 
+  // Préchargement des photos voisines (précédente/suivante) : pendant que
+  // l'utilisateur regarde la photo courante, le navigateur va déjà chercher
+  // les deux voisines en arrière-plan. Au moment du swipe, l'image est donc
+  // déjà en cache et s'affiche sans latence perceptible.
+  useEffect(() => {
+    if (totalMedia < 2) return;
+
+    const preload = (index) => {
+      const item = mediaItems[index];
+      if (item?.type === "image" && item.url) {
+        const img = new Image();
+        img.src = getPresetImageUrl(item.url, "detail");
+      }
+    };
+
+    const nextIndex = currentMediaIndex === totalMedia - 1 ? 0 : currentMediaIndex + 1;
+    const prevIndex = currentMediaIndex === 0 ? totalMedia - 1 : currentMediaIndex - 1;
+
+    preload(nextIndex);
+    preload(prevIndex);
+  }, [currentMediaIndex, totalMedia, mediaItems]);
+
   // Navigation carrousel
   const checkRelatedScroll = () => {
     if (relatedCarouselRef.current) {
@@ -193,16 +219,31 @@ const ProductDetails = () => {
   const handleTouchStart = (e) => {
     setTouchStart(e.targetTouches[0].clientX);
     setTouchEnd(e.targetTouches[0].clientX);
+    setIsSwiping(true);
+    setDragOffset(0);
   };
 
   const handleTouchMove = (e) => {
-    setTouchEnd(e.targetTouches[0].clientX);
+    const x = e.targetTouches[0].clientX;
+    setTouchEnd(x);
+
+    // L'image suit le doigt. Résistance (facteur réduit) sur la première
+    // et dernière photo, quand on essaie de swiper au-delà — même principe
+    // que le "rubber band" iOS, pour ne pas donner l'impression que ça bloque.
+    let offset = x - touchStart;
+    const atStart = currentMediaIndex === 0 && offset > 0;
+    const atEnd = currentMediaIndex === totalMedia - 1 && offset < 0;
+    if (atStart || atEnd) offset *= 0.35;
+
+    setDragOffset(offset);
   };
 
   const handleTouchEnd = () => {
     if (!touchStart || !touchEnd) {
       setTouchStart(0);
       setTouchEnd(0);
+      setIsSwiping(false);
+      setDragOffset(0);
       return;
     }
     const diff = touchStart - touchEnd;
@@ -216,6 +257,10 @@ const ProductDetails = () => {
     }
     setTouchStart(0);
     setTouchEnd(0);
+    // isSwiping repasse à false -> la transition CSS prend le relais pour
+    // ramener l'image (nouvelle ou inchangée) en douceur vers le centre.
+    setIsSwiping(false);
+    setDragOffset(0);
   };
 
   const goToPrevMedia = () => {
@@ -461,49 +506,57 @@ const ProductDetails = () => {
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
           >
-            {!isCurrentVideo ? (
-              // Pas de loading="lazy" ici : c'est l'image principale visible
-              // au premier affichage (LCP), on veut qu'elle charge tout de
-              // suite — seule la largeur est optimisée via Cloudinary.
-              <img src={getPresetImageUrl(currentMedia?.url, "detail")} alt={product.name} />
-            ) : (
-              <div className="pd-video-slide">
-                {isYouTube(currentMedia?.url) ? (
-                  <iframe
-                    src={
-                      currentMedia.url.replace("watch?v=", "embed/").split("&")[0] +
-                      "?autoplay=1"
-                    }
-                    className="pd-video-iframe"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    title={`Vidéo ${product.name}`}
-                    loading="lazy"
-                  />
-                ) : isVimeo(currentMedia?.url) ? (
-                  <iframe
-                    src={
-                      currentMedia.url.replace("vimeo.com/", "player.vimeo.com/video/") +
-                      "?autoplay=1"
-                    }
-                    className="pd-video-iframe"
-                    allow="autoplay; fullscreen; picture-in-picture"
-                    allowFullScreen
-                    title={`Vidéo ${product.name}`}
-                    loading="lazy"
-                  />
-                ) : (
-                  <video
-                    src={currentMedia?.url}
-                    className="pd-video-player"
-                    controls
-                    poster={currentMedia?.poster}
-                    autoPlay
-                    playsInline
-                  />
-                )}
-              </div>
-            )}
+            <div
+              className="pd-media-track"
+              style={{
+                transform: `translateX(${dragOffset}px)`,
+                transition: isSwiping ? "none" : "transform 0.25s ease-out",
+              }}
+            >
+              {!isCurrentVideo ? (
+                // Pas de loading="lazy" ici : c'est l'image principale visible
+                // au premier affichage (LCP), on veut qu'elle charge tout de
+                // suite — seule la largeur est optimisée via Cloudinary.
+                <img src={getPresetImageUrl(currentMedia?.url, "detail")} alt={product.name} />
+              ) : (
+                <div className="pd-video-slide">
+                  {isYouTube(currentMedia?.url) ? (
+                    <iframe
+                      src={
+                        currentMedia.url.replace("watch?v=", "embed/").split("&")[0] +
+                        "?autoplay=1"
+                      }
+                      className="pd-video-iframe"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      title={`Vidéo ${product.name}`}
+                      loading="lazy"
+                    />
+                  ) : isVimeo(currentMedia?.url) ? (
+                    <iframe
+                      src={
+                        currentMedia.url.replace("vimeo.com/", "player.vimeo.com/video/") +
+                        "?autoplay=1"
+                      }
+                      className="pd-video-iframe"
+                      allow="autoplay; fullscreen; picture-in-picture"
+                      allowFullScreen
+                      title={`Vidéo ${product.name}`}
+                      loading="lazy"
+                    />
+                  ) : (
+                    <video
+                      src={currentMedia?.url}
+                      className="pd-video-player"
+                      controls
+                      poster={currentMedia?.poster}
+                      autoPlay
+                      playsInline
+                    />
+                  )}
+                </div>
+              )}
+            </div>
 
             {isCurrentVideo && <span className="pd-video-badge">▶ VIDÉO</span>}
 
@@ -869,6 +922,14 @@ const ProductDetails = () => {
           width: 100%;
           height: 100%;
           object-fit: cover;
+        }
+
+        .pd-media-track {
+          width: 100%;
+          height: 100%;
+          /* will-change évite les à-coups : le navigateur prépare la
+             couche de compositing avant même le premier mouvement du doigt. */
+          will-change: transform;
         }
 
         .pd-video-slide {
