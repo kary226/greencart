@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { assets } from '../assets/assets';
+// [PHASE 1 - PERF] Transformation Cloudinary (f_auto, q_auto, largeur adaptée)
+import { getPresetImageUrl } from '../utils/cloudinaryImage';
 
 const HeroCarousel = () => {
     const { axios, navigate } = useAppContext();
@@ -77,10 +79,15 @@ const HeroCarousel = () => {
                         className="w-full flex-shrink-0 cursor-pointer relative group"
                         onClick={() => handleBannerClick(banner)}
                     >
+                        {/* [PHASE 1 - PERF] Première image = LCP potentiel (au-dessus de la
+                            ligne de flottaison) : chargement prioritaire, jamais lazy.
+                            Les suivantes ne sont pas visibles au chargement -> lazy. */}
                         <img
-                            src={banner.image}
+                            src={getPresetImageUrl(banner.image, 'banner')}
                             alt={banner.title || 'Bannière'}
                             className="w-full h-[200px] md:h-[350px] lg:h-[400px] object-cover"
+                            loading={index === 0 ? 'eager' : 'lazy'}
+                            fetchpriority={index === 0 ? 'high' : 'auto'}
                         />
                         {/* Overlay texte */}
                         {(banner.title || banner.subtitle) && (

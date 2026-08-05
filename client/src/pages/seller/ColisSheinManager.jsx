@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useAppContext } from "../../context/AppContext";
+// [PHASE 1 - PERF] Transformation Cloudinary (f_auto, q_auto, largeur adaptée)
+import { getPresetImageUrl } from "../../utils/cloudinaryImage";
 
 const STATUTS = [
     "soumis", "en_verification", "devis_envoye", "acompte_paye",
@@ -683,7 +685,7 @@ const ColisSheinManager = () => {
 
                             <div className="csm-captures">
                                 {selection.captures.map((url, i) => (
-                                    <a key={i} href={url} target="_blank" rel="noreferrer"><img src={url} alt={`capture ${i + 1}`} /></a>
+                                    <a key={i} href={url} target="_blank" rel="noreferrer"><img src={getPresetImageUrl(url, 'thumbnail')} alt={`capture ${i + 1}`} loading="lazy" /></a>
                                 ))}
                             </div>
 
@@ -840,7 +842,7 @@ const ColisSheinManager = () => {
                                         }
                                         return (
                                             <div key={m._id} className={`csm-msg ${m.expediteurRole}`}>
-                                                {m.imageUrl && <img src={m.imageUrl} alt="" className="csm-msg-img" onClick={() => window.open(m.imageUrl, "_blank")} />}
+                                                {m.imageUrl && <img src={getPresetImageUrl(m.imageUrl, 'thumbnail')} alt="" loading="lazy" className="csm-msg-img" onClick={() => window.open(m.imageUrl, "_blank")} />}
                                                 {m.texte && <p>{m.texte}</p>}
                                                 <span className="csm-msg-heure">
                                                     {new Date(m.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}

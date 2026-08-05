@@ -3,6 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useAppContext } from "../context/AppContext";
 import { ArrowLeft, ChevronDown, Image as ImageIcon, Send, X, Star } from "lucide-react";
+// [PHASE 1 - PERF] Transformation Cloudinary (f_auto, q_auto, largeur adaptée)
+import { getPresetImageUrl } from "../utils/cloudinaryImage";
 
 const STATUT_LABELS = {
     soumis: "En attente de vérification par un agent",
@@ -365,7 +367,7 @@ const ColisSheinConversation = () => {
                                 <div className={`rounded-2xl px-3.5 py-2.5 ${estClient ? "bg-burgundy-600 text-white rounded-br-md" : "bg-white border border-blush-100 text-gray-800 rounded-bl-md"}`}>
                                     {!estClient && <p className="text-[10px] font-bold text-burgundy-500 mb-1">Assistance</p>}
                                     {m.imageUrl && (
-                                        <img src={m.imageUrl} alt="" onClick={() => window.open(m.imageUrl, "_blank")} className="rounded-xl mb-1.5 max-h-48 object-cover cursor-pointer" />
+                                        <img src={getPresetImageUrl(m.imageUrl, 'thumbnail')} alt="" loading="lazy" onClick={() => window.open(m.imageUrl, "_blank")} className="rounded-xl mb-1.5 max-h-48 object-cover cursor-pointer" />
                                     )}
                                     {m.texte && <p className="text-sm leading-relaxed">{m.texte}</p>}
                                     <div className={`flex items-center gap-1 mt-1 ${estClient ? "justify-end text-blush-200" : "text-gray-300"}`}>

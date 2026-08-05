@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
 import ImageCropper from '../../components/ImageCropper';
+// [PHASE 1 - PERF] Transformation Cloudinary (f_auto, q_auto, largeur adaptée)
+import { getPresetImageUrl } from '../../utils/cloudinaryImage';
 
 const BannerManager = () => {
     const { axios } = useAppContext();
@@ -590,7 +592,7 @@ const BannerManager = () => {
                     {banners.map((banner) => (
                         <div key={banner._id} className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md transition">
                             <div className="relative">
-                                <img src={banner.image} alt={banner.title || 'Bannière'} className="w-full h-48 object-cover" />
+                                <img src={getPresetImageUrl(banner.image, 'card')} alt={banner.title || 'Bannière'} className="w-full h-48 object-cover" loading="lazy" />
                                 <div className={`absolute top-3 right-3 px-2 py-1 rounded-lg text-xs font-medium ${
                                     banner.position === 'top' 
                                         ? 'bg-blue-500 text-white' 

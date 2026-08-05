@@ -1,6 +1,8 @@
 import React, { useRef, useState, useEffect } from 'react'
 import { useAppContext } from '../context/AppContext'
 import { ChevronLeft, ChevronRight, Package, Grid, TrendingUp, Sparkles } from 'lucide-react'
+// [PHASE 1 - PERF] Transformation Cloudinary (f_auto, q_auto, largeur adaptée)
+import { getPresetImageUrl } from '../utils/cloudinaryImage'
 
 // [MODERNISATION] Nombre de cercles affichés dans le skeleton de
 // chargement — purement esthétique, n'a aucun impact sur le nombre réel
@@ -207,7 +209,7 @@ const Categories = () => {
                                     >
                                         {category.image ? (
                                             <img 
-                                                src={category.image} 
+                                                src={getPresetImageUrl(category.image, 'thumbnail')} 
                                                 alt={category.name} 
                                                 className='w-full h-full object-cover transition-transform duration-300 group-hover:scale-110'
                                                 loading="lazy"
