@@ -1,0 +1,37 @@
+{
+  "nom": "Coupon 30% appliqué — bas du panier + recommandations",
+  "note": "Le cas le plus discriminant. Vérifie : le bloc « You Might Like to Fill it With » n'est PAS extrait ; les badges « 10 Left » et « 3 Left » ne sont pas lus comme des quantités ; le premier article, dont l'en-tête de boutique a défilé hors cadre, sort avec une boutique vide plutôt qu'inventée.",
+  "captures": ["panier-coupon-bas.png"],
+  "attendu": {
+    "devise": "USD",
+    "coupon_applique": true,
+    "total_affiche": 24.6,
+    "nb_articles_panier": 7,
+    "articles": [
+      {
+        "boutique": "",
+        "nom": "Floral Elements TPU White Pink Stand",
+        "variante": "Multicolor / Iphone 13",
+        "prix_unitaire": 1.55,
+        "prix_original": 2.3,
+        "quantite": 1
+      },
+      {
+        "boutique": "Kingsley",
+        "nom": "Apple Funny 1pc New Personalized La",
+        "variante": "Multicolor / Iphone 14 Pro",
+        "prix_unitaire": 1.49,
+        "prix_original": 2.2,
+        "quantite": 1
+      },
+      {
+        "boutique": "JUTIANKUO",
+        "nom": "Black Cat Head Pattern Painted Effect",
+        "variante": null,
+        "prix_unitaire": 8.84,
+        "prix_original": 10.4,
+        "quantite": 1
+      }
+    ]
+  }
+}

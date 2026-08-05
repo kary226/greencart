@@ -4,48 +4,37 @@ import mongoose from "mongoose";
 import ColisShein from "../models/ColisShein.js";
 import MessageColis from "../models/MessageColis.js";
 import Setting from "../models/Setting.js";
+import { validerCaptures, extrairePanier } from "../services/sheinExtraction.js";
 
 const MESSAGE_BIENVENUE_DEFAUT =
     "Merci pour votre commande ! Elle a bien été reçue et un agent vous répondra très prochainement pour vous envoyer votre devis.";
 
-const EXTRACTION_PROMPT = `Tu extrais les données d'une ou plusieurs captures d'écran du panier de l'app SHEIN.
-
-Règles :
-- Le prix à retenir (prix_unitaire) est TOUJOURS le prix affiché en gras/couleur, jamais le prix barré (prix_original) qui sert seulement de référence.
-- La quantité est le chiffre affiché dans le sélecteur à droite de chaque article (ex. "4", "1", "3").
-- Le nom peut être tronqué ("..."), c'est normal, garde-le tel quel.
-- Si un article n'a pas de prix barré, ne mets pas le champ prix_original (null).
-- Si le total en bas de l'écran affiche 0 (quel que soit le symbole), indique total_affiche: null (aucun article n'est coché).
-- Détecte la devise à partir du symbole visible devant les prix : "$" → "USD", "€" → "EUR". Si les deux symboles apparaissent ou qu'aucun n'est visible, mets devise: null plutôt que de deviner.
-- Si plusieurs images sont fournies, elles peuvent se chevaucher (même article visible sur deux captures) : déduplique par nom + variante.
-- Si un champ est illisible, mets-le à null plutôt que de deviner.
-
-Retourne uniquement ce JSON, sans texte autour, sans balises markdown :
-{
-  "devise": null,
-  "articles": [
-    { "boutique": "", "nom": "", "variante": "", "prix_unitaire": 0, "prix_original": null, "quantite": 0 }
-  ],
-  "total_affiche": null
-}`;
-
 // POST /api/shein-cart/analyze
 // Reçoit les captures (multipart, champ "captures") ET le lien de partage (champ "lienPartage") —
 // les deux sont obligatoires ensemble, aucun des deux seul ne suffit à lancer l'analyse.
+//
+// [SHEIN-SCAN] L'extraction elle-même vit dans services/sheinExtraction.js :
+// prompt, schéma de sortie et contrôles de cohérence y sont regroupés pour
+// pouvoir être testés hors requête HTTP (voir scripts/evalSheinExtraction.js).
 export const analyzeCart = async (req, res) => {
     try {
         const files = req.files || [];
         const lienPartage = (req.body.lienPartage || "").trim();
 
-        if (files.length === 0) {
-            return res.status(400).json({ success: false, message: "Aucune capture reçue" });
-        }
         if (!lienPartage) {
             return res.status(400).json({ success: false, message: "Le lien du panier est requis" });
         }
 
-        // Upload Cloudinary (même pattern que productController.addProduct)
-        const captureUrls = await Promise.all(
+        const validation = validerCaptures(files);
+        if (!validation.ok) {
+            return res.status(400).json({ success: false, message: validation.message });
+        }
+
+        // Upload Cloudinary et analyse lancés en parallèle : ils ne dépendent
+        // pas l'un de l'autre, et l'analyse vision est de loin la plus lente.
+        // Les mener en série ajoutait le temps d'upload à l'attente du client
+        // pour rien.
+        const uploads = Promise.all(
             files.map((file) =>
                 new Promise((resolve, reject) => {
                     const uploadStream = cloudinary.uploader.upload_stream(
@@ -57,62 +46,35 @@ export const analyzeCart = async (req, res) => {
             )
         );
 
-        // Appel API vision — chaque image en base64, format attendu par l'API Anthropic
-        const imageBlocks = files.map((file) => ({
-            type: "image",
-            source: {
-                type: "base64",
-                media_type: file.mimetype,
-                data: file.buffer.toString("base64"),
-            },
-        }));
-
-        const response = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "x-api-key": process.env.ANTHROPIC_API_KEY,
-                "anthropic-version": "2023-06-01",
-            },
-            body: JSON.stringify({
-                model: "claude-sonnet-5",
-                max_tokens: 2000,
-                messages: [
-                    {
-                        role: "user",
-                        content: [...imageBlocks, { type: "text", text: EXTRACTION_PROMPT }],
-                    },
-                ],
-            }),
-        });
-
-        if (!response.ok) {
-            const errText = await response.text();
-            console.error("Erreur API vision:", errText);
-            return res.status(502).json({ success: false, message: "Extraction indisponible, réessaie ou saisis manuellement" });
-        }
-
-        const data = await response.json();
-        const rawText = data.content?.find((b) => b.type === "text")?.text || "{}";
-
-        let extraction;
-        try {
-            extraction = JSON.parse(rawText);
-        } catch (e) {
-            console.error("JSON extraction invalide:", rawText);
-            return res.status(502).json({ success: false, message: "Résultat d'extraction illisible, réessaie ou saisis manuellement" });
-        }
+        const [captureUrls, extraction] = await Promise.all([
+            uploads,
+            extrairePanier(files),
+        ]);
 
         res.json({
             success: true,
             captures: captureUrls,
-            articles: extraction.articles || [],
-            totalAffiche: extraction.total_affiche ?? null,
-            devise: extraction.devise ?? null,
+            // Contrat historique, inchangé pour le front existant
+            articles: extraction.articles,
+            totalAffiche: extraction.totalAffiche,
+            devise: extraction.devise,
+            // Nouveaux champs : purement additifs, un front qui les ignore
+            // continue de fonctionner exactement comme avant.
+            couponApplique: extraction.couponApplique,
+            sousTotal: extraction.sousTotal,
+            ecart: extraction.ecart,
+            alertes: extraction.alertes,
+            aVerifier: extraction.aVerifier,
+            nbArticlesPanier: extraction.nbArticlesPanier,
         });
     } catch (error) {
+        // Les erreurs d'extraction portent un codeClient et un message déjà
+        // rédigé pour le client ; le reste est une vraie erreur serveur.
+        if (error.codeClient) {
+            return res.status(error.codeClient).json({ success: false, message: error.message });
+        }
         console.error("Erreur analyzeCart:", error);
-        res.status(500).json({ success: false, message: error.message });
+        res.status(500).json({ success: false, message: "Erreur lors de l'analyse du panier" });
     }
 };
 

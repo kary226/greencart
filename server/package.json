@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node server.js",
     "server": "nodemon server.js",
+    "eval:shein": "node scripts/evalSheinExtraction.js",
     "migrate-sales": "node scripts/migrateSalesCount.js",
     "init-sales": "node scripts/initSalesCount.js",
     "migrate-all": "npm run migrate-sales && npm run init-sales"
@@ -15,6 +16,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.115.0",
     "@upstash/redis": "^1.38.2",
     "axios": "^1.16.1",
     "bcryptjs": "^3.0.2",

@@ -1,0 +1,37 @@
+{
+  "nom": "Deux captures identiques — déduplication",
+  "note": "Le client envoie deux fois la même capture (cas fréquent). Le résultat doit être strictement identique au cas « panier-non-coche » : 3 articles, pas 6.",
+  "captures": ["panier-non-coche.png", "panier-non-coche-bis.png"],
+  "attendu": {
+    "devise": "USD",
+    "coupon_applique": false,
+    "total_affiche": null,
+    "nb_articles_panier": 7,
+    "articles": [
+      {
+        "boutique": "WOSEN",
+        "nom": "1pc Two Tone Satin Hat Silk Bonnet S",
+        "variante": "Hot Pink",
+        "prix_unitaire": 2.25,
+        "prix_original": 3.0,
+        "quantite": 1
+      },
+      {
+        "boutique": "WERTSDF - Hardware Department Store",
+        "nom": "Bamboo Multi-Functional Dish Rack",
+        "variante": "Brown / Bamboo 5 Slots",
+        "prix_unitaire": 4.6,
+        "prix_original": null,
+        "quantite": 1
+      },
+      {
+        "boutique": "YSD",
+        "nom": "1pc Flower Shaped Gold-Edged Tray",
+        "variante": "Pink / S+M+L",
+        "prix_unitaire": 9.3,
+        "prix_original": null,
+        "quantite": 1
+      }
+    ]
+  }
+}

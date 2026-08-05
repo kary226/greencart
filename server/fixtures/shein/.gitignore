@@ -1,0 +1,7 @@
+# Les captures de test sont de vrais paniers clients : jeu de test local,
+# jamais versionné. Seuls les .json de vérité terrain et ce README le sont.
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif

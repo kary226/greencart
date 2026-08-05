@@ -1,0 +1,37 @@
+{
+  "nom": "Coupon 30% appliqué — haut du panier",
+  "note": "Vérifie : détection du coupon, prix DÉJÀ réduits ($1.58 et non $2.25 pour le même bonnet), badges « Est. -47% » et « Last Day » non confondus avec la quantité. L'écart entre le total ($12.72) et la somme des 3 lignes lues est attendu — le 4e article coché est hors cadre, l'alerte doit le signaler.",
+  "captures": ["panier-coupon-haut.png"],
+  "attendu": {
+    "devise": "USD",
+    "coupon_applique": true,
+    "total_affiche": 12.72,
+    "nb_articles_panier": 7,
+    "articles": [
+      {
+        "boutique": "WOSEN",
+        "nom": "1pc Two Tone Satin Hat Silk Bonnet S",
+        "variante": "Hot Pink",
+        "prix_unitaire": 1.58,
+        "prix_original": 3.0,
+        "quantite": 1
+      },
+      {
+        "boutique": "WERTSDF - Hardware Department Store",
+        "nom": "Bamboo Multi-Functional Dish Rack",
+        "variante": "Brown / Bamboo 5 Slots",
+        "prix_unitaire": 3.22,
+        "prix_original": 4.6,
+        "quantite": 1
+      },
+      {
+        "boutique": "YSD",
+        "nom": "1pc Flower Shaped Gold-Edged Tray",
+        "variante": "Pink / S+M+L",
+        "prix_unitaire": 6.51,
+        "prix_original": 9.3,
+        "quantite": 1
+      }
+    ]
+  }
+}
