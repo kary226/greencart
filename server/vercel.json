@@ -16,5 +16,6 @@
             "src": "/(.*)",
             "dest": "server.js"
         }
-    ]
+    ],
+    "regions": ["fra1"]
 }
