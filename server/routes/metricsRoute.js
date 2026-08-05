@@ -34,6 +34,7 @@ const authMetrics = (req, res, next) => {
     // Comparaison uniquement si le token est configuré : sans ce garde-fou,
     // un METRICS_TOKEN absent rendrait l'endpoint ouvert à quiconque envoie
     // un en-tête vide.
+    //
     if (configuredToken && providedToken && providedToken === configuredToken) {
         return next();
     }
