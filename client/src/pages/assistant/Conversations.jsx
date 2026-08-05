@@ -2,11 +2,33 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
-import {
-    MessageSquare, Users, Clock, CheckCircle,
-    Loader2, Search, ChevronRight,
-    User, Mail, Phone, Package
-} from 'lucide-react';
+import { MessageSquare, Search, ChevronRight, User, Mail, Package, X } from 'lucide-react';
+
+// [DESIGN.md §4] L'écran d'origine peignait chaque statut d'une teinte
+// différente : gris, bleu, ambre, vert, violet, indigo, cyan, émeraude, rouge.
+// Neuf couleurs ne hiérarchisent rien — l'agent ne pouvait pas repérer d'un
+// coup d'œil ce qui demandait une action. Trois familles seulement :
+//   warn    → la balle est dans le camp du client ou de l'agent
+//   info    → ça avance, rien à faire
+//   ok/done → acquis ou clos
+const STATUTS = {
+    soumis:          { label: 'Soumis',          variante: 'warn' },
+    en_verification: { label: 'En vérification', variante: 'info' },
+    devis_envoye:    { label: 'Devis envoyé',    variante: 'warn' },
+    acompte_paye:    { label: 'Acompte payé',    variante: 'neutral' },
+    achete:          { label: 'Acheté',          variante: 'neutral' },
+    en_entrepot:     { label: 'En entrepôt',     variante: 'neutral' },
+    pese:            { label: 'Pesé',            variante: 'warn' },
+    solde_du:        { label: 'Solde dû',        variante: 'warn' },
+    solde_paye:      { label: 'Solde payé',      variante: 'neutral' },
+    en_livraison:    { label: 'En livraison',    variante: 'info' },
+    livre:           { label: 'Livré',           variante: 'ok' },
+    // Annulé en gris et non en rouge : un dossier clos n'est pas une alerte,
+    // et le rouge est réservé à la marque et aux actions.
+    annule:          { label: 'Annulé',          variante: 'done' },
+};
+
+const OPTIONS_STATUT = Object.entries(STATUTS).map(([valeur, { label }]) => ({ valeur, label }));
 
 const Conversations = () => {
     const { axios } = useAppContext();
@@ -55,176 +77,197 @@ const Conversations = () => {
         loadData();
     }, [filterStatus]);
 
-    const getStatusBadge = (statut) => {
-        const config = {
-            soumis: { label: 'Soumis', className: 'bg-gray-100 text-gray-700' },
-            en_verification: { label: 'En vérification', className: 'bg-blue-100 text-blue-700' },
-            devis_envoye: { label: 'Devis envoyé', className: 'bg-amber-100 text-amber-700' },
-            acompte_paye: { label: 'Acompte payé', className: 'bg-green-100 text-green-700' },
-            achete: { label: 'Acheté', className: 'bg-purple-100 text-purple-700' },
-            en_entrepot: { label: 'En entrepôt', className: 'bg-indigo-100 text-indigo-700' },
-            pese: { label: 'Pesé', className: 'bg-cyan-100 text-cyan-700' },
-            solde_du: { label: 'Solde dû', className: 'bg-amber-100 text-amber-700' },
-            solde_paye: { label: 'Solde payé', className: 'bg-green-100 text-green-700' },
-            en_livraison: { label: 'En livraison', className: 'bg-blue-100 text-blue-700' },
-            livre: { label: 'Livré', className: 'bg-emerald-100 text-emerald-700' },
-            annule: { label: 'Annulé', className: 'bg-red-100 text-red-700' },
-        };
-        return config[statut] || { label: statut, className: 'bg-gray-100 text-gray-700' };
-    };
-
-    const filteredConversations = conversations.filter(conv =>
-        conv.numeroSuivi?.includes(searchTerm) ||
-        conv.userId?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        conv.userId?.email?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const q = searchTerm.trim().toLowerCase();
+    const filteredConversations = q
+        ? conversations.filter((conv) =>
+            conv.numeroSuivi?.toLowerCase().includes(q) ||
+            conv.userId?.name?.toLowerCase().includes(q) ||
+            conv.userId?.email?.toLowerCase().includes(q)
+        )
+        : conversations;
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-ivory-200 flex items-center justify-center">
-                <Loader2 className="animate-spin text-burgundy-600" size={40} />
+            <div className="min-h-screen bg-ink-50 flex flex-col items-center justify-center gap-3">
+                <div className="rs-typing"><span /><span /><span /></div>
+                <p className="text-[13px] text-ink-400">Chargement des conversations…</p>
             </div>
         );
     }
 
+    const estAdmin = moi?.role === 'admin';
+
     return (
-        <div className="min-h-screen bg-ivory-200">
-            <div className="bg-burgundy-600 text-ivory-200 sticky top-0 z-10">
-                <div className="max-w-6xl mx-auto px-4 py-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <MessageSquare size={24} />
-                            <div>
-                                <h1 className="text-lg font-bold">Conversations Shein</h1>
-                                <p className="text-sm text-blush-300">
-                                    {moi?.role === 'admin' ? 'Gestion des conversations' : 'Mes conversations'}
+        <div className="min-h-screen bg-ink-50">
+
+            {/* ── En-tête ────────────────────────────────────────────────── */}
+            {/* Le bandeau rouge plein d'origine violait la règle « l'accent ne
+                dépasse jamais ~15 % de l'écran » : une barre rouge sur toute la
+                largeur écrase les boutons d'action de la page. */}
+            <header className="sticky top-0 z-10 rs-surface border-b border-ink-100">
+                <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 shrink-0 rounded-full bg-ramses-50 flex items-center justify-center">
+                            <MessageSquare size={19} className="text-ramses-600" />
+                        </div>
+                        <div className="min-w-0">
+                            <h1 className="rs-h2 truncate">Conversations SHEIN</h1>
+                            <p className="text-[12px] text-ink-400">
+                                {estAdmin ? 'Toutes les conversations' : 'Mes conversations assignées'}
+                            </p>
+                        </div>
+                    </div>
+                    <span className="rs-badge rs-badge--neutral shrink-0">
+                        {estAdmin ? 'Admin' : 'Assistant'}
+                    </span>
+                </div>
+            </header>
+
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5">
+
+                {/* ── Indicateurs ────────────────────────────────────────── */}
+                {/* « Sans agent » porte le rail rouge : c'est la seule ligne du
+                    tableau de bord sur laquelle l'admin doit agir. Les autres
+                    sont des constats. */}
+                {stats && (
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5 mb-5">
+                        {[
+                            { cle: 'total',     label: 'Total',      valeur: stats.total,     ton: 'text-ink-900' },
+                            { cle: 'attente',   label: 'En attente', valeur: stats.enAttente, ton: 'text-warn-500' },
+                            { cle: 'cours',     label: 'En cours',   valeur: stats.enCours,   ton: 'text-info-500' },
+                            { cle: 'termines',  label: 'Terminés',   valeur: stats.termines,  ton: 'text-ok-500' },
+                            { cle: 'sansAgent', label: 'Sans agent', valeur: stats.sansAgent, ton: 'text-ramses-600', action: true },
+                        ].map((s) => (
+                            <div key={s.cle} className={`rs-card ${s.action && s.valeur > 0 ? 'rs-card--action' : ''} py-3`}>
+                                <p className="rs-label text-ink-400">{s.label}</p>
+                                <p className={`text-[26px] font-extrabold tracking-tight tabular-nums mt-1.5 ${s.ton}`}>
+                                    {s.valeur}
                                 </p>
                             </div>
-                        </div>
-                        <span className="text-xs bg-blush-200/20 px-3 py-1 rounded-full">
-                            {moi?.role === 'admin' ? 'Admin' : 'Assistant'}
-                        </span>
-                    </div>
-                </div>
-            </div>
-
-            <div className="max-w-6xl mx-auto px-4 py-6">
-                {stats && (
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-                        <div className="bg-white rounded-xl p-3 shadow-sm border border-blush-300 text-center">
-                            <p className="text-xs text-gray-500">Total</p>
-                            <p className="text-lg font-bold text-gray-800">{stats.total}</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-3 shadow-sm border border-blush-300 text-center">
-                            <p className="text-xs text-gray-500">En attente</p>
-                            <p className="text-lg font-bold text-amber-600">{stats.enAttente}</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-3 shadow-sm border border-blush-300 text-center">
-                            <p className="text-xs text-gray-500">En cours</p>
-                            <p className="text-lg font-bold text-blue-600">{stats.enCours}</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-3 shadow-sm border border-blush-300 text-center">
-                            <p className="text-xs text-gray-500">Terminés</p>
-                            <p className="text-lg font-bold text-green-600">{stats.termines}</p>
-                        </div>
-                        <div className="bg-white rounded-xl p-3 shadow-sm border border-blush-300 text-center">
-                            <p className="text-xs text-gray-500">Sans agent</p>
-                            <p className="text-lg font-bold text-red-600">{stats.sansAgent}</p>
-                        </div>
+                        ))}
                     </div>
                 )}
 
-                <div className="bg-white rounded-xl shadow-sm border border-blush-300 p-4 mb-6">
-                    <div className="flex flex-col sm:flex-row gap-3">
-                        <div className="relative flex-1">
-                            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Rechercher par numéro, client..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-9 pr-3 py-2 border border-blush-300 rounded-lg text-sm outline-none focus:border-burgundy-500 focus:ring-1 focus:ring-burgundy-500"
-                            />
-                        </div>
-                        <select
-                            value={filterStatus}
-                            onChange={(e) => setFilterStatus(e.target.value)}
-                            className="px-3 py-2 border border-blush-300 rounded-lg text-sm outline-none focus:border-burgundy-500 focus:ring-1 focus:ring-burgundy-500"
-                        >
-                            <option value="">Tous les statuts</option>
-                            <option value="soumis">Soumis</option>
-                            <option value="en_verification">En vérification</option>
-                            <option value="devis_envoye">Devis envoyé</option>
-                            <option value="acompte_paye">Acompte payé</option>
-                            <option value="achete">Acheté</option>
-                            <option value="en_entrepot">En entrepôt</option>
-                            <option value="pese">Pesé</option>
-                            <option value="solde_du">Solde dû</option>
-                            <option value="solde_paye">Solde payé</option>
-                            <option value="en_livraison">En livraison</option>
-                            <option value="livre">Livré</option>
-                            <option value="annule">Annulé</option>
-                        </select>
+                {/* ── Recherche et filtre ────────────────────────────────── */}
+                <div className="flex flex-col sm:flex-row gap-2.5 mb-5">
+                    <div className="relative flex-1">
+                        <Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none" />
+                        <input
+                            type="text"
+                            placeholder="Numéro de suivi, nom ou e-mail du client…"
+                            aria-label="Rechercher une conversation"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="rs-input pl-11 pr-11"
+                        />
+                        {searchTerm && (
+                            <button
+                                type="button"
+                                onClick={() => setSearchTerm('')}
+                                className="absolute right-1 top-1/2 -translate-y-1/2 rs-icon-btn"
+                                aria-label="Effacer la recherche"
+                            >
+                                <X size={16} />
+                            </button>
+                        )}
                     </div>
+
+                    <select
+                        value={filterStatus}
+                        onChange={(e) => setFilterStatus(e.target.value)}
+                        aria-label="Filtrer par statut"
+                        className="rs-input sm:w-56"
+                    >
+                        <option value="">Tous les statuts</option>
+                        {OPTIONS_STATUT.map((o) => (
+                            <option key={o.valeur} value={o.valeur}>{o.label}</option>
+                        ))}
+                    </select>
                 </div>
 
+                {/* ── Liste ──────────────────────────────────────────────── */}
                 {filteredConversations.length === 0 ? (
-                    <div className="bg-white rounded-xl shadow-sm border border-blush-300 p-12 text-center">
-                        <MessageSquare className="mx-auto text-gray-400 mb-3" size={48} />
-                        <h3 className="text-lg font-medium text-gray-800">Aucune conversation</h3>
-                        <p className="text-sm text-gray-500 mt-1">
-                            {moi?.role === 'assistant_shein'
-                                ? 'Aucune conversation ne vous est assignée'
-                                : 'Aucune conversation en attente'}
+                    <div className="rs-card text-center py-14">
+                        <div className="w-16 h-16 rounded-full bg-ink-50 flex items-center justify-center mx-auto mb-4">
+                            <MessageSquare size={26} className="text-ink-400" />
+                        </div>
+                        <p className="rs-h2 mb-1.5">Aucune conversation</p>
+                        <p className="text-[13px] text-ink-400 max-w-[340px] mx-auto">
+                            {searchTerm
+                                ? <>Rien ne correspond à « {searchTerm} ».</>
+                                : moi?.role === 'assistant_shein'
+                                    ? "Aucune conversation ne vous est assignée pour l'instant."
+                                    : 'Aucune conversation ne correspond à ce filtre.'}
                         </p>
+                        {(searchTerm || filterStatus) && (
+                            <button
+                                onClick={() => { setSearchTerm(''); setFilterStatus(''); }}
+                                className="rs-btn rs-btn--secondary mt-5"
+                            >
+                                Réinitialiser les filtres
+                            </button>
+                        )}
                     </div>
                 ) : (
-                    <div className="bg-white rounded-xl shadow-sm border border-blush-300 overflow-hidden">
-                        <div className="divide-y divide-blush-200">
-                            {filteredConversations.map((conv) => {
-                                const status = getStatusBadge(conv.statut);
-                                return (
-                                    <div
-                                        key={conv._id}
-                                        className="px-4 py-3 hover:bg-blush-50 transition cursor-pointer"
+                    <ul className="rs-card p-0 overflow-hidden list-none m-0">
+                        {filteredConversations.map((conv, i) => {
+                            const statut = STATUTS[conv.statut] || { label: conv.statut, variante: 'neutral' };
+                            const sansAgent = !conv.agentAssigneld;
+
+                            return (
+                                <li key={conv._id} className={i > 0 ? 'border-t border-ink-100' : ''}>
+                                    {/* <button> et non <div onClick> : la version
+                                        d'origine n'était ni focalisable au clavier
+                                        ni annoncée comme cliquable. */}
+                                    <button
+                                        type="button"
                                         onClick={() => navigate(`/assistant/conversation/${conv._id}`)}
+                                        className="w-full text-left px-4 py-3.5 flex items-center gap-3 hover:bg-ink-50 transition focus-visible:outline-none focus-visible:bg-ink-50"
                                     >
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-3">
-                                                    <Package size={18} className="text-gray-400" />
-                                                    <div>
-                                                        <p className="text-sm font-medium text-gray-800">
-                                                            #{conv.numeroSuivi || conv._id.slice(-8)}
-                                                        </p>
-                                                        <div className="flex items-center gap-3 text-xs text-gray-500 mt-0.5">
-                                                            <span className="flex items-center gap-1">
-                                                                <User size={12} /> {conv.userId?.name || 'Client'}
-                                                            </span>
-                                                            <span className="flex items-center gap-1">
-                                                                <Mail size={12} /> {conv.userId?.email || 'N/A'}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-4">
-                                                {conv.agentAssigneld && (
-                                                    <span className="text-xs text-gray-400">
-                                                        {conv.agentAssigneld.nom}
+                                        <div className="w-10 h-10 shrink-0 rounded-full bg-ink-50 flex items-center justify-center">
+                                            <Package size={18} className="text-ink-500" />
+                                        </div>
+
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-[14px] font-extrabold text-ink-900 tracking-tight truncate">
+                                                {conv.numeroSuivi || conv._id.slice(-8)}
+                                            </p>
+                                            <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 text-[12px] text-ink-500 mt-1">
+                                                <span className="flex items-center gap-1.5 min-w-0">
+                                                    <User size={13} className="shrink-0" />
+                                                    <span className="truncate">{conv.userId?.name || 'Client'}</span>
+                                                </span>
+                                                {conv.userId?.email && (
+                                                    <span className="flex items-center gap-1.5 min-w-0">
+                                                        <Mail size={13} className="shrink-0" />
+                                                        <span className="truncate">{conv.userId.email}</span>
                                                     </span>
                                                 )}
-                                                <span className={`text-xs px-2 py-1 rounded-full font-medium ${status.className}`}>
-                                                    {status.label}
-                                                </span>
-                                                <ChevronRight size={18} className="text-gray-400" />
                                             </div>
                                         </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
+
+                                        <div className="flex items-center gap-3 shrink-0">
+                                            {estAdmin && (
+                                                sansAgent ? (
+                                                    <span className="rs-label text-ramses-600 hidden sm:inline">
+                                                        Non assigné
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[12px] text-ink-400 hidden sm:inline truncate max-w-[120px]">
+                                                        {conv.agentAssigneld.nom}
+                                                    </span>
+                                                )
+                                            )}
+                                            <span className={`rs-badge rs-badge--${statut.variante}`}>
+                                                {statut.label}
+                                            </span>
+                                            <ChevronRight size={18} className="text-ink-300" />
+                                        </div>
+                                    </button>
+                                </li>
+                            );
+                        })}
+                    </ul>
                 )}
             </div>
         </div>
