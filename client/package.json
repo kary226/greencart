@@ -13,6 +13,8 @@
     "@react-oauth/google": "^0.12.1",
     "@react-pdf/renderer": "^4.5.1",
     "@tailwindcss/vite": "^4.0.16",
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
     "axios": "^1.8.4",
     "chart.js": "^4.5.1",
     "dompurify": "^3.4.11",

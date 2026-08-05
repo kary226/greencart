@@ -27,6 +27,10 @@ import staffRouter from './routes/staffRoute.js';
 import { geniuspayWebhook } from './controllers/geniuspayController.js';
 import dns from 'dns';
 
+// [PHASE 3 - OBSERVABILITÉ] Mesure des temps de réponse
+import requestMetrics from './middlewares/requestMetrics.js';
+import metricsRouter from './routes/metricsRoute.js';
+
 // PHASE 3 - Routes Commerçant
 import boutiqueRouter from './routes/boutiqueRoute.js';
 import walletRouter from './routes/walletRoute.js';
@@ -43,6 +47,13 @@ dns.setServers(['1.1.1.1', '8.8.8.8']);
 
 await connectDB()
 await connectCloudinary()
+
+// [PHASE 3 - OBSERVABILITÉ] Monté en tout premier pour que la durée mesurée
+// couvre réellement l'intégralité du traitement (CORS, compression, parsing
+// du body, contrôleur), et pas seulement la partie métier. Le middleware
+// n'ajoute rien au chemin critique : il ne fait qu'enregistrer un timestamp
+// et pose un listener exécuté après l'envoi de la réponse.
+app.use(requestMetrics());
 
 // Configuration CORS complète
 const allowedOrigins = [
@@ -134,6 +145,9 @@ app.use('/api/retraits', retraitRouter);
 app.use('/api/shein-cart/admin', colisSheinAdminRouter);
 app.use('/api/message-colis', messageColisRouter);
 
+// [PHASE 3 - OBSERVABILITÉ] Lecture des métriques (protégée, voir le routeur)
+app.use('/api/metrics', metricsRouter);
+
 // ✅ AJOUT : Gestionnaire d'erreur global pour les uploads
 app.use((err, req, res, next) => {
     // Erreur CORS
@@ -158,10 +172,22 @@ app.use((err, req, res, next) => {
     }
     
     // Erreur inattendue
-    console.error('❌ Erreur serveur non gérée:', err);
-    res.status(500).json({ 
-        success: false, 
-        message: 'Erreur interne du serveur' 
+    // [PHASE 3 - OBSERVABILITÉ] Log structuré en plus du message lisible :
+    // même format `type`/`ts`/`route` que les logs de requêtes, pour pouvoir
+    // filtrer `type=error` dans les logs Vercel et corréler un pic d'erreurs
+    // avec un pic de latence sur la même route.
+    console.error(JSON.stringify({
+        type: 'error',
+        ts: new Date().toISOString(),
+        method: req.method,
+        route: req.originalUrl?.split('?')[0],
+        name: err?.name,
+        message: err?.message,
+        stack: err?.stack,
+    }));
+    res.status(500).json({
+        success: false,
+        message: 'Erreur interne du serveur'
     });
 });
 

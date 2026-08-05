@@ -12,11 +12,34 @@ import rateLimit from 'express-rate-limit';
 // Le message et le format de réponse suivent la même convention que les
 // limiteurs déjà en place ailleurs dans le code.
 
+// [PHASE 3 - OBSERVABILITÉ] Dérogation pour les tests de charge.
+//
+// Un test k6 à 100-500 utilisateurs simultanés part d'une seule machine,
+// donc d'une seule IP : sans dérogation, il se ferait limiter dès la
+// première seconde et ne mesurerait plus que la vitesse du rate limiter.
+//
+// Deux verrous cumulatifs, tous deux explicites :
+//   - LOADTEST_TOKEN doit être défini côté serveur (absent = aucune
+//     dérogation possible, quoi qu'envoie le client) ;
+//   - la requête doit porter l'en-tête `x-loadtest-token` avec cette valeur.
+//
+// ⚠️ Ne JAMAIS définir LOADTEST_TOKEN sur le projet Vercel de production :
+// cette variable n'a de sens que sur un environnement de préproduction dédié
+// aux tests. Ne s'applique volontairement pas aux limiteurs d'authentification
+// (login, activation, mot de passe oublié), qui restent intouchables — les
+// scripts k6 s'authentifient une seule fois dans leur phase `setup()`.
+const isLoadTestRequest = (req) => {
+    const configured = process.env.LOADTEST_TOKEN;
+    if (!configured) return false;
+    return req.get('x-loadtest-token') === configured;
+};
+
 const buildLimiter = (windowMs, max) => rateLimit({
     windowMs,
     max,
     standardHeaders: true,
     legacyHeaders: false,
+    skip: isLoadTestRequest,
     message: { success: false, message: 'Trop de tentatives, réessayez plus tard.' },
 });
 
