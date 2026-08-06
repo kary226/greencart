@@ -1,0 +1,474 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   Console d'administration Colis SHEIN — habillage RAMSES.
+
+   Extrait du bloc <style> inline de pages/seller/ColisSheinManager.jsx et
+   réaligné sur les jetons de DESIGN.md. Le balisage JSX n'a pas changé :
+   les 133 classes `csm-*` gardent exactement les mêmes noms, seule leur
+   définition est réécrite. La logique de la console (états, modales,
+   chat, pesée, taux) est donc intacte.
+
+   Corrections apportées au passage :
+   - la police 'DM Sans' n'a jamais été chargée par le projet ; la règle
+     tombait silencieusement en fallback système. Elle est supprimée :
+     l'écran hérite d'Inter comme le reste du site.
+   - les `opacity: .4` sur les boutons inactifs sont remplacés par des
+     couleurs dédiées (une opacité fait passer le libellé sous le seuil AA).
+   - les champs de saisie passent à 16px sous 768px, sinon iOS zoome au
+     focus — la console a un mode mobile, donc le cas se produit.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.csm-page { font-family: inherit; }
+
+/* ---- Barre des taux de change ------------------------------------------ */
+
+.csm-taux-bar {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  background: var(--color-ink-0);
+  border-bottom: 1px solid var(--color-ink-100);
+  padding: 12px 20px;
+}
+.csm-taux-label {
+  font-size: 10px; font-weight: 800; color: var(--color-ink-900);
+  text-transform: uppercase; letter-spacing: .08em;
+}
+.csm-taux-bar label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-ink-500); }
+.csm-taux-bar input {
+  width: 76px; padding: 7px 10px;
+  border: 1.5px solid var(--color-ink-200); border-radius: 8px;
+  font-family: inherit; font-size: 13px; color: var(--color-ink-900);
+  font-variant-numeric: tabular-nums; outline: none;
+}
+.csm-taux-bar input:focus { border-color: var(--color-ramses-600); box-shadow: 0 0 0 3px rgba(227,30,36,.12); }
+.csm-taux-save {
+  background: var(--color-ramses-600); color: #fff; border: none;
+  border-radius: 999px; padding: 8px 16px;
+  font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: background-color .15s ease;
+}
+.csm-taux-save:hover:not(:disabled) { background: var(--color-ramses-700); }
+.csm-taux-save:disabled { background: var(--color-ink-200); color: var(--color-ink-400); cursor: not-allowed; }
+.csm-taux-warning { font-size: 11.5px; font-weight: 600; color: var(--color-warn-500); }
+.csm-horaires-info { font-size: 11.5px; color: var(--color-ink-400); }
+
+/* ---- Onglets de vue ---------------------------------------------------- */
+
+.csm-tabs { display: flex; gap: 6px; padding: 12px 20px 0; }
+.csm-tab {
+  background: var(--color-ink-50); border: none; border-radius: 999px;
+  padding: 9px 16px; font-family: inherit; font-size: 12.5px; font-weight: 600;
+  color: var(--color-ink-500); cursor: pointer; transition: background-color .15s ease, color .15s ease;
+}
+.csm-tab:hover { background: var(--color-ink-100); color: var(--color-ink-800); }
+.csm-tab.active { background: var(--color-ink-900); color: #fff; }
+
+/* ---- Vue livraisons ---------------------------------------------------- */
+
+.csm-livraisons { padding: 20px; }
+.csm-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.csm-livraisons-table {
+  width: 100%; min-width: 480px; border-collapse: collapse;
+  background: var(--color-ink-0); border: 1px solid var(--color-ink-100);
+  border-radius: 12px; overflow: hidden;
+}
+.csm-livraisons-table th {
+  text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .08em;
+  font-weight: 800; color: var(--color-ink-400); padding: 11px 14px; background: var(--color-ink-50);
+}
+.csm-livraisons-table td {
+  padding: 11px 14px; font-size: 13px; color: var(--color-ink-600);
+  border-top: 1px solid var(--color-ink-100);
+}
+.csm-retard { color: var(--color-warn-500); font-weight: 700; }
+.csm-aujourdhui { color: var(--color-ramses-600); font-weight: 700; }
+
+.csm-back-mobile {
+  display: none; background: none; border: none;
+  color: var(--color-ramses-600); font-family: inherit;
+  font-size: 13px; font-weight: 600; padding: 0 0 12px; cursor: pointer;
+}
+
+.csm-livraison-info {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: var(--color-ok-50); color: var(--color-ok-500);
+  border-radius: 12px; padding: 11px 14px; margin-bottom: 14px;
+  font-size: 12.5px; font-weight: 500;
+}
+.csm-livraison-info button { flex-shrink: 0; padding: 6px 12px !important; font-size: 11.5px !important; }
+.csm-livraison-info.csm-arrivee-confirmee { background: var(--color-ink-50); color: var(--color-ink-500); }
+
+.csm-btn-full { width: 100%; margin-bottom: 8px; text-align: center; }
+.csm-modal-hint { font-size: 12px; color: var(--color-ink-400); margin: -6px 0 14px; }
+
+/* ---- Deux colonnes : liste + détail ------------------------------------ */
+
+.csm-wrap { display: flex; gap: 20px; padding: 20px; }
+.csm-liste { width: 280px; flex-shrink: 0; }
+.csm-liste h2 { font-size: 16px; font-weight: 800; letter-spacing: -.01em; color: var(--color-ink-900); margin: 0 0 10px; }
+.csm-liste select {
+  width: 100%; padding: 10px; border-radius: 10px;
+  border: 1.5px solid var(--color-ink-200); background: var(--color-ink-0);
+  font-family: inherit; font-size: 13px; color: var(--color-ink-800);
+  margin-bottom: 10px; outline: none;
+}
+.csm-liste select:focus { border-color: var(--color-ramses-600); box-shadow: 0 0 0 3px rgba(227,30,36,.12); }
+
+.csm-item {
+  display: flex; flex-direction: column; width: 100%; text-align: left;
+  background: var(--color-ink-0); border: 1px solid var(--color-ink-100);
+  border-radius: 12px; padding: 11px 13px; margin-bottom: 8px; cursor: pointer;
+  transition: border-color .15s ease, background-color .15s ease;
+}
+.csm-item:hover { border-color: var(--color-ink-200); background: var(--color-ink-50); }
+/* Sélection marquée par le rail rouge, comme les cartes « action » du système. */
+.csm-item.active {
+  border-color: var(--color-ink-100);
+  border-left: 3px solid var(--color-ramses-600);
+  background: var(--color-ink-0);
+}
+.csm-item-top { display: flex; align-items: center; gap: 6px; }
+.csm-item-numero { font-size: 12.5px; font-weight: 800; letter-spacing: -.01em; color: var(--color-ink-900); }
+.csm-item-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-ramses-600); flex-shrink: 0; }
+.csm-item-client { font-size: 12px; color: var(--color-ink-500); }
+.csm-item-statut { font-size: 11px; font-weight: 600; color: var(--color-ink-400); margin-top: 3px; }
+.csm-empty { color: var(--color-ink-400); font-size: 13px; }
+
+/* ---- Panneau de détail ------------------------------------------------- */
+
+.csm-detail {
+  flex: 1; background: var(--color-ink-0);
+  border: 1px solid var(--color-ink-100); border-radius: 16px; padding: 18px;
+  box-shadow: 0 1px 2px rgba(11,11,13,.05);
+}
+.csm-detail-header { display: flex; align-items: center; gap: 10px; }
+.csm-badge {
+  font-size: 11px; font-weight: 700; background: var(--color-ink-100);
+  color: var(--color-ink-600); padding: 4px 10px; border-radius: 999px;
+}
+.csm-lien a { font-size: 12px; color: var(--color-ramses-600); font-weight: 500; }
+
+.csm-captures { display: flex; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
+.csm-captures img {
+  width: 70px; height: 70px; object-fit: cover;
+  border-radius: 10px; border: 1px solid var(--color-ink-100);
+}
+
+/* ---- Édition des articles ---------------------------------------------- */
+
+.csm-article-row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+.csm-nom, .csm-prix, .csm-qte {
+  padding: 8px 10px; border: 1.5px solid var(--color-ink-200); border-radius: 8px;
+  font-family: inherit; font-size: 12.5px; color: var(--color-ink-900);
+  background: var(--color-ink-0); outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.csm-nom:focus, .csm-prix:focus, .csm-qte:focus {
+  border-color: var(--color-ramses-600); box-shadow: 0 0 0 3px rgba(227,30,36,.12);
+}
+.csm-nom { flex: 1; }
+.csm-prix, .csm-qte { width: 64px; font-variant-numeric: tabular-nums; }
+.csm-souligne {
+  width: 74px; text-align: right; font-size: 12.5px; font-weight: 700;
+  color: var(--color-ink-900); font-variant-numeric: tabular-nums;
+}
+
+/* ---- Boutons ----------------------------------------------------------- */
+
+.csm-actions { display: flex; gap: 10px; margin: 14px 0; }
+.csm-btn-primary,
+.csm-btn-secondary {
+  border: 1.5px solid transparent; border-radius: 999px; padding: 10px 18px;
+  font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease, transform .1s ease;
+}
+.csm-btn-primary:active:not(:disabled),
+.csm-btn-secondary:active:not(:disabled) { transform: scale(.98); }
+.csm-btn-primary { background: var(--color-ink-900); color: #fff; }
+.csm-btn-primary:hover:not(:disabled) { background: var(--color-ink-700); }
+.csm-btn-secondary { background: var(--color-ink-0); color: var(--color-ink-800); border-color: var(--color-ink-200); }
+.csm-btn-secondary:hover:not(:disabled) { background: var(--color-ink-50); }
+.csm-btn-primary:disabled,
+.csm-btn-secondary:disabled { background: var(--color-ink-200); color: var(--color-ink-400); border-color: transparent; cursor: not-allowed; }
+
+/* L'action guidée est LE bouton principal de la console : seul rouge plein
+   de l'écran, conformément à « une seule action primaire ». */
+.csm-btn-guide {
+  display: block; width: 100%; background: var(--color-ramses-600); color: #fff;
+  border: none; border-radius: 12px; padding: 13px;
+  font-family: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer; margin: 12px 0; transition: background-color .15s ease;
+}
+.csm-btn-guide:hover:not(:disabled) { background: var(--color-ramses-700); }
+.csm-btn-guide:disabled { background: var(--color-ink-200); color: var(--color-ink-400); cursor: not-allowed; }
+
+.csm-statuts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.csm-statut-btn {
+  font-size: 11px; font-weight: 600; padding: 6px 11px; border-radius: 999px;
+  border: 1px solid var(--color-ink-200); background: var(--color-ink-0);
+  color: var(--color-ink-600); font-family: inherit; cursor: pointer;
+  transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+}
+.csm-statut-btn:hover { background: var(--color-ink-50); }
+.csm-statut-btn.active { background: var(--color-ink-900); color: #fff; border-color: var(--color-ink-900); }
+
+.csm-fcfa { font-size: 13px; font-weight: 700; color: var(--color-ramses-600); font-variant-numeric: tabular-nums; }
+
+/* ---- Étape courante et totaux ------------------------------------------ */
+
+.csm-etape-actuelle { background: var(--color-ink-50); border-radius: 12px; padding: 11px 14px; margin-bottom: 14px; }
+.csm-etape-label { font-size: 10px; font-weight: 800; color: var(--color-ink-400); text-transform: uppercase; letter-spacing: .08em; }
+.csm-etape-value { font-size: 14px; font-weight: 800; letter-spacing: -.01em; color: var(--color-ink-900); margin: 3px 0 0; }
+
+.csm-devise-row { display: flex; align-items: center; gap: 8px; margin: 10px 0; }
+.csm-devise-row label { font-size: 12.5px; color: var(--color-ink-500); }
+.csm-devise-row select {
+  padding: 8px 10px; border: 1.5px solid var(--color-ink-200); border-radius: 8px;
+  font-family: inherit; font-size: 12.5px; color: var(--color-ink-900);
+  background: var(--color-ink-0); outline: none;
+}
+.csm-devise-row select:focus { border-color: var(--color-ramses-600); box-shadow: 0 0 0 3px rgba(227,30,36,.12); }
+.csm-devise-warning { font-size: 11px; font-weight: 600; color: var(--color-warn-500); }
+
+.csm-apercu-total { display: flex; gap: 20px; background: var(--color-ink-50); border-radius: 12px; padding: 13px 14px; margin: 10px 0; }
+.csm-apercu-total > div { flex: 1; }
+.csm-apercu-total span { display: block; font-size: 10px; font-weight: 800; color: var(--color-ink-400); text-transform: uppercase; letter-spacing: .08em; }
+.csm-apercu-total strong { font-size: 16px; font-weight: 800; letter-spacing: -.02em; color: var(--color-ink-900); font-variant-numeric: tabular-nums; }
+.csm-fcfa-manquant { color: var(--color-warn-500) !important; font-size: 12px !important; }
+
+.csm-attente { font-size: 12.5px; color: var(--color-ink-500); background: var(--color-ink-50); border-radius: 12px; padding: 11px 14px; margin: 12px 0; }
+
+.csm-avance { margin: 14px 0; border: 1px solid var(--color-ink-100); border-radius: 12px; padding: 11px 14px; }
+.csm-avance summary { font-size: 12px; font-weight: 600; color: var(--color-ink-500); cursor: pointer; }
+.csm-avance-titre { font-size: 11.5px; font-weight: 600; color: var(--color-ink-400); margin: 10px 0 6px; }
+
+/* ---- Pesée et acompte -------------------------------------------------- */
+
+.csm-pesee-field { margin-bottom: 10px; }
+.csm-pesee-field label { display: block; font-size: 11.5px; font-weight: 600; color: var(--color-ink-500); margin-bottom: 5px; }
+.csm-pesee-field input {
+  width: 100%; padding: 10px; border: 1.5px solid var(--color-ink-200); border-radius: 10px;
+  font-family: inherit; font-size: 13px; color: var(--color-ink-900);
+  font-variant-numeric: tabular-nums; outline: none;
+}
+.csm-pesee-field input:focus { border-color: var(--color-ramses-600); box-shadow: 0 0 0 3px rgba(227,30,36,.12); }
+.csm-pesee-total {
+  text-align: center; font-size: 14px; font-weight: 700; color: var(--color-ink-900);
+  margin: 12px 0; padding: 11px; background: var(--color-ink-50); border-radius: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.csm-pesee-actions { display: flex; gap: 10px; }
+.csm-pesee-actions button { flex: 1; }
+
+.csm-acompte-row { margin-bottom: 8px; }
+.csm-acompte-row label { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--color-ink-500); }
+.csm-acompte-row input {
+  width: 56px; padding: 7px; border: 1.5px solid var(--color-ink-200); border-radius: 8px;
+  font-family: inherit; font-size: 12.5px; color: var(--color-ink-900);
+  font-variant-numeric: tabular-nums; outline: none;
+}
+.csm-acompte-row input:focus { border-color: var(--color-ramses-600); box-shadow: 0 0 0 3px rgba(227,30,36,.12); }
+
+/* ---- Chat -------------------------------------------------------------- */
+
+.csm-chat { border: 1px solid var(--color-ink-100); border-radius: 14px; overflow: hidden; }
+.csm-chat-messages {
+  max-height: 240px; overflow-y: auto; display: flex; flex-direction: column;
+  gap: 6px; padding: 12px; background: var(--color-ink-50);
+}
+.csm-msg { padding: 8px 12px; font-size: 12.5px; line-height: 1.45; max-width: 75%; position: relative; }
+.csm-msg p { margin: 0; }
+.csm-msg-heure { display: block; font-size: 10px; opacity: .7; margin-top: 4px; text-align: right; font-variant-numeric: tabular-nums; }
+.csm-msg-img { width: 100px; border-radius: 10px; display: block; margin-bottom: 5px; cursor: zoom-in; }
+/* Coin à 6px du côté de l'émetteur — même repère que le chat client. */
+.csm-msg.client {
+  background: var(--color-ink-0); color: var(--color-ink-700);
+  border: 1px solid var(--color-ink-100);
+  align-self: flex-start; border-radius: 18px 18px 18px 6px;
+}
+.csm-msg.agent {
+  background: var(--color-ramses-600); color: #fff;
+  align-self: flex-end; border-radius: 18px 18px 6px 18px;
+}
+
+.csm-badge-systeme {
+  align-self: center; background: var(--color-ink-100); color: var(--color-ink-500);
+  font-size: 11px; font-weight: 500; padding: 5px 12px; border-radius: 999px; margin: 2px 0;
+}
+
+.csm-devis-card {
+  align-self: center; width: 85%; background: var(--color-ink-0);
+  border: 1px solid var(--color-ink-100); border-left: 3px solid var(--color-ramses-600);
+  border-radius: 12px; padding: 10px 12px; text-align: center;
+}
+.csm-devis-card span { display: block; font-size: 10px; font-weight: 800; color: var(--color-ramses-600); text-transform: uppercase; letter-spacing: .08em; }
+.csm-devis-card strong { font-size: 16px; font-weight: 800; letter-spacing: -.02em; color: var(--color-ink-900); font-variant-numeric: tabular-nums; }
+.csm-devis-card em { display: block; font-size: 10px; color: var(--color-ink-400); font-style: normal; margin-top: 3px; }
+
+.csm-avis-card-admin {
+  display: flex; flex-direction: column; gap: 3px;
+  background: var(--color-warn-50); border: 1px solid var(--color-warn-500);
+  border-radius: 12px; padding: 9px 12px; font-size: 12px;
+  align-self: flex-start; max-width: 240px;
+}
+.csm-avis-card-admin strong { color: var(--color-warn-500); }
+.csm-avis-card-admin em { color: var(--color-ink-400); font-style: normal; }
+.csm-quick-avis {
+  background: var(--color-warn-50) !important;
+  border-color: var(--color-warn-500) !important;
+  color: var(--color-warn-500) !important;
+  font-weight: 600 !important;
+}
+
+/* ---- Vue avis ---------------------------------------------------------- */
+
+.csm-avis-overview { padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+.csm-avis-summary {
+  display: flex; gap: 32px; background: var(--color-ink-0);
+  border: 1px solid var(--color-ink-100); border-radius: 16px; padding: 20px; flex-wrap: wrap;
+  box-shadow: 0 1px 2px rgba(11,11,13,.05);
+}
+.csm-avis-moyenne { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 120px; }
+.csm-avis-moyenne-chiffre { font-size: 40px; font-weight: 800; letter-spacing: -.03em; color: var(--color-ink-900); line-height: 1; font-variant-numeric: tabular-nums; }
+.csm-avis-moyenne-etoiles { font-size: 18px; letter-spacing: 2px; }
+.csm-avis-moyenne-etoiles .pleine { color: var(--color-ramses-600); }
+.csm-avis-moyenne-etoiles .vide { color: var(--color-ink-200); }
+.csm-avis-moyenne-total { font-size: 11.5px; color: var(--color-ink-400); }
+
+.csm-avis-distribution { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 6px; justify-content: center; }
+.csm-avis-bar-row { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--color-ink-500); font-variant-numeric: tabular-nums; }
+.csm-avis-bar-label { width: 20px; }
+.csm-avis-bar-track { flex: 1; height: 8px; background: var(--color-ink-100); border-radius: 999px; overflow: hidden; }
+.csm-avis-bar-fill { height: 100%; background: var(--color-ramses-600); border-radius: 999px; }
+.csm-avis-bar-count { width: 22px; text-align: right; }
+
+.csm-avis-liste { display: flex; flex-direction: column; gap: 10px; }
+.csm-avis-item { background: var(--color-ink-0); border: 1px solid var(--color-ink-100); border-radius: 12px; padding: 13px 16px; }
+.csm-avis-item-top { display: flex; justify-content: space-between; align-items: center; }
+.csm-avis-item-etoiles { color: var(--color-ramses-600); letter-spacing: 1px; }
+.csm-avis-item-date { font-size: 11px; color: var(--color-ink-400); font-variant-numeric: tabular-nums; }
+.csm-avis-item-meta { font-size: 11.5px; color: var(--color-ink-400); margin: 4px 0 0; }
+/* L'italique d'origine sur les commentaires clients est retiré : DESIGN.md
+   proscrit l'italique, et un commentaire long en italique se lit mal. */
+.csm-avis-item-comment { font-size: 13px; color: var(--color-ink-700); margin: 7px 0 0; line-height: 1.55; }
+
+/* ---- Réponses rapides -------------------------------------------------- */
+
+.csm-quick-replies {
+  display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px 0;
+  border-top: 1px solid var(--color-ink-100); background: var(--color-ink-0);
+}
+.csm-quick-replies button {
+  background: var(--color-ink-50); border: 1px solid var(--color-ink-200);
+  border-radius: 999px; padding: 6px 12px; font-family: inherit; font-size: 11.5px;
+  color: var(--color-ink-600); cursor: pointer; max-width: 160px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  transition: background-color .15s ease;
+}
+.csm-quick-replies button:hover { background: var(--color-ink-100); }
+.csm-quick-edit { background: none !important; border: none !important; font-size: 13px !important; padding: 5px 7px !important; }
+.csm-manage-replies-empty {
+  width: 100%; background: none; border: none; color: var(--color-ink-400);
+  font-family: inherit; font-size: 11.5px; padding: 9px; cursor: pointer; text-decoration: underline;
+}
+
+/* ---- Modales ----------------------------------------------------------- */
+
+.csm-modal-overlay {
+  position: fixed; inset: 0; background: rgba(11,11,13,.5);
+  display: flex; align-items: center; justify-content: center; z-index: 300;
+}
+.csm-modal { background: var(--color-ink-0); border-radius: 16px; padding: 22px; width: 380px; max-width: 90vw; }
+.csm-modal h3 { margin: 0 0 12px; font-size: 18px; font-weight: 800; letter-spacing: -.02em; color: var(--color-ink-900); }
+.csm-modal-add { display: flex; gap: 8px; margin-bottom: 14px; }
+.csm-modal-add input {
+  flex: 1; padding: 10px 12px; border: 1.5px solid var(--color-ink-200); border-radius: 10px;
+  font-family: inherit; font-size: 12.5px; color: var(--color-ink-900); outline: none;
+}
+.csm-modal-add input:focus { border-color: var(--color-ramses-600); box-shadow: 0 0 0 3px rgba(227,30,36,.12); }
+.csm-modal-add button {
+  background: var(--color-ramses-600); color: #fff; border: none; border-radius: 10px;
+  padding: 10px 16px; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.csm-modal-add button:hover { background: var(--color-ramses-700); }
+.csm-modal-liste { max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.csm-modal-item {
+  display: flex; justify-content: space-between; align-items: center;
+  background: var(--color-ink-50); border-radius: 10px; padding: 9px 12px;
+  font-size: 12.5px; color: var(--color-ink-700);
+}
+/* Suppression bordée et non rouge plein : ne doit pas être confondue au
+   réflexe avec l'action primaire. */
+.csm-modal-item button {
+  background: none; border: none; color: var(--color-ramses-700);
+  font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.csm-modal-close {
+  width: 100%; background: var(--color-ink-0); color: var(--color-ink-800);
+  border: 1.5px solid var(--color-ink-200); border-radius: 999px; padding: 11px;
+  font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+}
+.csm-modal-close:hover { background: var(--color-ink-50); }
+
+/* ---- Saisie du chat ---------------------------------------------------- */
+
+.csm-preview { position: relative; width: 50px; margin: 0 10px; }
+.csm-preview img { width: 50px; height: 50px; object-fit: cover; border-radius: 10px; }
+.csm-preview button {
+  position: absolute; top: -6px; right: -6px;
+  background: var(--color-ink-900); color: #fff; border: none; border-radius: 50%;
+  width: 20px; height: 20px; font-size: 10px; line-height: 1; cursor: pointer;
+}
+.csm-chat-input {
+  display: flex; align-items: center; gap: 8px;
+  border-top: 1px solid var(--color-ink-100); padding: 10px 12px; background: var(--color-ink-0);
+}
+.csm-attach {
+  display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 999px;
+  background: var(--color-ink-50); color: var(--color-ink-500);
+  cursor: pointer; flex-shrink: 0; transition: background-color .15s ease;
+}
+.csm-attach:hover { background: var(--color-ink-100); color: var(--color-ink-900); }
+.csm-chat-input input[type="text"], .csm-chat-input input:not([type]) {
+  flex: 1; padding: 10px 14px; border-radius: 999px;
+  border: 1.5px solid var(--color-ink-200); background: var(--color-ink-0);
+  font-family: inherit; font-size: 13px; color: var(--color-ink-900); outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.csm-chat-input input[type="text"]:focus, .csm-chat-input input:not([type]):focus {
+  border-color: var(--color-ramses-600); box-shadow: 0 0 0 3px rgba(227,30,36,.12);
+}
+.csm-chat-input button {
+  background: var(--color-ramses-600); color: #fff; border: none; border-radius: 999px;
+  padding: 10px 18px; font-family: inherit; font-size: 12.5px; font-weight: 600;
+  cursor: pointer; transition: background-color .15s ease;
+}
+.csm-chat-input button:hover:not(:disabled) { background: var(--color-ramses-700); }
+.csm-chat-input button:disabled { background: var(--color-ink-200); color: var(--color-ink-400); cursor: not-allowed; }
+
+/* ---- Mobile ------------------------------------------------------------ */
+
+@media (max-width: 768px) {
+  .csm-wrap { flex-direction: column; gap: 0; padding: 12px; }
+  .csm-liste { width: 100%; }
+  .csm-liste-hidden-mobile { display: none; }
+  .csm-detail-hidden-mobile { display: none; }
+  .csm-back-mobile { display: inline-block; }
+  .csm-avis-summary { gap: 16px; padding: 16px; }
+  .csm-avis-moyenne { min-width: 100px; }
+  .csm-taux-bar { padding: 10px 14px; }
+  .csm-tabs { padding: 10px 14px 0; overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; }
+  .csm-tab { flex-shrink: 0; }
+
+  /* Sous 16px, iOS zoome au focus et casse la mise en page à deux colonnes. */
+  .csm-nom, .csm-prix, .csm-qte,
+  .csm-taux-bar input, .csm-liste select, .csm-devise-row select,
+  .csm-pesee-field input, .csm-acompte-row input,
+  .csm-modal-add input,
+  .csm-chat-input input[type="text"], .csm-chat-input input:not([type]) { font-size: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .csm-tab, .csm-item, .csm-btn-primary, .csm-btn-secondary,
+  .csm-btn-guide, .csm-statut-btn, .csm-attach,
+  .csm-chat-input input, .csm-chat-input button { transition: none; }
+}
