@@ -1,0 +1,640 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   NAVBAR — barre de navigation, tiroir, recherche, filtres
+
+   Extrait du bloc <style> inline de components/Navbar.jsx (630 lignes) et
+   réaligné sur les jetons RAMSES (voir DESIGN.md à la racine). Le JSX et
+   ses 612 lignes de logique — tiroir, modale de recherche, suggestions,
+   filtres, permission de notifications — ne sont pas touchés : les 51
+   sélecteurs gardent exactement les mêmes noms.
+
+   Deux corrections structurelles :
+
+   - Le bloc inline commençait par un @import de Google Fonts. Il y était
+     valide (première règle de SA feuille), mais rendait le chargement des
+     polices dépendant du montage de la Navbar, et injectait une requête
+     bloquante à chaque rendu du composant. L'@import est remonté dans
+     index.css, avec celui d'Inter.
+
+   - Le bouton d'installation utilisait un dégradé bleu nuit virant au
+     dégradé rouge au survol. DESIGN.md proscrit les dégradés : remplacé
+     par un aplat noir qui passe au rouge de marque.
+
+   La police du logo (Cormorant Garamond) est CONSERVÉE : c'est le
+   wordmark de la marque, pas un choix d'interface. Tout le reste passe à
+   Inter, conformément au système.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ---- Barre principale -------------------------------------------------- */
+
+.ramci-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  background: var(--color-ink-0);
+  border-bottom: 1px solid var(--color-ink-100);
+}
+
+.ramci-nav-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+}
+
+.ramci-menu-container { position: relative; }
+
+.ramci-menu-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  /* 44px : le bouton d'origine faisait 36×26, sous la cible tactile. */
+  width: 44px;
+  height: 44px;
+  padding: 0 11px;
+  border-radius: 999px;
+  transition: background-color .15s ease;
+}
+.ramci-menu-btn:hover { background: var(--color-ink-50); }
+.ramci-menu-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(227, 30, 36, .12); }
+.ramci-menu-btn span {
+  display: block;
+  height: 1.5px;
+  background: var(--color-ink-900);
+  border-radius: 2px;
+  transition: width .2s ease;
+}
+.ramci-menu-btn span:nth-child(1) { width: 22px; }
+.ramci-menu-btn span:nth-child(2) { width: 16px; }
+.ramci-menu-btn span:nth-child(3) { width: 19px; }
+.ramci-menu-btn:hover span { width: 22px; }
+
+/* Wordmark : seule survivance de la police à empattement. */
+.ramci-logo {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: 6px;
+  color: var(--color-ink-900);
+  text-decoration: none;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.ramci-nav-actions { display: flex; align-items: center; gap: 2px; }
+
+.ramci-nav-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  color: var(--color-ink-900);
+  text-decoration: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background-color .15s ease;
+}
+.ramci-nav-icon:hover { background: var(--color-ink-50); }
+.ramci-nav-icon:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(227, 30, 36, .12); }
+
+.ramci-cart-icon { position: relative; }
+.ramci-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: var(--color-ramses-600);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Tiroir ------------------------------------------------------------ */
+
+.ramci-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 11, 13, 0);
+  z-index: 998;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .3s ease, background-color .3s ease, visibility .3s;
+}
+.ramci-drawer-overlay.open {
+  background: rgba(11, 11, 13, .5);
+  opacity: 1;
+  visibility: visible;
+}
+
+.ramci-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 82%;
+  max-width: 340px;
+  background: var(--color-ink-0);
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(-100%);
+  transition: transform .3s cubic-bezier(.4, 0, .2, 1);
+  box-shadow: 0 0 40px rgba(11, 11, 13, .15);
+}
+.ramci-drawer.open { transform: translateX(0); }
+
+.ramci-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 12px 14px 18px;
+  border-bottom: 1px solid var(--color-ink-100);
+}
+.ramci-drawer-logo {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 5px;
+  color: var(--color-ink-900);
+  text-decoration: none;
+}
+.ramci-drawer-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-ink-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  transition: background-color .15s ease, color .15s ease;
+}
+.ramci-drawer-close:hover { background: var(--color-ink-50); color: var(--color-ink-900); }
+.ramci-drawer-close:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(227, 30, 36, .12); }
+
+.ramci-drawer-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--color-ink-900);
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  margin: 14px 16px;
+  border-radius: 14px;
+  transition: background-color .15s ease;
+}
+.ramci-drawer-profile:hover { background: var(--color-ink-800); }
+.ramci-drawer-profile:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(227, 30, 36, .3); }
+.ramci-drawer-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .12);
+  color: #fff;
+}
+.ramci-drawer-profile-text { display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+.ramci-drawer-profile-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ramci-drawer-profile-sub {
+  font-size: 12px;
+  /* .6 d'opacité sur blanc plaçait ce texte sous le seuil AA ; .75 le
+     repasse au-dessus tout en gardant la hiérarchie. */
+  color: rgba(255, 255, 255, .75);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ramci-drawer-nav { flex: 1; overflow-y: auto; padding: 4px 8px; }
+
+.drawer-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  /* 46px de haut : cible tactile confortable dans une liste dense. */
+  min-height: 46px;
+  padding: 12px;
+  font-size: 15px;
+  color: var(--color-ink-700);
+  text-decoration: none;
+  cursor: pointer;
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+  border-radius: 10px;
+  transition: background-color .15s ease, color .15s ease;
+}
+.drawer-item:hover { background: var(--color-ink-50); color: var(--color-ink-900); }
+.drawer-item:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(227, 30, 36, .12); }
+
+.drawer-item-disabled { color: var(--color-ink-400); cursor: default; font-size: 13.5px; }
+.drawer-item-disabled:hover { background: none; color: var(--color-ink-400); }
+
+.drawer-divider { height: 1px; background: var(--color-ink-100); margin: 8px; }
+
+.ramci-drawer-footer {
+  padding: 14px 16px;
+  padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--color-ink-100);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Aplat plutôt que dégradé (DESIGN.md §7). Le survol vire au rouge de
+   marque : installer l'application est une action, donc elle a droit au rouge. */
+.drawer-install-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--color-ink-900);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  min-height: 48px;
+  padding: 13px 16px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color .15s ease, transform .1s ease;
+}
+.drawer-install-btn:hover { background: var(--color-ramses-600); }
+.drawer-install-btn:active { transform: scale(.98); }
+
+.drawer-login-btn {
+  background: var(--color-ramses-600);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  min-height: 48px;
+  padding: 13px 16px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color .15s ease, transform .1s ease;
+}
+.drawer-login-btn:hover { background: var(--color-ramses-700); }
+.drawer-login-btn:active { transform: scale(.98); }
+
+/* Déconnexion bordée et non rouge plein : ne doit pas entrer en
+   concurrence avec le bouton de connexion juste au-dessus. */
+.drawer-logout-btn {
+  background: var(--color-ink-0);
+  border: 1.5px solid var(--color-ink-200);
+  color: var(--color-ink-700);
+  border-radius: 999px;
+  min-height: 44px;
+  padding: 12px 16px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+.drawer-logout-btn:hover {
+  background: var(--color-ramses-50);
+  border-color: var(--color-ramses-200);
+  color: var(--color-ramses-700);
+}
+
+/* ---- Modale de recherche ----------------------------------------------- */
+
+.search-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 11, 13, .5);
+  z-index: 1002;
+  animation: ramci-fade-in .2s ease;
+}
+
+.search-modal-container {
+  background: var(--color-ink-0);
+  height: auto;
+  max-height: 80vh;
+  border-radius: 0 0 20px 20px;
+  overflow: hidden;
+  animation: ramci-slide-down .3s ease;
+}
+
+.search-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-ink-100);
+}
+
+.search-modal-back {
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--color-ink-600);
+  transition: background-color .15s ease, color .15s ease;
+}
+.search-modal-back:hover { background: var(--color-ink-50); color: var(--color-ink-900); }
+
+.search-modal-title {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 4px;
+  color: var(--color-ink-900);
+}
+
+.search-modal-form { padding: 12px 16px 16px; }
+
+.search-modal-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-ink-50);
+  border: 1.5px solid transparent;
+  border-radius: 14px;
+  padding: 4px 8px 4px 16px;
+  transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+.search-modal-input-wrapper:focus-within {
+  background: var(--color-ink-0);
+  border-color: var(--color-ramses-600);
+  box-shadow: 0 0 0 3px rgba(227, 30, 36, .12);
+}
+
+.search-modal-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  /* 16px minimum : en dessous, iOS zoome dès que le champ prend le focus. */
+  font-size: 16px;
+  color: var(--color-ink-900);
+  outline: none;
+  min-height: 40px;
+}
+.search-modal-input::placeholder { color: var(--color-ink-400); }
+
+.search-modal-filter-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  color: var(--color-ink-500);
+  position: relative;
+  flex-shrink: 0;
+  transition: background-color .15s ease, color .15s ease;
+}
+.search-modal-filter-btn:hover { background: var(--color-ink-100); color: var(--color-ink-900); }
+.search-modal-filter-btn .filter-active-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  background-color: var(--color-ramses-600);
+  border-radius: 999px;
+  border: 1.5px solid var(--color-ink-0);
+}
+
+.search-modal-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--color-ink-400);
+  flex-shrink: 0;
+  transition: background-color .15s ease, color .15s ease;
+}
+.search-modal-clear:hover { background: var(--color-ink-100); color: var(--color-ink-900); }
+
+.search-modal-suggestions {
+  margin-top: 14px;
+  background: var(--color-ink-0);
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--color-ink-100);
+}
+
+.search-suggestion-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--color-ink-50);
+  transition: background-color .15s ease;
+}
+.search-suggestion-item:last-child { border-bottom: none; }
+.search-suggestion-item:hover { background: var(--color-ink-50); }
+
+.search-suggestion-text { flex: 1; font-size: 14px; color: var(--color-ink-800); }
+
+.search-suggestion-empty {
+  padding: 24px 20px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--color-ink-400);
+}
+
+.search-suggestion-footer {
+  padding: 8px 14px;
+  background: var(--color-ink-50);
+  border-top: 1px solid var(--color-ink-100);
+}
+.search-suggestion-see-all {
+  width: 100%;
+  text-align: center;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ink-600);
+  cursor: pointer;
+  min-height: 40px;
+  border-radius: 8px;
+  transition: color .15s ease, background-color .15s ease;
+}
+.search-suggestion-see-all:hover { color: var(--color-ink-900); background: var(--color-ink-100); }
+
+/* ---- Modale de filtres ------------------------------------------------- */
+
+.filters-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 11, 13, .5);
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.filters-modal-content {
+  background: var(--color-ink-0);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 400px;
+  overflow: hidden;
+  animation: ramci-fade-in-up .3s ease;
+}
+
+.filters-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 12px 14px 20px;
+  border-bottom: 1px solid var(--color-ink-100);
+}
+.filters-header h3 {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  color: var(--color-ink-900);
+  margin: 0;
+}
+.filters-header button {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: var(--color-ink-400);
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  transition: background-color .15s ease, color .15s ease;
+}
+.filters-header button:hover { background: var(--color-ink-50); color: var(--color-ink-900); }
+
+.filters-body { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+
+.filter-group { display: flex; flex-direction: column; gap: 6px; }
+.filter-group label { font-size: 12px; font-weight: 600; color: var(--color-ink-500); }
+.filter-group select,
+.filter-group input {
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1.5px solid var(--color-ink-200);
+  border-radius: 12px;
+  background: var(--color-ink-0);
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--color-ink-900);
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.filter-group select:focus,
+.filter-group input:focus {
+  border-color: var(--color-ramses-600);
+  box-shadow: 0 0 0 3px rgba(227, 30, 36, .12);
+}
+
+.filters-footer {
+  display: flex;
+  gap: 12px;
+  padding: 16px 20px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--color-ink-100);
+}
+
+.reset-btn,
+.apply-btn {
+  flex: 1;
+  min-height: 44px;
+  padding: 11px;
+  border: 1.5px solid transparent;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color .15s ease, transform .1s ease;
+}
+.reset-btn:active, .apply-btn:active { transform: scale(.98); }
+.reset-btn {
+  background: var(--color-ink-0);
+  color: var(--color-ink-800);
+  border-color: var(--color-ink-200);
+}
+.reset-btn:hover { background: var(--color-ink-50); }
+.apply-btn { background: var(--color-ramses-600); color: #fff; }
+.apply-btn:hover { background: var(--color-ramses-700); }
+
+/* ---- Animations -------------------------------------------------------- */
+
+@keyframes ramci-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes ramci-slide-down {
+  from { opacity: 0; transform: translateY(-20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes ramci-fade-in-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Noms d'origine conservés : le JSX peut y faire référence ailleurs. */
+@keyframes fadeIn   { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeInUp  { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ramci-drawer,
+  .ramci-drawer-overlay,
+  .search-modal-container,
+  .search-modal-overlay,
+  .filters-modal-content { animation: none; transition: none; }
+  .ramci-menu-btn, .ramci-nav-icon, .drawer-item, .drawer-install-btn,
+  .drawer-login-btn, .drawer-logout-btn, .reset-btn, .apply-btn,
+  .search-modal-input-wrapper { transition: none; }
+}
