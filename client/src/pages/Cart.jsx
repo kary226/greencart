@@ -395,20 +395,14 @@ const Cart = () => {
 
     if (cartArray.length === 0) {
         return (
-            <div className="min-h-screen bg-ivory-200 pt-24 pb-16 px-4">
+            <div className="min-h-screen bg-ink-50 pt-24 pb-16 px-4">
                 <div className="max-w-sm mx-auto text-center">
-                    <div className="w-24 h-24 bg-blush-100 rounded-full flex items-center justify-center mx-auto mb-5 relative">
-                        <ShoppingBag size={38} className="text-burgundy-400" />
-                        <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-burgundy-600 rounded-full flex items-center justify-center border-2 border-ivory-200">
-                            <X size={14} className="text-white" strokeWidth={3} />
-                        </div>
+                    <div className="w-20 h-20 bg-ramses-50 rounded-full flex items-center justify-center mx-auto mb-5">
+                        <ShoppingBag size={32} className="text-ramses-600" />
                     </div>
-                    <h2 className="font-display text-xl font-semibold text-gray-900 mb-1.5">Votre panier est vide</h2>
-                    <p className="text-gray-400 text-sm mb-7">Ajoutez des articles pour les voir apparaître ici.</p>
-                    <button
-                        onClick={() => navigate("/products")}
-                        className="bg-burgundy-600 text-white px-6 py-3 rounded-full text-sm font-medium hover:bg-burgundy-700 transition shadow-md shadow-burgundy-900/10"
-                    >
+                    <h2 className="rs-h1 mb-2">Votre panier est vide</h2>
+                    <p className="text-ink-400 text-[14px] mb-7">Ajoutez des articles pour les voir apparaître ici.</p>
+                    <button onClick={() => navigate("/products")} className="rs-btn rs-btn--primary">
                         Découvrir nos produits
                     </button>
                 </div>
@@ -417,67 +411,87 @@ const Cart = () => {
     }
 
     return (
-        <div className="min-h-screen bg-ivory-200 pt-16 pb-32 lg:pb-16">
+        <div className="min-h-screen bg-ink-50 pt-6 pb-36 lg:pb-16">
             <div className="max-w-7xl mx-auto px-4">
-                {/* En-tête */}
-                <div className="flex items-center justify-between mb-5 pt-4">
+
+                {/* ── En-tête ────────────────────────────────────────────── */}
+                <div className="flex items-center justify-between gap-4 mb-5">
                     <div>
-                        <h1 className="font-display text-2xl font-semibold text-gray-900">Mon panier</h1>
-                        <p className="text-gray-400 text-sm mt-0.5">{getCartCount()} article{getCartCount() > 1 ? 's' : ''}</p>
+                        <h1 className="rs-display">Mon panier</h1>
+                        <p className="text-ink-400 text-[13px] mt-1">
+                            {getCartCount()} article{getCartCount() > 1 ? 's' : ''}
+                        </p>
                     </div>
                     <button
                         onClick={clearCart}
-                        className="w-9 h-9 flex items-center justify-center rounded-full bg-white border border-blush-200 text-gray-400 hover:text-burgundy-600 hover:border-burgundy-300 transition"
+                        className="rs-icon-btn text-ink-400 hover:text-ramses-600"
+                        aria-label="Vider le panier"
                         title="Vider le panier"
                     >
-                        <Trash2 size={16} />
+                        <Trash2 size={18} />
                     </button>
                 </div>
 
                 <div className="flex flex-col lg:flex-row lg:gap-8">
-                    {/* Colonne gauche - Produits */}
+
+                    {/* ── Colonne articles ───────────────────────────────── */}
                     <div className="flex-1">
-                        {/* Tout sélectionner */}
-                        <label className="flex items-center gap-2.5 mb-3 px-1 select-none cursor-pointer w-fit">
+
+                        {/* Case « tout sélectionner » : vrai <button role="checkbox">.
+                            La version d'origine était un <span onClick> imbriqué dans
+                            un <label>, donc inatteignable au clavier — sur un panier,
+                            la sélection décide de ce qui est commandé. */}
+                        <button
+                            type="button"
+                            role="checkbox"
+                            aria-checked={allSelected}
+                            onClick={toggleSelectAll}
+                            className="flex items-center gap-2.5 mb-3 px-1 py-2 select-none w-fit"
+                        >
                             <span
-                                onClick={(e) => { e.preventDefault(); toggleSelectAll(); }}
                                 className={`w-5 h-5 rounded-md flex items-center justify-center border-2 transition shrink-0 ${
-                                    allSelected ? 'bg-burgundy-600 border-burgundy-600' : 'border-blush-300 bg-white'
+                                    allSelected ? 'bg-ramses-600 border-ramses-600' : 'border-ink-300 bg-ink-0'
                                 }`}
                             >
                                 {allSelected && <Check size={13} className="text-white" strokeWidth={3} />}
                             </span>
-                            <span className="text-sm font-medium text-gray-700">
+                            <span className="text-[14px] font-semibold text-ink-700">
                                 Tout sélectionner {selectedKeys.length > 0 && `(${selectedKeys.length})`}
                             </span>
-                        </label>
+                        </button>
 
-                        <div className="space-y-3">
+                        <ul className="grid gap-3 list-none p-0 m-0">
                             {cartArray.map((product) => {
                                 const isSelected = selectedKeys.includes(product.cartKey)
                                 return (
-                                    <div
+                                    <li
                                         key={product.cartKey}
-                                        className={`bg-white rounded-2xl p-3 border transition ${
-                                            isSelected ? 'border-blush-200' : 'border-blush-100 opacity-60'
-                                        }`}
+                                        className={`rs-card !p-3 transition ${isSelected ? 'border-ink-200' : ''}`}
                                     >
                                         <div className="flex gap-3">
-                                            <span
+                                            <button
+                                                type="button"
+                                                role="checkbox"
+                                                aria-checked={isSelected}
+                                                aria-label={`Sélectionner ${product.name}`}
                                                 onClick={() => toggleSelectOne(product.cartKey)}
-                                                className={`w-5 h-5 mt-1 rounded-md flex items-center justify-center border-2 transition shrink-0 cursor-pointer ${
-                                                    isSelected ? 'bg-burgundy-600 border-burgundy-600' : 'border-blush-300 bg-white'
-                                                }`}
+                                                className="mt-1 shrink-0 self-start"
                                             >
-                                                {isSelected && <Check size={13} className="text-white" strokeWidth={3} />}
-                                            </span>
+                                                <span
+                                                    className={`w-5 h-5 rounded-md flex items-center justify-center border-2 transition ${
+                                                        isSelected ? 'bg-ramses-600 border-ramses-600' : 'border-ink-300 bg-ink-0'
+                                                    }`}
+                                                >
+                                                    {isSelected && <Check size={13} className="text-white" strokeWidth={3} />}
+                                                </span>
+                                            </button>
 
                                             <div
                                                 onClick={() => {
                                                     navigate(`/products/${product.category?.toLowerCase() || 'all'}/${product._id}`);
                                                     scrollTo(0, 0)
                                                 }}
-                                                className="w-20 h-20 rounded-xl overflow-hidden cursor-pointer bg-blush-50 flex-shrink-0"
+                                                className="w-20 h-20 rounded-xl overflow-hidden cursor-pointer bg-ink-50 flex-shrink-0"
                                             >
                                                 <img src={getPresetImageUrl(product.image[0], "thumbnail")} alt={product.name} className="w-full h-full object-cover" loading="lazy" />
                                             </div>
@@ -485,15 +499,20 @@ const Cart = () => {
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex justify-between items-start gap-2">
                                                     <div className="min-w-0">
-                                                        <h3 className="font-medium text-gray-900 text-sm truncate">{product.name}</h3>
-                                                        <div className="flex flex-wrap gap-1 mt-1">
+                                                        {/* Nom non tronqué : sur mobile, « Robe mi-longue… »
+                                                            coupé au premier mot ne permet pas de distinguer
+                                                            deux variantes du même produit. */}
+                                                        <h3 className="font-semibold text-ink-900 text-[13.5px] leading-snug line-clamp-2">
+                                                            {product.name}
+                                                        </h3>
+                                                        <div className="flex flex-wrap gap-1 mt-1.5">
                                                             {product.selectedColor && (
-                                                                <span className="text-[10px] bg-blush-100 text-burgundy-700 px-2 py-0.5 rounded-full">
+                                                                <span className="text-[10px] font-semibold bg-ink-50 text-ink-600 px-2 py-0.5 rounded-full">
                                                                     {product.selectedColor}
                                                                 </span>
                                                             )}
                                                             {product.selectedSize && (
-                                                                <span className="text-[10px] bg-blush-100 text-burgundy-700 px-2 py-0.5 rounded-full">
+                                                                <span className="text-[10px] font-semibold bg-ink-50 text-ink-600 px-2 py-0.5 rounded-full">
                                                                     Taille : {product.selectedSize}
                                                                 </span>
                                                             )}
@@ -503,25 +522,27 @@ const Cart = () => {
                                                     <div className="relative shrink-0">
                                                         <button
                                                             onClick={() => setOpenMenuKey(openMenuKey === product.cartKey ? null : product.cartKey)}
-                                                            className="text-gray-300 hover:text-gray-600 transition p-1"
+                                                            className="rs-icon-btn !w-9 !h-9 text-ink-300"
+                                                            aria-label={`Actions pour ${product.name}`}
+                                                            aria-expanded={openMenuKey === product.cartKey}
                                                         >
                                                             <MoreVertical size={16} />
                                                         </button>
                                                         {openMenuKey === product.cartKey && (
                                                             <>
                                                                 <div className="fixed inset-0 z-10" onClick={() => setOpenMenuKey(null)} />
-                                                                <div className="absolute right-0 top-7 z-20 bg-white rounded-xl shadow-lg border border-blush-100 py-1 w-44">
+                                                                <div className="absolute right-0 top-9 z-20 bg-ink-0 rounded-xl shadow-lg border border-ink-100 py-1 w-48">
                                                                     <button
                                                                         onClick={() => removeFromCart(product.cartKey)}
-                                                                        className="flex items-center gap-2 w-full px-3.5 py-2 text-xs text-gray-600 hover:bg-blush-50 transition"
+                                                                        className="flex items-center gap-2.5 w-full px-3.5 min-h-[40px] text-[13px] text-ink-600 hover:bg-ink-50 transition"
                                                                     >
-                                                                        <Trash2 size={13} /> Supprimer
+                                                                        <Trash2 size={14} /> Supprimer
                                                                     </button>
                                                                     <button
                                                                         onClick={() => moveToWishlist(product)}
-                                                                        className="flex items-center gap-2 w-full px-3.5 py-2 text-xs text-gray-600 hover:bg-blush-50 transition"
+                                                                        className="flex items-center gap-2.5 w-full px-3.5 min-h-[40px] text-[13px] text-ink-600 hover:bg-ink-50 transition"
                                                                     >
-                                                                        <Heart size={13} /> Déplacer en favoris
+                                                                        <Heart size={14} /> Déplacer en favoris
                                                                     </button>
                                                                 </div>
                                                             </>
@@ -530,20 +551,21 @@ const Cart = () => {
                                                 </div>
 
                                                 <div className="flex flex-wrap justify-between items-end mt-2.5 gap-2">
-                                                    <div className="flex flex-col gap-0.5">
-                                                        <div className="flex items-center border border-blush-200 rounded-lg overflow-hidden w-fit">
+                                                    <div className="flex flex-col gap-1">
+                                                        <div className="flex items-center border border-ink-200 rounded-lg overflow-hidden w-fit">
                                                             <button
                                                                 onClick={() => {
                                                                     if (product.quantity > 1) {
                                                                         updateCartItem(product.cartKey, product.quantity - 1);
                                                                     }
                                                                 }}
-                                                                className="w-7 h-7 flex items-center justify-center text-gray-500 hover:bg-blush-50 transition disabled:opacity-40"
+                                                                className="w-9 h-9 flex items-center justify-center text-ink-500 hover:bg-ink-50 transition disabled:text-ink-300"
                                                                 disabled={product.quantity <= 1}
+                                                                aria-label="Diminuer la quantité"
                                                             >
-                                                                <Minus size={13} />
+                                                                <Minus size={14} />
                                                             </button>
-                                                            <span className="w-8 text-center text-sm font-medium text-gray-900">
+                                                            <span className="w-9 text-center text-[14px] font-bold text-ink-900 tabular-nums">
                                                                 {product.quantity}
                                                             </span>
                                                             <button
@@ -557,75 +579,97 @@ const Cart = () => {
                                                                         toast.error(`Stock limité à ${maxStock} unités !`);
                                                                     }
                                                                 }}
-                                                                className="w-7 h-7 flex items-center justify-center text-gray-500 hover:bg-blush-50 transition disabled:opacity-40"
+                                                                className="w-9 h-9 flex items-center justify-center text-ink-500 hover:bg-ink-50 transition disabled:text-ink-300"
                                                                 disabled={product.variantStock !== null && product.quantity >= product.variantStock}
+                                                                aria-label="Augmenter la quantité"
                                                             >
-                                                                <Plus size={13} />
+                                                                <Plus size={14} />
                                                             </button>
                                                         </div>
                                                         {product.variantStock !== null && product.variantStock <= 5 && (
-                                                            <span className={`text-[10px] ${product.variantStock === 0 ? 'text-burgundy-600' : 'text-amber-600'}`}>
+                                                            <span className={`text-[11px] font-semibold ${product.variantStock === 0 ? 'text-ink-400' : 'text-warn-500'}`}>
                                                                 {product.variantStock === 0 ? 'Rupture de stock' : `Plus que ${product.variantStock}`}
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <p className="font-semibold text-gray-900 text-sm">{(product.offerPrice * product.quantity).toLocaleString()} {currency}</p>
+                                                    <p className="rs-money text-[15px]">
+                                                        {(product.offerPrice * product.quantity).toLocaleString()} {currency}
+                                                    </p>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
+                                    </li>
                                 )
                             })}
-                        </div>
+                        </ul>
 
                         <button
                             onClick={() => { navigate("/products"); scrollTo(0, 0) }}
-                            className="flex items-center gap-1.5 text-burgundy-700 hover:text-burgundy-800 transition text-sm font-medium mt-4"
+                            className="flex items-center gap-1.5 text-ink-700 hover:text-ramses-600 transition text-[14px] font-semibold mt-4 min-h-[44px]"
                         >
-                            <ArrowRight size={14} />
+                            <ArrowRight size={15} />
                             Continuer mes achats
                         </button>
                     </div>
 
-                    {/* Colonne droite - Récapitulatif */}
+                    {/* ── Colonne récapitulatif ──────────────────────────── */}
                     <div className="lg:w-96 mt-6 lg:mt-0">
-                        <div className="bg-white rounded-2xl p-5 border border-blush-200 lg:sticky lg:top-20">
-                            <h2 className="font-display text-lg font-semibold text-gray-900 mb-4">Récapitulatif</h2>
+                        <div className="rs-card lg:sticky lg:top-20">
+                            <h2 className="rs-h1 mb-4">Récapitulatif</h2>
 
                             {/* Adresse */}
                             <div className="mb-4">
                                 <div className="flex items-center gap-2 mb-2">
-                                    <MapPin size={15} className="text-burgundy-600" />
-                                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Adresse de livraison</span>
+                                    <MapPin size={15} className="text-ramses-600" />
+                                    <span className="rs-label text-ink-400">Adresse de livraison</span>
                                 </div>
-                                <div className="bg-blush-50 rounded-xl p-3.5">
+                                <div className="bg-ink-50 rounded-xl p-3.5">
                                     <div className="flex justify-between items-start gap-2">
                                         <div className="flex-1 min-w-0">
-                                            {user?.name && <p className="text-sm font-medium text-gray-900">{user.name}</p>}
-                                            <p className="text-xs text-gray-500 mt-0.5">{formatAddress(selectedAddress)}</p>
+                                            {user?.name && <p className="text-[14px] font-semibold text-ink-900">{user.name}</p>}
+                                            <p className="text-[12px] text-ink-500 mt-0.5">{formatAddress(selectedAddress)}</p>
                                         </div>
-                                        <button onClick={() => setShowAddress(!showAddress)} className="flex items-center gap-1 text-burgundy-700 text-xs font-medium shrink-0">
-                                            <Edit2 size={11} /> Modifier
+                                        <button
+                                            onClick={() => setShowAddress(!showAddress)}
+                                            aria-expanded={showAddress}
+                                            className="flex items-center gap-1 text-ramses-700 text-[12px] font-semibold shrink-0 min-h-[32px]"
+                                        >
+                                            <Edit2 size={12} /> Modifier
                                         </button>
                                     </div>
                                     {showAddress && (
-                                        <div className="mt-3 pt-3 border-t border-blush-200 space-y-2">
-                                            {addresses.map((address, idx) => (
-                                                <div
-                                                    key={idx}
-                                                    onClick={() => { setSelectedAddress(address); setShowAddress(false) }}
-                                                    className={`flex justify-between items-center text-xs rounded-lg px-2.5 py-2 cursor-pointer transition ${
-                                                        selectedAddress?._id === address._id ? 'bg-white border border-burgundy-300' : 'hover:bg-white/60'
-                                                    }`}
-                                                >
-                                                    <p className="text-gray-600 flex-1">{formatAddress(address)}</p>
-                                                    <button onClick={(e) => { e.stopPropagation(); deleteAddress(address._id) }} className="text-burgundy-400 text-[10px] hover:text-burgundy-600 ml-2 shrink-0">
-                                                        Supprimer
-                                                    </button>
-                                                </div>
-                                            ))}
-                                            <button onClick={() => navigate("/add-address")} className="flex items-center gap-1 text-burgundy-700 text-xs mt-1 font-medium px-2.5">
-                                                <Plus size={12} /> Ajouter une adresse
+                                        <div className="mt-3 pt-3 border-t border-ink-200 grid gap-1.5">
+                                            {addresses.map((address, idx) => {
+                                                const actif = selectedAddress?._id === address._id
+                                                return (
+                                                    /* <button> et non <div onClick> : choisir son adresse
+                                                       de livraison doit être possible au clavier. */
+                                                    <div key={idx} className="flex items-center gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => { setSelectedAddress(address); setShowAddress(false) }}
+                                                            aria-pressed={actif}
+                                                            className={`flex-1 text-left text-[12px] rounded-lg px-2.5 py-2.5 transition ${
+                                                                actif ? 'bg-ink-0 border border-ramses-300 text-ink-900' : 'text-ink-600 hover:bg-ink-0'
+                                                            }`}
+                                                        >
+                                                            {formatAddress(address)}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => deleteAddress(address._id)}
+                                                            className="text-ink-400 hover:text-ramses-600 text-[11px] shrink-0 px-2 min-h-[32px]"
+                                                            aria-label="Supprimer cette adresse"
+                                                        >
+                                                            Supprimer
+                                                        </button>
+                                                    </div>
+                                                )
+                                            })}
+                                            <button
+                                                onClick={() => navigate("/add-address")}
+                                                className="flex items-center gap-1.5 text-ramses-700 text-[12px] font-semibold px-2.5 min-h-[40px]"
+                                            >
+                                                <Plus size={13} /> Ajouter une adresse
                                             </button>
                                         </div>
                                     )}
@@ -636,10 +680,10 @@ const Cart = () => {
                             {deliveryTypes.length > 0 && selectedAddress?.communeId && (
                                 <div className="mb-4">
                                     <div className="flex items-center gap-2 mb-2">
-                                        <Truck size={15} className="text-burgundy-600" />
-                                        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Mode de livraison</span>
+                                        <Truck size={15} className="text-ramses-600" />
+                                        <span className="rs-label text-ink-400">Mode de livraison</span>
                                     </div>
-                                    <div className="space-y-2">
+                                    <div className="grid gap-2" role="radiogroup" aria-label="Mode de livraison">
                                         {deliveryTypes.map((type) => {
                                             const Icon = deliveryIcon(type.name);
                                             const isSelected = selectedDeliveryType?._id === type._id;
@@ -648,27 +692,29 @@ const Cart = () => {
                                                 <button
                                                     key={type._id}
                                                     type="button"
+                                                    role="radio"
+                                                    aria-checked={isSelected}
                                                     onClick={() => setSelectedDeliveryType(type)}
-                                                    className={`w-full flex items-center gap-3 rounded-xl px-3.5 py-2.5 border transition text-left ${
-                                                        isSelected ? 'border-burgundy-400 bg-blush-50' : 'border-blush-100 bg-white hover:border-blush-300'
+                                                    className={`w-full flex items-center gap-3 rounded-xl px-3.5 py-3 border transition text-left ${
+                                                        isSelected ? 'border-ramses-600 bg-ramses-50' : 'border-ink-100 bg-ink-0 hover:border-ink-200'
                                                     }`}
                                                 >
                                                     <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                                                        isSelected ? 'bg-burgundy-600 text-white' : 'bg-blush-100 text-burgundy-500'
+                                                        isSelected ? 'bg-ramses-600 text-white' : 'bg-ink-50 text-ink-500'
                                                     }`}>
-                                                        <Icon size={14} />
+                                                        <Icon size={15} />
                                                     </span>
                                                     <span className="flex-1 min-w-0">
-                                                        <span className="block text-sm font-medium text-gray-800 truncate">{type.name}</span>
-                                                        {type.description && <span className="block text-[11px] text-gray-400 truncate">{type.description}</span>}
+                                                        <span className="block text-[14px] font-semibold text-ink-800 truncate">{type.name}</span>
+                                                        {type.description && <span className="block text-[11px] text-ink-400 truncate">{type.description}</span>}
                                                     </span>
-                                                    <span className="text-sm font-semibold text-gray-800 shrink-0">
+                                                    <span className="text-[14px] font-bold text-ink-900 shrink-0 tabular-nums">
                                                         {price === null || price === undefined ? '—' : price === 0 ? 'Gratuit' : `${price.toLocaleString()} ${currency}`}
                                                     </span>
-                                                    <span className={`w-4.5 h-4.5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                                                        isSelected ? 'border-burgundy-600' : 'border-blush-300'
+                                                    <span className={`w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center shrink-0 ${
+                                                        isSelected ? 'border-ramses-600' : 'border-ink-300'
                                                     }`}>
-                                                        {isSelected && <span className="w-2 h-2 rounded-full bg-burgundy-600" />}
+                                                        {isSelected && <span className="w-2 h-2 rounded-full bg-ramses-600" />}
                                                     </span>
                                                 </button>
                                             );
@@ -685,69 +731,70 @@ const Cart = () => {
                                 doublait la sélection sans rien accélérer. */}
                             <div className="mb-4">
                                 <div className="flex items-center gap-2 mb-2">
-                                    <CreditCard size={15} className="text-burgundy-600" />
-                                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Moyen de paiement</span>
+                                    <CreditCard size={15} className="text-ramses-600" />
+                                    <span className="rs-label text-ink-400">Moyen de paiement</span>
                                 </div>
                                 <button
                                     type="button"
+                                    role="radio"
+                                    aria-checked={paymentOption === 'GeniusPay'}
                                     onClick={() => setPaymentOption('GeniusPay')}
-                                    className={`w-full flex items-center justify-between rounded-xl py-3.5 px-4 border-2 transition ${
-                                        paymentOption === 'GeniusPay' ? 'border-burgundy-500 bg-blush-50' : 'border-blush-100 bg-white hover:border-blush-300'
+                                    className={`w-full flex items-center justify-between gap-3 rounded-xl py-3.5 px-4 border-2 transition text-left ${
+                                        paymentOption === 'GeniusPay' ? 'border-ramses-600 bg-ramses-50' : 'border-ink-100 bg-ink-0 hover:border-ink-200'
                                     }`}
                                 >
-                                    <div className="text-left">
-                                        <p className="text-sm font-medium text-gray-800">Mobile Money, Wave, Carte</p>
-                                        <p className="text-[11px] text-gray-400 mt-0.5">Vous choisirez votre moyen de paiement sur la page sécurisée suivante.</p>
+                                    <div>
+                                        <p className="text-[14px] font-semibold text-ink-800">Mobile Money, Wave, Carte</p>
+                                        <p className="text-[11.5px] text-ink-400 mt-0.5 leading-snug">
+                                            Vous choisirez votre moyen de paiement sur la page sécurisée suivante.
+                                        </p>
                                     </div>
-                                    <span className={`w-4.5 h-4.5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                                        paymentOption === 'GeniusPay' ? 'border-burgundy-600' : 'border-blush-300'
+                                    <span className={`w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center shrink-0 ${
+                                        paymentOption === 'GeniusPay' ? 'border-ramses-600' : 'border-ink-300'
                                     }`}>
-                                        {paymentOption === 'GeniusPay' && <span className="w-2 h-2 rounded-full bg-burgundy-600" />}
+                                        {paymentOption === 'GeniusPay' && <span className="w-2 h-2 rounded-full bg-ramses-600" />}
                                     </span>
                                 </button>
                             </div>
 
                             {/* Code promo */}
                             <div className="flex items-center gap-2 mb-2">
-                                <Tag size={15} className="text-burgundy-600" />
-                                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Code promo</span>
+                                <Tag size={15} className="text-ramses-600" />
+                                <span className="rs-label text-ink-400">Code promo</span>
                             </div>
                             <CouponInput amount={originalAmount} items={selectedArray.map(p => ({ product: p._id, quantity: p.quantity }))} onCouponApplied={handleCouponApplied} />
 
                             {/* Totaux */}
-                            <div className="mt-4 pt-3 border-t border-blush-100 space-y-1.5">
-                                <div className="flex justify-between text-xs text-gray-500">
+                            <div className="mt-4 pt-3 border-t border-ink-100 grid gap-1.5">
+                                <div className="flex justify-between text-[13px] text-ink-500">
                                     <span>Sous-total ({selectedArray.length})</span>
-                                    <span>{originalAmount.toLocaleString()} {currency}</span>
+                                    <span className="tabular-nums">{originalAmount.toLocaleString()} {currency}</span>
                                 </div>
                                 {appliedCoupon && (
-                                    <div className="flex justify-between text-xs text-emerald-600">
+                                    <div className="flex justify-between text-[13px] text-ok-500 font-semibold">
                                         <span>Réduction ({appliedCoupon.code})</span>
-                                        <span>- {appliedCoupon.discountAmount.toLocaleString()} {currency}</span>
+                                        <span className="tabular-nums">− {appliedCoupon.discountAmount.toLocaleString()} {currency}</span>
                                     </div>
                                 )}
-                                <div className="flex justify-between text-xs text-gray-500">
+                                <div className="flex justify-between text-[13px] text-ink-500">
                                     <span>Frais de livraison</span>
-                                    <span className={deliveryPrice === 0 ? 'text-emerald-600' : ''}>
-                                        {loadingDelivery ? 'Chargement...' : deliveryPrice === 0 ? 'Gratuite' : `${deliveryPrice.toLocaleString()} ${currency}`}
+                                    <span className={`tabular-nums ${deliveryPrice === 0 ? 'text-ok-500 font-semibold' : ''}`}>
+                                        {loadingDelivery ? 'Calcul…' : deliveryPrice === 0 ? 'Gratuite' : `${deliveryPrice.toLocaleString()} ${currency}`}
                                     </span>
                                 </div>
-                                <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t border-blush-100">
-                                    <span>Total</span>
-                                    <span className="text-burgundy-700">{finalAmount.toLocaleString()} {currency}</span>
+                                <div className="flex justify-between items-baseline pt-2.5 mt-1 border-t border-ink-100">
+                                    <span className="text-[14px] font-bold text-ink-900">Total</span>
+                                    <span className="rs-money text-[20px]">{finalAmount.toLocaleString()} {currency}</span>
                                 </div>
                             </div>
 
                             <button
                                 onClick={placeOrder}
                                 disabled={selectedArray.length === 0 || placingOrder}
-                                className="w-full mt-5 bg-burgundy-600 text-white py-3.5 rounded-full font-semibold text-sm hover:bg-burgundy-700 transition shadow-md shadow-burgundy-900/10 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                className="rs-btn rs-btn--primary rs-btn--block mt-5"
                             >
                                 {placingOrder ? (
-                                    <>
-                                        <Loader2 size={16} className="animate-spin" />
-                                        Redirection en cours…
-                                    </>
+                                    <><Loader2 size={17} className="animate-spin" /> Redirection en cours…</>
                                 ) : (
                                     <>Passer la commande {selectedArray.length > 0 && `(${selectedArray.length})`}</>
                                 )}
@@ -757,22 +804,22 @@ const Cart = () => {
                 </div>
             </div>
 
-            {/* Barre sticky mobile */}
-            <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-blush-200 px-4 py-3 flex items-center justify-between gap-4 z-20">
-                <div>
-                    <p className="text-[11px] text-gray-400">Total ({selectedArray.length})</p>
-                    <p className="font-bold text-gray-900">{finalAmount.toLocaleString()} {currency}</p>
+            {/* ── Barre sticky mobile ────────────────────────────────────── */}
+            <div
+                className="lg:hidden fixed bottom-0 left-0 right-0 bg-ink-0 border-t border-ink-100 px-4 pt-3 flex items-center justify-between gap-4 z-20"
+                style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
+            >
+                <div className="min-w-0">
+                    <p className="text-[11.5px] text-ink-400">Total ({selectedArray.length})</p>
+                    <p className="rs-money text-[17px]">{finalAmount.toLocaleString()} {currency}</p>
                 </div>
                 <button
                     onClick={placeOrder}
                     disabled={selectedArray.length === 0 || placingOrder}
-                    className="flex-1 max-w-[220px] bg-burgundy-600 text-white py-3 rounded-full font-semibold text-sm hover:bg-burgundy-700 transition disabled:opacity-60 flex items-center justify-center gap-2"
+                    className="rs-btn rs-btn--primary flex-1 max-w-[220px]"
                 >
                     {placingOrder ? (
-                        <>
-                            <Loader2 size={16} className="animate-spin" />
-                            Redirection…
-                        </>
+                        <><Loader2 size={16} className="animate-spin" /> Redirection…</>
                     ) : (
                         'Passer la commande'
                     )}

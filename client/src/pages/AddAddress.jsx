@@ -1,13 +1,15 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { assets } from '../assets/assets'
 import { useAppContext } from '../context/AppContext'
 import toast from 'react-hot-toast'
+import { ChevronDown, Search, Check } from 'lucide-react'
 
-// Input Field Component modernisé
-const InputField = ({ type, placeholder, name, handleChange, address }) => (
+const InputField = ({ type, placeholder, name, handleChange, address, id, inputMode }) => (
     <input
-        className='w-full px-4 py-3 border border-gray-200 rounded-xl outline-none text-gray-700 focus:border-red-500 focus:ring-1 focus:ring-red-500 transition text-sm'
+        id={id}
+        className="rs-input"
         type={type}
+        inputMode={inputMode}
         placeholder={placeholder}
         onChange={handleChange}
         name={name}
@@ -16,60 +18,114 @@ const InputField = ({ type, placeholder, name, handleChange, address }) => (
     />
 )
 
-// Select Field Component avec recherche modernisé
-const SelectField = ({ name, placeholder, options, value, handleChange, loading }) => {
+/**
+ * Sélecteur ville / commune.
+ *
+ * La version d'origine était un <div onClick> : ni focalisable, ni annoncé
+ * comme un contrôle, ni utilisable au clavier — sur un formulaire de
+ * livraison obligatoire, un client au clavier ou au lecteur d'écran ne
+ * pouvait tout simplement pas choisir sa ville. Il est maintenant construit
+ * sur un <button> + role="listbox", avec fermeture par Échap et par clic
+ * extérieur (les deux manquaient aussi).
+ */
+const SelectField = ({ name, placeholder, options, value, handleChange, loading, id }) => {
     const [searchTerm, setSearchTerm] = useState('')
     const [isOpen, setIsOpen] = useState(false)
+    const wrapRef = useRef(null)
+    const searchRef = useRef(null)
 
     const filteredOptions = options.filter(opt =>
         opt.name.toLowerCase().includes(searchTerm.toLowerCase())
     )
-
     const selectedOption = options.find(opt => opt._id === value)
 
+    useEffect(() => {
+        if (!isOpen) return
+        const onClickOutside = (e) => {
+            if (wrapRef.current && !wrapRef.current.contains(e.target)) setIsOpen(false)
+        }
+        const onKey = (e) => { if (e.key === 'Escape') setIsOpen(false) }
+        document.addEventListener('mousedown', onClickOutside)
+        document.addEventListener('keydown', onKey)
+        // Le focus part sur la recherche : sur une liste de communes, c'est
+        // ce que l'utilisateur veut faire en premier.
+        searchRef.current?.focus()
+        return () => {
+            document.removeEventListener('mousedown', onClickOutside)
+            document.removeEventListener('keydown', onKey)
+        }
+    }, [isOpen])
+
+    const choisir = (opt) => {
+        handleChange({ target: { name, value: opt._id } })
+        setIsOpen(false)
+        setSearchTerm('')
+    }
+
     return (
-        <div className="relative">
-            <div
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none text-gray-700 cursor-pointer flex justify-between items-center text-sm focus-within:border-red-500"
-                onClick={() => setIsOpen(!isOpen)}
+        <div className="relative" ref={wrapRef}>
+            <button
+                type="button"
+                id={id}
+                onClick={() => setIsOpen(o => !o)}
+                aria-haspopup="listbox"
+                aria-expanded={isOpen}
+                className="rs-input flex items-center justify-between gap-2 text-left"
             >
-                <span className={selectedOption ? "text-gray-900" : "text-gray-400"}>
+                <span className={selectedOption ? 'text-ink-900' : 'text-ink-400'}>
                     {selectedOption ? selectedOption.name : placeholder}
                 </span>
-                <svg className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-            </div>
+                <ChevronDown
+                    size={17}
+                    className={`text-ink-400 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                />
+            </button>
+
             {isOpen && (
-                <div className="absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-auto">
-                    <div className="sticky top-0 bg-white p-2 border-b border-gray-100">
-                        <input
-                            type="text"
-                            placeholder="Rechercher..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-red-500 text-sm"
-                            onClick={(e) => e.stopPropagation()}
-                        />
+                <div className="absolute z-20 w-full mt-2 bg-ink-0 border border-ink-100 rounded-xl shadow-lg max-h-64 overflow-auto">
+                    <div className="sticky top-0 bg-ink-0 p-2 border-b border-ink-100">
+                        <div className="relative">
+                            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none" />
+                            <input
+                                ref={searchRef}
+                                type="text"
+                                placeholder="Rechercher…"
+                                aria-label="Filtrer la liste"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="rs-input !min-h-[40px] pl-9 text-[16px]"
+                            />
+                        </div>
                     </div>
+
                     {loading ? (
-                        <div className="p-4 text-center text-gray-400 text-sm">Chargement...</div>
+                        <p className="p-5 text-center text-ink-400 text-[13px]">Chargement…</p>
                     ) : filteredOptions.length === 0 ? (
-                        <div className="p-4 text-center text-gray-400 text-sm">Aucune option</div>
+                        <p className="p-5 text-center text-ink-400 text-[13px]">
+                            {searchTerm ? <>Aucun résultat pour « {searchTerm} »</> : 'Aucune option disponible'}
+                        </p>
                     ) : (
-                        filteredOptions.map(opt => (
-                            <div
-                                key={opt._id}
-                                className="px-4 py-2 hover:bg-gray-50 cursor-pointer text-sm transition"
-                                onClick={() => {
-                                    handleChange({ target: { name, value: opt._id } })
-                                    setIsOpen(false)
-                                    setSearchTerm('')
-                                }}
-                            >
-                                {opt.name}
-                            </div>
-                        ))
+                        <ul role="listbox" aria-label={placeholder} className="list-none m-0 p-1">
+                            {filteredOptions.map(opt => {
+                                const actif = opt._id === value
+                                return (
+                                    <li key={opt._id}>
+                                        <button
+                                            type="button"
+                                            role="option"
+                                            aria-selected={actif}
+                                            onClick={() => choisir(opt)}
+                                            className={`w-full text-left px-3 min-h-[44px] flex items-center justify-between gap-2 rounded-lg text-[14px] transition ${
+                                                actif ? 'bg-ramses-50 text-ramses-700 font-semibold' : 'text-ink-700 hover:bg-ink-50'
+                                            }`}
+                                        >
+                                            {opt.name}
+                                            {actif && <Check size={16} className="shrink-0" />}
+                                        </button>
+                                    </li>
+                                )
+                            })}
+                        </ul>
                     )}
                 </div>
             )}
@@ -94,6 +150,7 @@ const AddAddress = () => {
     const [communes, setCommunes] = useState([])
     const [loadingCities, setLoadingCities] = useState(true)
     const [loadingCommunes, setLoadingCommunes] = useState(false)
+    const [enregistrement, setEnregistrement] = useState(false)
 
     useEffect(() => {
         if (user) {
@@ -162,6 +219,9 @@ const AddAddress = () => {
         setAddress((prevAddress) => ({
             ...prevAddress,
             [name]: value,
+            // Changer de ville invalide la commune choisie : sans ça, on
+            // pouvait soumettre une commune qui n'appartient pas à la ville.
+            ...(name === 'cityId' && value !== prevAddress.cityId ? { communeId: '' } : {}),
         }))
     }
 
@@ -177,6 +237,7 @@ const AddAddress = () => {
             return
         }
 
+        setEnregistrement(true)
         try {
             const userUpdateData = {};
 
@@ -208,6 +269,8 @@ const AddAddress = () => {
             }
         } catch (error) {
             toast.error(error.message);
+        } finally {
+            setEnregistrement(false)
         }
     }
 
@@ -215,34 +278,42 @@ const AddAddress = () => {
         return null;
     }
 
-    return (
-        <div className="bg-gray-50 min-h-screen">
-            <div className="max-w-6xl mx-auto px-4 py-8">
-                {/* Header */}
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900">Ajouter une adresse</h1>
-                    <p className="text-sm text-gray-500 mt-1">Renseignez vos coordonnées pour la livraison</p>
-                    <div className="w-16 h-0.5 bg-red-500 rounded-full mt-3"></div>
-                </div>
+    const Champ = ({ htmlFor, children }) => (
+        <label htmlFor={htmlFor} className="block text-[12px] font-semibold text-ink-500 mb-1.5">
+            {children}
+        </label>
+    )
 
-                <div className="flex flex-col-reverse lg:flex-row justify-between gap-8">
-                    {/* Formulaire */}
+    return (
+        <div className="bg-ink-50 min-h-screen">
+            <div className="max-w-5xl mx-auto px-4 py-8">
+
+                <header className="mb-7">
+                    <h1 className="rs-display">Adresse de livraison</h1>
+                    <p className="text-[13px] text-ink-400 mt-1.5">
+                        Tous les champs sont nécessaires pour livrer votre commande.
+                    </p>
+                </header>
+
+                <div className="flex flex-col-reverse lg:flex-row justify-between gap-10">
+
                     <div className="flex-1 max-w-lg">
-                        <form onSubmit={onSubmitHandler} className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
+                        <form onSubmit={onSubmitHandler} className="grid gap-4">
+                            <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Prénom</label>
-                                    <InputField handleChange={handleChange} address={address} name='firstName' type="text" placeholder="Votre prénom" />
+                                    <Champ htmlFor="firstName">Prénom</Champ>
+                                    <InputField id="firstName" handleChange={handleChange} address={address} name="firstName" type="text" placeholder="Votre prénom" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Nom</label>
-                                    <InputField handleChange={handleChange} address={address} name='lastName' type="text" placeholder="Votre nom" />
+                                    <Champ htmlFor="lastName">Nom</Champ>
+                                    <InputField id="lastName" handleChange={handleChange} address={address} name="lastName" type="text" placeholder="Votre nom" />
                                 </div>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Ville</label>
+                                <Champ htmlFor="cityId">Ville</Champ>
                                 <SelectField
+                                    id="cityId"
                                     name="cityId"
                                     placeholder="Sélectionner une ville"
                                     options={cities}
@@ -253,10 +324,11 @@ const AddAddress = () => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Commune</label>
+                                <Champ htmlFor="communeId">Commune</Champ>
                                 <SelectField
+                                    id="communeId"
                                     name="communeId"
-                                    placeholder={address.cityId ? "Sélectionner une commune" : "Sélectionnez d'abord une ville"}
+                                    placeholder={address.cityId ? 'Sélectionner une commune' : "Choisissez d'abord une ville"}
                                     options={communes}
                                     value={address.communeId}
                                     handleChange={handleChange}
@@ -265,27 +337,30 @@ const AddAddress = () => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Quartier / Rue</label>
-                                <InputField handleChange={handleChange} address={address} name='street' type="text" placeholder="Ex: Rue 12, Quartier Central" />
+                                <Champ htmlFor="street">Quartier / Rue</Champ>
+                                <InputField id="street" handleChange={handleChange} address={address} name="street" type="text" placeholder="Ex : Rue 12, Quartier Central" />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
-                                <InputField handleChange={handleChange} address={address} name='phone' type="tel" placeholder="Ex: 05 01 02 03 04" />
+                                <Champ htmlFor="phone">Téléphone</Champ>
+                                <InputField id="phone" handleChange={handleChange} address={address} name="phone" type="tel" inputMode="tel" placeholder="Ex : 05 01 02 03 04" />
+                                <p className="text-[11.5px] text-ink-400 mt-1.5">
+                                    Le livreur vous appellera sur ce numéro.
+                                </p>
                             </div>
 
-                            <button className='w-full mt-6 bg-red-500 text-white py-3 rounded-xl font-medium hover:bg-red-600 transition shadow-sm'>
-                                Enregistrer l'adresse
+                            <button type="submit" disabled={enregistrement} className="rs-btn rs-btn--primary rs-btn--block mt-2">
+                                {enregistrement ? 'Enregistrement…' : "Enregistrer l'adresse"}
                             </button>
                         </form>
                     </div>
 
-                    {/* Illustration */}
-                    <div className="flex justify-center lg:block">
-                        <img 
-                            className='w-64 lg:w-80 object-contain' 
-                            src={assets.add_address_iamge} 
-                            alt="Add Address" 
+                    <div className="flex justify-center lg:block shrink-0">
+                        <img
+                            className="w-56 lg:w-72 object-contain"
+                            src={assets.add_address_iamge}
+                            alt=""
+                            loading="lazy"
                         />
                     </div>
                 </div>
