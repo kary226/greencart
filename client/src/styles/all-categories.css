@@ -109,3 +109,12 @@
 @media (min-width: 900px) {
   .ramci-categories-grid { grid-template-columns: repeat(4, 1fr); max-width: 860px; }
 }
+
+/* Checklist d'accessibilité (ui-ux-pro-max-skill) : toute animation doit
+   pouvoir être coupée. Les pastilles héritent de home.css, mais la mise à
+   l'échelle au survol est déclenchée ici via le scope de la page. */
+@media (prefers-reduced-motion: reduce) {
+  .ramci-categories-page .ramci-cat-item,
+  .ramci-categories-page .ramci-cat-circle { transition: none; }
+  .ramci-categories-page .ramci-cat-item:hover .ramci-cat-circle { transform: none; }
+}

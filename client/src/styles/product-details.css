@@ -821,3 +821,16 @@
 .pd-btn-buy:hover { background: var(--color-ramses-700); }
 .pd-btn-cart:active, .pd-btn-buy:active { transform: scale(.98); }
 .pd-btn-cart:focus-visible, .pd-btn-buy:focus-visible { outline: none; box-shadow: var(--rs-focus); }
+/* Checklist d'accessibilité (ui-ux-pro-max-skill) : la fiche produit anime
+   la galerie, les vignettes, les chips de taille et les pastilles de
+   couleur. Sous `prefers-reduced-motion`, tout devient instantané. */
+@media (prefers-reduced-motion: reduce) {
+  .pd-main-img img,
+  .pd-img,
+  .pd-thumb,
+  .pd-size,
+  .pd-swatch,
+  .pd-nav,
+  .pd-btn-cart,
+  .pd-btn-buy { transition: none !important; animation: none !important; }
+}
