@@ -241,18 +241,38 @@ aérée collée à sa voisine.
 
 ## 6. Profondeur & élévation
 
-Le système est **plat par défaut**. La hiérarchie passe par la bordure et le
-fond, pas par l'ombre. Trois niveaux seulement :
+**La profondeur se fait par échelle de surfaces, pas par ombre.** On monte
+d'un cran de fond et on pose un filet de 1 px — c'est tout. Une ombre n'est
+justifiée que si l'élément **flotte réellement** au-dessus du reste : modale,
+menu contextuel, feuille.
 
-| Niveau | Ombre | Usage |
-|---|---|---|
-| 0 | aucune | Bulles, listes, contenu courant |
-| 1 | `0 1px 2px rgba(11,11,13,.05)` | Cartes, devis |
-| 2 | `0 4px 16px rgba(11,11,13,.08)` | En-tête collant une fois défilé, feuilles modales |
-| Focus | `0 0 0 3px rgba(227,30,36,.12)` | Élément actif au clavier — **jamais supprimé** |
+| Niveau | Traitement | Jeton | Usage |
+|---|---|---|---|
+| 0 — plat | rien | — | Bulles, listes, contenu courant |
+| 1 — levé | `#FFF` + filet 1 px `#EDEDEF` | `.rs-raised` | Cartes, devis, panneaux |
+| 2 — creusé | fond `#F7F7F8` | `.rs-sunken` | Fil de conversation, zones inertes |
+| 3 — flottant | filet + `--rs-shadow-float` | `.rs-float` | Modales, menus, feuilles |
+| Focus | `--rs-focus` = `0 0 0 2px rgba(227,30,36,.5)` | — | **Jamais supprimé** |
+
+L'ombre flottante est **teintée vers l'encre** (`rgba(11,11,13,…)`), jamais
+en noir pur : une ombre neutre sur une palette froide paraît sale.
 
 Aucune ombre colorée, aucun dégradé, aucun `backdrop-blur` : ils brouillent le
 contraste franc qui fait l'identité.
+
+### Rayons
+
+Échelle fine, exposée en variables — on ne pose plus de valeur au hasard.
+
+| Jeton | Valeur | Usage |
+|---|---|---|
+| `--rs-r-xs` | 4 px | Étiquettes, puces |
+| `--rs-r-sm` | 6 px | Badges carrés, vignettes |
+| `--rs-r-md` | 8 px | Petits contrôles |
+| `--rs-r-lg` | 12 px | Boutons, champs |
+| `--rs-r-xl` | 16 px | Cartes |
+| `--rs-r-2xl` | 24 px | Feuilles, panneaux |
+| `--rs-r-pill` | 9999 px | Pilules, badges, boutons ronds |
 
 ---
 
@@ -347,3 +367,36 @@ Attente           #D97706   action requise
 
 Les jetons de couleur sont exposés en classes Tailwind v4 :
 `bg-ramses-600`, `text-ink-900`, `border-ink-100`, etc.
+
+---
+
+## 10. Provenance
+
+Ce système est construit à partir de la méthode et des références de
+[**VoltAgent/awesome-design-md**](https://github.com/VoltAgent/awesome-design-md) —
+le format en neuf sections ci-dessus en vient, ainsi que la convention du
+catalogue visuel qui accompagne le document.
+
+Deux systèmes du dépôt ont servi de référence de facture. **Rien n'a été copié
+de leur identité** : ni couleur, ni police, ni parti pris visuel. Ce qui a été
+repris, ce sont des règles de métier :
+
+| Emprunt | Source | Application chez RAMCI |
+|---|---|---|
+| Profondeur par échelle de surfaces et filet, sans ombre portée | `linear.app` | §6 — les cartes n'ont plus d'ombre, seulement un filet |
+| Interlettrage proportionnel à la taille plutôt que forfaitaire | `linear.app` | §3 — table `--rs-ls-*`, de −3,4 % en display à 0 sous 15 px |
+| Accent réservé à la marque, au bouton primaire, au focus et aux liens | `linear.app` | §1 et §7 — le rouge n'est jamais décoratif |
+| Anneau de focus à 2 px et 50 % d'opacité | `linear.app` | `--rs-focus` |
+| Échelle de rayons fine (4 → 24 → pilule) | `linear.app` + `stripe` | §6 |
+| Ombre teintée vers la palette, jamais noir pur, réservée au flottant | `stripe` | `--rs-shadow-float` |
+| Interlettrage resserré sur les chiffres tabulaires | `stripe` | `--rs-ls-num`, appliqué à `.rs-money` |
+| Cibles tactiles à 44 px minimum sur mobile | `stripe` | §8 |
+| Une seule action primaire remplie par zone | `stripe` | §7 |
+
+Ce qui **n'a pas** été repris, et pourquoi :
+
+- Le violet de Linear et l'indigo de Stripe : l'accent est le rouge RAMCI.
+- Les graisses fines de Stripe (display en 300) : elles contredisent la
+  lourdeur qui fait l'identité de la marque. Nos titres restent en 800.
+- Le fond sombre de Linear : cette surface est en monde clair assumé.
+- Le maillage en dégradé de Stripe : §7 proscrit les dégradés.
