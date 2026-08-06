@@ -90,30 +90,39 @@ const Footer = () => {
     ];
 
     return (
-        <footer className="bg-white border-t border-gray-100 pt-12 pb-6">
+        <footer className="bg-ink-0 border-t border-ink-100 pt-12 pb-6">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-8 pb-8 border-b border-gray-100">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-8 pb-8 border-b border-ink-100">
 
                     {/* Colonne 1 - Logo & Infos */}
                     <div className="md:col-span-4">
                         <img className="h-12 w-auto mb-4" src={assets.logo} alt="logo" />
-                        <p className="text-sm text-gray-500 mb-4 max-w-md">
+                        <p className="text-[14px] text-ink-500 mb-5 max-w-md leading-relaxed">
                             Votre satisfaction est notre priorité. Découvrez une expérience de shopping unique avec des produits de qualité.
                         </p>
-                        <div className="space-y-2">
-                            <div className="flex items-center gap-2 text-sm text-gray-500">
-                                <MapPin size={16} className="text-red-500 flex-shrink-0" />
-                                <span>Abidjan, Côte d'Ivoire</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm text-gray-500">
-                                <Phone size={16} className="text-red-500 flex-shrink-0" />
-                                <span>+225 05 96 73 31 50</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm text-gray-500">
-                                <Mail size={16} className="text-red-500 flex-shrink-0" />
-                                <span>contactramci@gmail.com</span>
-                            </div>
+                        {/* Le téléphone et l'e-mail étaient de simples <span> :
+                            sur mobile, un numéro affiché sans `tel:` oblige le
+                            client à le recopier à la main pour appeler. */}
+                        <div className="grid gap-1">
+                            <span className="flex items-center gap-2.5 text-[14px] text-ink-500 min-h-[36px]">
+                                <MapPin size={16} className="text-ramses-600 shrink-0" />
+                                Abidjan, Côte d'Ivoire
+                            </span>
+                            <a
+                                href="tel:+2250596733150"
+                                className="flex items-center gap-2.5 text-[14px] text-ink-500 hover:text-ramses-600 transition-colors min-h-[36px]"
+                            >
+                                <Phone size={16} className="text-ramses-600 shrink-0" />
+                                +225 05 96 73 31 50
+                            </a>
+                            <a
+                                href="mailto:contactramci@gmail.com"
+                                className="flex items-center gap-2.5 text-[14px] text-ink-500 hover:text-ramses-600 transition-colors min-h-[36px] break-all"
+                            >
+                                <Mail size={16} className="text-ramses-600 shrink-0" />
+                                contactramci@gmail.com
+                            </a>
                         </div>
                     </div>
 
@@ -122,7 +131,7 @@ const Footer = () => {
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
                             {footerLinks.map((section, index) => (
                                 <div key={index}>
-                                    <h3 className="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wider">
+                                    <h3 className="rs-label text-ink-900 mb-3">
                                         {section.title}
                                     </h3>
                                     <ul className="space-y-2">
@@ -131,7 +140,7 @@ const Footer = () => {
                                                 <a
                                                     href={link.url}
                                                     onClick={(e) => handleLinkClick(e, link.url)}
-                                                    className="text-sm text-gray-500 hover:text-red-500 transition-colors duration-200 cursor-pointer"
+                                                    className="text-[14px] text-ink-500 hover:text-ramses-600 transition-colors cursor-pointer inline-flex items-center min-h-[36px]"
                                                     target={link.url.startsWith('http') ? '_blank' : '_self'}
                                                     rel={link.url.startsWith('http') ? 'noopener noreferrer' : ''}
                                                 >
@@ -147,10 +156,10 @@ const Footer = () => {
 
                     {/* Colonne 3 - Réseaux sociaux */}
                     <div className="md:col-span-3">
-                        <h3 className="text-sm font-semibold text-gray-900 mb-3 uppercase tracking-wider">
+                        <h3 className="rs-label text-ink-900 mb-3">
                             Restons connectés
                         </h3>
-                        <p className="text-sm text-gray-500 mb-4">
+                        <p className="text-[14px] text-ink-500 mb-4">
                             Suivez-nous sur les réseaux sociaux pour ne rien manquer
                         </p>
 
@@ -161,7 +170,7 @@ const Footer = () => {
                                     href={social.href}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-red-500 hover:text-white transition-all duration-200"
+                                    className="w-11 h-11 rounded-full bg-ink-50 flex items-center justify-center text-ink-600 hover:bg-ramses-600 hover:text-white transition-colors focus-visible:outline-none focus-visible:shadow-[var(--rs-focus)]"
                                     aria-label={social.label}
                                 >
                                     {social.svg}
@@ -173,7 +182,7 @@ const Footer = () => {
 
                 {/* Copyright */}
                 <div className="pt-6 text-center">
-                    <p className="text-xs text-gray-400">
+                    <p className="text-[12px] text-ink-400">
                         &copy; {currentYear} RAMCI. Tous droits réservés.
                     </p>
                 </div>
