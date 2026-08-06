@@ -5,6 +5,8 @@ import ProductCard from "../components/ProductCard";
 import SEO from "../components/SEO";
 import BannerCarousel from "../components/BannerCarousel";
 import { getPresetImageUrl } from "../utils/cloudinaryImage";
+// Habillage RAMSES de l accueil (voir DESIGN.md a la racine).
+import "../styles/home.css";
 
 const SECTIONS = [
   { id: "trends", label: "Tendances du moment" },
@@ -156,7 +158,6 @@ const Home = () => {
             </div>
           </section>
         </div>
-        <style>{SHARED_STYLES}</style>
       </>
     );
   }
@@ -250,7 +251,7 @@ const Home = () => {
               )}
               
               {!hasMore && activeSection === "trends" && sectionProducts.length > 0 && (
-                <p className="text-center text-gray-400 text-sm mt-6 py-4">
+                <p className="ramci-fin-liste">
                   Vous avez vu tous les produits tendances
                 </p>
               )}
@@ -260,291 +261,10 @@ const Home = () => {
           )}
         </section>
       </div>
-
-      <style>{SHARED_STYLES}</style>
     </>
   );
 };
 
-const SHARED_STYLES = `
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=DM+Sans:wght@400;500;600;700;800&display=swap');
 
-        .ramci-home {
-          background: #ffffff;
-          min-height: 100vh;
-          padding-bottom: 90px;
-        }
-
-        .ramci-hero {
-          margin-bottom: 0;
-          overflow: hidden;
-        }
-
-        .ramci-hero .banner-carousel,
-        .ramci-hero .banner-slide,
-        .ramci-hero .banner-image {
-          width: 100%;
-          height: auto;
-        }
-
-        .ramci-hero .banner-slide img,
-        .ramci-hero .banner-image img {
-          width: 100%;
-          height: auto;
-          object-fit: cover;
-          display: block;
-        }
-
-        @media (max-width: 768px) {
-          .ramci-hero .banner-slide img,
-          .ramci-hero .banner-image img {
-            max-height: 250px;
-            object-fit: cover;
-          }
-        }
-
-        @media (max-width: 480px) {
-          .ramci-hero .banner-slide img,
-          .ramci-hero .banner-image img {
-            max-height: 180px;
-            object-fit: cover;
-          }
-        }
-
-        .ramci-cats-section {
-          display: flex;
-          overflow-x: auto;
-          scrollbar-width: none;
-          padding: 20px 16px;
-          gap: 14px;
-          background: #fff;
-        }
-        .ramci-cats-section::-webkit-scrollbar { display: none; }
-
-        .ramci-cat-item {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 7px;
-          min-width: 82px;
-          text-decoration: none;
-          flex-shrink: 0;
-          padding: 2px;
-        }
-
-        .ramci-cat-circle {
-          width: 72px;
-          height: 72px;
-          border-radius: 50%;
-          overflow: hidden;
-          border: 1.5px solid #e8e3dc;
-          background: #f5f2ec;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: border-color .2s, transform .2s;
-        }
-        .ramci-cat-item:hover .ramci-cat-circle {
-          border-color: #111;
-          transform: scale(1.05);
-        }
-
-        .ramci-cat-circle-all {
-          background: #111;
-          color: #fff;
-          border-color: #111;
-        }
-
-        .ramci-cat-img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-
-        .ramci-cat-placeholder {
-          font-family: 'Cormorant Garamond', serif;
-          font-size: 22px;
-          font-weight: 600;
-          color: #888;
-        }
-
-        .ramci-cat-label {
-          font-family: 'DM Sans', sans-serif;
-          font-size: 11px;
-          font-weight: 500;
-          color: #444;
-          text-align: center;
-          line-height: 1.3;
-          max-width: 82px;
-          word-break: break-word;
-          white-space: normal;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-
-        .ramci-products-section {
-          background: #fff;
-          margin-top: 0;
-          padding: 24px 16px;
-        }
-
-        .ramci-section-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 12px;
-        }
-
-        .ramci-section-title {
-          font-family: 'DM Sans', sans-serif;
-          font-size: 20px;
-          font-weight: 800;
-          color: #111;
-          margin: 0;
-        }
-
-        .ramci-voir-tout {
-          display: flex;
-          align-items: center;
-          gap: 3px;
-          font-family: 'DM Sans', sans-serif;
-          font-size: 13px;
-          font-weight: 500;
-          color: #666;
-          text-decoration: none;
-          transition: color .15s;
-        }
-        .ramci-voir-tout:hover { color: #111; }
-
-        .ramci-section-tabs {
-          display: flex;
-          gap: 0;
-          border-bottom: 1px solid #f0ede8;
-          margin-bottom: 16px;
-          overflow-x: auto;
-          scrollbar-width: none;
-        }
-        .ramci-section-tabs::-webkit-scrollbar { display: none; }
-
-        .ramci-stab {
-          flex-shrink: 0;
-          background: none;
-          border: none;
-          border-bottom: 2px solid transparent;
-          padding: 8px 14px;
-          font-family: 'DM Sans', sans-serif;
-          font-size: 12.5px;
-          font-weight: 500;
-          color: #999;
-          cursor: pointer;
-          white-space: nowrap;
-          transition: all .15s;
-          margin-bottom: -1px;
-        }
-        .ramci-stab.active {
-          color: #e53935;
-          border-bottom-color: #e53935;
-          font-weight: 700;
-        }
-
-        .ramci-grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 16px;
-        }
-
-        .ramci-grid-loading-more {
-          margin-top: 16px;
-        }
-
-        .ramci-empty {
-          text-align: center;
-          padding: 40px;
-          color: #bbb;
-          font-family: 'DM Sans', sans-serif;
-          font-size: 14px;
-        }
-
-        @keyframes ramci-shimmer {
-          0%   { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
-        }
-
-        .ramci-skeleton-hero,
-        .ramci-skeleton-cat-circle,
-        .ramci-skeleton-img,
-        .ramci-skeleton-line {
-          background: linear-gradient(
-            90deg,
-            #f5f2ec 25%,
-            #fbe9e7 45%,
-            #f5f2ec 65%
-          );
-          background-size: 200% 100%;
-          animation: ramci-shimmer 1.6s ease-in-out infinite;
-          border-radius: 8px;
-        }
-
-        .ramci-skeleton-hero {
-          width: 100%;
-          aspect-ratio: 16 / 7;
-          border-radius: 0;
-        }
-
-        .ramci-skeleton-cat-circle {
-          width: 72px;
-          height: 72px;
-          border-radius: 50%;
-        }
-
-        .ramci-skeleton-line {
-          height: 10px;
-          border-radius: 4px;
-        }
-
-        .ramci-skeleton-line-cat {
-          width: 56px;
-          margin-top: 7px;
-        }
-
-        .ramci-skeleton-line-heading {
-          width: 160px;
-          height: 18px;
-          margin: 4px 0 16px;
-        }
-
-        .ramci-skeleton-card {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .ramci-skeleton-img {
-          width: 100%;
-          aspect-ratio: 1 / 1;
-          border-radius: 12px;
-        }
-
-        .ramci-skeleton-line-title {
-          width: 85%;
-          margin-top: 2px;
-        }
-
-        .ramci-skeleton-line-price {
-          width: 45%;
-          height: 12px;
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .ramci-skeleton-hero,
-          .ramci-skeleton-cat-circle,
-          .ramci-skeleton-img,
-          .ramci-skeleton-line {
-            animation: none;
-          }
-        }
-`;
 
 export default Home;

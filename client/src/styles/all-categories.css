@@ -1,0 +1,97 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   PAGE « TOUTES LES CATÉGORIES »
+
+   Les pastilles de catégorie partagent leurs noms de classe avec le rail de
+   l'accueil (.ramci-cat-*), mais avec des dimensions différentes : 110 px en
+   grille ici, 72 px en rail là-bas. L'ancienne version redéfinissait donc les
+   mêmes sélecteurs globalement dans un <style> inline, et c'était l'ordre
+   d'injection qui décidait du gagnant.
+
+   Ici les variantes sont **scopées sous `.ramci-categories-page`** : la
+   définition de base vit dans home.css, cette page ne surcharge que ce qui
+   diffère, et les deux ne se marchent plus dessus.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.ramci-categories-page {
+  background: var(--color-ink-0);
+  min-height: 100vh;
+  padding: 24px 16px 48px;
+}
+
+.ramci-categories-header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.ramci-categories-title {
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: var(--rs-ls-title);
+  color: var(--color-ink-900);
+  margin: 0 0 8px;
+}
+
+.ramci-categories-subtitle {
+  font-size: 13px;
+  color: var(--color-ink-400);
+  margin: 0;
+}
+
+.ramci-categories-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--color-ink-400);
+  font-size: 14px;
+}
+
+.ramci-categories-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 12px;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+/* ---- Surcharges locales des pastilles ---------------------------------- */
+
+.ramci-categories-page .ramci-cat-item {
+  gap: 8px;
+  padding: 8px 4px;
+  min-width: 0;          /* le rail impose 82px, la grille gère sa largeur */
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.ramci-categories-page .ramci-cat-circle {
+  width: 100%;
+  max-width: 110px;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  border-width: 2px;
+  background: var(--color-ink-0);
+}
+
+.ramci-categories-page .ramci-cat-placeholder { font-size: 30px; }
+
+.ramci-categories-page .ramci-cat-label {
+  font-size: 12px;
+  color: var(--color-ink-700);
+  max-width: 100%;
+  padding: 0 4px;
+  /* Deux lignes plutôt qu'une coupure sèche : « Accessoires de… » ne dit
+     rien, alors que le nom complet tient en deux lignes. */
+  -webkit-line-clamp: 2;
+}
+
+@media (min-width: 600px) {
+  .ramci-categories-grid { max-width: 560px; }
+  .ramci-categories-page .ramci-cat-circle { max-width: 120px; }
+}
+
+@media (min-width: 900px) {
+  .ramci-categories-grid { grid-template-columns: repeat(4, 1fr); max-width: 860px; }
+}

@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useAppContext } from '../context/AppContext'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, Link } from 'react-router-dom'
 import ProductCard from '../components/ProductCard'
 import SEO from '../components/SEO'
 import { buildSearchIndex, searchProducts } from '../utils/searchEngine'
+import { SearchX } from 'lucide-react'
 
 const AllProducts = () => {
 
@@ -59,14 +60,15 @@ const AllProducts = () => {
         setIsFuzzyMatch(fuzzy)
     }, [products, searchParams, searchIndex])
 
+    const searchQuery = searchParams.get('search')
+    const aDesFiltres = Boolean(searchQuery || searchParams.get('minPrice') || searchParams.get('maxPrice') || searchParams.get('categories'))
+
     const getPageTitle = () => {
-        const searchQuery = searchParams.get('search')
         if (searchQuery) return `Résultats pour "${searchQuery}"`
         return 'Tous nos articles'
     }
 
     const getPageDescription = () => {
-        const searchQuery = searchParams.get('search')
         if (searchQuery) {
             return `Découvrez les articles correspondant à "${searchQuery}" sur Ramci. Vêtements, accessoires et plus.`
         }
@@ -75,36 +77,65 @@ const AllProducts = () => {
 
     return (
         <>
-            <SEO 
+            <SEO
                 title={getPageTitle()}
                 description={getPageDescription()}
                 keywords="vêtements, accessoires, boutique en ligne, Ramci, Côte d'Ivoire, Abidjan"
                 url="https://www.ramci.ci/products"
             />
-            
-            <div className='mt-16 flex flex-col'>
-                <div className='flex flex-col items-end w-max'>
-                    <p className='text-2xl font-medium uppercase'>Tous nos articles</p>
-                    <div className='w-16 h-0.5 bg-primary rounded-full'></div>
-                </div>
 
-                {isFuzzyMatch && filteredProducts.length > 0 && searchParams.get('search') && (
-                    <p className='text-sm text-gray-500 mt-4'>
-                        Aucun résultat exact pour « {searchParams.get('search')} » — voici les articles les plus proches :
+            <div className="max-w-7xl mx-auto pt-6 pb-12">
+
+                <header className="mb-5">
+                    <h1 className="rs-display">
+                        {searchQuery ? 'Résultats' : 'Tous nos articles'}
+                    </h1>
+                    {/* Le compte était absent : sur une recherche, savoir qu'il y a
+                        3 résultats ou 120 change ce qu'on fait ensuite. */}
+                    <p className="text-[13px] text-ink-400 mt-1.5">
+                        {searchQuery && <>« {searchQuery} » · </>}
+                        {filteredProducts.length} article{filteredProducts.length > 1 ? 's' : ''}
+                    </p>
+                </header>
+
+                {isFuzzyMatch && filteredProducts.length > 0 && searchQuery && (
+                    <p className="text-[13px] text-ink-600 bg-warn-50 border border-warn-500/20 rounded-xl px-4 py-3 mb-5">
+                        Aucun résultat exact pour « {searchQuery} » — voici les articles les plus proches.
                     </p>
                 )}
 
-                <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-6 lg:grid-cols-5 mt-6'>
-                    {filteredProducts.length === 0 ? (
-                        <div className='col-span-full text-center py-10 text-gray-500'>
-                            Aucun article trouvé
+                {filteredProducts.length === 0 ? (
+                    <div className="text-center py-16 px-6">
+                        <div className="w-16 h-16 rounded-full bg-ink-50 flex items-center justify-center mx-auto mb-4">
+                            <SearchX size={26} className="text-ink-400" />
                         </div>
-                    ) : (
-                        filteredProducts.map((product, index) => (
-                            <ProductCard key={index} product={product} />
-                        ))
-                    )}
-                </div>
+                        <p className="rs-h2 mb-1.5">Aucun article trouvé</p>
+                        <p className="text-[13px] text-ink-400 mb-6 max-w-[320px] mx-auto">
+                            {searchQuery
+                                ? <>Rien ne correspond à « {searchQuery} ». Essayez un mot plus court, ou parcourez les catégories.</>
+                                : 'Aucun article ne correspond à ces filtres.'}
+                        </p>
+                        <div className="flex flex-wrap gap-2.5 justify-center">
+                            {aDesFiltres && (
+                                <Link to="/products" className="rs-btn rs-btn--primary">
+                                    Voir tous les articles
+                                </Link>
+                            )}
+                            <Link to="/categories" className="rs-btn rs-btn--secondary">
+                                Parcourir les catégories
+                            </Link>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-5">
+                        {/* Clé sur l'identifiant et non sur l'index : avec un index,
+                            React réutilise le mauvais composant quand la liste est
+                            filtrée, et l'image d'un produit se retrouve sur un autre. */}
+                        {filteredProducts.map((product) => (
+                            <ProductCard key={product._id} product={product} />
+                        ))}
+                    </div>
+                )}
             </div>
         </>
     )

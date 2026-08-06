@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
 import { buildSearchIndex, searchProductsAndCategories } from "../utils/searchEngine";
+import { Search, ShoppingBag, Heart } from "lucide-react";
 
 const Navbar = () => {
   const { cartItems, wishlist, user, searchQuery, setSearchQuery, axios, products, logoutUser, setShowUserLogin, canInstallPWA, isPWAInstalled, installPWA, subscribeToPushNotifications } = useAppContext();
@@ -278,22 +279,30 @@ const Navbar = () => {
           <Link to="/" className="ramci-logo">RAMCI</Link>
 
           <div className="ramci-nav-actions">
-            <button className="ramci-nav-icon" onClick={openSearchModal} aria-label="Rechercher">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <circle cx="11" cy="11" r="8"/>
-                <path d="m21 21-4.35-4.35"/>
-              </svg>
-            </button>
-            
-            <Link to="/cart" className="ramci-nav-icon ramci-cart-icon" aria-label="Panier">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-                <circle cx="9" cy="21" r="1.5" />
-                <circle cx="20" cy="21" r="1.5" />
-              </svg>
-              {cartCount > 0 && <span className="ramci-badge">{cartCount}</span>}
+            <Link to="/wishlist" className="ramci-nav-icon" aria-label="Mes favoris">
+              <Heart size={21} strokeWidth={1.8} />
+            </Link>
+
+            <Link to="/cart" className="ramci-nav-icon ramci-cart-icon" aria-label={`Panier${cartCount > 0 ? `, ${cartCount} article${cartCount > 1 ? 's' : ''}` : ''}`}>
+              <ShoppingBag size={21} strokeWidth={1.8} />
+              {cartCount > 0 && (
+                <span className="ramci-badge" aria-hidden="true">{cartCount > 9 ? '9+' : cartCount}</span>
+              )}
             </Link>
           </div>
+        </div>
+
+        {/* Barre de recherche visible.
+            Auparavant la recherche était une icône parmi trois, qui ouvrait une
+            modale : sur un site marchand, c'est ce qui étouffe le plus son usage,
+            alors que les visiteurs qui cherchent convertissent nettement mieux
+            que ceux qui parcourent. Le champ devient donc une pilule visible,
+            qui ouvre exactement la même modale — aucune logique n'a changé. */}
+        <div className="ramci-searchbar">
+          <button type="button" className="ramci-search-pill" onClick={openSearchModal}>
+            <Search size={17} strokeWidth={2} />
+            <span>Rechercher un article, une marque…</span>
+          </button>
         </div>
       </header>
 

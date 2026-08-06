@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { getPresetImageUrl } from '../utils/cloudinaryImage';
+// Le rail de pastilles vient de home.css ; cette feuille ne surcharge que
+// ce qui differe sur cette page (voir DESIGN.md a la racine).
+import '../styles/home.css';
+import '../styles/all-categories.css';
 
 const AllCategories = () => {
     const { axios, navigate } = useAppContext();
@@ -31,8 +35,9 @@ const AllCategories = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#faf8f5] flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#111]"></div>
+            <div className="min-h-screen bg-ink-0 flex flex-col items-center justify-center gap-3">
+                <div className="rs-typing"><span /><span /><span /></div>
+                <p className="text-[13px] text-ink-400">Chargement des catégories…</p>
             </div>
         );
     }
@@ -54,11 +59,9 @@ const AllCategories = () => {
             ) : (
                 <div className="ramci-categories-grid">
                     {/* Lien "Tous" */}
-                    <div
-                        onClick={() => {
-                            navigate('/products');
-                            scrollTo(0, 0);
-                        }}
+                    <button
+                        type="button"
+                        onClick={() => { navigate('/products'); scrollTo(0, 0); }}
                         className="ramci-cat-item ramci-cat-item-clickable"
                     >
                         <div className="ramci-cat-circle ramci-cat-circle-all">
@@ -70,11 +73,12 @@ const AllCategories = () => {
                             </svg>
                         </div>
                         <span className="ramci-cat-label">Tous</span>
-                    </div>
+                    </button>
 
                     {/* Catégories */}
                     {activeCategories.map((cat) => (
-                        <div
+                        <button
+                            type="button"
                             key={cat._id}
                             onClick={() => handleCategoryClick(cat.slug || cat.name)}
                             className="ramci-cat-item ramci-cat-item-clickable"
@@ -86,131 +90,11 @@ const AllCategories = () => {
                                 }
                             </div>
                             <span className="ramci-cat-label">{cat.name}</span>
-                        </div>
+                        </button>
                     ))}
                 </div>
             )}
-
-            <style>{`
-                .ramci-categories-page {
-                    background: #faf8f5;
-                    min-height: 100vh;
-                    padding: 20px 16px 40px;
-                }
-
-                .ramci-categories-header {
-                    text-align: center;
-                    margin-bottom: 28px;
-                }
-
-                .ramci-categories-title {
-                    font-family: 'DM Sans', sans-serif;
-                    font-size: 22px;
-                    font-weight: 700;
-                    color: #111;
-                    margin: 0 0 8px 0;
-                }
-
-                .ramci-categories-subtitle {
-                    font-family: 'DM Sans', sans-serif;
-                    font-size: 13px;
-                    color: #888;
-                    margin: 0;
-                }
-
-                .ramci-categories-empty {
-                    text-align: center;
-                    padding: 60px 20px;
-                    font-family: 'DM Sans', sans-serif;
-                    color: #aaa;
-                }
-
-                /* Grille 2 colonnes identique à l'accueil */
-                .ramci-categories-grid {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 16px 12px;
-                    max-width: 500px;
-                    margin: 0 auto;
-                }
-
-                .ramci-cat-item {
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    gap: 8px;
-                    text-decoration: none;
-                    padding: 8px 4px;
-                }
-
-                .ramci-cat-item-clickable {
-                    cursor: pointer;
-                }
-
-                .ramci-cat-circle {
-                    width: 100%;
-                    max-width: 110px;
-                    aspect-ratio: 1 / 1;
-                    border-radius: 50%;
-                    overflow: hidden;
-                    border: 2px solid #e8e3dc;
-                    background: #fff;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    transition: all 0.2s ease;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.02);
-                }
-
-                .ramci-cat-item-clickable:hover .ramci-cat-circle {
-                    border-color: #111;
-                    transform: scale(1.02);
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-                }
-
-                .ramci-cat-circle-all {
-                    background: #111;
-                    color: #fff;
-                    border-color: #111;
-                }
-
-                .ramci-cat-img {
-                    width: 100%;
-                    height: 100%;
-                    object-fit: cover;
-                }
-
-                .ramci-cat-placeholder {
-                    font-family: 'Cormorant Garamond', serif;
-                    font-size: 28px;
-                    font-weight: 600;
-                    color: #bbb;
-                }
-
-                .ramci-cat-label {
-                    font-family: 'DM Sans', sans-serif;
-                    font-size: 12px;
-                    font-weight: 500;
-                    color: #333;
-                    text-align: center;
-                    line-height: 1.3;
-                    max-width: 100%;
-                    overflow: hidden;
-                    white-space: nowrap;
-                    text-overflow: ellipsis;
-                    padding: 0 4px;
-                }
-
-                /* Responsive : sur grands écrans on limite la taille */
-                @media (min-width: 600px) {
-                    .ramci-categories-grid {
-                        max-width: 550px;
-                    }
-                    .ramci-cat-circle {
-                        max-width: 120px;
-                    }
-                }
-            `}</style>
+            
         </div>
     );
 };

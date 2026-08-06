@@ -59,7 +59,7 @@
   transition: background-color .15s ease;
 }
 .ramci-menu-btn:hover { background: var(--color-ink-50); }
-.ramci-menu-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(227, 30, 36, .12); }
+.ramci-menu-btn:focus-visible { outline: none; box-shadow: var(--rs-focus); }
 .ramci-menu-btn span {
   display: block;
   height: 1.5px;
@@ -103,7 +103,7 @@
   transition: background-color .15s ease;
 }
 .ramci-nav-icon:hover { background: var(--color-ink-50); }
-.ramci-nav-icon:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(227, 30, 36, .12); }
+.ramci-nav-icon:focus-visible { outline: none; box-shadow: var(--rs-focus); }
 
 .ramci-cart-icon { position: relative; }
 .ramci-badge {
@@ -187,7 +187,7 @@
   transition: background-color .15s ease, color .15s ease;
 }
 .ramci-drawer-close:hover { background: var(--color-ink-50); color: var(--color-ink-900); }
-.ramci-drawer-close:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(227, 30, 36, .12); }
+.ramci-drawer-close:focus-visible { outline: none; box-shadow: var(--rs-focus); }
 
 .ramci-drawer-profile {
   display: flex;
@@ -255,7 +255,7 @@
   transition: background-color .15s ease, color .15s ease;
 }
 .drawer-item:hover { background: var(--color-ink-50); color: var(--color-ink-900); }
-.drawer-item:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(227, 30, 36, .12); }
+.drawer-item:focus-visible { outline: none; box-shadow: var(--rs-focus); }
 
 .drawer-item-disabled { color: var(--color-ink-400); cursor: default; font-size: 13.5px; }
 .drawer-item-disabled:hover { background: none; color: var(--color-ink-400); }
@@ -395,7 +395,7 @@
 .search-modal-input-wrapper:focus-within {
   background: var(--color-ink-0);
   border-color: var(--color-ramses-600);
-  box-shadow: 0 0 0 3px rgba(227, 30, 36, .12);
+  box-shadow: var(--rs-focus);
 }
 
 .search-modal-input {
@@ -574,7 +574,7 @@
 .filter-group select:focus,
 .filter-group input:focus {
   border-color: var(--color-ramses-600);
-  box-shadow: 0 0 0 3px rgba(227, 30, 36, .12);
+  box-shadow: var(--rs-focus);
 }
 
 .filters-footer {
@@ -637,4 +637,60 @@
   .ramci-menu-btn, .ramci-nav-icon, .drawer-item, .drawer-install-btn,
   .drawer-login-btn, .drawer-logout-btn, .reset-btn, .apply-btn,
   .search-modal-input-wrapper { transition: none; }
+}
+
+/* ---- Barre de recherche visible ---------------------------------------- */
+
+/* Motif emprunté au système Nike (awesome-design-md) : la recherche est une
+   pilule visible dans la barre, pas une icône qui ouvre une modale. Les
+   visiteurs qui utilisent la recherche convertissent nettement mieux que
+   ceux qui parcourent — la cacher derrière une icône coûte cher. */
+
+.ramci-searchbar {
+  padding: 0 12px 10px;
+  background: var(--color-ink-0);
+}
+
+.ramci-search-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1.5px solid transparent;
+  border-radius: var(--rs-r-pill);
+  background: var(--color-ink-50);
+  color: var(--color-ink-400);
+  font-family: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+.ramci-search-pill:hover {
+  background: var(--color-ink-0);
+  border-color: var(--color-ink-200);
+  color: var(--color-ink-600);
+}
+.ramci-search-pill:focus-visible {
+  outline: none;
+  background: var(--color-ink-0);
+  border-color: var(--color-ramses-600);
+  box-shadow: var(--rs-focus);
+}
+.ramci-search-pill span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Au-delà de 640px, le champ n'a pas besoin de toute la largeur. */
+@media (min-width: 640px) {
+  .ramci-searchbar { padding: 0 16px 12px; }
+  .ramci-search-pill { max-width: 520px; margin: 0 auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ramci-search-pill { transition: none; }
 }
