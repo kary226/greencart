@@ -75,6 +75,20 @@
   background: var(--color-ink-0);
 }
 
+/* La règle ci-dessus a une spécificité de (0,2,0) et écrasait donc le fond
+   noir de `.ramci-cat-circle-all` (0,1,0) — sans écraser sa couleur de texte.
+   Résultat : l'icône blanche du bouton « Tous » se retrouvait sur fond blanc,
+   donc invisible. La variante est re-scopée à la même spécificité. */
+.ramci-categories-page .ramci-cat-circle-all {
+  background: var(--color-ink-900);
+  border-color: var(--color-ink-900);
+  color: #fff;
+}
+.ramci-categories-page .ramci-cat-item:hover .ramci-cat-circle-all {
+  background: var(--color-ink-800);
+  border-color: var(--color-ink-800);
+}
+
 .ramci-categories-page .ramci-cat-placeholder { font-size: 30px; }
 
 .ramci-categories-page .ramci-cat-label {

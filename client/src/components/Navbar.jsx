@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
 import { buildSearchIndex, searchProductsAndCategories } from "../utils/searchEngine";
-import { Search, ShoppingBag, Heart } from "lucide-react";
+import { Search, ShoppingCart, Heart, ArrowLeft, X } from "lucide-react";
 
 const Navbar = () => {
   const { cartItems, wishlist, user, searchQuery, setSearchQuery, axios, products, logoutUser, setShowUserLogin, canInstallPWA, isPWAInstalled, installPWA, subscribeToPushNotifications } = useAppContext();
@@ -284,7 +284,7 @@ const Navbar = () => {
             </Link>
 
             <Link to="/cart" className="ramci-nav-icon ramci-cart-icon" aria-label={`Panier${cartCount > 0 ? `, ${cartCount} article${cartCount > 1 ? 's' : ''}` : ''}`}>
-              <ShoppingBag size={21} strokeWidth={1.8} />
+              <ShoppingCart size={21} strokeWidth={1.8} />
               {cartCount > 0 && (
                 <span className="ramci-badge" aria-hidden="true">{cartCount > 9 ? '9+' : cartCount}</span>
               )}
@@ -456,22 +456,20 @@ const Navbar = () => {
       {showSearchModal && (
         <div className="search-modal-overlay" onClick={closeSearchModal}>
           <div className="search-modal-container" onClick={(e) => e.stopPropagation()}>
-            <div className="search-modal-header">
-              <button className="search-modal-back" onClick={closeSearchModal}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M15 18l-6-6 6-6"/>
-                </svg>
-              </button>
-              <span className="search-modal-title">RAMCI</span>
-              <div style={{ width: 40 }}></div>
-            </div>
-
+            {/* Le bandeau affichait une flèche retour, le wordmark « RAMCI » et
+                un espaceur vide : on ouvrait la recherche et on tombait sur un
+                écran titré du nom du site, qui ressemblait à une page cassée
+                plutôt qu'à un panneau de recherche.
+                Le champ remonte donc dans le bandeau, à côté de la flèche —
+                c'est le motif de la recherche plein écran (Nike, awesome-design-md). */}
             <form className="search-modal-form" onSubmit={handleSearch} ref={suggestionsRef}>
-              <div className="search-modal-input-wrapper">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2.2">
-                  <circle cx="11" cy="11" r="8"/>
-                  <path d="m21 21-4.35-4.35"/>
-                </svg>
+              <div className="search-modal-header">
+                <button type="button" className="search-modal-back" onClick={closeSearchModal} aria-label="Fermer la recherche">
+                  <ArrowLeft size={20} />
+                </button>
+
+                <div className="search-modal-input-wrapper">
+                  <Search size={17} strokeWidth={2} className="search-modal-icon" />
                 <input
                   ref={searchInputRef}
                   type="text"
@@ -500,14 +498,13 @@ const Navbar = () => {
                 </button>
 
                 {query && (
-                  <button type="button" className="search-modal-clear" onClick={() => setQuery("")}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2">
-                      <circle cx="12" cy="12" r="10"/>
-                      <line x1="12" y1="8" x2="12" y2="16"/>
-                      <line x1="8" y1="12" x2="16" y2="12"/>
-                    </svg>
+                  /* L'icône d'origine dessinait un « + » dans un cercle, pas une
+                     croix : le bouton « effacer » ressemblait à un bouton d'ajout. */
+                  <button type="button" className="search-modal-clear" onClick={() => setQuery("")} aria-label="Effacer la recherche">
+                    <X size={16} strokeWidth={2.4} />
                   </button>
                 )}
+                </div>
               </div>
 
               {showSuggestions && (
