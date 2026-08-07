@@ -222,6 +222,15 @@
 .rs-input--pill { border-radius: 22px; }
 .rs-input--area { min-height: 76px; resize: none; padding-top: 12px; line-height: 1.5; }
 
+/* Champ portant une icône (recherche, cadenas, œil…).
+   Les utilitaires Tailwind `pl-11` / `pr-12` ne peuvent PAS dégager la place :
+   ce fichier est importé hors `@layer`, il l'emporte donc sur `@layer
+   utilities` et le `padding` raccourci de .rs-input écrase leur valeur.
+   D'où ces modificateurs explicites — 44px = la cible tactile du bouton
+   qui vient s'y loger (DESIGN.md §8). */
+.rs-input--icon-l { padding-left: 44px; }
+.rs-input--icon-r { padding-right: 44px; }
+
 /* ---- Badges de statut -------------------------------------------------- */
 
 .rs-badge {
@@ -355,10 +364,33 @@
 .rs-step--now  .rs-step__label { font-weight: 700; color: var(--color-ink-900); }
 .rs-step--done .rs-step__label { color: var(--color-ink-600); }
 
+/* ---- Modale ------------------------------------------------------------ */
+
+/* Voile teinté vers l'encre, sans `backdrop-blur` : le flou lave le contraste
+   franc qui fait l'identité (DESIGN.md §6). */
+.rs-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 11, 13, .6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+/* 180ms : l'utilisateur attend cette fenêtre, elle ne doit pas se faire
+   désirer (DESIGN.md §7 — rien au-dessus de 200ms sur un élément attendu). */
+.rs-modal-in { animation: rs-modal-in .18s ease-out; }
+@keyframes rs-modal-in {
+  from { opacity: 0; transform: translateY(8px) scale(.99); }
+  to   { opacity: 1; transform: none; }
+}
+
 /* ---- Accessibilité ----------------------------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {
   .rs-typing span,
   .rs-step--now .rs-step__dot { animation: none; }
+  .rs-modal-in { animation: none; }
   .rs-btn, .rs-icon-btn, .rs-input { transition: none; }
 }

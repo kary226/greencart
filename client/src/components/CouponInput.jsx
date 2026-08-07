@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import toast from 'react-hot-toast';
-import { Tag, Check, X, Loader2 } from 'lucide-react';
+import { Check, X, Loader2 } from 'lucide-react';
 
 const CouponInput = ({ amount, items, onCouponApplied }) => {
     const { axios, user } = useAppContext();
@@ -51,56 +51,79 @@ const CouponInput = ({ amount, items, onCouponApplied }) => {
 
     if (appliedCoupon) {
         return (
-            <div className="mb-1 flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-3.5 py-2.5">
-                <div className="flex items-center gap-2 min-w-0">
-                    <span className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
+            // Vert sémantique (ok-*), pas le rouge de marque : DESIGN.md §2
+            // réserve la couleur de statut au statut. Fond plein sans filet —
+            // le cran de surface suffit à détacher le bloc (§6).
+            <div className="flex items-center justify-between gap-2 rounded-xl bg-ok-50 pl-3.5 pr-1 py-1.5">
+                <div className="flex items-center gap-2.5 min-w-0">
+                    <span aria-hidden="true" className="w-5 h-5 rounded-full bg-ok-500 flex items-center justify-center shrink-0">
                         <Check size={12} className="text-white" strokeWidth={3} />
                     </span>
                     <div className="min-w-0">
-                        <span className="text-sm font-semibold text-emerald-700 tracking-wide">{appliedCoupon.code}</span>
-                        <p className="text-[11px] text-emerald-600">
-                            - {appliedCoupon.discountAmount.toLocaleString()} FCFA appliqué
+                        <p className="text-[13px] font-bold text-ink-900 truncate">{appliedCoupon.code}</p>
+                        <p className="text-[11px] font-semibold text-ok-500 tabular-nums">
+                            − {appliedCoupon.discountAmount.toLocaleString()} FCFA appliqué
                         </p>
                     </div>
                 </div>
-                <button onClick={handleRemoveCoupon} className="text-emerald-500 hover:text-emerald-700 shrink-0 p-1">
-                    <X size={15} />
+                {/* 44×44 : c'était un `p-1` autour d'une icône de 15px, très
+                    en dessous de la cible tactile minimale (DESIGN.md §8). */}
+                <button
+                    onClick={handleRemoveCoupon}
+                    aria-label={`Retirer le code ${appliedCoupon.code}`}
+                    className="rs-icon-btn shrink-0"
+                >
+                    <X size={16} />
                 </button>
             </div>
         );
     }
 
     if (!expanded) {
+        // L'icône Tag et le mot « Code promo » ont sauté : Cart.jsx pose déjà
+        // ce libellé juste au-dessus, le composant le répétait.
         return (
             <button
+                type="button"
                 onClick={() => setExpanded(true)}
-                className="mb-1 w-full flex items-center justify-between bg-blush-50 hover:bg-blush-100 transition rounded-xl px-3.5 py-2.5"
+                className="w-full min-h-[44px] flex items-center justify-between gap-2 rounded-xl bg-ink-50 px-3.5 text-left transition-colors hover:bg-ink-100"
             >
-                <span className="flex items-center gap-2 text-sm text-gray-500">
-                    <Tag size={14} className="text-burgundy-500" /> Code promo
-                </span>
-                <span className="text-xs font-semibold text-burgundy-700">Ajouter</span>
+                <span className="text-[13px] text-ink-500">Vous avez un code ?</span>
+                <span className="text-[12px] font-bold text-ramses-700">Ajouter</span>
             </button>
         );
     }
 
     return (
-        <div className="mb-1 flex gap-2">
+        <div className="flex gap-2">
             <input
                 type="text"
                 autoFocus
                 value={code}
                 onChange={(e) => setCode(e.target.value.toUpperCase())}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleApplyCoupon(); }}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleApplyCoupon();
+                    // Échap replie le champ : sans ça, une fois ouvert on ne
+                    // pouvait plus le refermer.
+                    if (e.key === 'Escape') { setExpanded(false); setCode(''); }
+                }}
                 placeholder="Entrer le code"
-                className="flex-1 bg-blush-50 border border-transparent focus:border-burgundy-400 rounded-xl px-3.5 py-2.5 outline-none text-sm uppercase text-gray-700"
+                aria-label="Code promo"
+                autoComplete="off"
+                autoCapitalize="characters"
+                spellCheck="false"
+                className="rs-input flex-1 uppercase tracking-[0.04em] font-semibold"
             />
+            {/* Secondaire, pas primaire : l'action primaire rouge du panier est
+                déjà « Passer la commande », et DESIGN.md §7 n'en autorise
+                qu'une par écran. */}
             <button
+                type="button"
                 onClick={handleApplyCoupon}
-                disabled={loading}
-                className="px-4 bg-burgundy-600 text-white rounded-xl text-sm font-medium hover:bg-burgundy-700 transition disabled:opacity-50 flex items-center justify-center"
+                disabled={loading || !code.trim()}
+                className="rs-btn rs-btn--secondary shrink-0"
             >
-                {loading ? <Loader2 size={15} className="animate-spin" /> : 'OK'}
+                {loading ? <Loader2 aria-hidden="true" size={16} className="animate-spin" /> : 'OK'}
             </button>
         </div>
     );
