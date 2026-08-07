@@ -172,34 +172,46 @@ const Home = () => {
         </section>
 
         {activeCategories.length > 0 && (
-          <section className="ramci-cats-section">
-            <Link to="/categories" className="ramci-cat-item">
-              <div className="ramci-cat-circle ramci-cat-circle-all">
-                <svg width="22" height="22" viewBox="0 0 22 22" fill="currentColor">
-                  <rect x="0" y="0" width="9" height="9" rx="2"/>
-                  <rect x="13" y="0" width="9" height="9" rx="2"/>
-                  <rect x="0" y="13" width="9" height="9" rx="2"/>
-                  <rect x="13" y="13" width="9" height="9" rx="2"/>
+          <section className="ramci-cats-wrapper">
+            <div className="ramci-section-header">
+              <h2 className="ramci-section-title">Catégories</h2>
+              <Link to="/categories" className="ramci-voir-tout">
+                Voir tout
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M9 18l6-6-6-6"/>
                 </svg>
-              </div>
-              <span className="ramci-cat-label">Tous</span>
-            </Link>
-
-            {activeCategories.map((cat) => (
-              <Link
-                key={cat._id}
-                to={`/products?categories=${cat.slug || cat.name}`}
-                className="ramci-cat-item"
-              >
-                <div className="ramci-cat-circle">
-                  {cat.image
-                    ? <img src={getPresetImageUrl(cat.image, "categoryIcon")} alt={cat.name} className="ramci-cat-img" />
-                    : <span className="ramci-cat-placeholder">{cat.name?.[0]}</span>
-                  }
-                </div>
-                <span className="ramci-cat-label">{cat.name}</span>
               </Link>
-            ))}
+            </div>
+
+            <div className="ramci-cats-section">
+              <Link to="/categories" className="ramci-cat-item">
+                <div className="ramci-cat-circle ramci-cat-circle-all">
+                  <svg width="22" height="22" viewBox="0 0 22 22" fill="currentColor">
+                    <rect x="0" y="0" width="9" height="9" rx="2"/>
+                    <rect x="13" y="0" width="9" height="9" rx="2"/>
+                    <rect x="0" y="13" width="9" height="9" rx="2"/>
+                    <rect x="13" y="13" width="9" height="9" rx="2"/>
+                  </svg>
+                </div>
+                <span className="ramci-cat-label">Tous</span>
+              </Link>
+
+              {activeCategories.map((cat) => (
+                <Link
+                  key={cat._id}
+                  to={`/products?categories=${cat.slug || cat.name}`}
+                  className="ramci-cat-item"
+                >
+                  <div className="ramci-cat-circle">
+                    {cat.image
+                      ? <img src={getPresetImageUrl(cat.image, "categoryIcon")} alt={cat.name} className="ramci-cat-img" />
+                      : <span className="ramci-cat-placeholder">{cat.name?.[0]}</span>
+                    }
+                  </div>
+                  <span className="ramci-cat-label">{cat.name}</span>
+                </Link>
+              ))}
+            </div>
           </section>
         )}
 
