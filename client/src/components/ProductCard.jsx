@@ -6,7 +6,7 @@ import { getPresetImageUrl } from "../utils/cloudinaryImage";
 const LOW_STOCK_THRESHOLD = 5;
 
 const ProductCard = ({ product }) => {
-  const { addToWishlist, currency, isInWishlist } = useAppContext();
+  const { addToWishlist, removeFromWishlist, currency, isInWishlist } = useAppContext();
   const [imgIdx, setImgIdx] = useState(0);
   const [imgLoaded, setImgLoaded] = useState(false);
 
@@ -102,7 +102,7 @@ const ProductCard = ({ product }) => {
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            addToWishlist?.(_id);
+            isWishlisted ? removeFromWishlist?.(_id) : addToWishlist?.(_id);
           }}
           aria-label={isWishlisted ? `Retirer ${name} des favoris` : `Ajouter ${name} aux favoris`}
           aria-pressed={isWishlisted}
