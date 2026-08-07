@@ -334,6 +334,20 @@
   border-radius: 20px;
 }
 
+.pd-wishlist-btn {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: var(--color-ramses-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 4px;
+}
+.pd-wishlist-btn svg { width: 26px; height: 26px; }
+.pd-wishlist-btn.active svg { fill: currentColor; }
+
 .pd-rating {
   display: flex;
   align-items: center;
