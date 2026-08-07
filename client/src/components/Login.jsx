@@ -120,7 +120,7 @@ const Login = () => {
                                 </h3>
                                 <p className="text-[14px] leading-relaxed text-ink-300 text-center">
                                     {isRegister
-                                        ? "Créez votre compte et bénéficiez de -10% sur votre première commande, livraison offerte dès 50 000 FCFA."
+                                        ? "Il est désormais temps de vous affirmer."
                                         : "Connectez-vous pour découvrir nos dernières collections et profiter de vos avantages exclusifs."}
                                 </p>
                             </div>

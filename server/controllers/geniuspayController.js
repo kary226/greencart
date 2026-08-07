@@ -113,6 +113,12 @@ function verifyGeniusPaySignature(req, rawBody) {
 
 // Initier un paiement GeniusPay (mode checkout)
 export const initiateGeniusPay = async (req, res) => {
+    // [DEBUG PERF - TEMPORAIRE] Instrumentation de timing pour identifier
+    // l'étape réellement responsable de la lenteur à l'initiation.
+    // À retirer une fois la cause confirmée.
+    const __t0 = Date.now();
+    const __lap = (label) => console.log(`⏱️ [GeniusPay init] ${label}: ${Date.now() - __t0}ms`);
+
     try {
         // [FIX C2] 'amount' n'est plus extrait du corps de la requête :
         // il est désormais entièrement recalculé côté serveur ci-dessous,
@@ -156,6 +162,8 @@ export const initiateGeniusPay = async (req, res) => {
         if (!Array.isArray(items) || items.length === 0) {
             return res.json({ success: false, message: "Panier vide" });
         }
+
+        __lap("adresse résolue");
 
         // ============================================================
         // [FIX C2] Recalcul intégral du montant et des prix unitaires
@@ -233,6 +241,8 @@ export const initiateGeniusPay = async (req, res) => {
         // Sous-total des articles, avant livraison et remise.
         const itemsSubtotal = amount;
 
+        __lap("produits chargés + sous-total calculé");
+
         // ============================================================
         // [FIX M2] Recalcul des frais de livraison côté serveur.
         // On ignore 'deliveryPrice' envoyé par le client : seul le nom
@@ -271,6 +281,8 @@ export const initiateGeniusPay = async (req, res) => {
                 // getDeliveryPrice qui renvoie price: null dans ce cas.
             }
         }
+
+        __lap("livraison calculée");
 
         // ============================================================
         // [FIX M2] Revalidation et recalcul de la remise coupon côté
@@ -315,6 +327,8 @@ export const initiateGeniusPay = async (req, res) => {
             discountAmount = coupon.calculateDiscount(baseAmount);
         }
 
+        __lap("coupon calculé");
+
         amount = itemsSubtotal + deliveryPrice - discountAmount;
 
         const finalAmount = Math.round(amount);
@@ -338,6 +352,8 @@ export const initiateGeniusPay = async (req, res) => {
             paymentType: "GeniusPay",
             status: "pending_payment",
         });
+
+        __lap("commande créée en base (Order.create)");
 
         // Formater le téléphone au format international (GENIUSPAY EXIGE +225XXXXXXXXX)
         let phone = completeAddress.phone;
@@ -372,6 +388,7 @@ export const initiateGeniusPay = async (req, res) => {
         };
 
         // Appel à l'API GeniusPay
+        __lap("AVANT appel réseau GeniusPay POST /payments");
         const response = await axios.post(
             `${process.env.GENIUSPAY_BASE_URL}/payments`,
             geniusPayload,
@@ -383,6 +400,7 @@ export const initiateGeniusPay = async (req, res) => {
                 },
             }
         );
+        __lap("APRÈS réponse GeniusPay POST /payments");
 
         if (response.data.success) {
             // Mode checkout (aucun opérateur choisi) → checkout_url.
@@ -393,12 +411,15 @@ export const initiateGeniusPay = async (req, res) => {
                 geniuspay_reference: response.data.data.reference,
             });
 
+            __lap("commande mise à jour avec la référence — réponse envoyée au client");
+
             return res.json({ success: true, checkout_url: checkoutUrl, orderId: order._id });
         } else {
             await Order.findByIdAndDelete(order._id);
             return res.json({ success: false, message: response.data.error?.message || "Erreur d'initiation GeniusPay" });
         }
     } catch (error) {
+        __lap(`ERREUR après`);
         console.error("Erreur GeniusPay:", error.message);
 
         if (error.response) {
