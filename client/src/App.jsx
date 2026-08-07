@@ -125,12 +125,12 @@ const App = () => {
   useSmartScroll();
 
   const showFooter = !isSellerPath && !isStaffPath && !isColisSheinPath && !isLivreurPath && !isCommercantPath;
-  const showBottomNav = !isSellerPath && !isStaffPath && !isLivreurPath && !isCommercantPath && !isChatFullScreenPath;
+  const showBottomNav = !isSellerPath && !isStaffPath && !isLivreurPath && !isCommercantPath && !isChatFullScreenPath && !(showUserLogin && !user);
 
   return (
     <div className='text-default min-h-screen text-gray-700 bg-white'>
 
-      {!isSellerPath && !isStaffPath && !isChatFullScreenPath && !isLivreurPath && !isCommercantPath && <Navbar />}
+      {!isSellerPath && !isStaffPath && !isChatFullScreenPath && !isLivreurPath && !isCommercantPath && !(showUserLogin && !user) && <Navbar />}
       
       {showUserLogin && !user ? <Login /> : null}
 
