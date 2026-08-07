@@ -337,7 +337,6 @@ export default function MyOrders() {
                         <ul className="grid gap-2.5 list-none p-0 m-0">
                             {groupe.commandes.map((order) => {
                     const isOpen = expanded === order._id
-                    const firstImg = order.items?.[0]?.product?.image?.[0]
                     const itemCount = order.items?.length || 0
                     const itemsSubtotal = getItemsSubtotal(order)
                     const deliveryPrice = order.deliveryPrice || 0
@@ -355,47 +354,63 @@ export default function MyOrders() {
 
                     return (
                         <li key={order._id} className="rs-card !p-0 overflow-hidden">
-                            {/* Ligne repliée — anatomie Revolut : vignette, bloc
-                                texte, montant aligné à droite. La date de
-                                livraison estimée qui s'y trouvait est descendue
-                                dans le panneau déplié : quatre informations et
-                                deux badges sur une ligne, c'était illisible. */}
+                            {/* Ligne repliée — anatomie proche de la réf : en-tête
+                                (n° commande + date à gauche, statut à droite),
+                                rangée de vignettes des articles, puis nombre
+                                d'articles et total sur une ligne dédiée. */}
                             <button
                                 onClick={() => setExpanded(isOpen ? null : order._id)}
                                 aria-expanded={isOpen}
-                                className="w-full flex items-center gap-3 px-3.5 py-3 text-left hover:bg-ink-50 transition"
+                                className="w-full text-left hover:bg-ink-50 transition px-3.5 py-3"
                             >
-                                <div className="w-11 h-11 rounded-xl overflow-hidden bg-ink-50 shrink-0">
-                                    {firstImg ? (
-                                        <img src={getPresetImageUrl(firstImg, "thumbnail")} alt="" loading="lazy" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center">
-                                            <Package size={18} className="text-ink-300" />
+                                <div className="flex items-center justify-between gap-2 mb-2.5">
+                                    <div className="min-w-0">
+                                        <p className="font-bold text-[14px] text-ink-900 tracking-tight truncate">
+                                            Commande #{order._id.slice(-8).toUpperCase()}
+                                        </p>
+                                        <p className="text-ink-400 text-[12px] mt-0.5">
+                                            {new Date(order.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                        <StatusPill status={order.status} />
+                                        <ChevronDown
+                                            size={16}
+                                            className={`text-ink-300 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-2 mb-2.5">
+                                    {order.items?.slice(0, 3).map((it, i) => {
+                                        const img = it.product?.image?.[0]
+                                        return (
+                                            <div key={i} className="w-14 h-14 rounded-lg overflow-hidden bg-ink-50 shrink-0">
+                                                {img ? (
+                                                    <img src={getPresetImageUrl(img, "thumbnail")} alt="" loading="lazy" className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center">
+                                                        <Package size={16} className="text-ink-300" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )
+                                    })}
+                                    {itemCount > 3 && (
+                                        <div className="w-14 h-14 rounded-lg bg-ink-50 flex items-center justify-center shrink-0">
+                                            <span className="text-[13px] font-semibold text-ink-400">+{itemCount - 3}</span>
                                         </div>
                                     )}
                                 </div>
 
-                                <div className="flex-1 min-w-0">
-                                    <p className="font-bold text-[13.5px] text-ink-900 tracking-tight truncate">
-                                        {order._id.slice(-8).toUpperCase()}
-                                    </p>
-                                    <p className="text-ink-400 text-[12px] mt-0.5">
-                                        {new Date(order.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                                        {' · '}{itemCount} article{itemCount > 1 ? 's' : ''}
-                                    </p>
-                                </div>
-
-                                <div className="flex flex-col items-end gap-1 shrink-0">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-ink-400 text-[12.5px]">
+                                        {itemCount} article{itemCount > 1 ? 's' : ''}
+                                    </span>
                                     <span className="rs-money text-[15px]">
                                         {order.amount.toLocaleString()} {currency}
                                     </span>
-                                    <StatusPill status={order.status} />
                                 </div>
-
-                                <ChevronDown
-                                    size={16}
-                                    className={`text-ink-300 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-                                />
                             </button>
 
                             {isOpen && (
