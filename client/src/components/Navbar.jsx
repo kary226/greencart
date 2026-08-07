@@ -279,8 +279,11 @@ const Navbar = () => {
           <Link to="/" className="ramci-logo">RAMCI</Link>
 
           <div className="ramci-nav-actions">
-            <Link to="/wishlist" className="ramci-nav-icon" aria-label="Mes favoris">
+            <Link to="/wishlist" className="ramci-nav-icon" aria-label={`Mes favoris${wishlistCount > 0 ? `, ${wishlistCount} article${wishlistCount > 1 ? 's' : ''}` : ''}`}>
               <Heart size={21} strokeWidth={1.8} />
+              {wishlistCount > 0 && (
+                <span className="ramci-badge" aria-hidden="true">{wishlistCount > 9 ? '9+' : wishlistCount}</span>
+              )}
             </Link>
 
             <Link to="/cart" className="ramci-nav-icon ramci-cart-icon" aria-label={`Panier${cartCount > 0 ? `, ${cartCount} article${cartCount > 1 ? 's' : ''}` : ''}`}>
