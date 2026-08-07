@@ -42,7 +42,7 @@ const BottomNav = () => {
   // navigation client n'a pas lieu d'être (back-office).
   // `/my-orders` a été RETIRÉ de cette liste : c'est une destination de la
   // barre, l'y masquer était un cul-de-sac.
-  const hideOnPaths = ["/seller", "/staff", "/commercant", "/livreur", "/cart", "/colis-shein/"];
+  const hideOnPaths = ["/seller", "/staff", "/commercant", "/livreur", "/cart", "/colis-shein/", "/valider-panier-shein"];
   const shouldHide = hideOnPaths.some(path => location.pathname.startsWith(path));
   const isProductPage = /^\/products\/[^/]+\/[^/]+$/.test(location.pathname);
 
