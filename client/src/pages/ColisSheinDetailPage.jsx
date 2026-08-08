@@ -39,10 +39,10 @@ const STATUT_ORDER = [
     "en_livraison", "livre",
 ];
 
-// Jalons affichés au client. Les statuts intermédiaires existent en base mais
-// n'apportent rien à sa lecture — il veut savoir où en est son colis, pas
-// suivre la machine à états.
-const ETAPES_PRINCIPALES = ["soumis", "en_verification", "devis_envoye", "achete", "en_livraison", "livre"];
+// Jalons affichés au client — l'intégralité du parcours réel du colis
+// (STATUT_ORDER), pour que le client voie précisément où il en est plutôt
+// qu'une version condensée qui saute des étapes.
+const ETAPES_PRINCIPALES = STATUT_ORDER;
 
 const STATUT_VARIANTE = {
     soumis: "info",
@@ -259,7 +259,10 @@ const ColisSheinDetailPage = () => {
                 {/* Une seule frise. L'écran d'origine en affichait deux qui
                     parcouraient la même liste d'étapes : « Étapes du colis » et
                     « Suivi détaillé » répétaient les mêmes jalons, l'une sans
-                    description, l'autre avec. Celle-ci les remplace toutes deux. */}
+                    description, l'autre avec. Celle-ci les remplace toutes deux.
+                    Masquée si annulé : "annule" ne fait pas partie du parcours
+                    normal, la frise n'aurait aucun jalon cohérent à montrer. */}
+                {colis.statut !== "annule" && (
                 <div className="rs-card">
                     <p className="rs-label text-ink-400 mb-4">Suivi</p>
 
@@ -299,6 +302,7 @@ const ColisSheinDetailPage = () => {
                         );
                     })}
                 </div>
+                )}
 
                 {/* ── Accès à la conversation ────────────────────────────── */}
                 {/* La carte « Besoin d'aide ? » d'origine portait une icône de chat
