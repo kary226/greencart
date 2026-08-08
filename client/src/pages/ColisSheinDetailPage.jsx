@@ -15,7 +15,7 @@ const STATUT_LABELS = {
     pese: "Pesé",
     solde_du: "Solde à régler",
     solde_paye: "Solde réglé",
-    en_livraison: "Expédié",
+    en_livraison: "En cours de livraison",
     livre: "Livré",
 };
 
@@ -29,7 +29,7 @@ const STATUT_DESCRIPTIONS = {
     pese: "Le poids réel a été mesuré.",
     solde_du: "Le solde de livraison est à régler.",
     solde_paye: "Solde réglé, préparation de la livraison.",
-    en_livraison: "Votre colis est en cours d'acheminement vers Abidjan.",
+    en_livraison: "Votre colis est en cours de livraison vers vous.",
     livre: "Votre colis vous a été livré.",
 };
 
