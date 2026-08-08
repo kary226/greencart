@@ -31,6 +31,36 @@ export const posterMessageSysteme = async (colisId, texte) => {
     await MessageColis.create({ colisId, expediteurRole: "systeme", type: "systeme", texte });
 };
 
+// Messages automatiques envoyés au client à chaque changement de statut —
+// personnalisables par l'admin via le réglage "sheinMessagesStatut" (même
+// principe que le message de bienvenue existant, "sheinMessageBienvenue").
+// Ne couvre volontairement pas "soumis" (a déjà son propre réglage dédié),
+// "devis_envoye" et "pese" (postent déjà une carte de devis avec bouton de
+// paiement, un texte de plus ferait doublon), "en_livraison" et
+// "en_entrepot" (déjà un message avec des dates/estimations dynamiques).
+const MESSAGES_STATUT_DEFAUT = {
+    en_verification: "Nous vérifions actuellement la disponibilité de vos articles, un devis vous sera envoyé très prochainement.",
+    acompte_paye: "Merci, votre acompte a bien été reçu ! Nous procédons à l'achat de vos articles chez SHEIN.",
+    achete: "Vos articles ont été achetés chez SHEIN ! Ils seront bientôt en route vers notre entrepôt à Abidjan.",
+    solde_du: "Le solde de livraison de votre colis est maintenant disponible et à régler.",
+    solde_paye: "Merci, votre solde a bien été reçu ! Votre colis va être préparé pour la livraison.",
+    livre: "Votre colis vous a été livré. Merci pour votre confiance et à bientôt sur RAMCI !",
+};
+
+export const posterMessageStatutAuto = async (colis, statut) => {
+    if (!MESSAGES_STATUT_DEFAUT[statut]) return;
+    try {
+        const reglage = await Setting.findOne({ key: "sheinMessagesStatut" });
+        const texte = reglage?.value?.[statut]?.trim() || MESSAGES_STATUT_DEFAUT[statut];
+        await MessageColis.create({ colisId: colis._id, expediteurRole: "agent", type: "texte", texte });
+        colis.dernierMessageAgentAt = new Date();
+        await colis.save();
+    } catch (err) {
+        // Ne bloque jamais le changement de statut si l'envoi du message échoue
+        console.error(`Erreur envoi message auto (${statut}):`, err);
+    }
+};
+
 // POST /api/shein-cart/admin/:id/estimation-arrivee
 // Renseigné juste après le paiement du premier devis (acompte) : une fenêtre
 // large "arrivée estimée à Abidjan" (achat + transit), affichée au client en
@@ -283,6 +313,7 @@ export const updateStatutColis = async (req, res) => {
             }
             await posterMessageSysteme(colis._id, texte);
         }
+        await posterMessageStatutAuto(colis, statut);
         res.json({ success: true, colis });
     } catch (error) {
         console.error("Erreur updateStatutColis:", error);

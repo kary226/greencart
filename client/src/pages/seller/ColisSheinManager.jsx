@@ -169,6 +169,62 @@ const ColisSheinManager = () => {
         }
     };
 
+    // --- Messages automatiques par statut (Setting "sheinMessagesStatut") ---
+    // Un seul message par statut, envoyé au client dès que le colis y passe.
+    // Ne couvre pas "soumis" (message de bienvenue ci-dessus), ni
+    // "devis_envoye" / "pese" / "en_livraison" / "en_entrepot" (postent déjà
+    // un message dédié avec devis ou dates — voir colisSheinAdminController.js).
+    const MESSAGES_STATUT_LABELS = {
+        en_verification: "En vérification",
+        acompte_paye: "Acompte payé",
+        achete: "Acheté chez SHEIN",
+        solde_du: "Solde à régler",
+        solde_paye: "Solde réglé",
+        livre: "Livré",
+    };
+    const MESSAGES_STATUT_DEFAUT = {
+        en_verification: "Nous vérifions actuellement la disponibilité de vos articles, un devis vous sera envoyé très prochainement.",
+        acompte_paye: "Merci, votre acompte a bien été reçu ! Nous procédons à l'achat de vos articles chez SHEIN.",
+        achete: "Vos articles ont été achetés chez SHEIN ! Ils seront bientôt en route vers notre entrepôt à Abidjan.",
+        solde_du: "Le solde de livraison de votre colis est maintenant disponible et à régler.",
+        solde_paye: "Merci, votre solde a bien été reçu ! Votre colis va être préparé pour la livraison.",
+        livre: "Votre colis vous a été livré. Merci pour votre confiance et à bientôt sur RAMCI !",
+    };
+    const [messagesStatut, setMessagesStatut] = useState(MESSAGES_STATUT_DEFAUT);
+    const [messagesStatutSaved, setMessagesStatutSaved] = useState(MESSAGES_STATUT_DEFAUT);
+    const [savingMessagesStatut, setSavingMessagesStatut] = useState(false);
+    const messagesStatutModifie = JSON.stringify(messagesStatut) !== JSON.stringify(messagesStatutSaved);
+
+    const fetchMessagesStatut = async () => {
+        try {
+            const { data } = await axios.get("/api/setting/sheinMessagesStatut");
+            if (data.success && data.data) {
+                const fusion = { ...MESSAGES_STATUT_DEFAUT, ...data.data };
+                setMessagesStatut(fusion);
+                setMessagesStatutSaved(fusion);
+            }
+        } catch (error) {
+            // pas encore configuré — reste sur les textes par défaut
+        }
+    };
+
+    const enregistrerMessagesStatut = async () => {
+        setSavingMessagesStatut(true);
+        try {
+            const { data } = await axios.post("/api/setting/update", { key: "sheinMessagesStatut", value: messagesStatut });
+            if (data.success) {
+                toast.success("Messages automatiques enregistrés");
+                setMessagesStatutSaved(messagesStatut);
+            } else {
+                toast.error(data.message);
+            }
+        } catch (error) {
+            toast.error("Erreur d'enregistrement des messages");
+        } finally {
+            setSavingMessagesStatut(false);
+        }
+    };
+
     // --- Vue "Livraisons" : suivi des dates estimées pour tous les colis en cours de livraison ---
     const [vue, setVue] = useState("suivi"); // "suivi" | "livraisons"
     const [colisLivraison, setColisLivraison] = useState([]);
@@ -333,7 +389,7 @@ const ColisSheinManager = () => {
         }
     };
 
-    useEffect(() => { fetchTaux(); fetchHoraires(); fetchMessageBienvenue(); }, []);
+    useEffect(() => { fetchTaux(); fetchHoraires(); fetchMessageBienvenue(); fetchMessagesStatut(); }, []);
     useEffect(() => {
         axios.get("/api/setting/sheinReponsesRapides")
             .then(({ data }) => { if (data.success && Array.isArray(data.data)) setReponsesRapides(data.data); })
@@ -501,55 +557,86 @@ const ColisSheinManager = () => {
 
     return (
         <div className="csm-page">
-            <div className="csm-taux-bar">
-                <span className="csm-taux-label">Taux de change (FCFA)</span>
-                <label>1 $ = <input type="number" value={taux.usd} onChange={(e) => setTaux((p) => ({ ...p, usd: e.target.value }))} placeholder="ex. 620" /></label>
-                <label>1 € = <input type="number" value={taux.eur} onChange={(e) => setTaux((p) => ({ ...p, eur: e.target.value }))} placeholder="ex. 670" /></label>
-                <button onClick={enregistrerTaux} disabled={!tauxModifie || savingTaux} className="csm-taux-save">
-                    {savingTaux ? "Enregistrement…" : "Enregistrer"}
-                </button>
-                {(!tauxSaved.usd || !tauxSaved.eur) && (
-                    <span className="csm-taux-warning">Non configuré — la validation de devis sera bloquée</span>
-                )}
-            </div>
-
-            <div className="csm-taux-bar">
-                <span className="csm-taux-label">Horaires de service</span>
-                <label>Ouverture <input type="time" value={horaires.ouverture} onChange={(e) => setHoraires((p) => ({ ...p, ouverture: e.target.value }))} /></label>
-                <label>Fermeture <input type="time" value={horaires.fermeture} onChange={(e) => setHoraires((p) => ({ ...p, fermeture: e.target.value }))} /></label>
-                <button onClick={enregistrerHoraires} disabled={!horairesModifie || savingHoraires} className="csm-taux-save">
-                    {savingHoraires ? "Enregistrement…" : "Enregistrer"}
-                </button>
-                <span className="csm-horaires-info">Le client voit "Fermé" en dehors de cette plage</span>
-            </div>
-
-            <div className="csm-taux-bar" style={{ flexDirection: "column", alignItems: "stretch", gap: "8px" }}>
-                <span className="csm-taux-label">Message de bienvenue automatique</span>
-                <p className="csm-horaires-info" style={{ margin: 0 }}>
-                    Envoyé automatiquement au client dès qu'il soumet une commande, avant qu'un agent ne réponde.
-                </p>
-                <textarea
-                    value={messageBienvenue}
-                    onChange={(e) => setMessageBienvenue(e.target.value)}
-                    rows={3}
-                    maxLength={500}
-                    style={{ width: "100%", padding: "10px 12px", borderRadius: "10px", border: "1px solid #e5c6c6", fontFamily: "inherit", fontSize: "13px", resize: "vertical" }}
-                />
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <button onClick={enregistrerMessageBienvenue} disabled={!messageBienvenueModifie || savingMessageBienvenue} className="csm-taux-save">
-                        {savingMessageBienvenue ? "Enregistrement…" : "Enregistrer"}
-                    </button>
-                    <span className="csm-horaires-info">{messageBienvenue.length}/500</span>
-                </div>
-            </div>
-
             <div className="csm-tabs">
                 <button className={`csm-tab ${vue === "suivi" ? "active" : ""}`} onClick={() => setVue("suivi")}>Suivi des colis</button>
                 <button className={`csm-tab ${vue === "livraisons" ? "active" : ""}`} onClick={() => setVue("livraisons")}>Livraisons en cours</button>
                 <button className={`csm-tab ${vue === "avis" ? "active" : ""}`} onClick={() => setVue("avis")}>⭐ Avis clients{statsAvis.total > 0 ? ` (${statsAvis.total})` : ""}</button>
+                <button className={`csm-tab ${vue === "parametres" ? "active" : ""}`} onClick={() => setVue("parametres")}>⚙️ Réglages</button>
             </div>
 
-            {vue === "livraisons" ? (
+            {vue === "parametres" ? (
+                <div className="csm-parametres">
+                    <div className="csm-taux-bar">
+                        <span className="csm-taux-label">Taux de change (FCFA)</span>
+                        <label>1 $ = <input type="number" value={taux.usd} onChange={(e) => setTaux((p) => ({ ...p, usd: e.target.value }))} placeholder="ex. 620" /></label>
+                        <label>1 € = <input type="number" value={taux.eur} onChange={(e) => setTaux((p) => ({ ...p, eur: e.target.value }))} placeholder="ex. 670" /></label>
+                        <button onClick={enregistrerTaux} disabled={!tauxModifie || savingTaux} className="csm-taux-save">
+                            {savingTaux ? "Enregistrement…" : "Enregistrer"}
+                        </button>
+                        {(!tauxSaved.usd || !tauxSaved.eur) && (
+                            <span className="csm-taux-warning">Non configuré — la validation de devis sera bloquée</span>
+                        )}
+                    </div>
+
+                    <div className="csm-taux-bar">
+                        <span className="csm-taux-label">Horaires de service</span>
+                        <label>Ouverture <input type="time" value={horaires.ouverture} onChange={(e) => setHoraires((p) => ({ ...p, ouverture: e.target.value }))} /></label>
+                        <label>Fermeture <input type="time" value={horaires.fermeture} onChange={(e) => setHoraires((p) => ({ ...p, fermeture: e.target.value }))} /></label>
+                        <button onClick={enregistrerHoraires} disabled={!horairesModifie || savingHoraires} className="csm-taux-save">
+                            {savingHoraires ? "Enregistrement…" : "Enregistrer"}
+                        </button>
+                        <span className="csm-horaires-info">Le client voit "Fermé" en dehors de cette plage</span>
+                    </div>
+
+                    <div className="csm-taux-bar" style={{ flexDirection: "column", alignItems: "stretch", gap: "8px" }}>
+                        <span className="csm-taux-label">Message de bienvenue automatique</span>
+                        <p className="csm-horaires-info" style={{ margin: 0 }}>
+                            Envoyé automatiquement au client dès qu'il soumet une commande, avant qu'un agent ne réponde.
+                        </p>
+                        <textarea
+                            value={messageBienvenue}
+                            onChange={(e) => setMessageBienvenue(e.target.value)}
+                            rows={3}
+                            maxLength={500}
+                            style={{ width: "100%", padding: "10px 12px", borderRadius: "10px", border: "1px solid #e5c6c6", fontFamily: "inherit", fontSize: "13px", resize: "vertical" }}
+                        />
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                            <button onClick={enregistrerMessageBienvenue} disabled={!messageBienvenueModifie || savingMessageBienvenue} className="csm-taux-save">
+                                {savingMessageBienvenue ? "Enregistrement…" : "Enregistrer"}
+                            </button>
+                            <span className="csm-horaires-info">{messageBienvenue.length}/500</span>
+                        </div>
+                    </div>
+
+                    <div className="csm-taux-bar" style={{ flexDirection: "column", alignItems: "stretch", gap: "10px" }}>
+                        <span className="csm-taux-label">Messages automatiques par statut</span>
+                        <p className="csm-horaires-info" style={{ margin: 0 }}>
+                            Envoyé automatiquement au client dès que le colis passe à ce statut.
+                        </p>
+
+                        {Object.keys(MESSAGES_STATUT_LABELS).map((cle) => (
+                            <div key={cle} style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                                <span style={{ fontSize: "12.5px", fontWeight: 600, color: "#374151" }}>
+                                    {MESSAGES_STATUT_LABELS[cle]}
+                                </span>
+                                <textarea
+                                    value={messagesStatut[cle] ?? ""}
+                                    onChange={(e) => setMessagesStatut((p) => ({ ...p, [cle]: e.target.value }))}
+                                    rows={2}
+                                    maxLength={500}
+                                    style={{ width: "100%", padding: "10px 12px", borderRadius: "10px", border: "1px solid #e5c6c6", fontFamily: "inherit", fontSize: "13px", resize: "vertical" }}
+                                />
+                            </div>
+                        ))}
+
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                            <button onClick={enregistrerMessagesStatut} disabled={!messagesStatutModifie || savingMessagesStatut} className="csm-taux-save">
+                                {savingMessagesStatut ? "Enregistrement…" : "Enregistrer les messages"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : vue === "livraisons" ? (
                 <div className="csm-livraisons">
                     {loadingLivraisons ? (
                         <p className="csm-empty">Chargement…</p>
