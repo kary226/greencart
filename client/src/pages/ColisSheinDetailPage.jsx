@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useAppContext } from "../context/AppContext";
-import { ArrowLeft, MessageCircle, Scale, Package2, ChevronRight } from "lucide-react";
+import { ArrowLeft, MessageCircle, Scale, Package2, ChevronRight, ChevronDown, FileDown } from "lucide-react";
 
 const STATUT_LABELS = {
     soumis: "Commande soumise",
@@ -59,6 +59,7 @@ const STATUT_VARIANTE = {
 };
 
 const fcfa = (n) => `${Math.round(n || 0).toLocaleString("fr-FR")} FCFA`;
+const money = (n, devise) => `${devise === "EUR" ? "€" : "$"}${Number(n || 0).toFixed(2)}`;
 const dateHeure = (d) =>
     new Date(d).toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 
@@ -69,6 +70,7 @@ const ColisSheinDetailPage = () => {
 
     const [colis, setColis] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [articlesOuverts, setArticlesOuverts] = useState(false);
 
     useEffect(() => {
         axios.get(`/api/shein-cart/${id}`)
@@ -161,14 +163,55 @@ const ColisSheinDetailPage = () => {
                 {/* ── Résumé chiffré ─────────────────────────────────────── */}
                 <div className="rs-card">
                     <p className="rs-label text-ink-400 mb-3">Résumé</p>
-                    <dl className="grid gap-2.5 m-0">
-                        <div className="flex items-center justify-between gap-3">
-                            <dt className="text-[13px] text-ink-500">Articles</dt>
-                            <dd className="text-[13px] font-semibold text-ink-900 m-0 tabular-nums">
-                                {nbArticles} article{nbArticles > 1 ? "s" : ""}
-                            </dd>
-                        </div>
 
+                    <button
+                        type="button"
+                        onClick={() => setArticlesOuverts((v) => !v)}
+                        disabled={nbArticles === 0}
+                        aria-expanded={articlesOuverts}
+                        className="flex items-center justify-between gap-3 w-full text-left disabled:cursor-default"
+                    >
+                        <span className="text-[13px] text-ink-500">Articles</span>
+                        <span className="flex items-center gap-1 text-[13px] font-semibold text-ink-900 tabular-nums">
+                            {nbArticles} article{nbArticles > 1 ? "s" : ""}
+                            {nbArticles > 0 && (
+                                <ChevronDown size={14} className={`text-ink-400 transition-transform ${articlesOuverts ? "rotate-180" : ""}`} />
+                            )}
+                        </span>
+                    </button>
+
+                    {articlesOuverts && nbArticles > 0 && (
+                        <div className="grid gap-2.5 mt-2.5">
+                            {colis.articlesValides.map((a, i) => (
+                                <div key={i} className={`flex gap-2.5 pb-2.5 ${i < nbArticles - 1 ? "border-b border-ink-100" : ""}`}>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-[12.5px] font-semibold text-ink-800 leading-snug">
+                                            {a.nom || "Article sans nom"}
+                                        </p>
+                                        {a.variante && (
+                                            <p className="text-[11px] text-ink-400 mt-0.5">{a.variante}</p>
+                                        )}
+                                        {a.boutique && (
+                                            <p className="text-[10.5px] text-ink-300 mt-0.5">{a.boutique}</p>
+                                        )}
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                        <p className="text-[12.5px] font-semibold text-ink-900 tabular-nums">
+                                            {money(a.prixUnitaire, colis.devise)}
+                                            {a.quantite > 1 && <span className="text-ink-400 font-normal"> × {a.quantite}</span>}
+                                        </p>
+                                        {a.prixOriginal != null && a.prixOriginal > a.prixUnitaire && (
+                                            <p className="text-[10.5px] text-ink-300 line-through tabular-nums">
+                                                {money(a.prixOriginal, colis.devise)}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    <dl className="grid gap-2.5 m-0 mt-2.5">
                         {poids != null && (
                             <div className="flex items-center justify-between gap-3">
                                 <dt className="flex items-center gap-1.5 text-[13px] text-ink-500">
@@ -193,6 +236,29 @@ const ColisSheinDetailPage = () => {
                         </div>
                     )}
                 </div>
+
+                {/* ── Reçu d'achat ───────────────────────────────────────────
+                    N'apparaît que si un reçu a réellement été joint, ce qui
+                    n'arrive qu'à partir du statut "achete" (voir
+                    updateStatutColis côté serveur, qui l'exige à ce moment-là). */}
+                {colis.recuAchatUrl && (
+                    <a
+                        href={colis.recuAchatUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        download
+                        className="rs-card flex items-center gap-3 no-underline transition active:scale-[.99] hover:border-ink-200"
+                    >
+                        <div className="w-11 h-11 shrink-0 rounded-full bg-ramses-50 flex items-center justify-center">
+                            <FileDown size={19} className="text-ramses-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[14px] font-bold text-ink-900">Reçu d'achat SHEIN</p>
+                            <p className="text-[12px] text-ink-500 mt-0.5">Télécharger la confirmation d'achat</p>
+                        </div>
+                        <ChevronRight size={18} className="text-ink-300 shrink-0" />
+                    </a>
+                )}
 
                 {/* ── Suivi ──────────────────────────────────────────────── */}
                 {/* Une seule frise. L'écran d'origine en affichait deux qui

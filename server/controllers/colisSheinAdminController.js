@@ -255,6 +255,24 @@ export const updateStatutColis = async (req, res) => {
             colis.estimationArrivee.dateConfirmee = new Date();
         }
 
+        // Passage à "acheté" : le reçu (photo de la confirmation d'achat
+        // SHEIN) est obligatoire — c'est lui que le client pourra ensuite
+        // télécharger, donc un passage sans reçu laisserait le client sans
+        // rien à voir alors que le statut dit "acheté".
+        if (statut === "achete") {
+            if (!req.file) {
+                return res.status(400).json({ success: false, message: "Le reçu d'achat SHEIN est requis pour ce statut" });
+            }
+            const recuUrl = await new Promise((resolve, reject) => {
+                const uploadStream = cloudinary.uploader.upload_stream(
+                    { resource_type: "image", folder: "shein-recus" },
+                    (error, result) => (error ? reject(error) : resolve(result.secure_url))
+                );
+                uploadStream.end(req.file.buffer);
+            });
+            colis.recuAchatUrl = recuUrl;
+        }
+
         colis.statut = statut;
         colis.historique.push({
             action: `statut_${statut}`,

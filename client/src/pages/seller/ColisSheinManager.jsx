@@ -418,6 +418,12 @@ const ColisSheinManager = () => {
             ouvrirModalLivraison();
             return;
         }
+        // Le passage à "acheté" exige le reçu SHEIN (voir updateStatutColis
+        // côté serveur) — même logique de modale dédiée.
+        if (statut === "achete") {
+            setRecuModal(true);
+            return;
+        }
         const note = silencieux ? "" : (window.prompt(`Note pour ce changement vers "${statut}" (optionnel) :`) || "");
         try {
             const { data } = await axios.post(`/api/shein-cart/admin/${selection._id}/statut`, { statut, note });
@@ -435,6 +441,40 @@ const ColisSheinManager = () => {
 
     const [peseeModal, setPeseeModal] = useState(false);
     const [peseeForm, setPeseeForm] = useState({ poidsReel: "", tauxParKilo: "", fraisLivraisonAbidjan: "0" });
+
+    const [recuModal, setRecuModal] = useState(false);
+    const [recuFichier, setRecuFichier] = useState(null);
+
+    const choisirRecu = (e) => {
+        const file = e.target.files?.[0];
+        if (file) setRecuFichier(file);
+    };
+
+    const confirmerAchat = async () => {
+        if (!recuFichier) {
+            toast.error("Merci de joindre le reçu d'achat SHEIN");
+            return;
+        }
+        try {
+            const formData = new FormData();
+            formData.append("statut", "achete");
+            formData.append("recu", recuFichier);
+            const { data } = await axios.post(`/api/shein-cart/admin/${selection._id}/statut`, formData, {
+                headers: { "Content-Type": "multipart/form-data" },
+            });
+            if (data.success) {
+                toast.success("Statut mis à jour, reçu enregistré");
+                setSelection(data.colis);
+                fetchListe(filtreStatut);
+                setRecuModal(false);
+                setRecuFichier(null);
+            } else {
+                toast.error(data.message);
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || "Erreur d'envoi du reçu");
+        }
+    };
 
     const ouvrirModalPesee = () => {
         setPeseeForm({
@@ -950,6 +990,23 @@ const ColisSheinManager = () => {
                         <div className="csm-pesee-actions">
                             <button className="csm-btn-secondary" onClick={() => setPeseeModal(false)}>Annuler</button>
                             <button className="csm-btn-primary" onClick={confirmerPesee}>Confirmer et envoyer le devis</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {recuModal && (
+                <div className="csm-modal-overlay" onClick={() => setRecuModal(false)}>
+                    <div className="csm-modal" onClick={(e) => e.stopPropagation()}>
+                        <h3>Reçu d'achat SHEIN</h3>
+                        <p className="csm-attente" style={{ marginBottom: 12 }}>
+                            Joins une capture de la confirmation d'achat — le client pourra la télécharger dès que le statut passe à "acheté".
+                        </p>
+                        <input type="file" accept="image/*" onChange={choisirRecu} />
+                        {recuFichier && <p className="csm-attente" style={{ marginTop: 8 }}>{recuFichier.name}</p>}
+                        <div className="csm-pesee-actions">
+                            <button className="csm-btn-secondary" onClick={() => { setRecuModal(false); setRecuFichier(null); }}>Annuler</button>
+                            <button className="csm-btn-primary" onClick={confirmerAchat}>Confirmer l'achat</button>
                         </div>
                     </div>
                 </div>
