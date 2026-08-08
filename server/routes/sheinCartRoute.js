@@ -39,17 +39,6 @@ const uploadChatImage = multer({
     },
 });
 
-// Reçu d'achat SHEIN — une seule image, jointe uniquement au moment du
-// passage au statut "achete" (voir updateStatutColis).
-const uploadRecu = multer({
-    storage: multer.memoryStorage(),
-    limits: { fileSize: 15 * 1024 * 1024 },
-    fileFilter: (req, file, cb) => {
-        if (file.mimetype.startsWith("image/")) cb(null, true);
-        else cb(new Error("Seules les images sont acceptées"));
-    },
-});
-
 // --- Routes client (littérales) ---
 sheinCartRouter.post("/analyze", authUser, upload.array("captures", 10), analyzeCart);
 sheinCartRouter.post("/submit", authUser, submitCart);
@@ -61,7 +50,7 @@ sheinCartRouter.get("/admin/all", authSeller, getAllColisAdmin);
 sheinCartRouter.get("/admin/avis/stats", authSeller, getStatsAvis); // avant /admin/:id, sinon "avis" est lu comme un id
 sheinCartRouter.get("/admin/:id", authSeller, getColisAdminById);
 sheinCartRouter.post("/admin/:id/validate", authSeller, validateColis);
-sheinCartRouter.post("/admin/:id/statut", authSeller, uploadRecu.single("recu"), updateStatutColis);
+sheinCartRouter.post("/admin/:id/statut", authSeller, updateStatutColis);
 sheinCartRouter.post("/admin/:id/estimation-arrivee", authSeller, definirEstimationArrivee);
 sheinCartRouter.post("/admin/:id/demander-avis", authSeller, demanderAvis);
 sheinCartRouter.get("/admin/:id/messages", authSeller, getMessagesAdmin);

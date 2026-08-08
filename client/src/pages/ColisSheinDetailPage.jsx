@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useAppContext } from "../context/AppContext";
-import { ArrowLeft, MessageCircle, Scale, Package2, ChevronRight, ChevronDown, FileDown } from "lucide-react";
+import { ArrowLeft, MessageCircle, Scale, Package2, ChevronRight, ChevronDown } from "lucide-react";
+import ColisSheinReceiptButton from "../components/ColisSheinReceiptButton";
 
 const STATUT_LABELS = {
     soumis: "Commande soumise",
@@ -238,26 +239,20 @@ const ColisSheinDetailPage = () => {
                 </div>
 
                 {/* ── Reçu d'achat ───────────────────────────────────────────
-                    N'apparaît que si un reçu a réellement été joint, ce qui
-                    n'arrive qu'à partir du statut "achete" (voir
-                    updateStatutColis côté serveur, qui l'exige à ce moment-là). */}
-                {colis.recuAchatUrl && (
-                    <a
-                        href={colis.recuAchatUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        download
-                        className="rs-card flex items-center gap-3 no-underline transition active:scale-[.99] hover:border-ink-200"
-                    >
+                    Généré automatiquement à partir des données du colis
+                    (comme la facture des commandes classiques) — visible dès
+                    que l'achat chez SHEIN a eu lieu. */}
+                {STATUT_ORDER.indexOf("achete") !== -1 && indexActuel >= STATUT_ORDER.indexOf("achete") && (
+                    <div className="rs-card flex items-center gap-3">
                         <div className="w-11 h-11 shrink-0 rounded-full bg-ramses-50 flex items-center justify-center">
-                            <FileDown size={19} className="text-ramses-600" />
+                            <Package2 size={19} className="text-ramses-600" />
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="text-[14px] font-bold text-ink-900">Reçu d'achat SHEIN</p>
-                            <p className="text-[12px] text-ink-500 mt-0.5">Télécharger la confirmation d'achat</p>
+                            <p className="text-[12px] text-ink-500 mt-0.5">Détail des articles achetés</p>
                         </div>
-                        <ChevronRight size={18} className="text-ink-300 shrink-0" />
-                    </a>
+                        <ColisSheinReceiptButton colis={colis} />
+                    </div>
                 )}
 
                 {/* ── Suivi ──────────────────────────────────────────────── */}

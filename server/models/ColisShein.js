@@ -67,11 +67,6 @@ const colisSheinSchema = new mongoose.Schema({
 
     articlesValides: [ArticleSheinSchema],
 
-    // Reçu d'achat SHEIN (capture/photo de la confirmation d'achat) — joint
-    // par l'agent au moment de passer le colis au statut "achete", et
-    // téléchargeable par le client dès qu'il est présent.
-    recuAchatUrl: { type: String, default: null },
-
     devis: {
         montantArticles: { type: Number, default: 0 },
         tauxApplique: { type: Number, default: null },
