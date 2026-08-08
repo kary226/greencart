@@ -166,7 +166,38 @@ const styles = StyleSheet.create({
     grandTotalValue: {
         fontSize: 12,
         fontWeight: 'bold',
+        color: '#111827',
+    },
+
+    // Équivalent FCFA — encadré à part, c'est le montant que le client
+    // reconnaît et va réellement payer.
+    fcfaBox: {
+        marginTop: 14,
+        borderTopWidth: 2,
+        borderTopColor: '#e53935',
+        paddingTop: 10,
+    },
+    fcfaRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-end',
+    },
+    fcfaLabel: {
+        fontSize: 10,
+        fontWeight: 'bold',
         color: '#e53935',
+        textTransform: 'uppercase',
+    },
+    fcfaValue: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#e53935',
+    },
+    fcfaRate: {
+        fontSize: 7.5,
+        color: '#9ca3af',
+        marginTop: 3,
+        textAlign: 'right',
     },
 
     footer: {
@@ -290,22 +321,28 @@ const ColisSheinReceiptPDF = ({ colis }) => {
                 {/* TOTAUX */}
                 <View style={styles.totalsContainer}>
                     <View style={styles.totalsBox}>
-                        {colis.devis?.montantArticlesFCFA != null && (
-                            <View style={styles.totalRow}>
-                                <Text style={styles.totalLabel}>Montant articles</Text>
-                                <Text style={styles.totalValue}>{formatPriceFCFA(colis.devis.montantArticlesFCFA)}</Text>
-                            </View>
-                        )}
-                        {colis.devis?.fraisLivraisonEstime != null && colis.devis.fraisLivraisonEstime > 0 && (
-                            <View style={styles.totalRow}>
-                                <Text style={styles.totalLabel}>Frais de livraison</Text>
-                                <Text style={styles.totalValue}>{formatPriceFCFA(colis.devis.fraisLivraisonEstime)}</Text>
-                            </View>
-                        )}
+                        <View style={styles.totalRow}>
+                            <Text style={styles.totalLabel}>Sous-total ({colis.devise || 'USD'})</Text>
+                            <Text style={styles.totalValue}>{money(colis.devis?.montantArticles, colis.devise)}</Text>
+                        </View>
+
+                        <View style={styles.grandTotalRow}>
+                            <Text style={styles.grandTotalLabel}>TOTAL ({colis.devise || 'USD'})</Text>
+                            <Text style={styles.grandTotalValue}>{money(colis.devis?.montantArticles, colis.devise)}</Text>
+                        </View>
+
                         {montantTotalFCFA != null && (
-                            <View style={styles.grandTotalRow}>
-                                <Text style={styles.grandTotalLabel}>TOTAL</Text>
-                                <Text style={styles.grandTotalValue}>{formatPriceFCFA(montantTotalFCFA)}</Text>
+                            <View style={styles.fcfaBox}>
+                                <View style={styles.fcfaRow}>
+                                    <Text style={styles.fcfaLabel}>Équivalent (FCFA)</Text>
+                                    <Text style={styles.fcfaValue}>{formatPriceFCFA(montantTotalFCFA)}</Text>
+                                </View>
+                                {colis.devis?.tauxApplique != null && (
+                                    <Text style={styles.fcfaRate}>
+                                        Taux de change utilisé : 1 {colis.devise || 'USD'} = {colis.devis.tauxApplique} FCFA
+                                        {colis.devis?.fraisLivraisonEstime > 0 ? ' · frais de livraison inclus' : ''}
+                                    </Text>
+                                )}
                             </View>
                         )}
                     </View>
