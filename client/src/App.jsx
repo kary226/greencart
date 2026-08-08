@@ -12,6 +12,7 @@ import ProductDetails from './pages/ProductDetails';
 import Cart from './pages/Cart';
 import AddAddress from './pages/AddAddress';
 import MyOrders from './pages/MyOrders';
+import OrderDetail from './pages/OrderDetail';
 import Wishlist from './pages/Wishlist';
 import Account from './pages/Account';
 import ForgotPassword from './pages/ForgotPassword';
@@ -185,6 +186,7 @@ const App = () => {
             <Route path='/cart' element={<Cart />} />
             <Route path='/add-address' element={<AddAddress />} />
             <Route path='/my-orders' element={<MyOrders />} />
+            <Route path='/my-orders/:orderId' element={<OrderDetail />} />
             <Route path='/loader' element={<Loading />} />
             <Route path='/categories' element={<AllCategories />} />
             <Route path='/wishlist' element={<Wishlist />} />
