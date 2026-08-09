@@ -831,24 +831,33 @@ const Cart = () => {
                                         {/* Contrairement à GeniusPay, Jèko exige de connaître
                                             l'opérateur AVANT l'appel API — pas de page générique
                                             de choix côté eux (voir paymentDetails.data.paymentMethod,
-                                            obligatoire dans leur schéma "redirect"). */}
+                                            obligatoire dans leur schéma "redirect").
+                                            Badges colorés (couleur de marque + initiale) plutôt que
+                                            les vrais logos, qui sont des marques déposées qu'on ne
+                                            reproduit pas dans le code. */}
                                         {paymentOption === 'Jeko' && (
                                             <div className="mt-2.5 pl-1 grid grid-cols-2 gap-2">
                                                 {[
-                                                    { key: 'orange', label: 'Orange Money' },
-                                                    { key: 'wave', label: 'Wave' },
-                                                    { key: 'mtn', label: 'MTN MoMo' },
-                                                    { key: 'moov', label: 'Moov Money' },
-                                                    { key: 'djamo', label: 'Djamo' },
-                                                ].map(({ key, label }) => (
+                                                    { key: 'orange', label: 'Orange Money', initial: 'O', bg: '#FF6600' },
+                                                    { key: 'wave', label: 'Wave', initial: 'W', bg: '#1DA1F2' },
+                                                    { key: 'mtn', label: 'MTN MoMo', initial: 'M', bg: '#FFCC00', text: '#1a1a1a' },
+                                                    { key: 'moov', label: 'Moov Money', initial: 'M', bg: '#F26522' },
+                                                    { key: 'djamo', label: 'Djamo', initial: 'd', bg: '#6C3AC7' },
+                                                ].map(({ key, label, initial, bg, text }) => (
                                                     <button
                                                         key={key}
                                                         type="button"
                                                         onClick={() => setJekoPaymentMethod(key)}
-                                                        className={`text-[13px] font-semibold rounded-lg py-2.5 px-3 border-2 transition text-center ${
+                                                        className={`flex items-center gap-2.5 text-[13px] font-semibold rounded-lg py-2.5 px-3 border-2 transition text-left ${
                                                             jekoPaymentMethod === key ? 'border-ramses-600 bg-ramses-50 text-ramses-700' : 'border-ink-100 text-ink-600 hover:border-ink-200'
                                                         }`}
                                                     >
+                                                        <span
+                                                            className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 font-bold text-[13px]"
+                                                            style={{ background: bg, color: text || '#fff' }}
+                                                        >
+                                                            {initial}
+                                                        </span>
                                                         {label}
                                                     </button>
                                                 ))}
