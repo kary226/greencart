@@ -1,4 +1,5 @@
 import axios from 'axios';
+import crypto from 'crypto';
 import mongoose from 'mongoose';
 import Order from '../models/Order.js';
 import Product from '../models/Product.js';
@@ -6,35 +7,22 @@ import Coupon from '../models/Coupon.js';
 import DeliveryPrice from '../models/DeliveryPrice.js';
 import DeliveryType from '../models/DeliveryType.js';
 import Commune from '../models/Commune.js';
+import { confirmerCommandePayee, getRawBody } from './geniuspayController.js';
 
 // ============================================================================
-// [SQUELETTE — INTÉGRATION JÈKO INCOMPLÈTE]
-// Ce contrôleur reprend le calcul de commande éprouvé de geniuspayController.js
-// (revalidation intégrale des prix/livraison/coupon côté serveur, jamais fait
-// confiance au client — voir les commentaires [FIX C2]/[FIX M2] plus bas).
+// Intégration Jèko — initiation ET webhook écrits contre leur doc technique
+// officielle (POST /partner_api/payment_requests, type "redirect") et contre
+// les infos confirmées de ton compte (header Jeko-Signature, HMAC-SHA256).
 //
-// Ce qui MANQUE encore avant que ce moyen de paiement soit réellement
-// fonctionnel :
-//   1. Les identifiants Jèko réels (X-API-KEY, X-API-KEY-ID, storeId) dans
-//      les variables d'environnement JEKO_API_KEY / JEKO_API_KEY_ID /
-//      JEKO_STORE_ID.
-//   2. Le schéma exact attendu par POST /partner_api/payment_links (noms de
-//      champs, format du montant/devise, structure des URLs de retour) —
-//      non confirmé dans la doc publique au moment où ce fichier a été
-//      écrit. Le payload ci-dessous est une estimation à vérifier.
-//   3. Le endpoint et la logique de vérification de signature du webhook
-//      Jèko (HMAC-SHA256 mentionné dans leur doc, détail non confirmé).
-//
-// Tant que ces points ne sont pas confirmés, initiateJeko renvoie une erreur
-// propre côté client plutôt que d'appeler une API avec des champs devinés —
-// voir le bloc JEKO_INTEGRATION_PRETE plus bas.
-// Ce moyen de paiement n'apparaît de toute façon au client que si l'admin
-// l'active explicitement dans Réglages > Moyens de paiement.
+// Seul point encore incertain : les noms de champs exacts du PAYLOAD du
+// webhook (status/reference/amount) sont déduits par analogie avec le schéma
+// de réponse de création, pas confirmés sur un vrai webhook reçu. Le premier
+// paiement de test réel loggera le payload brut complet (voir
+// handleJekoWebhook) — si la commande n'est pas marquée payée après un
+// paiement réussi, regarder ce log en premier.
 // ============================================================================
 
-const JEKO_INTEGRATION_PRETE = false; // passer à true une fois les 3 points ci-dessus réglés
-
-// Initier un paiement Jèko (mode lien de paiement / checkout)
+// Initier un paiement Jèko (mode redirection, opérateur choisi côté RAMCI)
 export const initiateJeko = async (req, res) => {
     // [DEBUG PERF - TEMPORAIRE] Même instrumentation que GeniusPay, utile
     // pour mesurer où passe le temps le jour où l'intégration réelle sera
@@ -43,7 +31,12 @@ export const initiateJeko = async (req, res) => {
     const __lap = (label) => console.log(`⏱️ [Jeko init] ${label}: ${Date.now() - __t0}ms`);
 
     try {
-        let { userId, items, address, deliveryType, couponApplied } = req.body;
+        let { userId, items, address, deliveryType, couponApplied, jekoPaymentMethod } = req.body;
+
+        const OPERATEURS_VALIDES = ["orange", "wave", "mtn", "moov", "djamo"];
+        if (!OPERATEURS_VALIDES.includes(jekoPaymentMethod)) {
+            return res.json({ success: false, message: "Opérateur de paiement invalide" });
+        }
 
         // Si address est un ID, récupérer l'adresse complète
         let addressDoc = address;
@@ -272,51 +265,30 @@ export const initiateJeko = async (req, res) => {
         __lap("commande créée en base (Order.create)");
 
         // Formater le téléphone au format international. [À CONFIRMER] Format
-        // exact exigé par Jèko non vérifié — repris de GeniusPay par défaut,
-        // à ajuster une fois la doc/le format de réponse de test en main.
-        let phone = completeAddress.phone;
-        phone = phone.replace(/\D/g, '');
-        if (phone.startsWith('0')) {
-            phone = phone.substring(1);
-        }
-        if (!phone.startsWith('225')) {
-            phone = `225${phone}`;
-        }
-        phone = `+${phone}`;
+        // [VÉRIFIÉ] Le téléphone n'est pas requis par le schéma
+        // "paymentDetails.data" de POST /partner_api/payment_requests —
+        // contrairement à GeniusPay, Jèko ne le demande pas à ce niveau.
 
-        if (!JEKO_INTEGRATION_PRETE) {
-            // On annule la commande "pending_payment" créée ci-dessus pour ne
-            // pas laisser de commande fantôme en base — même logique que le
-            // catch d'échec d'appel réseau plus bas.
-            await Order.findByIdAndDelete(order._id);
-            console.error("Tentative d'initiation Jèko alors que l'intégration n'est pas terminée (JEKO_INTEGRATION_PRETE = false)");
-            return res.json({
-                success: false,
-                message: "Le paiement par Jèko n'est pas encore disponible, merci de choisir un autre moyen de paiement.",
-            });
-        }
-
-        // [À VÉRIFIER — champs devinés par analogie avec GeniusPay et la doc
-        // publique Jèko, jamais testés contre leur API réelle]
+        // "reference" identifie la commande dans le webhook plus tard — on met
+        // l'ID Mongo complet plutôt qu'un extrait, pour ne jamais avoir
+        // d'ambiguïté entre deux commandes lors de la recherche par référence.
         const jekoPayload = {
-            amount: finalAmount,
+            amountCents: Math.round(finalAmount * 100),
             currency: "XOF",
+            reference: order._id.toString(),
             storeId: process.env.JEKO_STORE_ID,
-            description: `Commande #${order._id.toString().slice(-8)}`,
-            customer: {
-                name: `${completeAddress.firstName} ${completeAddress.lastName}`.substring(0, 100),
-                phone: phone,
-            },
-            success_url: `${process.env.FRONTEND_URL}/payment/success?orderId=${order._id}`,
-            error_url: `${process.env.FRONTEND_URL}/payment/error?orderId=${order._id}`,
-            metadata: {
-                order_id: order._id.toString(),
-                user_id: userId.toString(),
+            paymentDetails: {
+                type: "redirect",
+                data: {
+                    paymentMethod: jekoPaymentMethod,
+                    successUrl: `${process.env.FRONTEND_URL}/payment/success?orderId=${order._id}`,
+                    errorUrl: `${process.env.FRONTEND_URL}/payment/error?orderId=${order._id}`,
+                },
             },
         };
 
         const response = await axios.post(
-            `${process.env.JEKO_BASE_URL || 'https://api.jeko.africa'}/partner_api/payment_links`,
+            `${process.env.JEKO_BASE_URL || 'https://api.jeko.africa'}/partner_api/payment_requests`,
             jekoPayload,
             {
                 headers: {
@@ -327,17 +299,16 @@ export const initiateJeko = async (req, res) => {
             }
         );
 
-        // [À VÉRIFIER] Nom exact du champ contenant l'URL de paiement dans
-        // la réponse Jèko — deviné par analogie, à corriger après un premier
-        // appel réel.
-        const checkoutUrl = response.data?.data?.checkout_url || response.data?.checkout_url || response.data?.url;
+        const checkoutUrl = response.data?.redirectUrl;
+        const jekoRequestId = response.data?.id;
 
         if (!checkoutUrl) {
             await Order.findByIdAndDelete(order._id);
+            console.error("Réponse Jèko sans redirectUrl:", JSON.stringify(response.data));
             return res.json({ success: false, message: "Réponse Jèko invalide — pas d'URL de paiement" });
         }
 
-        await Order.findByIdAndUpdate(order._id, { jeko_reference: response.data?.data?.reference || response.data?.reference });
+        await Order.findByIdAndUpdate(order._id, { jeko_reference: jekoRequestId });
 
         return res.json({ success: true, checkout_url: checkoutUrl, orderId: order._id });
 
@@ -345,9 +316,9 @@ export const initiateJeko = async (req, res) => {
         console.error("Erreur Jèko:", error.message);
         if (error.response) {
             console.error("Status:", error.response.status);
-            console.error("Data:", error.response.data);
+            console.error("Data:", JSON.stringify(error.response.data));
         }
-        res.json({ success: false, message: error.message || "Erreur lors de l'initialisation du paiement" });
+        res.json({ success: false, message: error.response?.data?.message || "Erreur lors de l'initialisation du paiement" });
     }
 };
 
@@ -361,6 +332,92 @@ export const initiateJeko = async (req, res) => {
 // (ignorer un webhook déjà traité), mise à jour du statut de la commande.
 // ============================================================================
 export const handleJekoWebhook = async (req, res) => {
-    console.error("Webhook Jèko reçu mais non implémenté — voir les commentaires en tête de jekoController.js");
-    res.status(200).json({ received: true }); // 200 pour éviter que Jèko ne s'acharne à réessayer indéfiniment
+    const rawBody = await getRawBody(req);
+
+    // Vérification de signature — header et algorithme confirmés directement
+    // sur ton compte Jèko (Réglages > API & Webhooks : "Jèko signe chaque
+    // webhook avec HMAC-SHA256. Vérifiez le header Jeko-Signature").
+    const secret = process.env.JEKO_WEBHOOK_SECRET;
+    if (!secret) {
+        console.error("❌ JEKO_WEBHOOK_SECRET non configuré — webhook rejeté par défaut (fail-closed)");
+        return res.status(401).json({ error: "Webhook secret not configured" });
+    }
+
+    const signature = req.headers['jeko-signature'];
+    if (!signature) {
+        console.error("❌ Header Jeko-Signature manquant");
+        return res.status(401).json({ error: "Missing signature" });
+    }
+
+    const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+    const sigBuf = Buffer.from(signature);
+    const expectedBuf = Buffer.from(expected);
+    if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) {
+        console.error("❌ Signature Jèko invalide");
+        return res.status(401).json({ error: "Invalid signature" });
+    }
+
+    try {
+        const payload = JSON.parse(rawBody);
+
+        // [PREMIER PASSAGE] Log complet du payload brut — à garder au moins
+        // jusqu'au premier vrai paiement de test, pour confirmer/corriger
+        // les noms de champs ci-dessous en un coup d'œil sur les logs Vercel.
+        console.log("=== WEBHOOK JÈKO REÇU (signature vérifiée) ===");
+        console.log(JSON.stringify(payload));
+
+        // [À CONFIRMER sur le premier vrai webhook] Noms de champs déduits du
+        // schéma de réponse de POST /partner_api/payment_requests (déjà
+        // vérifié), en supposant que le webhook envoie un objet transaction
+        // de forme proche. reference = l'ID de commande Mongo (voir
+        // initiateJeko, qui l'envoie tel quel comme "reference").
+        const status = payload.status || payload.data?.status;
+        const reference = payload.transactionDetails?.reference || payload.reference || payload.data?.reference;
+        const remoteAmountCents = payload.amount?.amount ?? payload.data?.amount?.amount;
+        const jekoTransactionId = payload.id || payload.data?.id;
+
+        const STATUTS_SUCCES = ['success', 'successful', 'completed', 'paid'];
+        const STATUTS_ECHEC = ['failed', 'error', 'cancelled', 'expired'];
+
+        if (!reference) {
+            console.error("❌ Référence de commande introuvable dans le webhook Jèko — voir le payload brut loggé ci-dessus pour ajuster le nom du champ");
+            return res.status(200).json({ received: true }); // 200 quand même : ce n'est pas Jèko qui a un problème, c'est notre parsing
+        }
+
+        const order = await Order.findById(reference);
+        if (!order) {
+            console.error(`❌ Commande ${reference} non trouvée (webhook Jèko)`);
+            return res.status(404).json({ error: "Order not found" });
+        }
+
+        // Idempotence — un webhook peut être renvoyé plusieurs fois
+        if (order.isPaid && order.status === "Confirmed") {
+            console.log(`ℹ️ Commande ${reference} déjà confirmée, ignorer`);
+            return res.status(200).json({ received: true, alreadyProcessed: true });
+        }
+
+        if (STATUTS_ECHEC.includes(status)) {
+            console.log(`❌ Paiement Jèko échoué pour la commande ${reference} (statut: ${status})`);
+            return res.status(200).json({ received: true });
+        }
+
+        if (!STATUTS_SUCCES.includes(status)) {
+            console.log(`ℹ️ Statut Jèko non traité pour la commande ${reference}: ${status}`);
+            return res.status(200).json({ received: true });
+        }
+
+        // Vérification du montant — amountCents = montant XOF × 100 (voir
+        // initiateJeko), donc on compare à order.amount × 100.
+        if (typeof remoteAmountCents === 'number' && remoteAmountCents !== Math.round(order.amount * 100)) {
+            console.error(`❌ Montant Jèko (${remoteAmountCents} cents) ≠ montant commande (${order.amount} XOF) pour ${reference}`);
+            return res.status(400).json({ error: "Amount mismatch" });
+        }
+
+        await confirmerCommandePayee(order, { reference: jekoTransactionId, providerField: 'jeko_reference' });
+
+        res.status(200).json({ received: true });
+    } catch (error) {
+        console.error("❌ Erreur traitement webhook Jèko:", error);
+        res.status(500).json({ error: "Webhook processing failed" });
+    }
 };

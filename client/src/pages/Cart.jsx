@@ -30,6 +30,7 @@ const Cart = () => {
     // variable d'environnement : on peut le couper instantanément si
     // l'intégration pose problème, sans redéployer.
     const [jekoEnabled, setJekoEnabled] = useState(false)
+    const [jekoPaymentMethod, setJekoPaymentMethod] = useState('')
     useEffect(() => {
         axios.get('/api/setting/paymentMethodsEnabled')
             .then(({ data }) => { if (data.success && data.data?.jeko) setJekoEnabled(true) })
@@ -303,6 +304,10 @@ const Cart = () => {
                 toast.error("Veuillez choisir un moyen de paiement")
                 return
             }
+            if (paymentOption === "Jeko" && !jekoPaymentMethod) {
+                toast.error("Veuillez choisir votre opérateur Mobile Money")
+                return
+            }
 
             // [FIX UX] Un seul état de chargement, posé dès la validation passée et
             // levé uniquement sur erreur — jamais avant la redirection effective vers
@@ -413,7 +418,8 @@ const Cart = () => {
                         deliveryPrice: deliveryPrice,
                         deliveryType: selectedDeliveryType?.name,
                         couponApplied: appliedCoupon ? appliedCoupon.code : null,
-                        discountAmount: appliedCoupon ? (originalAmount - discountedAmount) : 0
+                        discountAmount: appliedCoupon ? (originalAmount - discountedAmount) : 0,
+                        jekoPaymentMethod: jekoPaymentMethod,
                     });
 
                     if (data.success && data.checkout_url) {
@@ -799,27 +805,56 @@ const Cart = () => {
                                 </button>
 
                                 {jekoEnabled && (
-                                    <button
-                                        type="button"
-                                        role="radio"
-                                        aria-checked={paymentOption === 'Jeko'}
-                                        onClick={() => setPaymentOption('Jeko')}
-                                        className={`w-full flex items-center justify-between gap-3 rounded-xl py-3.5 px-4 border-2 transition text-left mt-2 ${
-                                            paymentOption === 'Jeko' ? 'border-ramses-600 bg-ramses-50' : 'border-ink-100 bg-ink-0 hover:border-ink-200'
-                                        }`}
-                                    >
-                                        <div>
-                                            <p className="text-[14px] font-semibold text-ink-800">Jèko</p>
-                                            <p className="text-[11.5px] text-ink-400 mt-0.5 leading-snug">
-                                                Mobile Money, Wave, Carte — via Jèko.
-                                            </p>
-                                        </div>
-                                        <span className={`w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center shrink-0 ${
-                                            paymentOption === 'Jeko' ? 'border-ramses-600' : 'border-ink-300'
-                                        }`}>
-                                            {paymentOption === 'Jeko' && <span className="w-2 h-2 rounded-full bg-ramses-600" />}
-                                        </span>
-                                    </button>
+                                    <>
+                                        <button
+                                            type="button"
+                                            role="radio"
+                                            aria-checked={paymentOption === 'Jeko'}
+                                            onClick={() => setPaymentOption('Jeko')}
+                                            className={`w-full flex items-center justify-between gap-3 rounded-xl py-3.5 px-4 border-2 transition text-left mt-2 ${
+                                                paymentOption === 'Jeko' ? 'border-ramses-600 bg-ramses-50' : 'border-ink-100 bg-ink-0 hover:border-ink-200'
+                                            }`}
+                                        >
+                                            <div>
+                                                <p className="text-[14px] font-semibold text-ink-800">Jèko</p>
+                                                <p className="text-[11.5px] text-ink-400 mt-0.5 leading-snug">
+                                                    Mobile Money, Wave — choisissez votre opérateur ci-dessous.
+                                                </p>
+                                            </div>
+                                            <span className={`w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center shrink-0 ${
+                                                paymentOption === 'Jeko' ? 'border-ramses-600' : 'border-ink-300'
+                                            }`}>
+                                                {paymentOption === 'Jeko' && <span className="w-2 h-2 rounded-full bg-ramses-600" />}
+                                            </span>
+                                        </button>
+
+                                        {/* Contrairement à GeniusPay, Jèko exige de connaître
+                                            l'opérateur AVANT l'appel API — pas de page générique
+                                            de choix côté eux (voir paymentDetails.data.paymentMethod,
+                                            obligatoire dans leur schéma "redirect"). */}
+                                        {paymentOption === 'Jeko' && (
+                                            <div className="mt-2.5 pl-1 grid grid-cols-2 gap-2">
+                                                {[
+                                                    { key: 'orange', label: 'Orange Money' },
+                                                    { key: 'wave', label: 'Wave' },
+                                                    { key: 'mtn', label: 'MTN MoMo' },
+                                                    { key: 'moov', label: 'Moov Money' },
+                                                    { key: 'djamo', label: 'Djamo' },
+                                                ].map(({ key, label }) => (
+                                                    <button
+                                                        key={key}
+                                                        type="button"
+                                                        onClick={() => setJekoPaymentMethod(key)}
+                                                        className={`text-[13px] font-semibold rounded-lg py-2.5 px-3 border-2 transition text-center ${
+                                                            jekoPaymentMethod === key ? 'border-ramses-600 bg-ramses-50 text-ramses-700' : 'border-ink-100 text-ink-600 hover:border-ink-200'
+                                                        }`}
+                                                    >
+                                                        {label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </>
                                 )}
                             </div>
 

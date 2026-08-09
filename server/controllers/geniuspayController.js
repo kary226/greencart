@@ -451,7 +451,7 @@ export const initiateGeniusPay = async (req, res) => {
 //      l'ordre des clés diffère, mais évite un crash et permet de le
 //      diagnostiquer via les logs.
 // ============================================================
-function getRawBody(req) {
+export function getRawBody(req) {
     if (Buffer.isBuffer(req.body)) {
         return Promise.resolve(req.body.toString('utf8'));
     }
@@ -510,6 +510,108 @@ function getRawBody(req) {
 // signature (sur `${timestamp}.${rawBody}`) corresponde bit à bit à ce
 // que GeniusPay a signé de son côté. Sur Vercel, voir getRawBody()
 // ci-dessus pour la gestion du cas où le runtime pré-parse le body.
+// ============================================================================
+// Confirmation d'une commande payée — factorisé pour être appelé par
+// n'importe quel fournisseur (GeniusPay, Jèko...) après vérification de
+// signature et idempotence faites par l'appelant. Fait les 4 choses qui
+// doivent arriver ensemble à la confirmation d'un paiement : marquer payé,
+// décrémenter le stock, vider le panier, envoyer les emails.
+// ============================================================================
+export const confirmerCommandePayee = async (order, { reference, providerField } = {}) => {
+    const { deliveryStart, deliveryEnd } = calculateEstimatedDeliveryDates(new Date());
+
+    order.isPaid = true;
+    order.status = "Confirmed";
+    order.estimatedDeliveryStart = deliveryStart;
+    order.estimatedDeliveryEnd = deliveryEnd;
+    if (reference && providerField) {
+        order[providerField] = reference;
+    }
+    await order.save();
+    console.log(`✅ Commande ${order._id} marquée comme payée`);
+
+    // Mettre à jour le stock pour chaque produit
+    const ProductModel = mongoose.model('product');
+    const productIds = [...new Set(order.items.map(item => item.product.toString()))];
+    const products = await ProductModel.find({ _id: { $in: productIds } });
+    const productsById = new Map(products.map(p => [p._id.toString(), p]));
+    const bulkOps = [];
+
+    for (const item of order.items) {
+        const product = productsById.get(item.product.toString());
+        if (!product) {
+            console.warn(`⚠️ Produit ${item.product} non trouvé, stock non mis à jour`);
+            continue;
+        }
+
+        if (product.variants && product.variants.length > 0) {
+            const variant = product.variants.find(v =>
+                v.color === item.color && v.size === item.size
+            );
+            if (variant) {
+                variant.stock = Math.max(0, (variant.stock || 0) - item.quantity);
+                const inStock = product.variants.some(v => v.stock > 0);
+                bulkOps.push({
+                    updateOne: {
+                        filter: { _id: product._id, 'variants._id': variant._id },
+                        update: { $set: { 'variants.$.stock': variant.stock, inStock } }
+                    }
+                });
+            } else {
+                console.warn(`⚠️ Variant (${item.color}/${item.size}) non trouvé pour produit ${product.name}`);
+            }
+        } else {
+            const newStock = Math.max(0, (product.stock || 0) - item.quantity);
+            product.stock = newStock;
+            bulkOps.push({
+                updateOne: {
+                    filter: { _id: product._id },
+                    update: { $set: { stock: newStock, inStock: newStock > 0 } }
+                }
+            });
+        }
+    }
+
+    if (bulkOps.length > 0) {
+        await ProductModel.bulkWrite(bulkOps);
+    }
+
+    // Vider le panier de l'utilisateur
+    if (order.userId) {
+        await User.findByIdAndUpdate(order.userId, { cartItems: {} });
+        console.log(`🗑️ Panier vidé pour l'utilisateur ${order.userId}`);
+    }
+
+    // Envoi des emails après confirmation
+    const user = await User.findById(order.userId);
+    const Address = mongoose.model('address');
+    const address = await Address.findById(order.address);
+
+    if (user && user.email && address) {
+        try {
+            await sendOrderConfirmationEmail(
+                user.email,
+                order._id.toString(),
+                order.amount,
+                deliveryStart,
+                deliveryEnd
+            );
+            await sendAdminNotificationEmail(
+                order._id.toString(),
+                order.amount,
+                `${address.firstName} ${address.lastName}`,
+                user.email
+            );
+        } catch (emailError) {
+            console.error("❌ Erreur envoi emails:", emailError);
+        }
+    } else {
+        console.warn("⚠️ Impossible d'envoyer les emails: utilisateur ou adresse manquant");
+    }
+
+    console.log(`✅ Commande ${order._id} finalisée avec succès`);
+};
+
 export const geniuspayWebhook = async (req, res) => {
     const rawBody = await getRawBody(req);
 
@@ -595,7 +697,6 @@ export const geniuspayWebhook = async (req, res) => {
             }
 
             const orderId = metadata?.order_id;
-            const userId = metadata?.user_id;
 
             if (!orderId) {
                 console.error("❌ orderId manquant dans le webhook");
@@ -667,110 +768,9 @@ export const geniuspayWebhook = async (req, res) => {
                 }
             }
 
-            // 3. Marquer la commande comme payée
-            // ✅ Calculer les dates de livraison estimées au moment de la
-            // confirmation du paiement (et non à l'initiation), puisque
-            // c'est seulement maintenant qu'on sait que la commande est
-            // réellement passée.
-            const { deliveryStart, deliveryEnd } = calculateEstimatedDeliveryDates(new Date());
-
-            order.isPaid = true;
-            order.status = "Confirmed";
-            order.estimatedDeliveryStart = deliveryStart;
-            order.estimatedDeliveryEnd = deliveryEnd;
-            if (reference) {
-                order.geniuspay_reference = reference;
-            }
-            await order.save();
-            console.log(`✅ Commande ${orderId} marquée comme payée`);
-
-            // 4. Mettre à jour le stock pour chaque produit
-            //
-            // [PHASE 0 - PERF] Avant : un ProductModel.findById + un
-            // product.save() PAR article de la commande, en série. Un seul
-            // find({$in}) charge tout, puis un seul bulkWrite() applique
-            // toutes les mises à jour de stock en une requête groupée.
-            const ProductModel = mongoose.model('product');
-            const productIds = [...new Set(order.items.map(item => item.product.toString()))];
-            const products = await ProductModel.find({ _id: { $in: productIds } });
-            const productsById = new Map(products.map(p => [p._id.toString(), p]));
-            const bulkOps = [];
-
-            for (const item of order.items) {
-                const product = productsById.get(item.product.toString());
-                if (!product) {
-                    console.warn(`⚠️ Produit ${item.product} non trouvé, stock non mis à jour`);
-                    continue;
-                }
-
-                if (product.variants && product.variants.length > 0) {
-                    const variant = product.variants.find(v =>
-                        v.color === item.color && v.size === item.size
-                    );
-                    if (variant) {
-                        variant.stock = Math.max(0, (variant.stock || 0) - item.quantity);
-                        // [FIX] inStock n'était jamais recalculé ici : le stock
-                        // baissait bien, mais le produit continuait d'apparaître
-                        // "en stock" côté boutique tant que personne n'allait le
-                        // resauvegarder manuellement dans le panneau admin.
-                        const inStock = product.variants.some(v => v.stock > 0);
-                        bulkOps.push({
-                            updateOne: {
-                                filter: { _id: product._id, 'variants._id': variant._id },
-                                update: { $set: { 'variants.$.stock': variant.stock, inStock } }
-                            }
-                        });
-                    } else {
-                        console.warn(`⚠️ Variant (${item.color}/${item.size}) non trouvé pour produit ${product.name}`);
-                    }
-                } else {
-                    const newStock = Math.max(0, (product.stock || 0) - item.quantity);
-                    product.stock = newStock;
-                    bulkOps.push({
-                        updateOne: {
-                            filter: { _id: product._id },
-                            update: { $set: { stock: newStock, inStock: newStock > 0 } }
-                        }
-                    });
-                }
-            }
-
-            if (bulkOps.length > 0) {
-                await ProductModel.bulkWrite(bulkOps);
-            }
-
-            // 5. Vider le panier de l'utilisateur
-            if (userId) {
-                await User.findByIdAndUpdate(userId, { cartItems: {} });
-                console.log(`🗑️ Panier vidé pour l'utilisateur ${userId}`);
-            }
-
-            // 6. Envoi des emails après confirmation
-            const user = await User.findById(userId);
-            const Address = mongoose.model('address');
-            const address = await Address.findById(order.address);
-
-            if (user && user.email && address) {
-                try {
-                    await sendOrderConfirmationEmail(
-                        user.email,
-                        order._id.toString(),
-                        order.amount,
-                        deliveryStart,
-                        deliveryEnd
-                    );
-                    await sendAdminNotificationEmail(
-                        order._id.toString(),
-                        order.amount,
-                        `${address.firstName} ${address.lastName}`,
-                        user.email
-                    );
-                } catch (emailError) {
-                    console.error("❌ Erreur envoi emails:", emailError);
-                }
-            } else {
-                console.warn("⚠️ Impossible d'envoyer les emails: utilisateur ou adresse manquant");
-            }
+            // 3. Confirmer la commande (payée, stock, panier, emails —
+            // factorisé dans confirmerCommandePayee, réutilisé par Jèko)
+            await confirmerCommandePayee(order, { reference, providerField: 'geniuspay_reference' });
 
             console.log(`✅ Commande ${orderId} finalisée avec succès`);
         } else if (event === 'payment.failed') {
