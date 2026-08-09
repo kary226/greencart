@@ -34,6 +34,10 @@ const orderSchema = new mongoose.Schema({
     },
     paymentType: { type: String, required: true },
     isPaid: { type: Boolean, required: true, default: false },
+    // Référence de transaction Jèko — déclarée explicitement (contrairement
+    // à geniuspay_reference, absente du schéma et donc silencieusement
+    // ignorée par Mongoose en mode strict).
+    jeko_reference: { type: String, default: null },
     estimatedDeliveryStart: { type: Date, default: null },
     estimatedDeliveryEnd: { type: Date, default: null },
     deliveredAt: { type: Date, default: null },

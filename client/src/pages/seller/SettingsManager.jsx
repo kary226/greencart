@@ -11,6 +11,12 @@ const SettingsManager = () => {
     const [saving, setSaving] = useState(false);
     const [editorMode, setEditorMode] = useState('html'); // Par défaut HTML
 
+    // Moyens de paiement actifs au checkout — un interrupteur simple par
+    // moyen, pour pouvoir désactiver Jèko en un clic si l'intégration pose
+    // problème, sans toucher au code ni redéployer.
+    const [paymentMethods, setPaymentMethods] = useState({ geniuspay: true, jeko: false });
+    const [savingPaymentMethods, setSavingPaymentMethods] = useState(false);
+
     useEffect(() => {
         const fetchReturnPolicy = async () => {
             try {
@@ -24,8 +30,42 @@ const SettingsManager = () => {
                 setLoading(false);
             }
         };
+        const fetchPaymentMethods = async () => {
+            try {
+                const { data } = await axios.get('/api/setting/paymentMethodsEnabled');
+                if (data.success && data.data) {
+                    setPaymentMethods((p) => ({ ...p, ...data.data }));
+                }
+            } catch (error) {
+                // Pas encore configuré — reste sur les valeurs par défaut
+            }
+        };
         fetchReturnPolicy();
+        fetchPaymentMethods();
     }, []);
+
+    const togglePaymentMethod = async (key) => {
+        const next = { ...paymentMethods, [key]: !paymentMethods[key] };
+        setPaymentMethods(next);
+        setSavingPaymentMethods(true);
+        try {
+            const { data } = await axios.post('/api/setting/update', {
+                key: 'paymentMethodsEnabled',
+                value: next,
+            });
+            if (data.success) {
+                toast.success('Moyens de paiement mis à jour ✓');
+            } else {
+                toast.error(data.message);
+                setPaymentMethods(paymentMethods); // annule le changement optimiste
+            }
+        } catch (error) {
+            toast.error(error.message);
+            setPaymentMethods(paymentMethods);
+        } finally {
+            setSavingPaymentMethods(false);
+        }
+    };
 
     const handleSave = async () => {
         setSaving(true);
@@ -55,7 +95,37 @@ const SettingsManager = () => {
     }
 
     return (
-        <div className="max-w-4xl mx-auto p-4 sm:p-6">
+        <div className="max-w-4xl mx-auto p-4 sm:p-6 grid gap-5">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
+                <h1 className="text-2xl font-bold text-gray-900">Moyens de paiement</h1>
+                <p className="text-sm text-gray-500 mt-1 mb-5">
+                    Actifs sur la page de paiement client. Désactive-en un à tout moment sans redéployer.
+                </p>
+
+                <div className="grid gap-3">
+                    {[
+                        { key: 'geniuspay', label: 'GeniusPay', desc: 'Mobile Money, Wave, Carte — en place depuis le début.' },
+                        { key: 'jeko', label: 'Jèko', desc: "En cours d'intégration — n'activer qu'une fois testé." },
+                    ].map(({ key, label, desc }) => (
+                        <div key={key} className="flex items-center justify-between gap-3 border border-gray-200 rounded-lg p-3.5">
+                            <div>
+                                <p className="font-semibold text-gray-800 text-sm">{label}</p>
+                                <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
+                            </div>
+                            <button
+                                onClick={() => togglePaymentMethod(key)}
+                                disabled={savingPaymentMethods}
+                                role="switch"
+                                aria-checked={paymentMethods[key]}
+                                className={`shrink-0 w-11 h-6 rounded-full transition relative disabled:opacity-50 ${paymentMethods[key] ? 'bg-red-500' : 'bg-gray-300'}`}
+                            >
+                                <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition ${paymentMethods[key] ? 'left-[22px]' : 'left-0.5'}`} />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
                     <div>

@@ -25,6 +25,7 @@ import settingRouter from './routes/settingRoute.js';
 import pushRouter from './routes/pushRoute.js';
 import staffRouter from './routes/staffRoute.js';
 import { geniuspayWebhook } from './controllers/geniuspayController.js';
+import { handleJekoWebhook } from './controllers/jekoController.js';
 import dns from 'dns';
 
 // [PHASE 3 - OBSERVABILITÉ] Mesure des temps de réponse
@@ -83,6 +84,11 @@ app.use(cors({
 
 // Webhook GeniusPay
 app.post('/api/geniuspay/webhook', express.raw({ type: 'application/json' }), geniuspayWebhook);
+
+// Webhook Jèko — handleJekoWebhook n'est encore qu'un squelette (voir
+// jekoController.js), mais la route existe déjà pour que tu puisses
+// configurer l'URL côté Jèko dès maintenant.
+app.post('/api/jeko/webhook', express.raw({ type: 'application/json' }), handleJekoWebhook);
 
 app.use(helmet({
     contentSecurityPolicy: false,

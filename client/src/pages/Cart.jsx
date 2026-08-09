@@ -25,6 +25,17 @@ const Cart = () => {
     const [appliedCoupon, setAppliedCoupon] = useState(null)
     const [discountedAmount, setDiscountedAmount] = useState(null)
 
+    // Jèko — deuxième moyen de paiement, désactivé par défaut. Contrôlé
+    // depuis Réglages > Moyens de paiement (SettingsManager.jsx), pas de
+    // variable d'environnement : on peut le couper instantanément si
+    // l'intégration pose problème, sans redéployer.
+    const [jekoEnabled, setJekoEnabled] = useState(false)
+    useEffect(() => {
+        axios.get('/api/setting/paymentMethodsEnabled')
+            .then(({ data }) => { if (data.success && data.data?.jeko) setJekoEnabled(true) })
+            .catch(() => {}) // pas configuré → reste désactivé, comportement par défaut sûr
+    }, [])
+
     const [deliveryTypes, setDeliveryTypes] = useState([])
     const [selectedDeliveryType, setSelectedDeliveryType] = useState(null)
     const [deliveryPrice, setDeliveryPrice] = useState(0)
@@ -384,6 +395,37 @@ const Cart = () => {
                 } catch (error) {
                     setPlacingOrder(false)
                     console.error("Erreur GeniusPay:", error);
+                    toast.error(error.response?.data?.message || "Erreur de connexion au service de paiement");
+                }
+            } else if (paymentOption === "Jeko") {
+                try {
+                    const { data } = await axios.post('/api/order/jeko/initiate', {
+                        userId: user._id,
+                        items: selectedArray.map(item => ({
+                            product: item._id,
+                            quantity: item.quantity,
+                            selectedColor: item.selectedColor,
+                            selectedSize: item.selectedSize,
+                            offerPrice: item.offerPrice
+                        })),
+                        address: selectedAddress._id,
+                        amount: totalWithDelivery,
+                        deliveryPrice: deliveryPrice,
+                        deliveryType: selectedDeliveryType?.name,
+                        couponApplied: appliedCoupon ? appliedCoupon.code : null,
+                        discountAmount: appliedCoupon ? (originalAmount - discountedAmount) : 0
+                    });
+
+                    if (data.success && data.checkout_url) {
+                        sessionStorage.setItem('pendingOrderId', data.orderId);
+                        window.location.href = data.checkout_url;
+                    } else {
+                        setPlacingOrder(false)
+                        toast.error(data.message || "Erreur lors de l'initiation du paiement");
+                    }
+                } catch (error) {
+                    setPlacingOrder(false)
+                    console.error("Erreur Jèko:", error);
                     toast.error(error.response?.data?.message || "Erreur de connexion au service de paiement");
                 }
             }
@@ -755,6 +797,30 @@ const Cart = () => {
                                         {paymentOption === 'GeniusPay' && <span className="w-2 h-2 rounded-full bg-ramses-600" />}
                                     </span>
                                 </button>
+
+                                {jekoEnabled && (
+                                    <button
+                                        type="button"
+                                        role="radio"
+                                        aria-checked={paymentOption === 'Jeko'}
+                                        onClick={() => setPaymentOption('Jeko')}
+                                        className={`w-full flex items-center justify-between gap-3 rounded-xl py-3.5 px-4 border-2 transition text-left mt-2 ${
+                                            paymentOption === 'Jeko' ? 'border-ramses-600 bg-ramses-50' : 'border-ink-100 bg-ink-0 hover:border-ink-200'
+                                        }`}
+                                    >
+                                        <div>
+                                            <p className="text-[14px] font-semibold text-ink-800">Jèko</p>
+                                            <p className="text-[11.5px] text-ink-400 mt-0.5 leading-snug">
+                                                Mobile Money, Wave, Carte — via Jèko.
+                                            </p>
+                                        </div>
+                                        <span className={`w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center shrink-0 ${
+                                            paymentOption === 'Jeko' ? 'border-ramses-600' : 'border-ink-300'
+                                        }`}>
+                                            {paymentOption === 'Jeko' && <span className="w-2 h-2 rounded-full bg-ramses-600" />}
+                                        </span>
+                                    </button>
+                                )}
                             </div>
 
                             {/* Code promo */}
