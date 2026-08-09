@@ -36,6 +36,12 @@ const JEKO_INTEGRATION_PRETE = false; // passer à true une fois les 3 points ci
 
 // Initier un paiement Jèko (mode lien de paiement / checkout)
 export const initiateJeko = async (req, res) => {
+    // [DEBUG PERF - TEMPORAIRE] Même instrumentation que GeniusPay, utile
+    // pour mesurer où passe le temps le jour où l'intégration réelle sera
+    // branchée. À retirer une fois l'intégration stabilisée.
+    const __t0 = Date.now();
+    const __lap = (label) => console.log(`⏱️ [Jeko init] ${label}: ${Date.now() - __t0}ms`);
+
     try {
         let { userId, items, address, deliveryType, couponApplied } = req.body;
 
