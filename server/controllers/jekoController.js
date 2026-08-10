@@ -9,6 +9,10 @@ import DeliveryType from '../models/DeliveryType.js';
 import Commune from '../models/Commune.js';
 import { confirmerCommandePayee, getRawBody } from './geniuspayController.js';
 
+// Même fenêtre que WEBHOOK_MAX_AGE_SECONDS côté GeniusPay (voir
+// geniuspayController.js) — 5 minutes.
+const WEBHOOK_MAX_AGE_MS = 5 * 60 * 1000;
+
 // ============================================================================
 // Intégration Jèko — initiation ET webhook écrits contre leur doc technique
 // officielle (POST /partner_api/payment_requests, type "redirect") et contre
@@ -344,8 +348,8 @@ export const handleJekoWebhook = async (req, res) => {
     }
 
     const signature = req.headers['jeko-signature'];
-    if (!signature) {
-        console.error("❌ Header Jeko-Signature manquant");
+    if (!signature || typeof signature !== 'string') {
+        console.error("❌ Header Jeko-Signature manquant ou invalide");
         return res.status(401).json({ error: "Missing signature" });
     }
 
@@ -365,6 +369,29 @@ export const handleJekoWebhook = async (req, res) => {
         // les noms de champs ci-dessous en un coup d'œil sur les logs Vercel.
         console.log("=== WEBHOOK JÈKO REÇU (signature vérifiée) ===");
         console.log(JSON.stringify(payload));
+
+        // Anti-rejeu — contrairement à GeniusPay (header X-Webhook-Timestamp
+        // dédié), Jèko ne fournit qu'un header de signature, sans horodatage
+        // séparé. La signature seule ne périme jamais : quelqu'un qui
+        // capturerait un ancien webhook valide (logs compromis, etc.)
+        // pourrait le rejouer indéfiniment. On se rabat donc sur le
+        // timestamp présent DANS le payload signé lui-même (executedAt),
+        // avec la même fenêtre de 5 minutes que côté GeniusPay.
+        const executedAt = payload.executedAt || payload.data?.executedAt;
+        if (executedAt) {
+            const ageMs = Date.now() - new Date(executedAt).getTime();
+            if (!Number.isFinite(ageMs) || Math.abs(ageMs) > WEBHOOK_MAX_AGE_MS) {
+                console.error(`❌ Webhook Jèko hors fenêtre acceptable (executedAt=${executedAt})`);
+                return res.status(401).json({ error: "Timestamp too old" });
+            }
+        } else {
+            // Pas bloquant : le nom exact du champ n'est pas garanti (voir
+            // le log du payload brut ci-dessus) — mieux vaut traiter un
+            // webhook légitime sans protection anti-rejeu à 100% que d'en
+            // rejeter un valide sur un nom de champ mal deviné. À resserrer
+            // une fois le vrai payload confirmé.
+            console.warn("⚠️ Pas de timestamp exploitable dans le webhook Jèko — anti-rejeu non appliqué pour cette requête");
+        }
 
         // [À CONFIRMER sur le premier vrai webhook] Noms de champs déduits du
         // schéma de réponse de POST /partner_api/payment_requests (déjà
@@ -390,7 +417,9 @@ export const handleJekoWebhook = async (req, res) => {
             return res.status(404).json({ error: "Order not found" });
         }
 
-        // Idempotence — un webhook peut être renvoyé plusieurs fois
+        // Raccourci rapide — PAS la vraie protection contre les webhooks
+        // concurrents, celle-ci est dans confirmerCommandePayee
+        // (findOneAndUpdate atomique, voir geniuspayController.js).
         if (order.isPaid && order.status === "Confirmed") {
             console.log(`ℹ️ Commande ${reference} déjà confirmée, ignorer`);
             return res.status(200).json({ received: true, alreadyProcessed: true });
@@ -413,7 +442,10 @@ export const handleJekoWebhook = async (req, res) => {
             return res.status(400).json({ error: "Amount mismatch" });
         }
 
-        await confirmerCommandePayee(order, { reference: jekoTransactionId, providerField: 'jeko_reference' });
+        const traite = await confirmerCommandePayee(order, { reference: jekoTransactionId, providerField: 'jeko_reference' });
+        if (!traite) {
+            return res.status(200).json({ received: true, alreadyProcessed: true });
+        }
 
         res.status(200).json({ received: true });
     } catch (error) {
