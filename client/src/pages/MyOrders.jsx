@@ -207,7 +207,7 @@ export default function MyOrders() {
                             type="text"
                             placeholder="Numéro ou article…"
                             aria-label="Rechercher une commande"
-                            className="rs-input rs-input--pill pl-11 pr-10"
+                            className="rs-input rs-input--pill rs-input--icon-l rs-input--icon-r"
                         />
                         {search && (
                             <button
