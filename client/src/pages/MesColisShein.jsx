@@ -143,7 +143,7 @@ const MesColisShein = () => {
                     onChange={(e) => setRecherche(e.target.value)}
                     placeholder="Numéro de suivi ou article…"
                     aria-label="Rechercher un colis"
-                    className="rs-input rs-input--pill pl-11 pr-11"
+                    className="rs-input rs-input--pill rs-input--icon-l rs-input--icon-r"
                 />
                 {recherche && (
                     <button
