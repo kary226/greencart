@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import { useAppContext } from "../context/AppContext";
 // [PHASE 1 - PERF] Transformation Cloudinary (f_auto, q_auto, largeur adaptée)
 import { getPresetImageUrl } from "../utils/cloudinaryImage";
+import JekoOperatorModal from "../components/JekoOperatorModal";
 
 const money = (n, devise) => {
     const symbole = devise === "EUR" ? "€" : "$";
@@ -325,29 +326,28 @@ const ColisSheinDetail = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const payerAcompte = async () => {
-        setPayingAcompte(true);
-        try {
-            const { data } = await axios.post(`/api/shein-cart/${id}/pay-acompte`);
-            if (data.success) window.location.href = data.checkout_url;
-            else toast.error(data.message || "Paiement impossible");
-        } catch (error) {
-            toast.error(error.response?.data?.message || "Erreur de paiement");
-        } finally {
-            setPayingAcompte(false);
-        }
-    };
+    // Jèko exige l'opérateur AVANT l'appel API — on ouvre la modale de choix
+    // au lieu de payer directement (GeniusPay proposait ce choix sur sa
+    // propre page, Jèko ne le fait pas).
+    const [modaleOperateur, setModaleOperateur] = useState(null); // "acompte" | "solde" | null
 
-    const payerSolde = async () => {
-        setPayingSolde(true);
+    const payerAcompte = () => setModaleOperateur("acompte");
+    const payerSolde = () => setModaleOperateur("solde");
+
+    const confirmerPaiement = async (operateur) => {
+        const type = modaleOperateur;
+        const setPaying = type === "acompte" ? setPayingAcompte : setPayingSolde;
+        setPaying(true);
         try {
-            const { data } = await axios.post(`/api/shein-cart/${id}/pay-solde`);
+            const { data } = await axios.post(`/api/shein-cart/${id}/pay-${type}`, { jekoPaymentMethod: operateur });
             if (data.success) window.location.href = data.checkout_url;
-            else toast.error(data.message || "Paiement impossible");
+            else {
+                toast.error(data.message || "Paiement impossible");
+                setPaying(false);
+            }
         } catch (error) {
             toast.error(error.response?.data?.message || "Erreur de paiement");
-        } finally {
-            setPayingSolde(false);
+            setPaying(false);
         }
     };
 
@@ -1127,6 +1127,20 @@ const ColisSheinDetail = () => {
                     .csd-msg { max-width: 86%; }
                 }
             `}</style>
+
+            <JekoOperatorModal
+                open={modaleOperateur !== null}
+                onClose={() => setModaleOperateur(null)}
+                onConfirm={confirmerPaiement}
+                loading={modaleOperateur === "acompte" ? payingAcompte : payingSolde}
+                montantLabel={
+                    modaleOperateur === "acompte"
+                        ? `Payer les articles — ${fcfa(colis?.devis?.montantInitial)}`
+                        : modaleOperateur === "solde"
+                            ? `Payer la livraison — ${fcfa(colis?.paiement?.soldeMontant)}`
+                            : undefined
+                }
+            />
         </div>
     );
 };

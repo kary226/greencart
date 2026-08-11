@@ -2,7 +2,8 @@ import express from "express";
 import multer from "multer";
 import authUser from "../middlewares/authUser.js";
 import authSeller from "../middlewares/authSeller.js";
-import { analyzeCart, submitCart, getUserColis, getColisById, payAcompte, paySolde } from "../controllers/sheinCartController.js";
+import { analyzeCart, submitCart, getUserColis, getColisById } from "../controllers/sheinCartController.js";
+import { initiateJekoAcompte, initiateJekoSolde } from "../controllers/jekoController.js";
 import { getMessages, sendMessageClient, setClientTyping } from "../controllers/messageColisController.js";
 import { demanderAvis, soumettreAvis, getStatsAvis } from "../controllers/avisController.js";
 import {
@@ -63,7 +64,7 @@ sheinCartRouter.get("/:id/messages", authUser, getMessages);
 sheinCartRouter.post("/:id/messages", uploadChatImage.single("image"), authUser, sendMessageClient);
 sheinCartRouter.post("/:id/typing", authUser, setClientTyping);
 sheinCartRouter.post("/:id/avis", authUser, soumettreAvis);
-sheinCartRouter.post("/:id/pay-acompte", authUser, payAcompte);
-sheinCartRouter.post("/:id/pay-solde", authUser, paySolde);
+sheinCartRouter.post("/:id/pay-acompte", authUser, initiateJekoAcompte);
+sheinCartRouter.post("/:id/pay-solde", authUser, initiateJekoSolde);
 
 export default sheinCartRouter;

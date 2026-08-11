@@ -14,7 +14,7 @@ const SettingsManager = () => {
     // Moyens de paiement actifs au checkout — un interrupteur simple par
     // moyen, pour pouvoir désactiver Jèko en un clic si l'intégration pose
     // problème, sans toucher au code ni redéployer.
-    const [paymentMethods, setPaymentMethods] = useState({ geniuspay: true, jeko: false });
+    const [paymentMethods, setPaymentMethods] = useState({ jeko: true });
     const [savingPaymentMethods, setSavingPaymentMethods] = useState(false);
 
     useEffect(() => {
@@ -99,13 +99,12 @@ const SettingsManager = () => {
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
                 <h1 className="text-2xl font-bold text-gray-900">Moyens de paiement</h1>
                 <p className="text-sm text-gray-500 mt-1 mb-5">
-                    Actifs sur la page de paiement client. Désactive-en un à tout moment sans redéployer.
+                    Interrupteur d'urgence — coupe les paiements en ligne sur tout le site sans redéployer si besoin.
                 </p>
 
                 <div className="grid gap-3">
                     {[
-                        { key: 'geniuspay', label: 'GeniusPay', desc: 'Mobile Money, Wave, Carte — en place depuis le début.' },
-                        { key: 'jeko', label: 'Jèko', desc: "En cours d'intégration — n'activer qu'une fois testé." },
+                        { key: 'jeko', label: 'Jèko', desc: 'Mobile Money, Wave — seul moyen de paiement en ligne du site.' },
                     ].map(({ key, label, desc }) => (
                         <div key={key} className="flex items-center justify-between gap-3 border border-gray-200 rounded-lg p-3.5">
                             <div>

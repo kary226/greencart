@@ -14,7 +14,6 @@ import {
     getMesVentesCommercant
 } from '../controllers/orderController.js';
 import authSeller from '../middlewares/authSeller.js';
-import { initiateGeniusPay } from '../controllers/geniuspayController.js';
 import { initiateJeko } from '../controllers/jekoController.js';
 import Order from '../models/Order.js';
 
@@ -23,7 +22,6 @@ const orderRouter = express.Router();
 // Routes client
 orderRouter.post('/cod', authUser, orderCreationLimiter, placeOrderCOD);
 orderRouter.get('/user', authUser, getUserOrders);
-orderRouter.post('/geniuspay/initiate', authUser, paymentLimiter, initiateGeniusPay);
 orderRouter.post('/jeko/initiate', authUser, paymentLimiter, initiateJeko);
 
 // Routes admin (seller)

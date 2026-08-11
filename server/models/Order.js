@@ -8,7 +8,7 @@ const orderItemSchema = new mongoose.Schema({
     priceAtOrder: { type: Number, required: true },
     // ✅ NOUVEAU PHASE 3 : Boutique du produit au moment de la commande.
     // [FIX] null est une valeur valide et volontaire (produit du magasin
-    // principal, hors système commerçant) — geniuspayController.js et
+    // principal, hors système commerçant) — jekoController.js et
     // orderController.js écrivent explicitement `product.boutiqueId || null`.
     // required:true rejetait donc toute commande contenant un produit
     // "normal", ce qui est la quasi-totalité des commandes.
@@ -34,9 +34,7 @@ const orderSchema = new mongoose.Schema({
     },
     paymentType: { type: String, required: true },
     isPaid: { type: Boolean, required: true, default: false },
-    // Référence de transaction Jèko — déclarée explicitement (contrairement
-    // à geniuspay_reference, absente du schéma et donc silencieusement
-    // ignorée par Mongoose en mode strict).
+    // Référence de transaction Jèko.
     jeko_reference: { type: String, default: null },
     estimatedDeliveryStart: { type: Date, default: null },
     estimatedDeliveryEnd: { type: Date, default: null },

@@ -25,16 +25,15 @@ const Cart = () => {
     const [appliedCoupon, setAppliedCoupon] = useState(null)
     const [discountedAmount, setDiscountedAmount] = useState(null)
 
-    // Jèko — deuxième moyen de paiement, désactivé par défaut. Contrôlé
-    // depuis Réglages > Moyens de paiement (SettingsManager.jsx), pas de
-    // variable d'environnement : on peut le couper instantanément si
-    // l'intégration pose problème, sans redéployer.
-    const [jekoEnabled, setJekoEnabled] = useState(false)
+    // Interrupteur de sécurité — pas pour choisir entre GeniusPay et Jèko
+    // (GeniusPay est retiré), juste pour pouvoir couper les paiements en
+    // urgence depuis Réglages si Jèko a un problème, sans redéployer.
+    const [jekoActive, setJekoActive] = useState(true)
     const [jekoPaymentMethod, setJekoPaymentMethod] = useState('')
     useEffect(() => {
         axios.get('/api/setting/paymentMethodsEnabled')
-            .then(({ data }) => { if (data.success && data.data?.jeko) setJekoEnabled(true) })
-            .catch(() => {}) // pas configuré → reste désactivé, comportement par défaut sûr
+            .then(({ data }) => { if (data.success && data.data?.jeko === false) setJekoActive(false) })
+            .catch(() => {}) // pas configuré → reste actif, comportement par défaut
     }, [])
 
     const [deliveryTypes, setDeliveryTypes] = useState([])
@@ -312,7 +311,7 @@ const Cart = () => {
             // [FIX UX] Un seul état de chargement, posé dès la validation passée et
             // levé uniquement sur erreur — jamais avant la redirection effective vers
             // la page sécurisée, pour ne pas laisser un "trou" où rien ne semble se
-            // passer entre la réponse de l'API et l'arrivée réelle sur GeniusPay.
+            // passer entre la réponse de l'API et l'arrivée réelle sur Jèko.
             setPlacingOrder(true)
 
             const items = selectedArray.map(item => ({
@@ -367,40 +366,6 @@ const Cart = () => {
                 } else {
                     setPlacingOrder(false)
                     toast.error(data.message)
-                }
-            } else if (paymentOption === "GeniusPay") {
-                try {
-                    const { data } = await axios.post('/api/order/geniuspay/initiate', {
-                        userId: user._id,
-                        items: selectedArray.map(item => ({
-                            product: item._id,
-                            quantity: item.quantity,
-                            selectedColor: item.selectedColor,
-                            selectedSize: item.selectedSize,
-                            offerPrice: item.offerPrice
-                        })),
-                        address: selectedAddress._id,
-                        amount: totalWithDelivery,
-                        deliveryPrice: deliveryPrice,
-                        deliveryType: selectedDeliveryType?.name,
-                        couponApplied: appliedCoupon ? appliedCoupon.code : null,
-                        discountAmount: appliedCoupon ? (originalAmount - discountedAmount) : 0
-                    });
-
-                    if (data.success && data.checkout_url) {
-                        sessionStorage.setItem('pendingOrderId', data.orderId);
-                        // Pas de toast.dismiss ni de setPlacingOrder(false) ici : le bouton
-                        // reste visuellement "en chargement" sans interruption jusqu'à ce
-                        // que le navigateur ait fini de charger la page GeniusPay.
-                        window.location.href = data.checkout_url;
-                    } else {
-                        setPlacingOrder(false)
-                        toast.error(data.message || "Erreur lors de l'initiation du paiement");
-                    }
-                } catch (error) {
-                    setPlacingOrder(false)
-                    console.error("Erreur GeniusPay:", error);
-                    toast.error(error.response?.data?.message || "Erreur de connexion au service de paiement");
                 }
             } else if (paymentOption === "Jeko") {
                 try {
@@ -771,100 +736,51 @@ const Cart = () => {
                                 </div>
                             )}
 
-                            {/* Paiement — un seul point d'entrée, GeniusPay gère lui-même le
-                                choix entre Mobile Money / Wave / Carte sur sa page de checkout.
-                                [SIMPLIFICATION] On demandait avant l'opérateur ici (Orange/MTN/
-                                Moov) pour tenter de sauter l'écran GeniusPay, mais ce dernier
-                                redemande de toute façon la confirmation à l'utilisateur — ça
-                                doublait la sélection sans rien accélérer. */}
+                            {/* Paiement — Jèko exige l'opérateur AVANT l'appel API (pas de
+                                page générique de choix côté eux comme avait GeniusPay), donc
+                                la liste des opérateurs est directement le moyen de paiement,
+                                sans étape intermédiaire "Jèko" à cliquer d'abord.
+                                Badges colorés (couleur de marque + initiale) plutôt que les
+                                vrais logos, qui sont des marques déposées qu'on ne reproduit
+                                pas dans le code. */}
                             <div className="mb-4">
                                 <div className="flex items-center gap-2 mb-2">
                                     <CreditCard size={15} className="text-ramses-600" />
                                     <span className="rs-label text-ink-400">Moyen de paiement</span>
                                 </div>
-                                <button
-                                    type="button"
-                                    role="radio"
-                                    aria-checked={paymentOption === 'GeniusPay'}
-                                    onClick={() => setPaymentOption('GeniusPay')}
-                                    className={`w-full flex items-center justify-between gap-3 rounded-xl py-3.5 px-4 border-2 transition text-left ${
-                                        paymentOption === 'GeniusPay' ? 'border-ramses-600 bg-ramses-50' : 'border-ink-100 bg-ink-0 hover:border-ink-200'
-                                    }`}
-                                >
-                                    <div>
-                                        <p className="text-[14px] font-semibold text-ink-800">Mobile Money, Wave, Carte</p>
-                                        <p className="text-[11.5px] text-ink-400 mt-0.5 leading-snug">
-                                            Vous choisirez votre moyen de paiement sur la page sécurisée suivante.
-                                        </p>
-                                    </div>
-                                    <span className={`w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center shrink-0 ${
-                                        paymentOption === 'GeniusPay' ? 'border-ramses-600' : 'border-ink-300'
-                                    }`}>
-                                        {paymentOption === 'GeniusPay' && <span className="w-2 h-2 rounded-full bg-ramses-600" />}
-                                    </span>
-                                </button>
 
-                                {jekoEnabled && (
-                                    <>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {!jekoActive ? (
+                                        <p className="col-span-2 text-[13px] text-ink-500 bg-ink-50 rounded-lg py-3 px-3">
+                                            Les paiements en ligne sont momentanément indisponibles. Réessayez un peu plus tard.
+                                        </p>
+                                    ) : [
+                                        { key: 'orange', label: 'Orange Money', initial: 'O', bg: '#FF6600' },
+                                        { key: 'wave', label: 'Wave', initial: 'W', bg: '#1DA1F2' },
+                                        { key: 'mtn', label: 'MTN MoMo', initial: 'M', bg: '#FFCC00', text: '#1a1a1a' },
+                                        { key: 'moov', label: 'Moov Money', initial: 'M', bg: '#F26522' },
+                                        { key: 'djamo', label: 'Djamo', initial: 'd', bg: '#6C3AC7' },
+                                    ].map(({ key, label, initial, bg, text }) => (
                                         <button
+                                            key={key}
                                             type="button"
                                             role="radio"
-                                            aria-checked={paymentOption === 'Jeko'}
-                                            onClick={() => setPaymentOption('Jeko')}
-                                            className={`w-full flex items-center justify-between gap-3 rounded-xl py-3.5 px-4 border-2 transition text-left mt-2 ${
-                                                paymentOption === 'Jeko' ? 'border-ramses-600 bg-ramses-50' : 'border-ink-100 bg-ink-0 hover:border-ink-200'
+                                            aria-checked={jekoPaymentMethod === key}
+                                            onClick={() => { setJekoPaymentMethod(key); setPaymentOption('Jeko'); }}
+                                            className={`flex items-center gap-2.5 text-[13px] font-semibold rounded-lg py-3 px-3 border-2 transition text-left ${
+                                                jekoPaymentMethod === key ? 'border-ramses-600 bg-ramses-50 text-ramses-700' : 'border-ink-100 text-ink-600 hover:border-ink-200'
                                             }`}
                                         >
-                                            <div>
-                                                <p className="text-[14px] font-semibold text-ink-800">Jèko</p>
-                                                <p className="text-[11.5px] text-ink-400 mt-0.5 leading-snug">
-                                                    Mobile Money, Wave — choisissez votre opérateur ci-dessous.
-                                                </p>
-                                            </div>
-                                            <span className={`w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center shrink-0 ${
-                                                paymentOption === 'Jeko' ? 'border-ramses-600' : 'border-ink-300'
-                                            }`}>
-                                                {paymentOption === 'Jeko' && <span className="w-2 h-2 rounded-full bg-ramses-600" />}
+                                            <span
+                                                className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 font-bold text-[13px]"
+                                                style={{ background: bg, color: text || '#fff' }}
+                                            >
+                                                {initial}
                                             </span>
+                                            {label}
                                         </button>
-
-                                        {/* Contrairement à GeniusPay, Jèko exige de connaître
-                                            l'opérateur AVANT l'appel API — pas de page générique
-                                            de choix côté eux (voir paymentDetails.data.paymentMethod,
-                                            obligatoire dans leur schéma "redirect").
-                                            Badges colorés (couleur de marque + initiale) plutôt que
-                                            les vrais logos, qui sont des marques déposées qu'on ne
-                                            reproduit pas dans le code. */}
-                                        {paymentOption === 'Jeko' && (
-                                            <div className="mt-2.5 pl-1 grid grid-cols-2 gap-2">
-                                                {[
-                                                    { key: 'orange', label: 'Orange Money', initial: 'O', bg: '#FF6600' },
-                                                    { key: 'wave', label: 'Wave', initial: 'W', bg: '#1DA1F2' },
-                                                    { key: 'mtn', label: 'MTN MoMo', initial: 'M', bg: '#FFCC00', text: '#1a1a1a' },
-                                                    { key: 'moov', label: 'Moov Money', initial: 'M', bg: '#F26522' },
-                                                    { key: 'djamo', label: 'Djamo', initial: 'd', bg: '#6C3AC7' },
-                                                ].map(({ key, label, initial, bg, text }) => (
-                                                    <button
-                                                        key={key}
-                                                        type="button"
-                                                        onClick={() => setJekoPaymentMethod(key)}
-                                                        className={`flex items-center gap-2.5 text-[13px] font-semibold rounded-lg py-2.5 px-3 border-2 transition text-left ${
-                                                            jekoPaymentMethod === key ? 'border-ramses-600 bg-ramses-50 text-ramses-700' : 'border-ink-100 text-ink-600 hover:border-ink-200'
-                                                        }`}
-                                                    >
-                                                        <span
-                                                            className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 font-bold text-[13px]"
-                                                            style={{ background: bg, color: text || '#fff' }}
-                                                        >
-                                                            {initial}
-                                                        </span>
-                                                        {label}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </>
-                                )}
+                                    ))}
+                                </div>
                             </div>
 
                             {/* Code promo */}

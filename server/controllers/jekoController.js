@@ -2,16 +2,171 @@ import axios from 'axios';
 import crypto from 'crypto';
 import mongoose from 'mongoose';
 import Order from '../models/Order.js';
+import User from '../models/User.js';
 import Product from '../models/Product.js';
 import Coupon from '../models/Coupon.js';
 import DeliveryPrice from '../models/DeliveryPrice.js';
 import DeliveryType from '../models/DeliveryType.js';
 import Commune from '../models/Commune.js';
-import { confirmerCommandePayee, getRawBody } from './geniuspayController.js';
+import ColisShein from '../models/ColisShein.js';
+import MessageColis from '../models/MessageColis.js';
+import { posterMessageStatutAuto } from './colisSheinAdminController.js';
+import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
 
-// Même fenêtre que WEBHOOK_MAX_AGE_SECONDS côté GeniusPay (voir
-// geniuspayController.js) — 5 minutes.
+// Même fenêtre que côté GeniusPay historiquement — 5 minutes.
 const WEBHOOK_MAX_AGE_MS = 5 * 60 * 1000;
+
+const OPERATEURS_VALIDES = ["orange", "wave", "mtn", "moov", "djamo"];
+
+// Fonction pour calculer les dates de livraison estimées (7 jours ouvrés).
+// Démarre à la date de confirmation du paiement (pas d'initiation), car une
+// commande "pending_payment" peut être abandonnée et ne jamais aboutir.
+const calculateEstimatedDeliveryDates = (orderDate) => {
+    const startDate = new Date(orderDate);
+    let workingDaysAdded = 0;
+    let daysAdded = 0;
+
+    while (workingDaysAdded < 7) {
+        daysAdded++;
+        const currentDate = new Date(startDate);
+        currentDate.setDate(startDate.getDate() + daysAdded);
+        const dayOfWeek = currentDate.getDay();
+        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+            workingDaysAdded++;
+        }
+    }
+
+    const deliveryStart = new Date(startDate);
+    deliveryStart.setDate(startDate.getDate() + daysAdded);
+    const deliveryEnd = new Date(deliveryStart);
+    deliveryEnd.setDate(deliveryStart.getDate() + 3);
+
+    return { deliveryStart, deliveryEnd };
+};
+
+// Récupère le corps brut de la requête pour la vérification HMAC — plusieurs
+// cas selon l'environnement (Vercel donne déjà un Buffer via express.raw()
+// normalement, ce helper couvre aussi les cas où ce ne serait pas le cas).
+export function getRawBody(req) {
+    if (Buffer.isBuffer(req.body)) {
+        return Promise.resolve(req.body.toString('utf8'));
+    }
+    if (typeof req.rawBody === 'string') {
+        return Promise.resolve(req.rawBody);
+    }
+    if (Buffer.isBuffer(req.rawBody)) {
+        return Promise.resolve(req.rawBody.toString('utf8'));
+    }
+    return new Promise((resolve) => {
+        let data = '';
+        req.on('data', (chunk) => { data += chunk; });
+        req.on('end', () => resolve(data));
+    });
+}
+
+// ============================================================================
+// Confirmation d'une commande payée — marquer payé, décrémenter le stock,
+// vider le panier, envoyer les emails. L'idempotence est gérée ICI, de façon
+// atomique (findOneAndUpdate conditionnel) : un simple `if (order.isPaid)`
+// lu puis écrit plus tard laisse une fenêtre où deux webhooks quasi
+// simultanés (retry Jèko, livraison en double) peuvent tous les deux lire
+// "pas encore payé" avant qu'aucun n'ait fini d'écrire.
+// Retourne false si une autre requête a déjà traité cette commande.
+// ============================================================================
+export const confirmerCommandePayee = async (order, { reference, providerField } = {}) => {
+    const { deliveryStart, deliveryEnd } = calculateEstimatedDeliveryDates(new Date());
+
+    const update = {
+        isPaid: true,
+        status: "Confirmed",
+        estimatedDeliveryStart: deliveryStart,
+        estimatedDeliveryEnd: deliveryEnd,
+    };
+    if (reference && providerField) {
+        update[providerField] = reference;
+    }
+
+    const updated = await Order.findOneAndUpdate(
+        { _id: order._id, isPaid: { $ne: true } },
+        { $set: update },
+        { new: true }
+    );
+
+    if (!updated) {
+        console.log(`ℹ️ Commande ${order._id} déjà confirmée par une autre requête (webhook en double), ignorer`);
+        return false;
+    }
+    order = updated;
+    console.log(`✅ Commande ${order._id} marquée comme payée`);
+
+    const ProductModel = mongoose.model('product');
+    const productIds = [...new Set(order.items.map(item => item.product.toString()))];
+    const products = await ProductModel.find({ _id: { $in: productIds } });
+    const productsById = new Map(products.map(p => [p._id.toString(), p]));
+    const bulkOps = [];
+
+    for (const item of order.items) {
+        const product = productsById.get(item.product.toString());
+        if (!product) {
+            console.warn(`⚠️ Produit ${item.product} non trouvé, stock non mis à jour`);
+            continue;
+        }
+
+        if (product.variants && product.variants.length > 0) {
+            const variant = product.variants.find(v =>
+                v.color === item.color && v.size === item.size
+            );
+            if (variant) {
+                variant.stock = Math.max(0, (variant.stock || 0) - item.quantity);
+                const inStock = product.variants.some(v => v.stock > 0);
+                bulkOps.push({
+                    updateOne: {
+                        filter: { _id: product._id, 'variants._id': variant._id },
+                        update: { $set: { 'variants.$.stock': variant.stock, inStock } }
+                    }
+                });
+            } else {
+                console.warn(`⚠️ Variant (${item.color}/${item.size}) non trouvé pour produit ${product.name}`);
+            }
+        } else {
+            const newStock = Math.max(0, (product.stock || 0) - item.quantity);
+            product.stock = newStock;
+            bulkOps.push({
+                updateOne: {
+                    filter: { _id: product._id },
+                    update: { $set: { stock: newStock, inStock: newStock > 0 } }
+                }
+            });
+        }
+    }
+
+    if (bulkOps.length > 0) {
+        await ProductModel.bulkWrite(bulkOps);
+    }
+
+    if (order.userId) {
+        await User.findByIdAndUpdate(order.userId, { cartItems: {} });
+        console.log(`🗑️ Panier vidé pour l'utilisateur ${order.userId}`);
+    }
+
+    const user = await User.findById(order.userId);
+    const Address = mongoose.model('address');
+    const address = await Address.findById(order.address);
+
+    if (user && user.email && address) {
+        try {
+            await sendOrderConfirmationEmail(user.email, order._id.toString(), order.amount, deliveryStart, deliveryEnd);
+            await sendAdminNotificationEmail(order._id.toString(), order.amount, `${address.firstName} ${address.lastName}`, user.email);
+        } catch (emailError) {
+            console.error("❌ Erreur envoi emails:", emailError);
+        }
+    } else {
+        console.warn("⚠️ Impossible d'envoyer les emails: utilisateur ou adresse manquant");
+    }
+
+    console.log(`✅ Commande ${order._id} finalisée avec succès`);
+    return true;
+};
 
 // ============================================================================
 // Intégration Jèko — initiation ET webhook écrits contre leur doc technique
@@ -37,7 +192,6 @@ export const initiateJeko = async (req, res) => {
     try {
         let { userId, items, address, deliveryType, couponApplied, jekoPaymentMethod } = req.body;
 
-        const OPERATEURS_VALIDES = ["orange", "wave", "mtn", "moov", "djamo"];
         if (!OPERATEURS_VALIDES.includes(jekoPaymentMethod)) {
             return res.json({ success: false, message: "Opérateur de paiement invalide" });
         }
@@ -327,13 +481,91 @@ export const initiateJeko = async (req, res) => {
 };
 
 // ============================================================================
-// [SQUELETTE — WEBHOOK NON IMPLÉMENTÉ]
-// À écrire une fois le format exact du webhook Jèko confirmé (structure du
-// payload, header de signature, algorithme — HMAC-SHA256 mentionné dans leur
-// doc mais sans détail exploitable au moment de l'écriture de ce fichier).
-// Voir handleGeniusPayWebhook dans geniuspayController.js pour le pattern à
-// suivre : vérification de signature avant tout traitement, idempotence
-// (ignorer un webhook déjà traité), mise à jour du statut de la commande.
+// Paiement Jèko pour un colis Shein (acompte ou solde) — remplace payAcompte
+// / paySolde de sheinCartController.js, qui appelaient GeniusPay directement.
+// Même schéma vérifié que initiateJeko ci-dessus. "type" distingue acompte
+// et solde : encodé dans "reference" (`${colisId}:${type}`) puisque Jèko n'a
+// pas de champ metadata libre comme GeniusPay — c'est ce que le webhook
+// relit pour savoir quoi confirmer.
+// ============================================================================
+export const initiateJekoColis = async (req, res, type) => {
+    try {
+        const { jekoPaymentMethod } = req.body;
+        if (!OPERATEURS_VALIDES.includes(jekoPaymentMethod)) {
+            return res.json({ success: false, message: "Opérateur de paiement invalide" });
+        }
+
+        const colis = await ColisShein.findOne({ _id: req.params.id, userId: req.body.userId });
+        if (!colis) return res.status(404).json({ success: false, message: "Colis introuvable" });
+
+        const dejaPayeChamp = type === "acompte" ? colis.paiement.acomptePaye : colis.paiement.soldePaye;
+        if (dejaPayeChamp) {
+            return res.status(400).json({ success: false, message: `${type === "acompte" ? "Acompte" : "Solde"} déjà payé` });
+        }
+
+        const montantSource = type === "acompte" ? colis.devis?.montantInitial : colis.paiement?.soldeMontant;
+        if (!montantSource || montantSource <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: type === "acompte"
+                    ? "Le devis n'a pas encore de montant d'acompte défini"
+                    : "Le solde n'a pas encore été calculé (en attente de pesée)",
+            });
+        }
+
+        const finalAmount = Math.round(montantSource);
+
+        const jekoPayload = {
+            amountCents: finalAmount * 100,
+            currency: "XOF",
+            reference: `${colis._id.toString()}:${type}`,
+            storeId: process.env.JEKO_STORE_ID,
+            paymentDetails: {
+                type: "redirect",
+                data: {
+                    paymentMethod: jekoPaymentMethod,
+                    successUrl: `${process.env.FRONTEND_URL}/colis-shein/${colis._id}?paiement=succes`,
+                    errorUrl: `${process.env.FRONTEND_URL}/colis-shein/${colis._id}?paiement=erreur`,
+                },
+            },
+        };
+
+        const response = await axios.post(
+            `${process.env.JEKO_BASE_URL || 'https://api.jeko.africa'}/partner_api/payment_requests`,
+            jekoPayload,
+            {
+                headers: {
+                    'X-API-KEY': process.env.JEKO_API_KEY,
+                    'X-API-KEY-ID': process.env.JEKO_API_KEY_ID,
+                    'Content-Type': 'application/json',
+                },
+            }
+        );
+
+        const checkoutUrl = response.data?.redirectUrl;
+        if (!checkoutUrl) {
+            console.error("Réponse Jèko sans redirectUrl (colis):", JSON.stringify(response.data));
+            return res.json({ success: false, message: "Réponse Jèko invalide — pas d'URL de paiement" });
+        }
+
+        res.json({ success: true, checkout_url: checkoutUrl });
+    } catch (error) {
+        console.error(`Erreur Jèko (colis, ${type}):`, error.message);
+        if (error.response) {
+            console.error("Status:", error.response.status);
+            console.error("Data:", JSON.stringify(error.response.data));
+        }
+        res.status(500).json({ success: false, message: error.response?.data?.message || "Erreur lors de l'initialisation du paiement" });
+    }
+};
+
+export const initiateJekoAcompte = (req, res) => initiateJekoColis(req, res, "acompte");
+export const initiateJekoSolde = (req, res) => initiateJekoColis(req, res, "solde");
+
+// ============================================================================
+// Webhook Jèko — traite deux types de références : une commande classique
+// (reference = son ID Mongo tel quel) ou un paiement colis Shein (reference
+// = "${colisId}:acompte" ou "${colisId}:solde", voir initiateJekoColis).
 // ============================================================================
 export const handleJekoWebhook = async (req, res) => {
     const rawBody = await getRawBody(req);
@@ -407,38 +639,95 @@ export const handleJekoWebhook = async (req, res) => {
         const STATUTS_ECHEC = ['failed', 'error', 'cancelled', 'expired'];
 
         if (!reference) {
-            console.error("❌ Référence de commande introuvable dans le webhook Jèko — voir le payload brut loggé ci-dessus pour ajuster le nom du champ");
+            console.error("❌ Référence introuvable dans le webhook Jèko — voir le payload brut loggé ci-dessus pour ajuster le nom du champ");
             return res.status(200).json({ received: true }); // 200 quand même : ce n'est pas Jèko qui a un problème, c'est notre parsing
         }
 
-        const order = await Order.findById(reference);
+        // Une référence colis Shein contient ":acompte" ou ":solde" (voir
+        // initiateJekoColis) ; une référence de commande classique est un ID
+        // Mongo brut, sans ":".
+        const [refId, refType] = reference.split(':');
+        const estColisShein = refType === 'acompte' || refType === 'solde';
+
+        if (estColisShein) {
+            const colis = await ColisShein.findById(refId);
+            if (!colis) {
+                console.error(`❌ Colis ${refId} non trouvé (webhook Jèko)`);
+                return res.status(404).json({ error: "Colis not found" });
+            }
+
+            const champPaye = refType === 'acompte' ? 'paiement.acomptePaye' : 'paiement.soldePaye';
+            const champDate = refType === 'acompte' ? 'paiement.acompteDate' : 'paiement.soldeDate';
+            const nouveauStatut = refType === 'acompte' ? 'acompte_paye' : 'solde_paye';
+            const montantAttendu = refType === 'acompte' ? colis.devis?.montantInitial : colis.paiement?.soldeMontant;
+
+            if (STATUTS_ECHEC.includes(status)) {
+                console.log(`❌ Paiement Jèko échoué pour le colis ${colis.numeroSuivi} (${refType}, statut: ${status})`);
+                return res.status(200).json({ received: true });
+            }
+            if (!STATUTS_SUCCES.includes(status)) {
+                console.log(`ℹ️ Statut Jèko non traité pour le colis ${colis.numeroSuivi} (${refType}): ${status}`);
+                return res.status(200).json({ received: true });
+            }
+            if (typeof remoteAmountCents === 'number' && montantAttendu && remoteAmountCents !== Math.round(montantAttendu * 100)) {
+                console.error(`❌ Montant Jèko (${remoteAmountCents} cents) ≠ montant attendu (${montantAttendu} XOF) pour colis ${colis.numeroSuivi}`);
+                return res.status(400).json({ error: "Amount mismatch" });
+            }
+
+            // Même principe atomique que confirmerCommandePayee : le filtre
+            // `[champPaye]: { $ne: true }` garantit qu'une seule requête
+            // concurrente peut faire matcher et modifier ce document.
+            const colisMisAJour = await ColisShein.findOneAndUpdate(
+                { _id: colis._id, [champPaye]: { $ne: true } },
+                {
+                    $set: { [champPaye]: true, [champDate]: new Date(), 'paiement.methode': 'jeko', statut: nouveauStatut },
+                    $push: { historique: { action: nouveauStatut, note: `${refType === 'acompte' ? 'Acompte' : 'Solde'} réglé via Jèko (réf. ${jekoTransactionId})` } },
+                },
+                { new: true }
+            );
+
+            if (!colisMisAJour) {
+                console.log(`ℹ️ ${refType === 'acompte' ? 'Acompte' : 'Solde'} du colis ${colis.numeroSuivi} déjà confirmé par une autre requête, ignorer`);
+                return res.status(200).json({ received: true, alreadyProcessed: true });
+            }
+
+            const texteConfirmation = refType === 'acompte' ? "✓ Paiement des articles confirmé" : "✓ Paiement de la livraison confirmé";
+            await MessageColis.create({ colisId: colisMisAJour._id, expediteurRole: "systeme", type: "systeme", texte: texteConfirmation });
+            await posterMessageStatutAuto(colisMisAJour, nouveauStatut);
+
+            console.log(`✅ ${refType === 'acompte' ? "Acompte" : "Solde"} confirmé pour le colis ${colis.numeroSuivi}`);
+            return res.status(200).json({ received: true });
+        }
+
+        // --- Commande classique ---
+        const order = await Order.findById(refId);
         if (!order) {
-            console.error(`❌ Commande ${reference} non trouvée (webhook Jèko)`);
+            console.error(`❌ Commande ${refId} non trouvée (webhook Jèko)`);
             return res.status(404).json({ error: "Order not found" });
         }
 
         // Raccourci rapide — PAS la vraie protection contre les webhooks
         // concurrents, celle-ci est dans confirmerCommandePayee
-        // (findOneAndUpdate atomique, voir geniuspayController.js).
+        // (findOneAndUpdate atomique).
         if (order.isPaid && order.status === "Confirmed") {
-            console.log(`ℹ️ Commande ${reference} déjà confirmée, ignorer`);
+            console.log(`ℹ️ Commande ${refId} déjà confirmée, ignorer`);
             return res.status(200).json({ received: true, alreadyProcessed: true });
         }
 
         if (STATUTS_ECHEC.includes(status)) {
-            console.log(`❌ Paiement Jèko échoué pour la commande ${reference} (statut: ${status})`);
+            console.log(`❌ Paiement Jèko échoué pour la commande ${refId} (statut: ${status})`);
             return res.status(200).json({ received: true });
         }
 
         if (!STATUTS_SUCCES.includes(status)) {
-            console.log(`ℹ️ Statut Jèko non traité pour la commande ${reference}: ${status}`);
+            console.log(`ℹ️ Statut Jèko non traité pour la commande ${refId}: ${status}`);
             return res.status(200).json({ received: true });
         }
 
         // Vérification du montant — amountCents = montant XOF × 100 (voir
         // initiateJeko), donc on compare à order.amount × 100.
         if (typeof remoteAmountCents === 'number' && remoteAmountCents !== Math.round(order.amount * 100)) {
-            console.error(`❌ Montant Jèko (${remoteAmountCents} cents) ≠ montant commande (${order.amount} XOF) pour ${reference}`);
+            console.error(`❌ Montant Jèko (${remoteAmountCents} cents) ≠ montant commande (${order.amount} XOF) pour ${refId}`);
             return res.status(400).json({ error: "Amount mismatch" });
         }
 

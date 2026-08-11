@@ -860,7 +860,7 @@ const ColisSheinManager = () => {
                             )}
 
                             {(selection.statut === "devis_envoye" || selection.statut === "pese") && (
-                                <p className="csm-attente">En attente du paiement du client — la suite se fera automatiquement dès confirmation GeniusPay.</p>
+                                <p className="csm-attente">En attente du paiement du client — la suite se fera automatiquement dès confirmation Jèko.</p>
                             )}
 
                             <details className="csm-avance">

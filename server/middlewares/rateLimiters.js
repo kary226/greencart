@@ -48,7 +48,7 @@ const buildLimiter = (windowMs, max) => rateLimit({
 // bidon et les abus de stock (réservation fictive).
 export const orderCreationLimiter = buildLimiter(10 * 60 * 1000, 15); // 15 / 10 min / IP
 
-// Initiation de paiement GeniusPay : chemin sensible, chaque appel déclenche
+// Initiation de paiement Jèko : chemin sensible, chaque appel déclenche
 // un aller-retour vers le prestataire de paiement.
 export const paymentLimiter = buildLimiter(10 * 60 * 1000, 15); // 15 / 10 min / IP
 

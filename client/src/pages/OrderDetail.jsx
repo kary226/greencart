@@ -20,7 +20,7 @@ const STATUS_MAP = {
 
 const getPaymentLabel = (order) => {
     if (order.paymentType === 'COD') return 'Paiement à la livraison'
-    if (order.paymentType === 'GeniusPay')
+    if (order.paymentType === 'Jeko' || order.paymentType === 'GeniusPay')
         return order.isPaid ? 'Mobile Money — Payé' : 'Mobile Money — En attente'
     return order.paymentType || 'Paiement en ligne'
 }

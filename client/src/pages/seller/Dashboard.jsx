@@ -146,17 +146,19 @@ const Dashboard = () => {
                 })
                 setMonthlySalesData(monthlyAnalysis)
 
-                // Payment
-                const paymentCount = { COD: 0, Online: 0, GeniusPay: 0 }
+                // Payment — 'GeniusPay' compté pour l'historique (commandes déjà
+                // en base avant le passage à Jèko, retirées du site mais pas
+                // réécrites rétroactivement), 'Jeko' pour les commandes actuelles.
+                const paymentCount = { COD: 0, Online: 0, MobileMoney: 0 }
                 orders.forEach(o => {
                     if (o.paymentType === 'COD') paymentCount.COD++
                     else if (o.paymentType === 'Online') paymentCount.Online++
-                    else if (o.paymentType === 'GeniusPay') paymentCount.GeniusPay++
+                    else if (o.paymentType === 'Jeko' || o.paymentType === 'GeniusPay') paymentCount.MobileMoney++
                 })
                 setPaymentChartData([
                     { name: 'Livraison', value: paymentCount.COD, color: COLORS.black },
                     { name: 'Carte', value: paymentCount.Online, color: COLORS.red },
-                    { name: 'Mobile Money', value: paymentCount.GeniusPay, color: COLORS.gray },
+                    { name: 'Mobile Money', value: paymentCount.MobileMoney, color: COLORS.gray },
                 ])
 
                 // Status

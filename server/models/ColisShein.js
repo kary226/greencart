@@ -85,7 +85,7 @@ const colisSheinSchema = new mongoose.Schema({
         soldeMontant: { type: Number, default: 0 },
         soldePaye: { type: Boolean, default: false },
         soldeDate: { type: Date, default: null },
-        methode: { type: String, enum: ["geniuspay", "cash", null], default: null },
+        methode: { type: String, enum: ["jeko", "cash", null], default: null },
     },
 
     estimationArrivee: {
