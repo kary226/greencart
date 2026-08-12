@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import StaffUser from '../models/StaffUser.js';
+import { TYPE_STAFF, verifierType } from '../utils/jwtTypes.js';
 
 // authStaff vérifie qu'une personne est bien connectée en tant que
 // compte staff (admin / commercant / livreur / assistant_shein), quel
@@ -28,6 +29,17 @@ const authStaff = async (req, res, next) => {
             return res.status(401).json({
                 success: false,
                 message: 'Non authentifié - Token invalide'
+            });
+        }
+
+        // [SÉCURITÉ] Jusqu'ici, seule la recherche dans la collection
+        // StaffUser empêchait un jeton client d'ouvrir l'espace staff — une
+        // protection de fait, pas de conception. Le type est maintenant
+        // vérifié explicitement (voir utils/jwtTypes.js).
+        if (!verifierType(tokenDecode, TYPE_STAFF)) {
+            return res.status(401).json({
+                success: false,
+                message: 'Non authentifié - Session invalide pour cet espace'
             });
         }
 

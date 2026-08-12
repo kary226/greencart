@@ -176,9 +176,10 @@ export const confirmerCommandePayee = async (order, { reference, providerField }
 // Seul point encore incertain : les noms de champs exacts du PAYLOAD du
 // webhook (status/reference/amount) sont déduits par analogie avec le schéma
 // de réponse de création, pas confirmés sur un vrai webhook reçu. Le premier
-// paiement de test réel loggera le payload brut complet (voir
-// handleJekoWebhook) — si la commande n'est pas marquée payée après un
-// paiement réussi, regarder ce log en premier.
+// paiement de test réel loggera la LISTE DES CHAMPS reçus (`champsRecus`,
+// voir handleJekoWebhook — les valeurs ne sont plus loggées, elles
+// contenaient des données clients) : si la commande n'est pas marquée payée
+// après un paiement réussi, regarder ce log en premier.
 // ============================================================================
 
 // Initier un paiement Jèko (mode redirection, opérateur choisi côté RAMCI)
@@ -596,11 +597,26 @@ export const handleJekoWebhook = async (req, res) => {
     try {
         const payload = JSON.parse(rawBody);
 
-        // [PREMIER PASSAGE] Log complet du payload brut — à garder au moins
-        // jusqu'au premier vrai paiement de test, pour confirmer/corriger
-        // les noms de champs ci-dessous en un coup d'œil sur les logs Vercel.
+        // [SÉCURITÉ] Résumé expurgé, plus le payload brut intégral.
+        //
+        // Le log complet contenait des données de transaction et de clients
+        // (téléphone, opérateur, montants), recopiées telles quelles dans
+        // les logs Vercel — lisibles par quiconque a accès au tableau de
+        // bord, conservées bien au-delà de leur utilité, et hors de portée
+        // d'une demande de suppression de données personnelles.
+        //
+        // On garde exactement ce qui sert à diagnostiquer : le statut, la
+        // référence de commande et l'identifiant de transaction, qui
+        // permettent de retrouver la trace complète côté Jèko en cas de
+        // besoin. Les CLÉS du payload restent loggées (sans les valeurs) :
+        // c'était l'autre utilité du log brut, confirmer les noms de champs.
         console.log("=== WEBHOOK JÈKO REÇU (signature vérifiée) ===");
-        console.log(JSON.stringify(payload));
+        console.log(JSON.stringify({
+            champsRecus: Object.keys(payload),
+            status: payload.status ?? payload.data?.status ?? null,
+            reference: payload.transactionDetails?.reference ?? payload.reference ?? payload.data?.reference ?? null,
+            transactionId: payload.id ?? payload.data?.id ?? null,
+        }));
 
         // Anti-rejeu — contrairement à GeniusPay (header X-Webhook-Timestamp
         // dédié), Jèko ne fournit qu'un header de signature, sans horodatage
@@ -618,7 +634,7 @@ export const handleJekoWebhook = async (req, res) => {
             }
         } else {
             // Pas bloquant : le nom exact du champ n'est pas garanti (voir
-            // le log du payload brut ci-dessus) — mieux vaut traiter un
+            // `champsRecus` dans le log ci-dessus) — mieux vaut traiter un
             // webhook légitime sans protection anti-rejeu à 100% que d'en
             // rejeter un valide sur un nom de champ mal deviné. À resserrer
             // une fois le vrai payload confirmé.
@@ -639,7 +655,7 @@ export const handleJekoWebhook = async (req, res) => {
         const STATUTS_ECHEC = ['failed', 'error', 'cancelled', 'expired'];
 
         if (!reference) {
-            console.error("❌ Référence introuvable dans le webhook Jèko — voir le payload brut loggé ci-dessus pour ajuster le nom du champ");
+            console.error("❌ Référence introuvable dans le webhook Jèko — voir `champsRecus` dans le log ci-dessus pour ajuster le nom du champ");
             return res.status(200).json({ received: true }); // 200 quand même : ce n'est pas Jèko qui a un problème, c'est notre parsing
         }
 

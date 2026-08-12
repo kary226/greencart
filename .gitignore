@@ -1,2 +1,23 @@
-.env 
-server/.env 
+# Secrets — ne doivent JAMAIS être versionnés.
+# Seul server/.env.example l'est, comme modèle.
+.env
+.env.*
+!.env.example
+server/.env
+client/.env
+
+# Dépendances : reconstruites depuis les package-lock.json, qui eux sont
+# versionnés. Les versionner masquait toute modification locale d'une
+# dépendance et noyait les diffs de mise à jour de sécurité.
+node_modules/
+
+# Sorties de build
+dist/
+build/
+.vercel/
+
+# Logs et fichiers temporaires
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db

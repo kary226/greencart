@@ -2,6 +2,7 @@ import User from "../models/User.js";
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import { TYPE_CLIENT } from '../utils/jwtTypes.js';
 
 // [FIX sécurité] Pose le token dans un cookie httpOnly. httpOnly = invisible
 // pour JavaScript, donc invisible pour une éventuelle faille XSS.
@@ -21,6 +22,12 @@ const COOKIE_OPTIONS = {
 const setTokenCookie = (res, token) => {
     res.cookie('token', token, COOKIE_OPTIONS);
 };
+
+// [SÉCURITÉ] Empreinte d'un jeton de réinitialisation. Utilisée à la
+// création (forgotPassword) comme à la vérification (resetPassword) — les
+// deux DOIVENT passer par ici, sinon plus aucun lien ne fonctionne.
+const hacherJetonReset = (jeton) =>
+    crypto.createHash('sha256').update(String(jeton)).digest('hex');
 
 const getFullName = (firstName, lastName) => {
     const first = (firstName || '').trim();
@@ -73,7 +80,7 @@ export const register = async (req, res) => {
             password: hashedPassword
         });
 
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        const token = jwt.sign({ id: user._id, typ: TYPE_CLIENT }, process.env.JWT_SECRET, { expiresIn: '7d' });
         setTokenCookie(res, token);
 
         return res.json({
@@ -123,7 +130,7 @@ export const login = async (req, res) => {
             return res.json({ success: false, message: 'Email ou mot de passe incorrect' });
         }
 
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        const token = jwt.sign({ id: user._id, typ: TYPE_CLIENT }, process.env.JWT_SECRET, { expiresIn: '7d' });
         setTokenCookie(res, token);
 
         return res.json({
@@ -286,7 +293,7 @@ export const googleAuth = async (req, res) => {
             });
         }
 
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        const token = jwt.sign({ id: user._id, typ: TYPE_CLIENT }, process.env.JWT_SECRET, { expiresIn: '7d' });
         setTokenCookie(res, token);
 
         return res.json({
@@ -385,7 +392,17 @@ export const forgotPassword = async (req, res) => {
             const resetToken = crypto.randomBytes(32).toString('hex');
             const resetExpires = Date.now() + 3600000;
 
-            user.resetPasswordToken = resetToken;
+            // [SÉCURITÉ] Seule l'empreinte est stockée. Le jeton en clair ne
+            // vit que dans l'e-mail envoyé au client — une fuite de la base
+            // ne donne donc aucun lien de réinitialisation utilisable.
+            // Même logique qu'un mot de passe : on ne conserve jamais le
+            // secret, seulement de quoi le reconnaître.
+            //
+            // SHA-256 sans sel ni itérations, contrairement à un mot de
+            // passe : ce jeton fait 256 bits d'aléa cryptographique et vit
+            // une heure. Il n'est pas devinable par force brute, un hachage
+            // lent n'apporterait rien et ralentirait la vérification.
+            user.resetPasswordToken = hacherJetonReset(resetToken);
             user.resetPasswordExpires = resetExpires;
             await user.save();
 
@@ -422,8 +439,10 @@ export const resetPassword = async (req, res) => {
             return res.json({ success: false, message: "Le mot de passe doit contenir au moins 8 caractères" });
         }
 
+        // [SÉCURITÉ] On cherche l'empreinte, pas le jeton : c'est l'empreinte
+        // qui est en base depuis que forgotPassword ne stocke plus le clair.
         const user = await User.findOne({
-            resetPasswordToken: token,
+            resetPasswordToken: hacherJetonReset(token),
             resetPasswordExpires: { $gt: Date.now() }
         });
 

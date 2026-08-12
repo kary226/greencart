@@ -7,9 +7,20 @@ import Invitation from '../models/Invitation.js';
 import Boutique from '../models/Boutique.js';
 import Wallet from '../models/Wallet.js';
 import { sendStaffInvitationEmail } from '../configs/email.js';
+import { TYPE_STAFF } from '../utils/jwtTypes.js';
 
 const ROLES_VALIDES = ['admin', 'commercant', 'livreur', 'assistant_shein'];
 const INVITATION_VALIDITE_MS = 48 * 60 * 60 * 1000; // 48 heures
+
+// [SÉCURITÉ] Empreinte d'un jeton d'invitation. La création et la
+// vérification DOIVENT toutes deux passer par ici — sinon plus aucun lien
+// d'activation ne fonctionne.
+//
+// SHA-256 nu suffit : le jeton fait 256 bits d'aléa cryptographique et vit
+// 48 h. Il n'est pas devinable, un hachage lent façon bcrypt n'apporterait
+// rien ici (contrairement à un mot de passe, qui est court et deviné).
+const hacherJetonInvitation = (jeton) =>
+    crypto.createHash('sha256').update(String(jeton)).digest('hex');
 
 // Cookie séparé de 'token' (client) et de 'sellerToken' (ancien compte
 // vendeur unique) — même logique de séparation des sessions par espace.
@@ -77,7 +88,11 @@ export const createInvitation = async (req, res) => {
         const invitation = await Invitation.create({
             email: emailNormalise,
             role,
-            token,
+            // [SÉCURITÉ] Seule l'empreinte est stockée — le lien en clair ne
+            // vit que dans l'e-mail. Un lien d'invitation vaut la création
+            // d'un compte staff (potentiellement admin) : une fuite de la
+            // base ne doit pas suffire à en fabriquer un.
+            token: hacherJetonInvitation(token),
             expireA: new Date(Date.now() + INVITATION_VALIDITE_MS),
             creePar: req.staffUser._id,
         });
@@ -136,7 +151,8 @@ export const activateAccount = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Le mot de passe doit contenir au moins 8 caractères' });
         }
 
-        const invitation = await Invitation.findOne({ token });
+        // [SÉCURITÉ] C'est l'empreinte qui est en base, pas le jeton reçu.
+        const invitation = await Invitation.findOne({ token: hacherJetonInvitation(token) });
 
         if (!invitation) {
             return res.status(404).json({ success: false, message: "Lien d'invitation introuvable" });
@@ -189,7 +205,7 @@ export const activateAccount = async (req, res) => {
         invitation.utilisee = true;
         await invitation.save();
 
-        const jwtToken = jwt.sign({ id: staffUser._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        const jwtToken = jwt.sign({ id: staffUser._id, typ: TYPE_STAFF }, process.env.JWT_SECRET, { expiresIn: '7d' });
         setStaffTokenCookie(res, jwtToken);
 
         // otpauthUrl n'est renvoyé qu'ICI, une seule fois, pour générer le
@@ -243,7 +259,7 @@ export const staffLogin = async (req, res) => {
         staffUser.derniereConnexion = new Date();
         await staffUser.save();
 
-        const jwtToken = jwt.sign({ id: staffUser._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        const jwtToken = jwt.sign({ id: staffUser._id, typ: TYPE_STAFF }, process.env.JWT_SECRET, { expiresIn: '7d' });
         setStaffTokenCookie(res, jwtToken);
 
         return res.status(200).json({

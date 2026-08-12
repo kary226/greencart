@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { authenticator } from 'otplib';
+import { TYPE_VENDEUR } from '../utils/jwtTypes.js';
 
 // [FIX M3] Comparaison en temps constant pour éviter les attaques par
 // mesure de temps (timing attack). Une comparaison '===' classique sur
@@ -62,7 +63,7 @@ export const sellerLogin = async (req, res) => {
             return res.json({ success: false, message: "Code d'authentification invalide" });
         }
 
-        const token = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        const token = jwt.sign({ email, typ: TYPE_VENDEUR }, process.env.JWT_SECRET, { expiresIn: '7d' });
         setSellerTokenCookie(res, token);
 
         return res.json({ success: true, message: "Logged In" });

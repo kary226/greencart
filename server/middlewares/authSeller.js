@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import { TYPE_VENDEUR, verifierType } from '../utils/jwtTypes.js';
 
 const authSeller = async (req, res, next) => {
     // [MIGRATION cookie httpOnly] Le token vendeur est lu depuis le cookie
@@ -16,6 +17,12 @@ const authSeller = async (req, res, next) => {
 
     try {
         const tokenDecode = jwt.verify(token, process.env.JWT_SECRET);
+
+        // [SÉCURITÉ] Voir utils/jwtTypes.js — le type est porté par le jeton,
+        // il ne se déduit plus de la seule forme du payload.
+        if (!verifierType(tokenDecode, TYPE_VENDEUR)) {
+            return res.json({ success: false, message: 'Not Authorized - Accès refusé' });
+        }
 
         if (tokenDecode.email === process.env.SELLER_EMAIL) {
             // Posé pour que addProduct (et consorts) distinguent le compte

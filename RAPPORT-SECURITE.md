@@ -9,7 +9,7 @@
 
 ## Synthèse
 
-**10 constats.** 6 corrigés, 4 laissés en recommandation (voir la justification de chacun).
+**11 constats, tous corrigés.**
 
 | Gravité | Constat | État |
 |---|---|---|
@@ -19,10 +19,13 @@
 | 🟡 Moyenne | Aucun en-tête de sécurité côté front | ✅ Corrigé |
 | 🟡 Moyenne | Upload traité avant l'authentification | ✅ Corrigé |
 | 🔵 Basse | Aucun contrôle des secrets au démarrage | ✅ Corrigé |
-| 🔵 Basse | Jeton de réinitialisation stocké en clair | ⚠️ Recommandé |
-| 🔵 Basse | `node_modules` versionné (11 555 fichiers) | ⚠️ Recommandé |
-| 🔵 Basse | Payload de paiement intégralement journalisé | ⚠️ Recommandé |
-| 🔵 Basse | Secret JWT unique pour trois types de session | ⚠️ Recommandé |
+| 🔵 Basse | Jeton de réinitialisation stocké en clair | ✅ Corrigé |
+| 🔵 Basse | **Jeton d'invitation staff stocké en clair** | ✅ Corrigé |
+| 🔵 Basse | `node_modules` versionné (11 555 fichiers) | ✅ Corrigé |
+| 🔵 Basse | Payload de paiement intégralement journalisé | ✅ Corrigé |
+| 🔵 Basse | Secret JWT unique pour trois types de session | ✅ Corrigé |
+
+Le onzième constat (jetons d'invitation staff) a été découvert **en corrigeant** le jeton de réinitialisation : `Invitation.findOne({ token })` souffrait exactement de la même faiblesse, avec un enjeu supérieur — un lien d'invitation vaut la création d'un compte staff, potentiellement administrateur.
 
 Le niveau général est **bon**. Le code porte les traces d'une passe sécurité antérieure (marqueurs `[FIX C2]`, `[FIX M3]`, migration vers des cookies `httpOnly`), et l'essentiel des fondamentaux est en place. Le constat critique est une **route oubliée**, pas une faiblesse de conception.
 
@@ -194,37 +197,80 @@ Aucune vérification de `JWT_SECRET` au démarrage. Son absence ne se manifestai
 
 ---
 
-## ⚠️ Recommandations non appliquées
+## 🔵 BASSE — Jetons de réinitialisation et d'invitation stockés en clair
 
-Ces quatre points ne sont **pas** corrigés, volontairement.
+**Fichiers** : `server/controllers/userController.js`, `server/controllers/staffController.js`
 
-### Jeton de réinitialisation stocké en clair — `userController.js:385`
+Les deux jetons étaient générés correctement (`crypto.randomBytes(32)`, expiration à 1 h et 48 h) mais **stockés tels quels** en base. Une fuite de la base rendait les jetons non expirés directement utilisables :
 
-`crypto.randomBytes(32)` est un bon générateur, l'expiration à 1 h est correcte, mais le jeton est stocké tel quel en base. Une fuite de la base rendrait les jetons non expirés directement utilisables.
+- jeton de réinitialisation → prise de contrôle d'un compte client ;
+- jeton d'invitation → **création d'un compte staff**, avec le rôle porté par l'invitation, potentiellement `admin`.
 
-**Correctif recommandé** : stocker `sha256(token)` et comparer le haché. Non appliqué parce que cela invalide les jetons en circulation — à déployer à un moment choisi.
+Le second n'était pas dans le rapport initial : il a été découvert en corrigeant le premier, `Invitation.findOne({ token })` présentant exactement le même motif.
 
-### `node_modules` versionné — 11 555 fichiers dans git
+### Correctif appliqué
 
-Ce n'est pas une faille, mais une faiblesse de chaîne d'approvisionnement : une dépendance modifiée localement part en production sans que rien ne le signale, et les mises à jour de sécurité produisent des diffs illisibles où une modification malveillante passerait inaperçue.
+Seule l'empreinte `sha256(jeton)` est désormais stockée. Le jeton en clair ne vit que dans l'e-mail envoyé.
 
-**Correctif recommandé** : ajouter `node_modules/` au `.gitignore` et `git rm -r --cached`. Non appliqué car cela touche l'ensemble de l'historique de travail et mérite d'être fait sur une branche dédiée, à un moment calme.
+SHA-256 nu, sans sel ni itérations — contrairement à un mot de passe. Ces jetons portent 256 bits d'aléa cryptographique et vivent quelques heures : ils ne sont pas devinables par force brute, un hachage lent n'apporterait rien et ralentirait chaque vérification.
 
-### Payload de paiement intégralement journalisé — `jekoController.js:602`
+**Effet de bord** : les liens de réinitialisation et d'invitation **déjà envoyés cessent de fonctionner**. Ils expiraient de toute façon sous 1 h et 48 h ; il suffit d'en redemander un.
+
+---
+
+## 🔵 BASSE — Secret JWT unique pour trois types de session
+
+**Fichiers** : `server/utils/jwtTypes.js` (nouveau), les trois middlewares, `metricsRoute.js`
+
+`token` (client), `sellerToken` (vendeur technique) et `staffToken` étaient signés avec le même `JWT_SECRET`, sans rien qui distingue leur espace d'origine.
+
+Ce n'était **pas exploitable en l'état** : `authStaff` recherche l'identifiant dans la collection `StaffUser`, si bien qu'un jeton client présenté comme jeton staff échouait. Mais la séparation tenait à cette recherche, pas au jeton — une protection de fait, pas de conception.
+
+### Correctif appliqué
+
+Un claim `typ` (`user` / `seller` / `staff`) est ajouté à la signature aux six points d'émission, et vérifié dans les trois middlewares plus la route de métriques.
+
+**Vérification stricte d'emblée** : tout jeton dépourvu de `typ` est refusé.
+
+Ce point méritait une décision. Un jeton sans claim ne peut être qu'un jeton émis *avant* ce changement ; les refuser déconnecte donc toutes les sessions ouvertes au moment du déploiement. La règle de l'art aurait été de tolérer ces jetons pendant une semaine, le temps qu'ils expirent d'eux-mêmes (durée de vie : 7 jours).
+
+Le site n'ayant **aucun utilisateur en production**, il n'y a aucune session à ménager — et la version tolérante n'aurait fait qu'affaiblir la vérification sans contrepartie. La tolérance a donc été retirée.
+
+---
+
+## 🔵 BASSE — Payload de paiement intégralement journalisé
+
+**Fichier** : `server/controllers/jekoController.js`
 
 ```js
-console.log(JSON.stringify(payload));
+console.log(JSON.stringify(payload));  // avant
 ```
 
-Le commentaire indique que c'est temporaire, le temps du premier vrai paiement. À retirer une fois l'intégration stabilisée : ces logs contiennent des données de transaction et de clients.
+Données de transaction et de clients (téléphone, opérateur, montants) recopiées telles quelles dans les logs Vercel : lisibles par quiconque a accès au tableau de bord, conservées bien au-delà de leur utilité, et hors de portée d'une demande de suppression de données personnelles.
 
-### Secret JWT unique pour trois types de session
+### Correctif appliqué
 
-`token` (client), `sellerToken` (admin technique) et `staffToken` sont signés avec le même `JWT_SECRET`, sans claim distinguant le type de jeton.
+Résumé expurgé : statut, référence de commande, identifiant de transaction — de quoi diagnostiquer et retrouver la trace complète côté Jèko.
 
-**Non exploitable en l'état** : `authStaff` recherche l'identifiant dans la collection `StaffUser`, si bien qu'un jeton client présenté comme jeton staff échoue. Mais la séparation ne tient qu'à cette recherche, pas au jeton lui-même.
+La **liste des clés** du payload (`champsRecus`) reste journalisée, sans les valeurs : c'était l'autre utilité du log brut, confirmer les noms de champs réels au premier vrai paiement.
 
-**Correctif recommandé** : ajouter un claim `typ: 'user' | 'seller' | 'staff'` à la signature et le vérifier dans chaque middleware. Défense en profondeur, sans urgence.
+---
+
+## 🔵 BASSE — `node_modules` versionné
+
+11 555 fichiers de dépendances étaient suivis par git, contre 472 pour le projet réel.
+
+Ce n'était pas une faille exploitable, mais une faiblesse de chaîne d'approvisionnement : une dépendance modifiée localement partait en production sans que rien ne le signale, et les mises à jour de sécurité produisaient des diffs où une modification malveillante serait passée inaperçue.
+
+### Correctif appliqué
+
+`.gitignore` réécrit (`node_modules/`, sorties de build, logs — et les règles `.env` nettoyées de leurs espaces en fin de ligne), puis `git rm -r --cached node_modules server/node_modules`.
+
+Vérifié avant l'opération : les trois `package-lock.json` sont versionnés, aucun `.vercelignore` ni `installCommand` personnalisé ne dépend des modules commités, aucune dépendance manquante. Vercel exécutera son `npm install` normalement.
+
+Les fichiers restent **présents sur le disque** — rien n'est cassé en local.
+
+⚠️ **La suppression est mise en attente (*staged*), pas commitée** : le prochain commit contiendra 11 555 suppressions. C'est voulu, mais il faut le savoir avant de le passer.
 
 ---
 
@@ -250,28 +296,42 @@ Il serait malhonnête de ne lister que les problèmes. Les points suivants ont �
 ```
 server/routes/messageColisRoute.js   suppression des 3 routes non authentifiées
 server/routes/sheinCartRoute.js      ordre des middlewares corrigé (2 routes)
+server/routes/metricsRoute.js        contrôle du type de jeton
 server/services/scraper.js           garde anti-SSRF branché
 server/utils/urlGuard.js             NOUVEAU — validation des URL sortantes
+server/utils/jwtTypes.js             NOUVEAU — typage des jetons JWT
+server/middlewares/authUser.js       contrôle du type de jeton
+server/middlewares/authSeller.js     contrôle du type de jeton
+server/middlewares/authStaff.js      contrôle du type de jeton
+server/controllers/userController.js jeton de reset haché + claim typ
+server/controllers/staffController.js jeton d'invitation haché + claim typ
+server/controllers/sellerController.js claim typ
+server/controllers/jekoController.js  logs de paiement expurgés
 server/server.js                     garde-fou sur les secrets au démarrage
 server/package.json                  nodemailer 9.0.5, undici 7.29.0
 client/vercel.json                   6 en-têtes de sécurité
+.gitignore                           node_modules, builds, logs
 ```
 
 ## Vérifications effectuées
 
 ```
-node --check          5 fichiers serveur — OK
-JSON vercel.json      valide, 6 en-têtes
-npm audit             found 0 vulnerabilities
-Tests anti-SSRF       28/28
-Garde-fou démarrage   refuse de démarrer sans secret (code de sortie 1)
-Compatibilité v9      verify(callback) confirmé présent
+node --check           14 fichiers serveur — OK
+Imports résolus        3 middlewares + jwtTypes se chargent réellement
+JSON vercel.json       valide, 6 en-têtes
+npm audit              found 0 vulnerabilities
+Tests anti-SSRF        28/28 (dont contournement DNS bloqué)
+Tests de durcissement  19/19 (typage des jetons, mode strict, hachage)
+Garde-fou démarrage    refuse de démarrer sans secret (code de sortie 1)
+Compatibilité v9       verify(callback) confirmé présent dans la source
+Dé-versionnage         0 fichier node_modules dans l'index, tous sur le disque
 ```
 
 ## À faire de ton côté
 
-1. **Redéployer** — le correctif critique ne prend effet qu'une fois en production.
-2. **Affiner la CSP** puis passer `Content-Security-Policy-Report-Only` en `Content-Security-Policy`.
-3. **Vérifier `JWT_SECRET`** — au moins 32 caractères (`openssl rand -hex 32`).
-4. **Retirer le log du payload Jèko** une fois l'intégration confirmée.
-5. Envisager les trois autres recommandations à un moment choisi.
+1. **Redéployer** — aucun correctif ne prend effet avant.
+2. **Se reconnecter** à l'espace vendeur et à l'espace staff après le déploiement : les jetons émis avant le typage ne sont plus acceptés.
+3. **Prévenir l'équipe staff** : les liens d'invitation et de réinitialisation déjà envoyés ne fonctionnent plus, il faut en redemander.
+4. **Vérifier `JWT_SECRET`** — au moins 32 caractères (`openssl rand -hex 32`). Le serveur avertit au démarrage si c'est trop court.
+5. **Affiner la CSP** à partir des violations remontées en console, puis retirer le suffixe `-Report-Only`.
+6. **Commiter la suppression de `node_modules`** en connaissance de cause (11 555 suppressions en attente).

@@ -1,6 +1,7 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import { getMetricsSnapshot, resetMetrics } from '../middlewares/requestMetrics.js';
+import { TYPE_VENDEUR, verifierType } from '../utils/jwtTypes.js';
 
 // [PHASE 3 - OBSERVABILITÉ] Endpoint de lecture des métriques de latence.
 //
@@ -21,6 +22,9 @@ const isValidSellerToken = (token) => {
     if (!token) return false;
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        // [SÉCURITÉ] Même contrôle de type que authSeller — voir
+        // utils/jwtTypes.js.
+        if (!verifierType(decoded, TYPE_VENDEUR)) return false;
         return decoded.email === process.env.SELLER_EMAIL;
     } catch {
         return false;
