@@ -40,6 +40,32 @@ import retraitRouter from './routes/retraitRoute.js';
 import colisSheinAdminRouter from './routes/colisSheinAdminRoute.js';
 import messageColisRouter from './routes/messageColisRoute.js';
 
+// [SÉCURITÉ] Refus de démarrer si un secret critique manque.
+//
+// Sans ce garde, l'absence de JWT_SECRET ne se voyait qu'au premier appel
+// authentifié, sous la forme d'une erreur 500 opaque. Pire : un secret vide
+// ou absent laisse la porte ouverte à des erreurs de configuration
+// silencieuses en production. Mieux vaut un serveur qui refuse de démarrer
+// qu'un serveur qui démarre à moitié sécurisé.
+const SECRETS_REQUIS = ['JWT_SECRET', 'MONGODB_URI'];
+const secretsManquants = SECRETS_REQUIS.filter(
+    (cle) => !process.env[cle] || String(process.env[cle]).trim() === ''
+);
+if (secretsManquants.length > 0) {
+    console.error(
+        `❌ Démarrage refusé — variables d'environnement manquantes : ${secretsManquants.join(', ')}`
+    );
+    process.exit(1);
+}
+
+// JWT_SECRET court = brute-forçable hors ligne sur un token capté. On alerte
+// sans bloquer, pour ne pas mettre un site en production à l'arrêt.
+if (process.env.JWT_SECRET.length < 32) {
+    console.warn(
+        `⚠️ JWT_SECRET fait ${process.env.JWT_SECRET.length} caractères — 32 minimum recommandés (openssl rand -hex 32).`
+    );
+}
+
 const app = express();
 const port = process.env.PORT || 4000;
 

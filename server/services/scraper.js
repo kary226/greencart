@@ -1,5 +1,6 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
+import { optionsSortantesSures, verifierUrlSortante } from "../utils/urlGuard.js";
 
 /**
  * Scrape une page produit et retourne uniquement : nom, description, images.
@@ -22,7 +23,12 @@ const cleanDescription = (text) => {
 };
 
 export const scrapeProductPreview = async (url) => {
-    const { data: html } = await axios.get(url, {
+    // [SÉCURITÉ SSRF] L'URL vient d'un formulaire : on vérifie qu'elle ne
+    // pointe pas vers l'intérieur de l'infrastructure avant d'aller la
+    // chercher, et on revalide chaque redirection.
+    await verifierUrlSortante(url);
+
+    const { data: html } = await axios.get(url, optionsSortantesSures({
         headers: {
             // Beaucoup de sites bloquent les requêtes sans User-Agent "navigateur"
             "User-Agent":
@@ -30,7 +36,7 @@ export const scrapeProductPreview = async (url) => {
             "Accept-Language": "fr-FR,fr;q=0.9",
         },
         timeout: 15000,
-    });
+    }));
 
     const $ = cheerio.load(html);
 
@@ -118,7 +124,12 @@ export const fetchImagesAsDataUrls = async (urls, { limit = 8, maxBytes = 6 * 10
 
     const results = await Promise.allSettled(
         targets.map(async (imageUrl) => {
-            const { data, headers } = await axios.get(imageUrl, {
+            // [SÉCURITÉ SSRF] Les URL d'images viennent de la page scrapée,
+            // donc d'un tiers : elles sont tout aussi hostiles que l'URL
+            // saisie, et méritent le même contrôle.
+            await verifierUrlSortante(imageUrl);
+
+            const { data, headers } = await axios.get(imageUrl, optionsSortantesSures({
                 responseType: "arraybuffer",
                 timeout: 15000,
                 maxContentLength: maxBytes,
@@ -126,7 +137,7 @@ export const fetchImagesAsDataUrls = async (urls, { limit = 8, maxBytes = 6 * 10
                     "User-Agent":
                         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
                 },
-            });
+            }));
             const contentType = headers["content-type"] || "image/jpeg";
             const base64 = Buffer.from(data).toString("base64");
             return `data:${contentType};base64,${base64}`;

@@ -55,13 +55,17 @@ sheinCartRouter.post("/admin/:id/statut", authSeller, updateStatutColis);
 sheinCartRouter.post("/admin/:id/estimation-arrivee", authSeller, definirEstimationArrivee);
 sheinCartRouter.post("/admin/:id/demander-avis", authSeller, demanderAvis);
 sheinCartRouter.get("/admin/:id/messages", authSeller, getMessagesAdmin);
-sheinCartRouter.post("/admin/:id/messages", uploadChatImage.single("image"), authSeller, sendMessageAgent);
+// [SÉCURITÉ] L'authentification passe AVANT Multer. Dans l'autre ordre, le
+// fichier était intégralement lu et mis en mémoire avant même de savoir qui
+// appelait : un anonyme pouvait faire consommer 8 Mo de RAM par requête.
+sheinCartRouter.post("/admin/:id/messages", authSeller, uploadChatImage.single("image"), sendMessageAgent);
 sheinCartRouter.post("/admin/:id/typing", authSeller, setAgentTyping);
 
 // --- Routes client génériques (en dernier, elles absorbent tout le reste) ---
 sheinCartRouter.get("/:id", authUser, getColisById);
 sheinCartRouter.get("/:id/messages", authUser, getMessages);
-sheinCartRouter.post("/:id/messages", uploadChatImage.single("image"), authUser, sendMessageClient);
+// [SÉCURITÉ] authUser avant Multer — même raison que la route admin ci-dessus.
+sheinCartRouter.post("/:id/messages", authUser, uploadChatImage.single("image"), sendMessageClient);
 sheinCartRouter.post("/:id/typing", authUser, setClientTyping);
 sheinCartRouter.post("/:id/avis", authUser, soumettreAvis);
 sheinCartRouter.post("/:id/pay-acompte", authUser, initiateJekoAcompte);
