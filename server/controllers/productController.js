@@ -3,6 +3,7 @@ import Product from "../models/Product.js";
 import { scrapeProductPreview, fetchImagesAsDataUrls } from "../services/scraper.js";
 import { withCache, CACHE_KEYS } from "../configs/redisCache.js";
 import { genererSkuUnique, normaliserSku, skuEstDisponible, skuEstValide } from "../utils/sku.js";
+import { estErreurUrlBloquee } from "../utils/urlGuard.js";
 
 /**
  * Résout le code article à enregistrer.
@@ -686,6 +687,11 @@ export const scrapeImport = async (req, res) => {
         });
     } catch (error) {
         console.log(error.message);
+        // Une URL refusée par le garde anti-SSRF est une mauvaise saisie du
+        // client (400), pas une panne du serveur (500).
+        if (estErreurUrlBloquee(error)) {
+            return res.status(400).json({ success: false, message: error.message });
+        }
         res.status(500).json({ success: false, message: "Impossible de récupérer les informations de cette page : " + error.message });
     }
 };

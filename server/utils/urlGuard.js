@@ -1,6 +1,18 @@
 import dns from 'dns';
 import net from 'net';
 
+// Erreur d'URL refusée par le garde. Le `.code` permet au contrôleur
+// appelant de répondre 400 (erreur du client) plutôt que 500 (panne
+// serveur) : une adresse interdite est une mauvaise saisie, pas un bug.
+class UrlBloqueeError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = 'UrlBloqueeError';
+        this.code = 'URL_BLOQUEE';
+    }
+}
+export const estErreurUrlBloquee = (e) => e?.code === 'URL_BLOQUEE';
+
 /* ═══════════════════════════════════════════════════════════════════════
    Garde anti-SSRF pour les requêtes sortantes déclenchées par une URL
    fournie par un utilisateur (import de produit depuis un lien).
@@ -59,33 +71,33 @@ export const verifierUrlSortante = async (urlBrute) => {
     try {
         u = new URL(urlBrute);
     } catch {
-        throw new Error('URL invalide');
+        throw new UrlBloqueeError('URL invalide');
     }
 
     if (!['http:', 'https:'].includes(u.protocol)) {
-        throw new Error('Seules les URL http(s) sont autorisées');
+        throw new UrlBloqueeError('Seules les URL http(s) sont autorisées');
     }
 
     const hote = u.hostname.replace(/^\[|\]$/g, '');
 
     // Adresse IP écrite en clair : on tranche sans passer par le DNS.
     if (net.isIP(hote)) {
-        if (estAdresseInterne(hote)) throw new Error('Adresse réseau non autorisée');
+        if (estAdresseInterne(hote)) throw new UrlBloqueeError('Adresse réseau non autorisée');
         return u;
     }
 
     if (/^(localhost|.*\.local|.*\.internal|.*\.localhost)$/i.test(hote)) {
-        throw new Error('Adresse réseau non autorisée');
+        throw new UrlBloqueeError('Adresse réseau non autorisée');
     }
 
     let adresses;
     try {
         adresses = await dns.promises.lookup(hote, { all: true });
     } catch {
-        throw new Error('Domaine introuvable');
+        throw new UrlBloqueeError('Domaine introuvable');
     }
     if (!adresses.length || adresses.some(a => estAdresseInterne(a.address))) {
-        throw new Error('Adresse réseau non autorisée');
+        throw new UrlBloqueeError('Adresse réseau non autorisée');
     }
 
     return u;
@@ -105,10 +117,10 @@ export const optionsSortantesSures = (extra = {}) => ({
     beforeRedirect: (options) => {
         const hote = String(options.hostname || options.host || '').replace(/^\[|\]$/g, '');
         if (net.isIP(hote) && estAdresseInterne(hote)) {
-            throw new Error('Redirection vers une adresse réseau non autorisée');
+            throw new UrlBloqueeError('Redirection vers une adresse réseau non autorisée');
         }
         if (/^(localhost|.*\.local|.*\.internal)$/i.test(hote)) {
-            throw new Error('Redirection vers une adresse réseau non autorisée');
+            throw new UrlBloqueeError('Redirection vers une adresse réseau non autorisée');
         }
     },
     ...extra,
