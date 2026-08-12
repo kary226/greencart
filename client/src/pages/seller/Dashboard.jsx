@@ -1,594 +1,512 @@
-import React, { useEffect, useState } from 'react'
-import { useAppContext } from '../../context/AppContext'
-import toast from 'react-hot-toast'
-import { getPresetImageUrl } from '../../utils/cloudinaryImage'
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useAppContext } from '../../context/AppContext';
+import toast from 'react-hot-toast';
+import { getPresetImageUrl } from '../../utils/cloudinaryImage';
 import {
-    AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-    XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
-} from 'recharts'
+    AlertTriangle, BarChart3, Clock, Download, PackageX, RefreshCw, Search, Table2, Wallet,
+} from 'lucide-react';
 
-const COLORS = {
-    red: '#e53935',
-    black: '#111111',
-    gray: '#333333',
-    green: '#10b981',
-    blue: '#3b82f6',
-    orange: '#f59e0b',
-}
-
-// ── Tooltip custom ──
-const CustomTooltip = ({ active, payload, label, currency }) => {
-    if (active && payload && payload.length) {
-        return (
-            <div className="bg-white border border-gray-100 rounded-xl shadow-lg px-4 py-3 text-sm">
-                {label && <p className="text-gray-500 mb-1 text-xs">{label}</p>}
-                {payload.map((entry, i) => (
-                    <p key={i} className="font-semibold" style={{ color: entry.color }}>
-                        {entry.name} : {entry.value.toLocaleString()} {currency || ''}
-                    </p>
-                ))}
-            </div>
-        )
-    }
-    return null
-}
-
-// ── Label custom pour Pie ──
-const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
-    if (percent < 0.05) return null
-    const RADIAN = Math.PI / 180
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.5
-    const x = cx + radius * Math.cos(-midAngle * RADIAN)
-    const y = cy + radius * Math.sin(-midAngle * RADIAN)
-    return (
-        <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight={600}>
-            {`${(percent * 100).toFixed(0)}%`}
-        </text>
-    )
-}
+import {
+    PERIODES, LIBELLE_STATUT, agreger, dansFenetre, estCommandeReelle, fenetres,
+    formaterJours, formaterMontant, repartitionPaiements, repartitionStatuts,
+    serieTemporelle, stocksFaibles, topProduits, variation, ventesParCategorie,
+} from './dashboard/metrics';
+import { BadgeStatut, Carte, TableauDonnees, Tuile } from './dashboard/widgets';
+import { BarresHorizontales, CourbeCA, LegendeCA, PartsPaiement } from './dashboard/charts';
 
 const Dashboard = () => {
-    const { currency, axios } = useAppContext()
+    const { currency, axios } = useAppContext();
 
-    // ── États existants ──
-    const [stats, setStats] = useState({
-        totalOrders: 0,
-        totalRevenue: 0,
-        pendingOrders: 0,
-        deliveredOrders: 0,
-        cancelledOrders: 0,
-        avgOrderValue: 0,
-        conversionRate: 0,
-        lowStockProducts: []
-    })
-    const [topProducts, setTopProducts] = useState([])
-    const [dailySales, setDailySales] = useState([])
-    const [monthlySalesData, setMonthlySalesData] = useState([])
-    const [allOrders, setAllOrders] = useState([])
-    const [allProducts, setAllProducts] = useState([])
-    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
-    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth())
-    const [availableYears, setAvailableYears] = useState([])
-    const [loading, setLoading] = useState(true)
-    const [lastUpdate, setLastUpdate] = useState(new Date())
+    const [commandes, setCommandes] = useState([]);
+    const [produits, setProduits] = useState([]);
+    const [chargement, setChargement] = useState(true);
+    const [rafraichit, setRafraichit] = useState(false);
+    const [majLe, setMajLe] = useState(null);
 
-    // ── États Recharts ──
-    const [revenueChartData, setRevenueChartData] = useState([])
-    const [categoryChartData, setCategoryChartData] = useState([])
-    const [statusChartData, setStatusChartData] = useState([])
-    const [paymentChartData, setPaymentChartData] = useState([])
-    const [dailyChartData, setDailyChartData] = useState([])
+    const [periode, setPeriode] = useState('30j');
+    const [vueTableau, setVueTableau] = useState(false);
+    const [recherche, setRecherche] = useState('');
 
-    // ── État clients ──
-    const [clientStats, setClientStats] = useState({
-        totalClients: 0,
-        newClientsThisMonth: 0,
-        recurringClients: 0,
-        retentionRate: 0
-    })
-
-    const fetchDashboardData = async () => {
+    const charger = useCallback(async (silencieux = false) => {
         try {
-            setLoading(true)
-            const { data } = await axios.get('/api/order/seller')
-            const { data: productsData } = await axios.get('/api/product/list')
-
-            if (data.success) {
-                const orders = data.orders
-                setAllOrders(orders)
-                setAllProducts(productsData.products)
-                setLastUpdate(new Date())
-
-                const years = [...new Set(orders.map(o => new Date(o.createdAt).getFullYear()))].sort((a, b) => b - a)
-                setAvailableYears(years)
-                if (years.length > 0 && !years.includes(selectedYear)) setSelectedYear(years[0])
-
-                const totalOrders = orders.length
-                const totalRevenue = orders.reduce((sum, o) => sum + o.amount, 0)
-                const pendingOrders = orders.filter(o => o.status === 'Order Placed' || o.status === 'Confirmed').length
-                const deliveredOrders = orders.filter(o => o.status === 'Delivered').length
-                const cancelledOrders = orders.filter(o => o.status === 'Cancelled').length
-                const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
-                const conversionRate = totalOrders > 0 ? (deliveredOrders / totalOrders) * 100 : 0
-
-                // Top produits
-                const productSales = {}
-                orders.forEach(order => {
-                    order.items.forEach(item => {
-                        productSales[item.product] = (productSales[item.product] || 0) + item.quantity
-                    })
-                })
-                const topProductsList = Object.entries(productSales)
-                    .sort((a, b) => b[1] - a[1]).slice(0, 5)
-                    .map(([productId, qty]) => {
-                        const product = productsData.products.find(p => p._id === productId)
-                        return { name: product?.name || 'Produit', quantity: qty, image: product?.image?.[0] }
-                    })
-                setTopProducts(topProductsList)
-
-                // Daily sales
-                const last7Days = [...Array(7)].map((_, i) => {
-                    const d = new Date()
-                    d.setDate(d.getDate() - i)
-                    return d.toISOString().split('T')[0]
-                }).reverse()
-                const dailySalesData = last7Days.map(day => ({
-                    label: new Date(day).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
-                    ventes: orders.filter(o => o.createdAt?.split('T')[0] === day).reduce((sum, o) => sum + o.amount, 0)
-                }))
-                setDailySales(dailySalesData.map(d => d.ventes))
-                setDailyChartData(dailySalesData)
-
-                // Monthly
-                const monthlyAnalysis = Array(12).fill(0)
-                orders.forEach(o => {
-                    monthlyAnalysis[new Date(o.createdAt).getMonth()] += o.amount
-                })
-                setMonthlySalesData(monthlyAnalysis)
-
-                // Payment — 'GeniusPay' compté pour l'historique (commandes déjà
-                // en base avant le passage à Jèko, retirées du site mais pas
-                // réécrites rétroactivement), 'Jeko' pour les commandes actuelles.
-                const paymentCount = { COD: 0, Online: 0, MobileMoney: 0 }
-                orders.forEach(o => {
-                    if (o.paymentType === 'COD') paymentCount.COD++
-                    else if (o.paymentType === 'Online') paymentCount.Online++
-                    else if (o.paymentType === 'Jeko' || o.paymentType === 'GeniusPay') paymentCount.MobileMoney++
-                })
-                setPaymentChartData([
-                    { name: 'Livraison', value: paymentCount.COD, color: COLORS.black },
-                    { name: 'Carte', value: paymentCount.Online, color: COLORS.red },
-                    { name: 'Mobile Money', value: paymentCount.MobileMoney, color: COLORS.gray },
-                ])
-
-                // Status
-                const statusCount = {
-                    'Order Placed': 0, 'Confirmed': 0, 'Shipped': 0,
-                    'Out for Delivery': 0, 'Delivered': 0, 'Cancelled': 0
-                }
-                orders.forEach(o => { if (statusCount[o.status] !== undefined) statusCount[o.status]++ })
-                setStatusChartData([
-                    { name: 'Commandée', value: statusCount['Order Placed'], color: COLORS.black },
-                    { name: 'Confirmée', value: statusCount['Confirmed'], color: COLORS.gray },
-                    { name: 'Expédiée', value: statusCount['Shipped'], color: COLORS.blue },
-                    { name: 'En livraison', value: statusCount['Out for Delivery'], color: COLORS.orange },
-                    { name: 'Livrée', value: statusCount['Delivered'], color: COLORS.green },
-                    { name: 'Annulée', value: statusCount['Cancelled'], color: COLORS.red },
-                ])
-
-                // Low stock
-                const lowStockProducts = productsData.products.filter(p => {
-                    if (p.variants?.length) return p.variants.some(v => v.stock > 0 && v.stock <= 5)
-                    return p.stock !== null && p.stock <= 5 && p.stock > 0
-                }).slice(0, 5)
-
-                setStats({ totalOrders, totalRevenue, pendingOrders, deliveredOrders, cancelledOrders, avgOrderValue, conversionRate, lowStockProducts })
-
-                // Clients
-                const uniqueUserIds = [...new Set(orders.map(o => o.userId))]
-                const totalClients = uniqueUserIds.length
-                const thisMonth = new Date().getMonth()
-                const thisYear = new Date().getFullYear()
-                const firstOrderByUser = {}
-                orders.forEach(o => {
-                    const d = new Date(o.createdAt)
-                    if (!firstOrderByUser[o.userId] || d < new Date(firstOrderByUser[o.userId].createdAt))
-                        firstOrderByUser[o.userId] = o
-                })
-                const newClientsThisMonth = Object.values(firstOrderByUser).filter(o => {
-                    const d = new Date(o.createdAt)
-                    return d.getMonth() === thisMonth && d.getFullYear() === thisYear
-                }).length
-                const recurringClients = uniqueUserIds.filter(uid => orders.filter(o => o.userId === uid).length > 1).length
-                const retentionRate = totalClients > 0 ? Math.round((recurringClients / totalClients) * 100) : 0
-                setClientStats({ totalClients, newClientsThisMonth, recurringClients, retentionRate })
-
-                // Categories
-                const categorySales = {}
-                orders.forEach(o => {
-                    o.items.forEach(item => {
-                        const product = productsData.products.find(p => p._id === item.product)
-                        if (product) {
-                            const cat = product.category || product.categories?.[0] || 'Autre'
-                            const amount = (item.priceAtOrder || product.offerPrice || product.price) * item.quantity
-                            categorySales[cat] = (categorySales[cat] || 0) + amount
-                        }
-                    })
-                })
-                const sortedCats = Object.entries(categorySales).sort((a, b) => b[1] - a[1]).slice(0, 6)
-                setCategoryChartData(sortedCats.map(([name, value]) => ({ name, value })))
-            }
+            silencieux ? setRafraichit(true) : setChargement(true);
+            const [{ data }, { data: dataProduits }] = await Promise.all([
+                axios.get('/api/order/seller'),
+                axios.get('/api/product/list'),
+            ]);
+            if (!data.success) throw new Error(data.message || 'Chargement des commandes impossible');
+            setCommandes(data.orders || []);
+            setProduits(dataProduits?.products || []);
+            setMajLe(new Date());
         } catch (error) {
-            toast.error(error.message)
+            toast.error(error.message);
         } finally {
-            setLoading(false)
+            setChargement(false);
+            setRafraichit(false);
         }
-    }
+    }, [axios]);
 
-    useEffect(() => {
-        if (allOrders.length > 0) prepareRevenueChart()
-    }, [allOrders, selectedYear])
+    useEffect(() => { charger(); }, [charger]);
 
-    const prepareRevenueChart = () => {
-        const labels = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc']
-        const monthlyData = Array(12).fill(0)
-        allOrders.forEach(o => {
-            const d = new Date(o.createdAt)
-            if (d.getFullYear() === selectedYear) monthlyData[d.getMonth()] += o.amount
-        })
-        setRevenueChartData(labels.map((label, i) => ({ label, ca: monthlyData[i] })))
-    }
+    /* ── Découpage temporel ───────────────────────────────────────────── */
 
-    useEffect(() => { fetchDashboardData() }, [])
+    const decoupe = useMemo(() => {
+        const { debut, fin, precDebut, precFin } = fenetres(periode);
+        const courantes = commandes.filter(o => dansFenetre(o, debut, fin));
+        const precedentes = precDebut ? commandes.filter(o => dansFenetre(o, precDebut, precFin)) : [];
+        return { courantes, precedentes, comparaison: Boolean(precDebut) };
+    }, [commandes, periode]);
 
-    const selectedMonthRevenue = monthlySalesData[selectedMonth] || 0
-    const selectedMonthOrders = allOrders.filter(o => new Date(o.createdAt).getMonth() === selectedMonth).length
-    const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
-    const weeklyTrend = dailySales.length > 0 ? ((dailySales[dailySales.length - 1] - dailySales[0]) / (dailySales[0] || 1)) * 100 : 0
+    const stats = useMemo(() => agreger(decoupe.courantes), [decoupe.courantes]);
+    const statsPrec = useMemo(
+        () => (decoupe.comparaison ? agreger(decoupe.precedentes) : null),
+        [decoupe.precedentes, decoupe.comparaison],
+    );
 
-    if (loading) return (
-        <div className="flex items-center justify-center h-[80vh]">
-            <div className="text-center">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-red-500 mx-auto"></div>
-                <p className="mt-4 text-sm text-gray-500">Chargement du tableau de bord...</p>
+    const serie = useMemo(() => serieTemporelle(decoupe.courantes, periode), [decoupe.courantes, periode]);
+    const seriePrec = useMemo(() => {
+        if (!decoupe.comparaison) return [];
+        const { precFin } = fenetres(periode);
+        return serieTemporelle(decoupe.precedentes, periode, precFin);
+    }, [decoupe.precedentes, decoupe.comparaison, periode]);
+
+    /* Les deux séries sont alignées par index, pas par date : c'est la
+       comparaison « même rang dans la période », la seule qui ait un sens
+       quand les fenêtres ne partagent pas leurs jours. */
+    const donneesCourbe = useMemo(
+        () => serie.map((p, i) => ({ ...p, caPrec: seriePrec[i]?.ca ?? null })),
+        [serie, seriePrec],
+    );
+
+    const delta = (cle) => (statsPrec ? variation(stats[cle], statsPrec[cle]) : null);
+    const labelPrec = ` vs ${PERIODES.find(p => p.cle === periode)?.label.toLowerCase()} préc.`;
+    const noteSansBase = decoupe.comparaison ? 'aucune base de comparaison' : 'période complète';
+
+    /* ── Répartitions ─────────────────────────────────────────────────── */
+
+    const statuts = useMemo(() => repartitionStatuts(decoupe.courantes), [decoupe.courantes]);
+    const paiements = useMemo(() => repartitionPaiements(decoupe.courantes), [decoupe.courantes]);
+    const categories = useMemo(
+        () => ventesParCategorie(decoupe.courantes, produits), [decoupe.courantes, produits],
+    );
+    const meilleurs = useMemo(
+        () => topProduits(decoupe.courantes, produits), [decoupe.courantes, produits],
+    );
+    const stockBas = useMemo(() => stocksFaibles(produits), [produits]);
+
+    /* ── Alertes : uniquement ce qui appelle une action ───────────────── */
+
+    const alertes = useMemo(() => {
+        const liste = [];
+        if (stats.nbEnAttente > 0) liste.push({
+            cle: 'paiement', ton: 'warn', Icone: Wallet,
+            texte: `${stats.nbEnAttente} commande${stats.nbEnAttente > 1 ? 's' : ''} facturée${stats.nbEnAttente > 1 ? 's' : ''} mais non encaissée${stats.nbEnAttente > 1 ? 's' : ''}`,
+            detail: formaterMontant(stats.caEnAttente, currency),
+        });
+        const epuises = stockBas.filter(s => s.stock === 0).length;
+        if (epuises > 0) liste.push({
+            cle: 'epuise', ton: 'warn', Icone: PackageX,
+            texte: `${epuises} produit${epuises > 1 ? 's' : ''} épuisé${epuises > 1 ? 's' : ''}`,
+            detail: 'réapprovisionner',
+        });
+        const aExpedier = decoupe.courantes.filter(
+            o => o.status === 'Order Placed' || o.status === 'Confirmed',
+        ).length;
+        if (aExpedier > 0) liste.push({
+            cle: 'expedier', ton: 'info', Icone: Clock,
+            texte: `${aExpedier} commande${aExpedier > 1 ? 's' : ''} en attente d'expédition`,
+            detail: 'à traiter',
+        });
+        return liste;
+    }, [stats, stockBas, decoupe.courantes, currency]);
+
+    /* ── Dernières commandes ──────────────────────────────────────────── */
+
+    const commandesFiltrees = useMemo(() => {
+        const q = recherche.trim().toLowerCase();
+        const base = [...decoupe.courantes].sort(
+            (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+        );
+        if (!q) return base;
+        return base.filter(o => {
+            const client = `${o.address?.firstName || ''} ${o.address?.lastName || ''}`.toLowerCase();
+            return o._id.toLowerCase().includes(q)
+                || client.includes(q)
+                || (LIBELLE_STATUT[o.status] || '').toLowerCase().includes(q);
+        });
+    }, [decoupe.courantes, recherche]);
+
+    const exporterCSV = () => {
+        const entetes = ['Commande', 'Date', 'Client', 'Statut', 'Paiement', 'Encaissé', 'Montant', 'Livraison', 'Remise', 'Coupon'];
+        /* Le point-virgule et le BOM sont ce qu'attend Excel en locale
+           française — sans eux, tout atterrit dans une seule colonne. */
+        const echapper = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+        const lignes = commandesFiltrees.map(o => [
+            o._id.slice(-8),
+            new Date(o.createdAt).toLocaleString('fr-FR'),
+            `${o.address?.firstName || ''} ${o.address?.lastName || ''}`.trim(),
+            LIBELLE_STATUT[o.status] || o.status,
+            o.paymentType,
+            o.isPaid ? 'oui' : 'non',
+            o.amount ?? 0,
+            o.deliveryPrice ?? 0,
+            o.discountAmount ?? 0,
+            o.couponApplied || '',
+        ].map(echapper).join(';'));
+
+        const blob = new Blob(['﻿' + [entetes.map(echapper).join(';'), ...lignes].join('\r\n')],
+            { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `commandes-${periode}-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    if (chargement) {
+        return (
+            <div className="min-h-[70vh] flex items-center justify-center bg-ink-50">
+                <div className="text-center">
+                    <span aria-hidden="true"
+                          className="block w-8 h-8 mx-auto rounded-full border-2 border-ink-200 border-t-ramses-600 animate-spin" />
+                    <p className="mt-4 text-[13px] text-ink-500">Chargement du tableau de bord…</p>
+                </div>
             </div>
-        </div>
-    )
+        );
+    }
 
     return (
-        <div className="bg-gray-50 min-h-screen">
-            <div className="p-4 sm:p-6 space-y-5 sm:space-y-6">
+        <div className="bg-ink-50 min-h-screen">
+            <div className="p-4 sm:p-6 max-w-[1400px] mx-auto grid gap-4 sm:gap-5">
 
-                {/* ── HEADER ── */}
-                <div className="flex justify-between items-center flex-wrap gap-3">
+                {/* ── En-tête ──────────────────────────────────────────── */}
+                <div className="flex items-start justify-between gap-3 flex-wrap">
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Tableau de bord</h1>
-                        <p className="text-sm text-gray-500 mt-1">Vue d'ensemble de votre activité</p>
-                        <p className="text-xs text-gray-400 mt-1">Dernière mise à jour : {lastUpdate.toLocaleTimeString()}</p>
+                        <h1 className="rs-display text-[24px] sm:text-[28px]">Tableau de bord</h1>
+                        <p className="text-[13px] text-ink-500 mt-1">
+                            {majLe ? `Données à jour au ${majLe.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : ' '}
+                        </p>
                     </div>
-                    <button onClick={fetchDashboardData} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition shadow-sm">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
-                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-                        </svg>
-                        Actualiser
+                    <div className="flex items-center gap-2">
+                        <button onClick={exporterCSV} className="rs-btn rs-btn--secondary">
+                            <Download aria-hidden="true" size={16} />
+                            <span className="hidden sm:inline">Exporter</span>
+                        </button>
+                        <button onClick={() => charger(true)} disabled={rafraichit} className="rs-btn rs-btn--secondary">
+                            <RefreshCw aria-hidden="true" size={16} className={rafraichit ? 'animate-spin' : ''} />
+                            <span className="hidden sm:inline">Actualiser</span>
+                        </button>
+                    </div>
+                </div>
+
+                {/* ── Ligne de filtres — pilote TOUT l'écran ───────────── */}
+                <div className="rs-card flex items-center justify-between gap-3 flex-wrap !py-2.5">
+                    <div role="group" aria-label="Période" className="flex items-center gap-1 flex-wrap">
+                        {PERIODES.map(p => (
+                            <button
+                                key={p.cle}
+                                onClick={() => setPeriode(p.cle)}
+                                aria-pressed={periode === p.cle}
+                                className={`min-h-[36px] px-3 rounded-lg text-[13px] font-semibold transition-colors ${
+                                    periode === p.cle
+                                        ? 'bg-ramses-600 text-white'
+                                        : 'text-ink-500 hover:bg-ink-50'
+                                }`}
+                            >
+                                {p.label}
+                            </button>
+                        ))}
+                    </div>
+                    {/* Jumelle accessible : chaque graphique doit avoir un
+                        équivalent tabulaire, une infobulle ne peut pas être le
+                        seul accès à une valeur. */}
+                    <button
+                        onClick={() => setVueTableau(v => !v)}
+                        aria-pressed={vueTableau}
+                        className="rs-btn rs-btn--ghost !min-h-[36px]"
+                    >
+                        {vueTableau ? <BarChart3 aria-hidden="true" size={16} /> : <Table2 aria-hidden="true" size={16} />}
+                        {vueTableau ? 'Voir les graphiques' : 'Voir les données'}
                     </button>
                 </div>
 
-                {/* ── KPIs PRINCIPAUX ── */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                    {[
-                        {
-                            label: 'Commandes totales', value: stats.totalOrders,
-                            sub: `+${stats.deliveredOrders} livrées`, subColor: 'text-green-600',
-                            icon: <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>,
-                            iconBg: 'bg-gray-100', iconColor: '#111'
-                        },
-                        {
-                            label: "Chiffre d'affaires", value: `${stats.totalRevenue.toLocaleString()} ${currency}`,
-                            sub: `${weeklyTrend >= 0 ? '↑' : '↓'} ${Math.abs(Math.round(weeklyTrend))}% cette semaine`,
-                            subColor: weeklyTrend >= 0 ? 'text-green-600' : 'text-red-500',
-                            icon: <><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></>,
-                            iconBg: 'bg-green-50', iconColor: '#10b981'
-                        },
-                        {
-                            label: 'Panier moyen', value: `${Math.round(stats.avgOrderValue).toLocaleString()} ${currency}`,
-                            sub: 'vs moyenne générale', subColor: 'text-gray-400',
-                            icon: <><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></>,
-                            iconBg: 'bg-blue-50', iconColor: '#3b82f6'
-                        },
-                        {
-                            label: 'Taux de livraison', value: `${Math.round(stats.conversionRate)}%`,
-                            sub: `${stats.deliveredOrders} / ${stats.totalOrders} commandes`, subColor: 'text-gray-400',
-                            icon: <><path d="M22 12A10 10 0 0012 2v10z"/><path d="M12 2a10 10 0 000 20"/></>,
-                            iconBg: 'bg-orange-50', iconColor: '#f59e0b'
-                        },
-                    ].map((kpi, i) => (
-                        <div key={i} className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm text-gray-500">{kpi.label}</p>
-                                    <p className="text-2xl font-bold text-gray-900 mt-1">{kpi.value}</p>
-                                    <p className={`text-xs mt-1 ${kpi.subColor}`}>{kpi.sub}</p>
-                                </div>
-                                <div className={`w-11 h-11 ${kpi.iconBg} rounded-xl flex items-center justify-center flex-shrink-0`}>
-                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={kpi.iconColor} strokeWidth="1.8">{kpi.icon}</svg>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                {/* Pendant un rafraîchissement on garde le rendu précédent en
+                    retrait plutôt que de repasser par un squelette : pas de
+                    saut de mise en page. */}
+                <div className={`grid gap-4 sm:gap-5 transition-opacity ${rafraichit ? 'opacity-60' : ''}`}>
 
-                {/* ── BLOC CLIENTS ── */}
-                <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-                    <div className="flex items-center justify-between mb-5">
-                        <div>
-                            <p className="text-sm text-gray-500">Total clients actifs</p>
-                            <p className="text-3xl font-bold text-gray-900 mt-1">{clientStats.totalClients}</p>
-                        </div>
-                        <span className="flex items-center gap-2 text-xs text-gray-600 bg-green-50 border border-green-100 rounded-lg px-3 py-1.5">
-                            <span className="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
-                            Rétention : <span className="font-bold text-green-700">{clientStats.retentionRate}%</span>
-                        </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-gray-50 rounded-xl p-4 border-l-4 border-red-500">
-                            <p className="text-xs text-gray-500 mb-1">Nouveaux ce mois</p>
-                            <p className="text-2xl font-bold text-gray-900">{clientStats.newClientsThisMonth}</p>
-                            <p className="text-xs text-gray-400 mt-1">
-                                {clientStats.totalClients > 0 ? `${Math.round((clientStats.newClientsThisMonth / clientStats.totalClients) * 100)}% de la base` : '—'}
-                            </p>
-                        </div>
-                        <div className="bg-gray-50 rounded-xl p-4 border-l-4 border-green-500">
-                            <p className="text-xs text-gray-500 mb-1">Clients récurrents</p>
-                            <p className="text-2xl font-bold text-gray-900">{clientStats.recurringClients}</p>
-                            <p className="text-xs text-gray-400 mt-1">
-                                {clientStats.totalClients > 0 ? `${Math.round((clientStats.recurringClients / clientStats.totalClients) * 100)}% de la base` : '—'}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* ── ANALYSE MENSUELLE ── */}
-                <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-                    <div className="flex justify-between items-center mb-4 flex-wrap gap-3">
-                        <h3 className="font-semibold text-gray-900">Analyse mensuelle</h3>
-                        <div className="flex gap-2">
-                            <select value={selectedMonth} onChange={e => setSelectedMonth(parseInt(e.target.value))}
-                                className="text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-red-500">
-                                {monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}
-                            </select>
-                            {availableYears.length > 0 && (
-                                <select value={selectedYear} onChange={e => setSelectedYear(parseInt(e.target.value))}
-                                    className="text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-red-500">
-                                    {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
-                                </select>
-                            )}
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-gray-50 rounded-xl p-4 text-center">
-                            <p className="text-xs text-gray-500 uppercase tracking-wide">Chiffre d'affaires</p>
-                            <p className="text-xl font-bold text-red-500 mt-1">{selectedMonthRevenue.toLocaleString()} {currency}</p>
-                        </div>
-                        <div className="bg-gray-50 rounded-xl p-4 text-center">
-                            <p className="text-xs text-gray-500 uppercase tracking-wide">Commandes</p>
-                            <p className="text-xl font-bold text-gray-900 mt-1">{selectedMonthOrders}</p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* ── GRAPHIQUE CA ANNUEL (Area) ── */}
-                <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-                    <h3 className="font-semibold text-gray-900 mb-5">Évolution du chiffre d'affaires — {selectedYear}</h3>
-                    <ResponsiveContainer width="100%" height={220}>
-                        <AreaChart data={revenueChartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                            <defs>
-                                <linearGradient id="caGradient" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor={COLORS.red} stopOpacity={0.15}/>
-                                    <stop offset="95%" stopColor={COLORS.red} stopOpacity={0}/>
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false}/>
-                            <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false}/>
-                            <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={v => `${(v/1000).toFixed(0)}k`}/>
-                            <Tooltip content={<CustomTooltip currency={currency}/>}/>
-                            <Area type="monotone" dataKey="ca" name="CA" stroke={COLORS.red} strokeWidth={2.5} fill="url(#caGradient)" dot={{ r: 4, fill: COLORS.red, strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }}/>
-                        </AreaChart>
-                    </ResponsiveContainer>
-                </div>
-
-                {/* ── VENTES 7 JOURS + STATUT ── */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-                        <h3 className="font-semibold text-gray-900 mb-5">Ventes — 7 derniers jours</h3>
-                        <ResponsiveContainer width="100%" height={200}>
-                            <BarChart data={dailyChartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false}/>
-                                <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false}/>
-                                <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={v => `${(v/1000).toFixed(0)}k`}/>
-                                <Tooltip content={<CustomTooltip currency={currency}/>}/>
-                                <Bar dataKey="ventes" name="Ventes" fill={COLORS.red} radius={[6, 6, 0, 0]}/>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-
-                    <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-                        <h3 className="font-semibold text-gray-900 mb-5">Statut des commandes</h3>
-                        <div className="flex items-center gap-4">
-                            <ResponsiveContainer width="50%" height={180}>
-                                <PieChart>
-                                    <Pie data={statusChartData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" labelLine={false} label={renderCustomLabel}>
-                                        {statusChartData.map((entry, i) => <Cell key={i} fill={entry.color}/>)}
-                                    </Pie>
-                                    <Tooltip content={<CustomTooltip/>}/>
-                                </PieChart>
-                            </ResponsiveContainer>
-                            <div className="flex-1 space-y-2">
-                                {statusChartData.map((item, i) => (
-                                    <div key={i} className="flex items-center justify-between text-xs">
-                                        <div className="flex items-center gap-2">
-                                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: item.color }}></span>
-                                            <span className="text-gray-600">{item.name}</span>
-                                        </div>
-                                        <span className="font-semibold text-gray-800">{item.value}</span>
+                    {/* ── Alertes ──────────────────────────────────────── */}
+                    {alertes.length > 0 && (
+                        <ul className="grid gap-2 sm:grid-cols-3">
+                            {alertes.map((alerte) => (
+                                <li key={alerte.cle}
+                                    className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 ${
+                                        alerte.ton === 'warn' ? 'bg-warn-50' : 'bg-info-50'
+                                    }`}>
+                                    <alerte.Icone aria-hidden="true" size={17}
+                                           className={alerte.ton === 'warn' ? 'text-warn-500 shrink-0' : 'text-info-500 shrink-0'} />
+                                    <div className="min-w-0">
+                                        <p className="text-[12.5px] font-semibold text-ink-800 leading-snug">{alerte.texte}</p>
+                                        <p className="text-[11px] text-ink-500">{alerte.detail}</p>
                                     </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* ── CATÉGORIES + PAIEMENTS ── */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-                        <h3 className="font-semibold text-gray-900 mb-5">Ventes par catégorie</h3>
-                        <ResponsiveContainer width="100%" height={200}>
-                            <BarChart data={categoryChartData} layout="vertical" margin={{ top: 0, right: 10, left: 10, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false}/>
-                                <XAxis type="number" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={v => `${(v/1000).toFixed(0)}k`}/>
-                                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} width={80}/>
-                                <Tooltip content={<CustomTooltip currency={currency}/>}/>
-                                <Bar dataKey="value" name="Ventes" fill={COLORS.red} radius={[0, 6, 6, 0]}>
-                                    {categoryChartData.map((_, i) => (
-                                        <Cell key={i} fill={i % 2 === 0 ? COLORS.red : COLORS.black}/>
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-
-                    <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-                        <h3 className="font-semibold text-gray-900 mb-5">Moyens de paiement</h3>
-                        <div className="flex items-center gap-4">
-                            <ResponsiveContainer width="50%" height={180}>
-                                <PieChart>
-                                    <Pie data={paymentChartData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" labelLine={false} label={renderCustomLabel}>
-                                        {paymentChartData.map((entry, i) => <Cell key={i} fill={entry.color}/>)}
-                                    </Pie>
-                                    <Tooltip content={<CustomTooltip/>}/>
-                                </PieChart>
-                            </ResponsiveContainer>
-                            <div className="flex-1 space-y-3">
-                                {paymentChartData.map((item, i) => (
-                                    <div key={i} className="flex items-center justify-between text-xs">
-                                        <div className="flex items-center gap-2">
-                                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: item.color }}></span>
-                                            <span className="text-gray-600">{item.name}</span>
-                                        </div>
-                                        <span className="font-semibold text-gray-800">{item.value}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* ── TOP PRODUITS ── */}
-                <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-                    <h3 className="font-semibold text-gray-900 mb-4">🏆 Meilleures ventes</h3>
-                    {topProducts.length === 0 ? (
-                        <p className="text-gray-400 text-center py-8 text-sm">Aucune donnée disponible</p>
-                    ) : (
-                        <div className="space-y-3">
-                            {topProducts.map((product, idx) => {
-                                const maxQty = topProducts[0]?.quantity || 1
-                                const pct = Math.round((product.quantity / maxQty) * 100)
-                                return (
-                                    <div key={idx} className="flex items-center gap-4">
-                                        <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-white text-xs flex-shrink-0 ${idx === 0 ? 'bg-red-500' : idx === 1 ? 'bg-gray-700' : 'bg-gray-400'}`}>
-                                            {idx + 1}
-                                        </div>
-                                        {product.image && <img src={getPresetImageUrl(product.image, "thumbnail")} alt={product.name} className="w-10 h-10 object-cover rounded-lg border border-gray-100 flex-shrink-0" loading="lazy"/>}
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <p className="text-sm font-medium text-gray-800 truncate">{product.name}</p>
-                                                <p className="text-xs text-gray-500 ml-2 flex-shrink-0">{product.quantity} vendus</p>
-                                            </div>
-                                            <div className="w-full bg-gray-100 rounded-full h-1.5">
-                                                <div className="h-1.5 rounded-full transition-all" style={{ width: `${pct}%`, background: idx === 0 ? COLORS.red : COLORS.black }}></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )
-                            })}
-                        </div>
+                                </li>
+                            ))}
+                        </ul>
                     )}
-                </div>
 
-                {/* ── STOCK FAIBLE ── */}
-                <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
-                    <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                        <h3 className="font-semibold text-gray-900">⚠️ Produits en stock faible</h3>
-                        <span className="text-xs text-gray-500">{stats.lowStockProducts.length} produit(s)</span>
+                    {/* ── KPI ──────────────────────────────────────────── */}
+                    <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
+                        <Tuile
+                            label="Chiffre d'affaires encaissé"
+                            valeur={formaterMontant(stats.caEncaisse, currency)}
+                            delta={delta('caEncaisse')} deltaLabel={labelPrec} note={noteSansBase}
+                            serie={serie.map(p => p.ca)}
+                        />
+                        <Tuile
+                            label="Commandes"
+                            valeur={stats.nbCommandes.toLocaleString('fr-FR')}
+                            delta={delta('nbCommandes')} deltaLabel={labelPrec} note={noteSansBase}
+                            serie={serie.map(p => p.commandes)}
+                        />
+                        <Tuile
+                            label="Panier moyen"
+                            valeur={formaterMontant(stats.panierMoyen, currency)}
+                            delta={delta('panierMoyen')} deltaLabel={labelPrec} note={noteSansBase}
+                        />
+                        <Tuile
+                            label="Taux de livraison"
+                            valeur={`${Math.round(stats.tauxLivraison)}`} unite="%"
+                            delta={delta('tauxLivraison')} deltaLabel={labelPrec} note={noteSansBase}
+                        />
                     </div>
-                    <div className="divide-y divide-gray-100">
-                        {stats.lowStockProducts.length === 0 ? (
-                            <p className="p-5 text-gray-400 text-center text-sm">✅ Aucun produit en stock faible</p>
-                        ) : stats.lowStockProducts.map((product, idx) => {
-                            let minStock = null
-                            if (product.variants?.length) minStock = Math.min(...product.variants.map(v => v.stock).filter(s => s > 0))
-                            else if (product.stock !== null) minStock = product.stock
-                            return (
-                                <div key={idx} className="p-4 hover:bg-gray-50 transition flex items-center gap-3">
-                                    <img src={getPresetImageUrl(product.image?.[0], "thumbnail")} alt={product.name} className="w-10 h-10 object-cover rounded-lg border border-gray-200" loading="lazy"/>
-                                    <div className="flex-1">
-                                        <p className="font-medium text-gray-800 text-sm">{product.name}</p>
-                                        <p className="text-xs text-gray-400">{product.category || product.categories?.[0] || '-'}</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className={`font-semibold text-sm ${minStock === 0 ? 'text-red-500' : 'text-orange-500'}`}>
-                                            {minStock === 0 ? 'Épuisé' : `${minStock} restant(s)`}
-                                        </p>
-                                        <p className="text-xs text-gray-400">Réapprovisionner</p>
-                                    </div>
-                                </div>
-                            )
-                        })}
-                    </div>
-                </div>
 
-                {/* ── DERNIÈRES COMMANDES ── */}
-                <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
-                    <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                        <h3 className="font-semibold text-gray-900">📦 Dernières commandes</h3>
-                        <span className="text-xs text-gray-500">{allOrders.length} commandes</span>
+                    {/* ── Métriques secondaires ────────────────────────── */}
+                    <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
+                        <Tuile label="En attente d'encaissement"
+                               valeur={formaterMontant(stats.caEnAttente, currency)}
+                               note={`${stats.nbEnAttente} commande${stats.nbEnAttente > 1 ? 's' : ''}`} />
+                        <Tuile label="Remises accordées"
+                               valeur={formaterMontant(stats.remises, currency)}
+                               note={`${stats.avecCoupon} commande${stats.avecCoupon > 1 ? 's' : ''} avec code`} />
+                        <Tuile label="Délai de livraison"
+                               valeur={formaterJours(stats.delaiMoyen)}
+                               note={stats.ponctualite === null ? 'aucune estimation' : `${Math.round(stats.ponctualite)} % dans les délais`} />
+                        <Tuile label="Taux d'annulation"
+                               valeur={`${Math.round(stats.tauxAnnulation)}`} unite="%"
+                               delta={delta('tauxAnnulation')} deltaLabel={labelPrec}
+                               hausseEstBonne={false} note={noteSansBase} />
                     </div>
-                    <div className="divide-y divide-gray-100">
-                        {allOrders.slice(0, 5).map((order, idx) => (
-                            <div key={idx} className="p-4 hover:bg-gray-50 transition">
-                                <div className="flex justify-between items-center">
-                                    <div>
-                                        <p className="font-mono text-sm font-medium text-gray-800">#{order._id.slice(-8)}</p>
-                                        <p className="text-xs text-gray-400 mt-0.5">{new Date(order.createdAt).toLocaleDateString()} à {new Date(order.createdAt).toLocaleTimeString()}</p>
-                                        <p className="text-xs text-gray-500 mt-1">{order.address?.firstName} {order.address?.lastName}</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="font-bold text-red-500">{order.amount.toLocaleString()} {currency}</p>
-                                        <p className="text-xs text-gray-400 mt-0.5">{order.paymentType === 'COD' ? '💰 Livraison' : '💳 En ligne'}</p>
-                                        <span className={`text-xs px-2 py-0.5 rounded-full mt-1 inline-block ${
-                                            order.status === 'Delivered' ? 'bg-green-100 text-green-700' :
-                                            order.status === 'Cancelled' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
-                                        }`}>
-                                            {order.status === 'Delivered' ? 'Livrée' : order.status === 'Cancelled' ? 'Annulée' :
-                                             order.status === 'Shipped' ? 'Expédiée' : order.status === 'Out for Delivery' ? 'En livraison' :
-                                             order.status === 'Confirmed' ? 'Confirmée' : 'Commandée'}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                        {allOrders.length > 5 && (
-                            <div className="p-3 text-center bg-gray-50">
-                                <p className="text-xs text-gray-400">+ {allOrders.length - 5} autres commandes</p>
-                            </div>
+
+                    {/* ── Évolution ────────────────────────────────────── */}
+                    <Carte
+                        titre="Évolution du chiffre d'affaires"
+                        sousTitre="Commandes encaissées uniquement"
+                    >
+                        {vueTableau ? (
+                            <TableauDonnees
+                                colonnes={[
+                                    { cle: 'label', label: 'Période' },
+                                    { cle: 'ca', label: 'CA encaissé', rendu: (l) => formaterMontant(l.ca, currency) },
+                                    { cle: 'commandes', label: 'Commandes' },
+                                ]}
+                                lignes={serie}
+                            />
+                        ) : (
+                            <>
+                                <LegendeCA comparaison={decoupe.comparaison} />
+                                <CourbeCA donnees={donneesCourbe} devise={currency} comparaison={decoupe.comparaison} />
+                            </>
                         )}
-                    </div>
-                </div>
+                    </Carte>
 
+                    {/* ── Entonnoir + paiements ────────────────────────── */}
+                    <div className="grid gap-4 sm:gap-5 lg:grid-cols-2">
+                        <Carte titre="Statut des commandes" sousTitre="Dans l'ordre du parcours, pas par volume">
+                            {vueTableau ? (
+                                <TableauDonnees
+                                    colonnes={[{ cle: 'label', label: 'Statut' }, { cle: 'valeur', label: 'Commandes' }]}
+                                    lignes={statuts}
+                                />
+                            ) : (
+                                <BarresHorizontales lignes={statuts} vide="Aucune commande sur la période." />
+                            )}
+                        </Carte>
+
+                        <Carte titre="Moyens de paiement">
+                            {vueTableau ? (
+                                <TableauDonnees
+                                    colonnes={[{ cle: 'label', label: 'Moyen' }, { cle: 'valeur', label: 'Commandes' }]}
+                                    lignes={paiements}
+                                />
+                            ) : (
+                                <PartsPaiement parts={paiements} />
+                            )}
+                        </Carte>
+                    </div>
+
+                    {/* ── Catégories + meilleures ventes ───────────────── */}
+                    <div className="grid gap-4 sm:gap-5 lg:grid-cols-2">
+                        <Carte titre="Ventes par catégorie" sousTitre="Six premières">
+                            {vueTableau ? (
+                                <TableauDonnees
+                                    colonnes={[
+                                        { cle: 'label', label: 'Catégorie' },
+                                        { cle: 'valeur', label: 'CA', rendu: (l) => formaterMontant(l.valeur, currency) },
+                                    ]}
+                                    lignes={categories}
+                                />
+                            ) : (
+                                <BarresHorizontales
+                                    lignes={categories}
+                                    formater={(v) => formaterMontant(v, currency)}
+                                />
+                            )}
+                        </Carte>
+
+                        <Carte titre="Meilleures ventes">
+                            {meilleurs.length === 0 ? (
+                                <p className="px-4 py-8 text-center text-[13px] text-ink-400">Aucune vente sur la période.</p>
+                            ) : (
+                                <ul className="px-4 pb-4 grid gap-3">
+                                    {meilleurs.map((p, i) => (
+                                        <li key={p.id} className="flex items-center gap-3">
+                                            <span className="w-5 text-[12px] font-bold text-ink-400 tabular-nums shrink-0">
+                                                {i + 1}
+                                            </span>
+                                            {p.image ? (
+                                                <img src={getPresetImageUrl(p.image, 'thumbnail')} alt=""
+                                                     loading="lazy"
+                                                     className="w-9 h-9 rounded-lg object-cover border border-ink-100 shrink-0" />
+                                            ) : (
+                                                <span className="w-9 h-9 rounded-lg bg-ink-50 shrink-0" />
+                                            )}
+                                            <span className="flex-1 min-w-0">
+                                                <span className="block text-[13px] text-ink-800 truncate">{p.nom}</span>
+                                                <span className="block text-[11.5px] text-ink-400">
+                                                    {formaterMontant(p.ca, currency)}
+                                                </span>
+                                            </span>
+                                            <span className="text-[13px] font-semibold text-ink-900 tabular-nums shrink-0">
+                                                {p.quantite}
+                                                <span className="text-ink-400 font-medium ml-1">vendus</span>
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </Carte>
+                    </div>
+
+                    {/* ── Stock faible ─────────────────────────────────── */}
+                    <Carte
+                        titre="Stock faible"
+                        sousTitre="Seuil : 5 unités — toutes périodes confondues"
+                        action={
+                            <span className="rs-badge rs-badge--neutral shrink-0">
+                                {stockBas.length} produit{stockBas.length > 1 ? 's' : ''}
+                            </span>
+                        }
+                    >
+                        {stockBas.length === 0 ? (
+                            <p className="px-4 py-8 text-center text-[13px] text-ink-400">
+                                Aucun produit sous le seuil.
+                            </p>
+                        ) : (
+                            <ul className="divide-y divide-ink-100">
+                                {stockBas.slice(0, 8).map(({ produit, stock }) => (
+                                    <li key={produit._id} className="flex items-center gap-3 px-4 py-2.5">
+                                        <img src={getPresetImageUrl(produit.image?.[0], 'thumbnail')} alt=""
+                                             loading="lazy"
+                                             className="w-9 h-9 rounded-lg object-cover border border-ink-100 shrink-0" />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-[13px] text-ink-800 truncate">{produit.name}</p>
+                                            <p className="text-[11.5px] text-ink-400 truncate">
+                                                {produit.category || produit.categories?.[0] || '—'}
+                                            </p>
+                                        </div>
+                                        {/* Icône + libellé : une couleur seule ne
+                                            porte jamais un statut. */}
+                                        <span className={`flex items-center gap-1.5 text-[12px] font-semibold shrink-0 ${
+                                            stock === 0 ? 'text-warn-500' : 'text-ink-600'
+                                        }`}>
+                                            {stock === 0 && <AlertTriangle aria-hidden="true" size={14} />}
+                                            {stock === 0 ? 'Épuisé' : `${stock} restant${stock > 1 ? 's' : ''}`}
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </Carte>
+
+                    {/* ── Commandes ────────────────────────────────────── */}
+                    <Carte
+                        titre="Commandes de la période"
+                        action={
+                            <span className="rs-badge rs-badge--neutral shrink-0">{commandesFiltrees.length}</span>
+                        }
+                    >
+                        <div className="px-4 pb-3">
+                            <div className="relative">
+                                <Search aria-hidden="true" size={16}
+                                        className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none" />
+                                <input
+                                    type="search"
+                                    value={recherche}
+                                    onChange={(e) => setRecherche(e.target.value)}
+                                    placeholder="Numéro, client ou statut"
+                                    aria-label="Rechercher une commande"
+                                    className="rs-input rs-input--icon-l"
+                                />
+                            </div>
+                        </div>
+
+                        {commandesFiltrees.length === 0 ? (
+                            <p className="px-4 py-8 text-center text-[13px] text-ink-400">
+                                {recherche ? 'Aucune commande ne correspond.' : 'Aucune commande sur la période.'}
+                            </p>
+                        ) : (
+                            <ul className="divide-y divide-ink-100">
+                                {commandesFiltrees.slice(0, 12).map(o => (
+                                    <li key={o._id} className="flex items-start justify-between gap-3 px-4 py-3">
+                                        <div className="min-w-0">
+                                            <p className="text-[13px] font-semibold text-ink-900 tabular-nums">
+                                                #{o._id.slice(-8)}
+                                            </p>
+                                            <p className="text-[12px] text-ink-500 truncate">
+                                                {`${o.address?.firstName || ''} ${o.address?.lastName || ''}`.trim() || 'Client inconnu'}
+                                            </p>
+                                            <p className="text-[11px] text-ink-400 tabular-nums">
+                                                {new Date(o.createdAt).toLocaleString('fr-FR', {
+                                                    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+                                                })}
+                                            </p>
+                                        </div>
+                                        <div className="text-right shrink-0 grid gap-1 justify-items-end">
+                                            <p className="rs-money text-[14px]">
+                                                {formaterMontant(o.amount, currency)}
+                                            </p>
+                                            <BadgeStatut statut={o.status} label={LIBELLE_STATUT[o.status] || o.status} />
+                                            {!o.isPaid && estCommandeReelle(o) && o.status !== 'Cancelled' && (
+                                                <span className="text-[11px] font-semibold text-warn-500">Non encaissée</span>
+                                            )}
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+
+                        {commandesFiltrees.length > 12 && (
+                            <p className="px-4 py-2.5 text-center text-[12px] text-ink-400 bg-ink-50">
+                                12 sur {commandesFiltrees.length} affichées — utilisez l'export pour la liste complète.
+                            </p>
+                        )}
+                    </Carte>
+
+                </div>
             </div>
         </div>
-    )
-}
+    );
+};
 
-export default Dashboard
+export default Dashboard;
