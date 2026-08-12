@@ -469,8 +469,12 @@ const ProductList = () => {
         let filtered = [...products]
 
         if (searchTerm) {
+            // Le code article est cherché au même titre que le nom : c'est
+            // justement l'intérêt d'en avoir un.
+            const q = searchTerm.toLowerCase().trim()
             filtered = filtered.filter(p =>
-                p.name.toLowerCase().includes(searchTerm.toLowerCase())
+                p.name.toLowerCase().includes(q) ||
+                (p.sku || '').toLowerCase().includes(q)
             )
         }
 
@@ -810,7 +814,7 @@ const ProductList = () => {
                             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                             <input
                                 type="text"
-                                placeholder="Rechercher un produit…"
+                                placeholder="Rechercher par nom ou code article…"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl focus:border-gray-400 outline-none text-sm"
@@ -926,7 +930,14 @@ const ProductList = () => {
                                                         <div className="w-11 h-11 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
                                                             <img src={getPresetImageUrl(product.image?.[0], "thumbnail")} alt={product.name} className="w-full h-full object-cover" loading="lazy" />
                                                         </div>
-                                                        <span className="font-medium text-sm text-gray-900">{product.name}</span>
+                                                        <div className="min-w-0">
+                                                            <span className="block font-medium text-sm text-gray-900">{product.name}</span>
+                                                            {product.sku && (
+                                                                <span className="block font-mono text-[11px] tracking-wide text-gray-400">
+                                                                    {product.sku}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-3.5">

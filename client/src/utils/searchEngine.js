@@ -108,6 +108,7 @@ export const buildSearchIndex = (products = []) => {
             categoryTokens: tokenize(categories.join(' ')),
             descNormalized: normalize(product.description).slice(0, 600), // suffisant pour un tie-break, pas besoin de tout
             variantTokens: tokenize((product.variants || []).map(v => `${v.color || ''} ${v.size || ''}`).join(' ')),
+            skuCompact: normalize(product.sku || '').replace(/\s/g, ''),
         };
     });
 };
@@ -116,6 +117,17 @@ export const buildSearchIndex = (products = []) => {
 const scoreEntry = (entry, queryTokens, fullQueryNormalized) => {
     let score = 0;
     let matchedTokens = 0;
+
+    // Un code article saisi en entier désigne UN produit et un seul : il passe
+    // devant tout le reste, sinon un produit dont le nom contient la même
+    // suite de caractères pourrait le coiffer.
+    //
+    // Comparaison espaces retirés : `normalize` transforme les tirets en
+    // espaces, donc « RMC-7K4M2X » devient « rmc 7k4m2x ». On veut que la
+    // saisie marche avec ou sans tiret, et avec ou sans espace.
+    if (entry.skuCompact && entry.skuCompact === fullQueryNormalized.replace(/\s/g, '')) {
+        return 100000;
+    }
 
     if (fullQueryNormalized.length >= 2) {
         if (entry.nameNormalized === fullQueryNormalized) score += 1000;

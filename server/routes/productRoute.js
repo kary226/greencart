@@ -14,7 +14,8 @@ import {
     deleteProduct, 
     getBestSellers, 
     getVariantDetails,
-    scrapeImport
+    scrapeImport,
+    genererCodeArticle
 } from '../controllers/productController.js';
 
 const productRouter = express.Router();
@@ -62,6 +63,12 @@ productRouter.get('/list', cacheControl(60), publicCatalogLimiter, productList);
 productRouter.get('/bestsellers', cacheControl(120), publicCatalogLimiter, getBestSellers);
 productRouter.get('/id', cacheControl(60), publicCatalogLimiter, productById);
 productRouter.post('/variant', publicCatalogLimiter, getVariantDetails);
+
+// ✅ Code article : un code libre à la demande, pour le bouton « Générer »
+// des formulaires produit. Monté deux fois car les deux espaces (compte
+// technique vendeur / staff) passent par des authentifications différentes.
+productRouter.get('/generate-sku', authSeller, genererCodeArticle);
+productRouter.get('/staff/generate-sku', authStaff, requireRole('admin', 'commercant'), genererCodeArticle);
 
 // ✅ Routes admin SELLER (compte technique existant)
 productRouter.post('/add', authSeller, (req, res, next) => {

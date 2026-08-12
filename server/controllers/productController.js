@@ -2,6 +2,37 @@ import { v2 as cloudinary } from "cloudinary";
 import Product from "../models/Product.js";
 import { scrapeProductPreview, fetchImagesAsDataUrls } from "../services/scraper.js";
 import { withCache, CACHE_KEYS } from "../configs/redisCache.js";
+import { genererSkuUnique, normaliserSku, skuEstDisponible, skuEstValide } from "../utils/sku.js";
+
+/**
+ * Résout le code article à enregistrer.
+ *  - champ vide  → on en génère un, pour qu'aucun produit ne se retrouve
+ *                  sans référence même quand le vendeur n'y pense pas ;
+ *  - champ saisi → on valide la forme puis l'unicité.
+ * Renvoie { sku } ou { erreur }.
+ */
+const resoudreSku = async (valeurBrute, exclureId = null) => {
+    const sku = normaliserSku(valeurBrute);
+    if (!sku) return { sku: await genererSkuUnique(Product) };
+
+    if (!skuEstValide(sku)) {
+        return { erreur: "Le code article n'accepte que des lettres, des chiffres et des tirets (2 à 24 caractères)." };
+    }
+    if (!(await skuEstDisponible(Product, sku, exclureId))) {
+        return { erreur: `Le code « ${sku} » est déjà utilisé par un autre produit.` };
+    }
+    return { sku };
+};
+
+// ✅ Fournit un code libre au formulaire (bouton « Générer »).
+export const genererCodeArticle = async (req, res) => {
+    try {
+        res.json({ success: true, sku: await genererSkuUnique(Product) });
+    } catch (error) {
+        console.error('❌ Erreur genererCodeArticle:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
 
 // ✅ Add Product - AVEC VIDÉO ET BOUTIQUE
 export const addProduct = async (req, res) => {
@@ -102,8 +133,14 @@ export const addProduct = async (req, res) => {
 
         const labelType = productData.labelType || 'size';
 
+        const resultatSku = await resoudreSku(productData.sku);
+        if (resultatSku.erreur) {
+            return res.status(400).json({ success: false, message: resultatSku.erreur });
+        }
+
         const product = await Product.create({
             name: productData.name,
+            sku: resultatSku.sku,
             description: productData.description,
             categories: productData.categories,
             price: productData.price,
@@ -321,7 +358,7 @@ export const changeStock = async (req, res) => {
 // ✅ UPDATE PRODUCT - VERSION CORRIGÉE
 export const updateProduct = async (req, res) => {
     try {
-        const { id, name, description, categories, price, offerPrice, variants, stock, size, videoUrl, videoPublicId, labelType, image } = req.body;
+        const { id, name, description, categories, price, offerPrice, variants, stock, size, videoUrl, videoPublicId, labelType, image, sku } = req.body;
         const videoFile = req.file;
 
         console.log('🔍 updateProduct - ID:', id);
@@ -405,6 +442,16 @@ export const updateProduct = async (req, res) => {
             updateData.size = size || null;
         } else {
             updateData.size = null;
+        }
+
+        // Le code n'est touché que s'il est transmis : un formulaire qui ne
+        // gère pas encore le champ ne doit pas effacer le code existant.
+        if (sku !== undefined) {
+            const resultatSku = await resoudreSku(sku, id);
+            if (resultatSku.erreur) {
+                return res.status(400).json({ success: false, message: resultatSku.erreur });
+            }
+            updateData.sku = resultatSku.sku;
         }
 
         if (Array.isArray(image)) {

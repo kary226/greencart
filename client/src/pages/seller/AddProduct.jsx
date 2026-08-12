@@ -22,6 +22,7 @@ import {
     Palette,
     Info,
     AlertCircle,
+    Wand2,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -128,6 +129,8 @@ const AddProduct = () => {
     const [videoFile, setVideoFile] = useState(null);
     const [videoPreview, setVideoPreview] = useState('');
     const [name, setName] = useState('');
+    const [sku, setSku] = useState('');
+    const [generationSku, setGenerationSku] = useState(false);
     const [description, setDescription] = useState('');
     const [selectedCategories, setSelectedCategories] = useState([]);
     const [price, setPrice] = useState('');
@@ -383,6 +386,22 @@ const AddProduct = () => {
         }
     };
 
+    // Demande un code libre au serveur. Le tirage se fait côté serveur parce
+    // que lui seul voit les codes déjà pris — un tirage local pourrait tomber
+    // sur un doublon et l'enregistrement échouerait au dernier moment.
+    const genererCode = async () => {
+        try {
+            setGenerationSku(true);
+            const { data } = await axios.get('/api/product/generate-sku');
+            if (data.success) setSku(data.sku);
+            else toast.error(data.message || 'Génération impossible');
+        } catch (error) {
+            toast.error(error.response?.data?.message || error.message);
+        } finally {
+            setGenerationSku(false);
+        }
+    };
+
     const onSubmitHandler = async (event) => {
         event.preventDefault();
 
@@ -440,6 +459,8 @@ const AddProduct = () => {
 
         const productData = {
             name,
+            // Chaîne vide = « débrouille-toi » : le serveur génère le code.
+            sku: sku.trim(),
             description,
             categories: selectedCategories,
             price: price ? Number(price) : 0,
@@ -505,6 +526,7 @@ const AddProduct = () => {
             if (data.success) {
                 toast.success(data.message);
                 setName('');
+                setSku('');
                 setDescription('');
                 setSelectedCategories([]);
                 setPrice('');
@@ -563,6 +585,38 @@ const AddProduct = () => {
                                 className={inputClass}
                                 required
                             />
+                        </Field>
+
+                        <Field
+                            label="Code article"
+                            hint="Sert à retrouver l'article dans la recherche, sur une facture ou au téléphone. Laissez vide et il sera généré tout seul à l'enregistrement."
+                        >
+                            <div className="flex gap-2">
+                                <input
+                                    onChange={(e) => setSku(e.target.value.toUpperCase())}
+                                    value={sku}
+                                    type="text"
+                                    autoCapitalize="characters"
+                                    autoComplete="off"
+                                    spellCheck="false"
+                                    maxLength={24}
+                                    placeholder="RMC-7K4M2X"
+                                    className={`${inputClass} flex-1 font-mono tracking-wide uppercase`}
+                                />
+                                {/* Le code vient du serveur, pas du navigateur :
+                                    lui seul peut garantir qu'il est encore libre. */}
+                                <button
+                                    type="button"
+                                    onClick={genererCode}
+                                    disabled={generationSku}
+                                    className="shrink-0 inline-flex items-center gap-2 px-3.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed transition"
+                                >
+                                    {generationSku
+                                        ? <Loader2 aria-hidden="true" size={15} className="animate-spin" />
+                                        : <Wand2 aria-hidden="true" size={15} />}
+                                    Générer
+                                </button>
+                            </div>
                         </Field>
 
                         <Field label="Description">

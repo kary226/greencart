@@ -12,6 +12,18 @@ const variantSchema = new mongoose.Schema({
 
 const productSchema = new mongoose.Schema({
     name: { type: String, required: true },
+
+    // ✅ Code article — référence courte pour retrouver un produit (voir
+    // server/utils/sku.js). Volontairement SANS `default` : un champ absent
+    // est ignoré par l'index partiel ci-dessous, alors qu'un `null` explicite
+    // y serait indexé et ferait entrer en collision tous les produits qui
+    // n'en ont pas encore.
+    sku: {
+        type: String,
+        uppercase: true,
+        trim: true,
+    },
+
     description: { type: String, required: true },
     price: { type: Number, required: true },
     offerPrice: { type: Number, required: true },
@@ -63,6 +75,16 @@ const productSchema = new mongoose.Schema({
 
 // ✅ AJOUT : Index pour les requêtes "top ventes"
 productSchema.index({ salesCount: -1 });
+
+// ✅ Unicité du code article. `partialFilterExpression` plutôt que `sparse` :
+// sparse n'écarte que les documents où le champ est ABSENT, pas ceux où il
+// vaut `null` — avec sparse seul, le deuxième produit sans code déclencherait
+// une erreur de clé dupliquée. Le filtre par type ne retient que les vraies
+// chaînes et laisse donc passer autant de produits sans code qu'on veut.
+productSchema.index(
+    { sku: 1 },
+    { unique: true, partialFilterExpression: { sku: { $type: 'string' } } }
+);
 
 const Product = mongoose.models.product || mongoose.model('product', productSchema);
 export default Product;
