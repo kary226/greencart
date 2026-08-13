@@ -11,8 +11,13 @@ const authSeller = async (req, res, next) => {
             ? req.headers.authorization.split(' ')[1]
             : null);
 
+    // [SÉCURITÉ] Code HTTP 401 sur un refus, pas 200. `res.json(...)` sans
+    // `.status()` renvoyait « 200 OK » avec un corps « accès refusé » : la
+    // requête était bien bloquée (aucune donnée ne sortait), mais une réponse
+    // qui dit « OK » sur un refus casse la sémantique HTTP et trompe caches,
+    // supervision et clients d'API.
     if (!token) {
-        return res.json({ success: false, message: 'Not Authorized - Token manquant' });
+        return res.status(401).json({ success: false, message: 'Not Authorized - Token manquant' });
     }
 
     try {
@@ -21,7 +26,7 @@ const authSeller = async (req, res, next) => {
         // [SÉCURITÉ] Voir utils/jwtTypes.js — le type est porté par le jeton,
         // il ne se déduit plus de la seule forme du payload.
         if (!verifierType(tokenDecode, TYPE_VENDEUR)) {
-            return res.json({ success: false, message: 'Not Authorized - Accès refusé' });
+            return res.status(403).json({ success: false, message: 'Not Authorized - Accès refusé' });
         }
 
         if (tokenDecode.email === process.env.SELLER_EMAIL) {
@@ -32,9 +37,12 @@ const authSeller = async (req, res, next) => {
             return next();
         }
 
-        return res.json({ success: false, message: 'Not Authorized - Accès refusé' });
-    } catch (error) {
-        res.json({ success: false, message: error.message });
+        return res.status(403).json({ success: false, message: 'Not Authorized - Accès refusé' });
+    } catch {
+        // [SÉCURITÉ] On ne renvoie plus `error.message` : « invalid signature »,
+        // « jwt malformed » etc. renseignent un attaquant sur le mécanisme. Un
+        // message générique suffit au client légitime.
+        return res.status(401).json({ success: false, message: 'Not Authorized - Token invalide' });
     }
 };
 

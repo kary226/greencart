@@ -24,6 +24,7 @@
 | 🔵 Basse | `node_modules` versionné (11 555 fichiers) | ✅ Corrigé |
 | 🔵 Basse | Payload de paiement intégralement journalisé | ✅ Corrigé |
 | 🔵 Basse | Secret JWT unique pour trois types de session | ✅ Corrigé |
+| 🔵 Basse | **`authSeller` : refus en HTTP 200 + message JWT brut** | ✅ Corrigé |
 
 Le onzième constat (jetons d'invitation staff) a été découvert **en corrigeant** le jeton de réinitialisation : `Invitation.findOne({ token })` souffrait exactement de la même faiblesse, avec un enjeu supérieur — un lien d'invitation vaut la création d'un compte staff, potentiellement administrateur.
 
@@ -271,6 +272,41 @@ Vérifié avant l'opération : les trois `package-lock.json` sont versionnés, a
 Les fichiers restent **présents sur le disque** — rien n'est cassé en local.
 
 ⚠️ **La suppression est mise en attente (*staged*), pas commitée** : le prochain commit contiendra 11 555 suppressions. C'est voulu, mais il faut le savoir avant de le passer.
+
+---
+
+## 🔵 BASSE — `authSeller` refusait en HTTP 200 avec le message JWT brut
+
+**Fichier** : `server/middlewares/authSeller.js`
+
+Découvert pendant la **vérification en ligne** (voir plus bas). Une requête sans jeton vers `/api/order/seller` renvoyait `HTTP 200 OK` — alors que le corps était bien un refus `{"success":false,"message":"Not Authorized - Token manquant"}`.
+
+**Ce n'était pas une fuite de données** : aucune donnée vendeur ne sortait, la requête était bien bloquée. Mais deux défauts réels :
+
+1. Un code `200 OK` sur un refus casse la sémantique HTTP — il trompe les caches, la supervision et tout client d'API qui se fie au code plutôt qu'au corps.
+2. Le bloc `catch` renvoyait `error.message` brut (« invalid signature », « jwt malformed »…), ce qui renseigne un attaquant sur le mécanisme d'authentification.
+
+### Correctif appliqué
+
+`401` sur jeton manquant ou invalide, `403` sur mauvais type de compte, message générique dans le `catch`. Comportement aligné sur `authUser`, qui renvoyait déjà `401` partout — le front gère donc déjà ce cas, aucune régression.
+
+---
+
+## 🌐 Vérification en ligne (non intrusive) — production
+
+En complément de l'audit de code, une vérification **en ligne** a été menée contre `www.ramci.ci` et `api.ramci.ci`, avec l'accord du propriétaire. **Uniquement des requêtes de lecture** — en-têtes, redirection, comportement CORS, codes de statut sur des identifiants bidon. Aucune attaque, aucune écriture, aucune donnée réelle touchée.
+
+| Vérification | Résultat |
+|---|---|
+| Front — les 6 en-têtes de sécurité | ✅ présents et conformes |
+| Front — redirection HTTP → HTTPS | ✅ 308 |
+| API — en-têtes helmet | ✅ présents (`X-Frame-Options`, `nosniff`, HSTS, `Referrer-Policy`, DNS-prefetch off) |
+| API — techno masquée | ✅ pas de `X-Powered-By` |
+| API — liste blanche CORS | ✅ origine légitime acceptée, origine pirate → `403` |
+| **API — faille critique (route de chat)** | ✅ **corrigée en production** : la route supprimée renvoie le 404 par défaut d'Express, plus le JSON de l'ancien contrôleur |
+| API — routes protégées (chat, staff) | ✅ refusées sans jeton |
+
+**Constat de déploiement** : la correction critique et les en-têtes sont **déjà en ligne**. En revanche, le dernier lot de durcissement de cette session (hachage des jetons, typage JWT, correctif `authSeller` ci-dessus) est encore **local** — il faut redéployer pour l'activer. Ces éléments-là ne sont pas vérifiables de l'extérieur.
 
 ---
 
