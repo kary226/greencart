@@ -15,6 +15,7 @@ import WalletTransaction from "../models/WalletTransaction.js";
 import Boutique from "../models/Boutique.js";
 import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
 import { sendPushToUser } from './pushController.js';
+import { syncManyProductsToAirtable } from '../services/airtableSync.js';
 
 // Messages affichés dans la notification push
 const orderStatusPushMessages = {
@@ -112,6 +113,9 @@ const reduceVariantStock = async (items) => {
 
     if (bulkOps.length > 0) {
         await Product.bulkWrite(bulkOps);
+        // Chaque vente change "Quantité restante" et "Quantité vendue" —
+        // tâche de fond, ne bloque jamais la confirmation de commande.
+        syncManyProductsToAirtable(productIds);
     }
 };
 

@@ -69,8 +69,25 @@ const productSchema = new mongoose.Schema({
         ref: 'boutique',
         default: null, // null = produit de l'admin principal
         index: true,
+    },
+
+    // ✅ SYNCHRO AIRTABLE : coût d'achat, pour calculer la marge côté tableau
+    // récapitulatif. N'est jamais exposé publiquement (routes /list, /id) —
+    // seules les routes admin/staff le renvoient.
+    purchasePrice: {
+        type: Number,
+        default: 0,
+    },
+
+    // ✅ SYNCHRO AIRTABLE : lien libre optionnel (ex: fiche fournisseur,
+    // annonce SHEIN d'origine, etc.). Rien à voir avec les liens internes
+    // Ramci — rempli à la main uniquement pour les produits qui en ont besoin.
+    externalLink: {
+        type: String,
+        default: null,
+        trim: true,
     }
-    
+
 }, { timestamps: true });
 
 // ✅ AJOUT : Index pour les requêtes "top ventes"

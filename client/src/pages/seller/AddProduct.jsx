@@ -23,6 +23,7 @@ import {
     Info,
     AlertCircle,
     Wand2,
+    Link as LinkIcon,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -135,6 +136,8 @@ const AddProduct = () => {
     const [selectedCategories, setSelectedCategories] = useState([]);
     const [price, setPrice] = useState('');
     const [offerPrice, setOfferPrice] = useState('');
+    const [purchasePrice, setPurchasePrice] = useState('');
+    const [externalLink, setExternalLink] = useState('');
     const [categoriesList, setCategoriesList] = useState([]);
 
     const [productMode, setProductMode] = useState('simple');
@@ -465,6 +468,8 @@ const AddProduct = () => {
             categories: selectedCategories,
             price: price ? Number(price) : 0,
             offerPrice: offerPrice ? Number(offerPrice) : Number(price) || 0,
+            purchasePrice: purchasePrice ? Number(purchasePrice) : 0,
+            externalLink: externalLink.trim() || null,
             variants,
             labelType: labelType,
         };
@@ -531,6 +536,8 @@ const AddProduct = () => {
                 setSelectedCategories([]);
                 setPrice('');
                 setOfferPrice('');
+                setPurchasePrice('');
+                setExternalLink('');
                 setFiles([]);
                 setVideoFile(null);
                 setVideoPreview('');
@@ -810,6 +817,31 @@ const AddProduct = () => {
                         </Field>
                     </div>
                     <Hint>Une variante peut avoir son propre prix ; à défaut, elle utilise ceux-ci.</Hint>
+
+                    <div className="mt-4">
+                        <Field label="Prix d'achat" hint="Sert uniquement au calcul de marge dans le récap Airtable — jamais affiché au client.">
+                            <input
+                                onChange={(e) => setPurchasePrice(e.target.value)}
+                                value={purchasePrice}
+                                type="number"
+                                placeholder="Optionnel"
+                                className={inputClass}
+                            />
+                        </Field>
+                    </div>
+                </Section>
+
+                {/* Lien supplémentaire */}
+                <Section icon={LinkIcon} title="Lien supplémentaire" subtitle="Optionnel — visible uniquement dans le récap Airtable">
+                    <Field label="Lien" hint="Fiche fournisseur, annonce d'origine, etc. Laissez vide si non pertinent.">
+                        <input
+                            onChange={(e) => setExternalLink(e.target.value)}
+                            value={externalLink}
+                            type="url"
+                            placeholder="https://…"
+                            className={inputClass}
+                        />
+                    </Field>
                 </Section>
 
                 {/* Stock & variantes */}

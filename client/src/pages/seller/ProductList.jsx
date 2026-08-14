@@ -30,6 +30,8 @@ import {
     ArrowUp,
     ArrowDown,
     Package,
+    Link as LinkIcon,
+    RefreshCw,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -189,6 +191,24 @@ const ProductList = () => {
     const [selectedIds, setSelectedIds] = useState([])
     const [deletingMultiple, setDeletingMultiple] = useState(false)
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+
+    const [syncingAirtable, setSyncingAirtable] = useState(false)
+
+    const handleSyncAirtable = async () => {
+        setSyncingAirtable(true)
+        try {
+            const { data } = await axios.post('/api/product/sync-airtable')
+            if (data.success) {
+                toast.success(data.message)
+            } else {
+                toast.error(data.message)
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || error.message)
+        } finally {
+            setSyncingAirtable(false)
+        }
+    }
 
     const fetchCategories = async () => {
         try {
@@ -688,6 +708,8 @@ const ProductList = () => {
                 categories: selectedCategories,
                 price: editProduct.price ? Number(editProduct.price) : 0,
                 offerPrice: editProduct.offerPrice ? Number(editProduct.offerPrice) : 0,
+                purchasePrice: editProduct.purchasePrice ? Number(editProduct.purchasePrice) : 0,
+                externalLink: editProduct.externalLink?.trim() || '',
                 labelType: labelType,
                 image: editProduct.image || [],
             };
@@ -793,9 +815,21 @@ const ProductList = () => {
             <div className="p-4 md:p-6 max-w-7xl mx-auto">
 
                 {/* En-tête */}
-                <div className="mb-5">
-                    <h1 className="text-xl font-semibold text-gray-900">Liste des produits</h1>
-                    <p className="text-sm text-gray-400 mt-0.5">Gérez tous vos produits</p>
+                <div className="mb-5 flex items-start justify-between gap-3 flex-wrap">
+                    <div>
+                        <h1 className="text-xl font-semibold text-gray-900">Liste des produits</h1>
+                        <p className="text-sm text-gray-400 mt-0.5">Gérez tous vos produits</p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={handleSyncAirtable}
+                        disabled={syncingAirtable}
+                        className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed transition"
+                        title="Renvoie tout le catalogue vers Airtable (déjà synchronisé automatiquement à chaque ajout, modif ou vente)"
+                    >
+                        <RefreshCw size={15} className={syncingAirtable ? 'animate-spin' : ''} />
+                        {syncingAirtable ? 'Synchronisation…' : 'Synchroniser'}
+                    </button>
                 </div>
 
                 {/* Statistiques */}
@@ -1262,6 +1296,26 @@ const ProductList = () => {
                                                 type="number"
                                                 value={editProduct.offerPrice}
                                                 onChange={e => setEditProduct({ ...editProduct, offerPrice: e.target.value })}
+                                                className={inputClass}
+                                            />
+                                        </Field>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <Field label="Prix d'achat" hint="Sert au calcul de marge dans Airtable.">
+                                            <input
+                                                type="number"
+                                                value={editProduct.purchasePrice ?? ''}
+                                                onChange={e => setEditProduct({ ...editProduct, purchasePrice: e.target.value })}
+                                                className={inputClass}
+                                            />
+                                        </Field>
+                                        <Field label="Lien supplémentaire" hint="Optionnel, visible dans Airtable uniquement.">
+                                            <input
+                                                type="url"
+                                                value={editProduct.externalLink ?? ''}
+                                                onChange={e => setEditProduct({ ...editProduct, externalLink: e.target.value })}
+                                                placeholder="https://…"
                                                 className={inputClass}
                                             />
                                         </Field>

@@ -15,7 +15,8 @@ import {
     getBestSellers, 
     getVariantDetails,
     scrapeImport,
-    genererCodeArticle
+    genererCodeArticle,
+    syncAirtable
 } from '../controllers/productController.js';
 
 const productRouter = express.Router();
@@ -86,6 +87,7 @@ productRouter.post('/stock', authSeller, changeStock);
 productRouter.post('/update', authSeller, updateProduct);
 productRouter.post('/delete', authSeller, deleteProduct);
 productRouter.post('/scrape-import', authSeller, scrapeImport);
+productRouter.post('/sync-airtable', authSeller, syncAirtable);
 
 // ✅ PHASE 3 : Routes pour les commerçants (via authStaff)
 productRouter.post('/staff/add', authStaff, requireRole('admin', 'commercant'), (req, res, next) => {
@@ -101,5 +103,6 @@ productRouter.post('/staff/add', authStaff, requireRole('admin', 'commercant'), 
 productRouter.post('/staff/update', authStaff, requireRole('admin', 'commercant'), updateProduct);
 productRouter.post('/staff/delete', authStaff, requireRole('admin', 'commercant'), deleteProduct);
 productRouter.post('/staff/add-images', authStaff, requireRole('admin', 'commercant'), upload.array('images', 10), addProductImages);
+productRouter.post('/staff/sync-airtable', authStaff, requireRole('admin', 'commercant'), syncAirtable);
 
 export default productRouter;

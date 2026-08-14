@@ -4,6 +4,7 @@ import { scrapeProductPreview, fetchImagesAsDataUrls } from "../services/scraper
 import { withCache, CACHE_KEYS } from "../configs/redisCache.js";
 import { genererSkuUnique, normaliserSku, skuEstDisponible, skuEstValide } from "../utils/sku.js";
 import { estErreurUrlBloquee } from "../utils/urlGuard.js";
+import { syncProductToAirtable, deleteProductFromAirtable, resyncAllProducts } from "../services/airtableSync.js";
 
 /**
  * Résout le code article à enregistrer.
@@ -146,6 +147,8 @@ export const addProduct = async (req, res) => {
             categories: productData.categories,
             price: productData.price,
             offerPrice: productData.offerPrice,
+            purchasePrice: productData.purchasePrice || 0,
+            externalLink: productData.externalLink || null,
             image: imagesUrl,
             variants: processedVariants,
             stock: hasVariants ? totalStock : (productData.stock || 0),
@@ -156,6 +159,10 @@ export const addProduct = async (req, res) => {
             labelType: labelType,
             boutiqueId: boutiqueId,
         });
+
+        // Synchro Airtable en tâche de fond — ne doit jamais retarder ni
+        // faire échouer la réponse au vendeur.
+        syncProductToAirtable(product._id);
 
         res.json({ 
             success: true, 
@@ -273,7 +280,8 @@ export const productList = async (req, res) => {
                 },
                 { $sort: { discountPercent: -1 } },
                 { $skip: skip },
-                { $limit: limit }
+                { $limit: limit },
+                { $unset: ['purchasePrice', 'externalLink'] } // infos internes, jamais exposées publiquement
             ];
 
             const products = await Product.aggregate(pipeline);
@@ -308,6 +316,7 @@ export const productList = async (req, res) => {
         else if (sort === 'price-desc') sortOption = { price: -1 };
 
         const products = await Product.find(filter)
+            .select('-purchasePrice -externalLink') // infos internes, jamais exposées publiquement
             .sort(sortOption)
             .skip(skip)
             .limit(limit)
@@ -336,7 +345,9 @@ export const productList = async (req, res) => {
 export const productById = async (req, res) => {
     try {
         const id = req.body?.id || req.query?.id;
-        const product = await Product.findById(id).lean(); // [PHASE 2 - PERF] lecture pure
+        const product = await Product.findById(id)
+            .select('-purchasePrice -externalLink') // infos internes, jamais exposées publiquement
+            .lean(); // [PHASE 2 - PERF] lecture pure
         res.json({ success: true, product });
     } catch (error) {
         console.log(error.message);
@@ -349,6 +360,9 @@ export const changeStock = async (req, res) => {
     try {
         const { id, inStock } = req.body;
         await Product.findByIdAndUpdate(id, { inStock });
+
+        syncProductToAirtable(id);
+
         res.json({ success: true, message: "Stock Updated" });
     } catch (error) {
         console.log(error.message);
@@ -359,7 +373,7 @@ export const changeStock = async (req, res) => {
 // ✅ UPDATE PRODUCT - VERSION CORRIGÉE
 export const updateProduct = async (req, res) => {
     try {
-        const { id, name, description, categories, price, offerPrice, variants, stock, size, videoUrl, videoPublicId, labelType, image, sku } = req.body;
+        const { id, name, description, categories, price, offerPrice, purchasePrice, externalLink, variants, stock, size, videoUrl, videoPublicId, labelType, image, sku } = req.body;
         const videoFile = req.file;
 
         console.log('🔍 updateProduct - ID:', id);
@@ -433,6 +447,11 @@ export const updateProduct = async (req, res) => {
             categories: categories || [],
             price: price || 0,
             offerPrice: offerPrice || 0,
+            purchasePrice: purchasePrice !== undefined ? purchasePrice : (existingProduct.purchasePrice || 0),
+            // Chaîne vide envoyée volontairement = « effacer le lien » ; on ne
+            // touche au champ que s'il est transmis (undefined = non géré par
+            // le formulaire appelant), même logique que pour `sku` plus bas.
+            ...(externalLink !== undefined ? { externalLink: externalLink || null } : {}),
             variants: hasVariants ? processedVariants : [],
             stock: totalStock,
             inStock,
@@ -493,6 +512,8 @@ export const updateProduct = async (req, res) => {
 
         await Product.findByIdAndUpdate(id, updateData);
 
+        syncProductToAirtable(id);
+
         res.json({ success: true, message: "Product Updated" });
     } catch (error) {
         console.log('❌ Erreur updateProduct:', error.message);
@@ -536,6 +557,9 @@ export const deleteProduct = async (req, res) => {
         }
         
         await Product.findByIdAndDelete(id);
+
+        deleteProductFromAirtable(id);
+
         res.json({ success: true, message: "Product Deleted" });
     } catch (error) {
         console.log(error.message);
@@ -607,7 +631,7 @@ export const getBestSellers = async (req, res) => {
             const bestSellers = await Product.find({
                 _id: { $in: sortedProducts.slice(0, 10) },
                 inStock: true
-            }).lean();
+            }).select('-purchasePrice -externalLink').lean();
 
             return sortedProducts
                 .filter(id => bestSellers.some(p => p._id.toString() === id))
@@ -652,6 +676,30 @@ export const getVariantDetails = async (req, res) => {
     } catch (error) {
         console.log(error.message);
         res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// ✅ Resynchro manuelle complète vers Airtable (bouton « Synchroniser »)
+// Un commerçant ne resynchronise que ses propres produits ; l'admin
+// resynchronise tout le catalogue.
+export const syncAirtable = async (req, res) => {
+    try {
+        const boutiqueId = (req.staffUser && req.staffUser.role === 'commercant')
+            ? req.staffUser.boutiqueId
+            : null;
+
+        const result = await resyncAllProducts(boutiqueId);
+        res.json({
+            success: true,
+            message: `${result.total} produit(s) synchronisé(s) avec Airtable.`,
+            total: result.total,
+        });
+    } catch (error) {
+        console.error('❌ Erreur syncAirtable:', error.message);
+        const message = error.code === 'AIRTABLE_NOT_CONFIGURED'
+            ? "La synchro Airtable n'est pas configurée sur le serveur (variables d'environnement manquantes)."
+            : "Échec de la synchro Airtable : " + error.message;
+        res.status(500).json({ success: false, message });
     }
 };
 
