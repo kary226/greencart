@@ -358,7 +358,7 @@ const ClientsManager = () => {
                                                 {order.items.map((item, i) => (
                                                     <div key={i} className="flex justify-between items-center text-sm">
                                                         <div className="flex flex-wrap items-center gap-2">
-                                                            <span className="font-medium text-gray-800">{item.product?.name || 'Produit'}</span>
+                                                            <span className="font-medium text-gray-800">{item.name || item.product?.name || 'Produit'}</span>
                                                             {item.color && <span className="text-xs text-gray-400 px-2 py-0.5 bg-gray-100 rounded-full">{item.color}</span>}
                                                             {item.size && <span className="text-xs text-gray-400 px-2 py-0.5 bg-gray-100 rounded-full">{item.size}</span>}
                                                             <span className="text-xs text-gray-400">x {item.quantity}</span>

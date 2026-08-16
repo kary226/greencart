@@ -194,6 +194,9 @@ export const placeOrderCOD = async (req, res) => {
             if (!product) {
                 throw new Error("Produit introuvable");
             }
+            if (product.isArchived) {
+                throw new Error(`"${product.name}" n'est plus disponible à la vente`);
+            }
 
             const boutiqueId = product.boutiqueId || null;
 
@@ -216,6 +219,10 @@ export const placeOrderCOD = async (req, res) => {
                 size: item.selectedSize || null,
                 priceAtOrder: priceAtOrder,
                 boutiqueId: boutiqueId,
+                // Instantané — voir Order.js pour le raisonnement.
+                name: product.name,
+                image: product.image?.[0] || null,
+                sku: product.sku || null,
             };
         }));
 

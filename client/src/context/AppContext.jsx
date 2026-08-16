@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import axios from "axios";
@@ -571,6 +571,48 @@ export const AppContextProvider = ({ children }) => {
         if (user) {
             updateCart();
         }
+    }, [cartItems]);
+
+    // ✅ Nettoyage panier : un produit du panier peut avoir été archivé ou
+    // supprimé depuis. On ne peut pas se fier à `products` (liste publique
+    // paginée, 12 articles par défaut) pour ça — un produit valide hors de
+    // cette page serait faussement considéré comme indisponible. On
+    // interroge donc /check-availability avec les IDs réellement présents
+    // dans le panier. `lastCheckedCartIdsRef` évite de re-vérifier en boucle
+    // le même ensemble d'IDs à chaque re-render.
+    const lastCheckedCartIdsRef = useRef('');
+    useEffect(() => {
+        const ids = [...new Set(Object.keys(cartItems).map(getProductIdFromKey))];
+        if (ids.length === 0) return;
+
+        const signature = [...ids].sort().join(',');
+        if (signature === lastCheckedCartIdsRef.current) return;
+        lastCheckedCartIdsRef.current = signature;
+
+        (async () => {
+            try {
+                const { data } = await axios.post('/api/product/check-availability', { ids });
+                if (!data.success) return;
+
+                const availableSet = new Set(data.availableIds);
+                const unavailableKeys = Object.keys(cartItems).filter(
+                    key => !availableSet.has(getProductIdFromKey(key))
+                );
+
+                if (unavailableKeys.length > 0) {
+                    const cleaned = { ...cartItems };
+                    unavailableKeys.forEach(key => delete cleaned[key]);
+                    setCartItems(cleaned);
+                    toast.error(
+                        unavailableKeys.length === 1
+                            ? "Un article n'est plus disponible et a été retiré de votre panier"
+                            : `${unavailableKeys.length} articles ne sont plus disponibles et ont été retirés de votre panier`
+                    );
+                }
+            } catch {
+                // Silencieux : une vérif ratée ne doit pas toucher au panier.
+            }
+        })();
     }, [cartItems]);
 
     const value = {

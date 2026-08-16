@@ -165,7 +165,7 @@ const LivraisonDetail = () => {
                             <div key={idx} className="flex items-center justify-between text-sm border-b border-blush-100 pb-2 last:border-0 last:pb-0">
                                 <div>
                                     <p className="font-medium text-gray-800">
-                                        {item.product?.name || 'Produit'}
+                                        {item.name || item.product?.name || 'Produit'}
                                     </p>
                                     <p className="text-xs text-gray-500">
                                         x{item.quantity}

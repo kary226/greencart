@@ -166,7 +166,7 @@ const MesLivraisons = () => {
                                         <div className="mt-2 flex flex-wrap gap-1">
                                             {order.items.slice(0, 3).map((item, idx) => (
                                                 <span key={idx} className="text-xs bg-blush-100 text-gray-700 px-2 py-0.5 rounded-full">
-                                                    {item.product?.name || 'Produit'} x{item.quantity}
+                                                    {item.name || item.product?.name || 'Produit'} x{item.quantity}
                                                 </span>
                                             ))}
                                             {order.items.length > 3 && (

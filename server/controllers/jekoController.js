@@ -256,6 +256,9 @@ export const initiateJeko = async (req, res) => {
             if (!product) {
                 return res.json({ success: false, message: "Produit introuvable" });
             }
+            if (product.isArchived) {
+                return res.json({ success: false, message: `"${product.name}" n'est plus disponible à la vente` });
+            }
 
             let priceAtOrder = product.offerPrice;
 
@@ -303,6 +306,10 @@ export const initiateJeko = async (req, res) => {
                 // qui le renseigne déjà) — nécessaire aussi pour le scope
                 // des coupons commerçant ci-dessous.
                 boutiqueId: product.boutiqueId || null,
+                // Instantané — voir Order.js pour le raisonnement.
+                name: product.name,
+                image: product.image?.[0] || null,
+                sku: product.sku || null,
             });
         }
 

@@ -6,6 +6,16 @@ const orderItemSchema = new mongoose.Schema({
     color: { type: String, default: null },
     size: { type: String, default: null },
     priceAtOrder: { type: Number, required: true },
+    // ✅ INSTANTANÉ PRODUIT : copié une fois pour toutes à la création de la
+    // commande. Une commande ne doit JAMAIS dépendre de l'état actuel du
+    // produit — si celui-ci est modifié, archivé ou supprimé plus tard,
+    // l'historique du client doit rester identique à ce qu'il a vraiment
+    // acheté. `name`/`image` sans `default` volontairement absents sur les
+    // anciennes commandes (créées avant ce champ) : le frontend retombe sur
+    // `populate('items.product')` dans ce cas (voir getUserOrders).
+    name: { type: String, default: null },
+    image: { type: String, default: null },
+    sku: { type: String, default: null },
     // ✅ NOUVEAU PHASE 3 : Boutique du produit au moment de la commande.
     // [FIX] null est une valeur valide et volontaire (produit du magasin
     // principal, hors système commerçant) — jekoController.js et

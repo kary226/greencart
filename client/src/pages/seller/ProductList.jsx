@@ -32,6 +32,7 @@ import {
     Package,
     Link as LinkIcon,
     RefreshCw,
+    Archive,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -119,6 +120,7 @@ const StatCard = ({ icon: Icon, label, value, tone = 'default' }) => {
         green: 'text-green-600',
         red: 'text-red-500',
         orange: 'text-orange-500',
+        amber: 'text-amber-600',
     };
     return (
         <div className="bg-white rounded-xl p-3.5 border border-gray-200 flex items-center gap-3">
@@ -136,9 +138,41 @@ const StatCard = ({ icon: Icon, label, value, tone = 'default' }) => {
 // ---------------------------------------------------------------------------
 
 const ProductList = () => {
-    const { products, currency, axios, fetchProducts } = useAppContext()
+    const { currency, axios, fetchProducts: refreshStorefrontProducts } = useAppContext()
+    const [products, setProducts] = useState([])
+    const [loadingProducts, setLoadingProducts] = useState(true)
     const [searchParams] = useSearchParams()
     const [editProduct, setEditProduct] = useState(null)
+
+    // Liste complète (y compris produits archivés + champs internes comme
+    // le prix d'achat) — différente de la liste publique utilisée par la
+    // boutique, qui elle masque les archivés et ces champs internes.
+    const loadAdminProducts = async () => {
+        try {
+            const { data } = await axios.get('/api/product/admin-list')
+            if (data.success) {
+                setProducts(data.products)
+            } else {
+                toast.error(data.message)
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || error.message)
+        } finally {
+            setLoadingProducts(false)
+        }
+    }
+
+    // Après toute mutation (ajout/modif/suppression/stock), on rafraîchit
+    // la liste admin (immédiate) ET le cache storefront partagé (en tâche
+    // de fond, sans bloquer l'UI admin).
+    const refreshAllProductLists = async () => {
+        await loadAdminProducts()
+        refreshStorefrontProducts()
+    }
+
+    useEffect(() => {
+        loadAdminProducts()
+    }, [])
 
     // États pour la gestion des variantes (alignés avec AddProduct)
     const [productMode, setProductMode] = useState('simple') // 'simple' | 'multi-sizes' | 'variants'
@@ -504,23 +538,31 @@ const ProductList = () => {
             )
         }
 
-        if (stockFilter === 'inStock') {
-            filtered = filtered.filter(p => {
-                if (p.variants?.length > 0) return p.variants.some(v => v.stock > 0)
-                return p.stock > 0
-            })
-        } else if (stockFilter === 'outOfStock') {
-            filtered = filtered.filter(p => {
-                if (p.variants?.length > 0) return p.variants.every(v => v.stock === 0)
-                return p.stock === 0
-            })
-        } else if (stockFilter === 'lowStock') {
-            filtered = filtered.filter(p => {
-                if (p.variants?.length > 0) return p.variants.some(v => v.stock > 0 && v.stock <= 5)
-                return p.stock > 0 && p.stock <= 5
-            })
-        } else if (stockFilter === 'onSale') {
-            filtered = filtered.filter(p => p.offerPrice && p.offerPrice < p.price)
+        if (stockFilter === 'archived') {
+            filtered = filtered.filter(p => p.isArchived)
+        } else {
+            // Par défaut, les produits archivés ne polluent pas la vue —
+            // ils restent accessibles via le filtre "Archivés" ci-dessous.
+            filtered = filtered.filter(p => !p.isArchived)
+
+            if (stockFilter === 'inStock') {
+                filtered = filtered.filter(p => {
+                    if (p.variants?.length > 0) return p.variants.some(v => v.stock > 0)
+                    return p.stock > 0
+                })
+            } else if (stockFilter === 'outOfStock') {
+                filtered = filtered.filter(p => {
+                    if (p.variants?.length > 0) return p.variants.every(v => v.stock === 0)
+                    return p.stock === 0
+                })
+            } else if (stockFilter === 'lowStock') {
+                filtered = filtered.filter(p => {
+                    if (p.variants?.length > 0) return p.variants.some(v => v.stock > 0 && v.stock <= 5)
+                    return p.stock > 0 && p.stock <= 5
+                })
+            } else if (stockFilter === 'onSale') {
+                filtered = filtered.filter(p => p.offerPrice && p.offerPrice < p.price)
+            }
         }
 
         filtered.sort((a, b) => {
@@ -573,21 +615,26 @@ const ProductList = () => {
         setSelectedIds([])
     }, [searchTerm, stockFilter, selectedCategoryFilter, sortBy, sortOrder])
 
+    // Les stats portent sur les produits actifs uniquement — un archivé
+    // n'est plus "en boutique", il fausserait "Total"/"En stock"/"Rupture".
+    const activeProducts = products.filter(p => !p.isArchived)
+
     const stats = {
-        total: products.length,
-        inStock: products.filter(p => {
+        total: activeProducts.length,
+        inStock: activeProducts.filter(p => {
             if (p.variants?.length > 0) return p.variants.some(v => v.stock > 0)
             return p.stock > 0
         }).length,
-        outOfStock: products.filter(p => {
+        outOfStock: activeProducts.filter(p => {
             if (p.variants?.length > 0) return p.variants.every(v => v.stock === 0)
             return p.stock === 0
         }).length,
-        lowStock: products.filter(p => {
+        lowStock: activeProducts.filter(p => {
             if (p.variants?.length > 0) return p.variants.some(v => v.stock > 0 && v.stock <= 5)
             return p.stock > 0 && p.stock <= 5
         }).length,
-        onSale: products.filter(p => p.offerPrice && p.offerPrice < p.price).length
+        onSale: activeProducts.filter(p => p.offerPrice && p.offerPrice < p.price).length,
+        archived: products.filter(p => p.isArchived).length
     }
 
     const allPageSelected = paginatedProducts.length > 0 && paginatedProducts.every(p => selectedIds.includes(p._id))
@@ -616,7 +663,7 @@ const ProductList = () => {
             )
             const succeeded = results.filter(r => r.status === 'fulfilled' && r.value?.data?.success).length
             const failed = results.length - succeeded
-            await fetchProducts()
+            await refreshAllProductLists()
             setSelectedIds([])
             setShowDeleteConfirm(false)
             if (succeeded > 0) toast.success(`${succeeded} produit(s) supprimé(s)`)
@@ -632,7 +679,7 @@ const ProductList = () => {
         try {
             const { data } = await axios.post('/api/product/stock', { id, inStock });
             if (data.success) {
-                await fetchProducts();
+                await refreshAllProductLists();
                 toast.success(data.message)
             } else {
                 toast.error(data.message)
@@ -751,7 +798,7 @@ const ProductList = () => {
 
             if (data.success) {
                 toast.success(data.message);
-                await fetchProducts();
+                await refreshAllProductLists();
                 setEditProduct(null);
             } else {
                 toast.error(data.message);
@@ -763,17 +810,31 @@ const ProductList = () => {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Supprimer ce produit ?')) return
+        if (!window.confirm('Supprimer ce produit ? (S\'il a déjà été commandé, il sera archivé plutôt que supprimé, pour préserver l\'historique des clients.)')) return
         try {
             const { data } = await axios.post('/api/product/delete', { id })
             if (data.success) {
                 toast.success(data.message)
-                await fetchProducts()
+                await refreshAllProductLists()
             } else {
                 toast.error(data.message)
             }
         } catch (error) {
             toast.error(error.message)
+        }
+    }
+
+    const handleUnarchive = async (id) => {
+        try {
+            const { data } = await axios.post('/api/product/unarchive', { id })
+            if (data.success) {
+                toast.success(data.message)
+                await refreshAllProductLists()
+            } else {
+                toast.error(data.message)
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || error.message)
         }
     }
 
@@ -798,7 +859,7 @@ const ProductList = () => {
                 toast.success(data.message)
                 setNewImages([])
                 setShowImageUpload(false)
-                await fetchProducts()
+                await refreshAllProductLists()
                 setEditProduct(data.product)
             } else {
                 toast.error(data.message)
@@ -837,6 +898,7 @@ const ProductList = () => {
                     <StatCard icon={Package} label="Total" value={stats.total} />
                     <StatCard icon={CheckCircle2} label="En stock" value={stats.inStock} tone="green" />
                     <StatCard icon={XCircle} label="Rupture" value={stats.outOfStock} tone="red" />
+                    <StatCard icon={Archive} label="Archivés" value={stats.archived} tone="amber" />
                     <StatCard icon={AlertTriangle} label="Stock faible" value={stats.lowStock} tone="orange" />
                     <StatCard icon={Tag} label="En promo" value={stats.onSale} tone="red" />
                 </div>
@@ -876,6 +938,7 @@ const ProductList = () => {
                             <option value="outOfStock">Rupture</option>
                             <option value="lowStock">Stock faible (≤5)</option>
                             <option value="onSale">En promotion</option>
+                            <option value="archived">Archivés</option>
                         </select>
 
                         <select
@@ -914,7 +977,12 @@ const ProductList = () => {
                 </div>
 
                 {/* Tableau des produits */}
-                {products.length === 0 ? (
+                {loadingProducts ? (
+                    <div className="text-center py-16 bg-white rounded-2xl border border-gray-200">
+                        <RefreshCw className="w-8 h-8 mx-auto text-gray-300 mb-3 animate-spin" strokeWidth={1.5} />
+                        <p className="text-gray-400 text-sm">Chargement des produits…</p>
+                    </div>
+                ) : products.length === 0 ? (
                     <div className="text-center py-16 bg-white rounded-2xl border border-gray-200">
                         <Package className="w-12 h-12 mx-auto text-gray-300 mb-3" strokeWidth={1.5} />
                         <p className="text-gray-400 text-sm">Aucun produit trouvé</p>
@@ -965,7 +1033,14 @@ const ProductList = () => {
                                                             <img src={getPresetImageUrl(product.image?.[0], "thumbnail")} alt={product.name} className="w-full h-full object-cover" loading="lazy" />
                                                         </div>
                                                         <div className="min-w-0">
-                                                            <span className="block font-medium text-sm text-gray-900">{product.name}</span>
+                                                            <span className="flex items-center gap-1.5 font-medium text-sm text-gray-900">
+                                                                {product.name}
+                                                                {product.isArchived && (
+                                                                    <span className="text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
+                                                                        Archivé
+                                                                    </span>
+                                                                )}
+                                                            </span>
                                                             {product.sku && (
                                                                 <span className="block font-mono text-[11px] tracking-wide text-gray-400">
                                                                     {product.sku}
@@ -1062,13 +1137,23 @@ const ProductList = () => {
                                                             <Pencil size={12} />
                                                             Modifier
                                                         </button>
-                                                        <button
-                                                            onClick={() => handleDelete(product._id)}
-                                                            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition"
-                                                        >
-                                                            <Trash2 size={12} />
-                                                            Supprimer
-                                                        </button>
+                                                        {product.isArchived ? (
+                                                            <button
+                                                                onClick={() => handleUnarchive(product._id)}
+                                                                className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 text-green-700 bg-green-50 rounded-lg hover:bg-green-100 transition"
+                                                            >
+                                                                <RefreshCw size={12} />
+                                                                Restaurer
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => handleDelete(product._id)}
+                                                                className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition"
+                                                            >
+                                                                <Trash2 size={12} />
+                                                                Supprimer
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </td>
                                             </tr>

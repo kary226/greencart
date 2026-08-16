@@ -309,7 +309,7 @@ const Orders = () => {
                     'Commune': order.address.communeName || '-',
                     'Ville': order.address.cityName || order.address.city || '-',
                     'Produits': order.items.map(item => 
-                        `${item.product?.name || 'Produit'} (x${item.quantity})${item.color ? ` ${item.color}` : ''}${item.size ? ` ${item.size}` : ''}`
+                        `${item.name || item.product?.name || 'Produit'} (x${item.quantity})${item.color ? ` ${item.color}` : ''}${item.size ? ` ${item.size}` : ''}`
                     ).join(', '),
                     'Montant': order.amount,
                     'Statut': getStatusLabel(order.status),
@@ -642,16 +642,19 @@ const Orders = () => {
 
                                     <div className="p-5 space-y-4">
                                         <div className="space-y-3">
-                                            {order.items.map((item, idx) => (
+                                            {order.items.map((item, idx) => {
+                                                const nom = item.name || item.product?.name || 'Produit indisponible'
+                                                const image = item.image || item.product?.image?.[0]
+                                                return (
                                                 <div key={idx} className="flex gap-3 pb-3 border-b border-gray-100 last:border-0">
-                                                    {item.product?.image?.[0] && (
+                                                    {image && (
                                                         <div 
                                                             className="w-14 h-14 rounded-lg overflow-hidden cursor-pointer bg-gray-100 flex-shrink-0"
-                                                            onClick={() => setSelectedImage(item.product.image[0])}
+                                                            onClick={() => setSelectedImage(image)}
                                                         >
                                                             <img 
-                                                                src={getPresetImageUrl(item.product.image[0], "thumbnail")} 
-                                                                alt={item.product?.name || 'Produit'}
+                                                                src={getPresetImageUrl(image, "thumbnail")} 
+                                                                alt={nom}
                                                                 className="w-full h-full object-cover hover:opacity-80 transition"
                                                                 loading="lazy"
                                                             />
@@ -659,7 +662,7 @@ const Orders = () => {
                                                     )}
                                                     <div className="flex-1">
                                                         <p className="font-medium text-gray-900">
-                                                            {item.product?.name || 'Produit indisponible'} 
+                                                            {nom} 
                                                             <span className="text-red-500 ml-1">x{item.quantity}</span>
                                                         </p>
                                                         <div className="flex gap-2 mt-1">
@@ -679,7 +682,8 @@ const Orders = () => {
                                                         {((item.priceAtOrder || item.product?.offerPrice || 0) * item.quantity).toLocaleString()} {currency}
                                                     </p>
                                                 </div>
-                                            ))}
+                                                )
+                                            })}
                                         </div>
 
                                         <div className="bg-gray-50 rounded-xl p-3">

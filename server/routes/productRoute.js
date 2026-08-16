@@ -12,11 +12,14 @@ import {
     productById, 
     updateProduct, 
     deleteProduct, 
+    unarchiveProduct,
+    adminProductList,
     getBestSellers, 
     getVariantDetails,
     scrapeImport,
     genererCodeArticle,
-    syncAirtable
+    syncAirtable,
+    checkAvailability
 } from '../controllers/productController.js';
 
 const productRouter = express.Router();
@@ -64,6 +67,7 @@ productRouter.get('/list', cacheControl(60), publicCatalogLimiter, productList);
 productRouter.get('/bestsellers', cacheControl(120), publicCatalogLimiter, getBestSellers);
 productRouter.get('/id', cacheControl(60), publicCatalogLimiter, productById);
 productRouter.post('/variant', publicCatalogLimiter, getVariantDetails);
+productRouter.post('/check-availability', publicCatalogLimiter, checkAvailability);
 
 // ✅ Code article : un code libre à la demande, pour le bouton « Générer »
 // des formulaires produit. Monté deux fois car les deux espaces (compte
@@ -86,6 +90,8 @@ productRouter.post('/add-images', authSeller, upload.array("images", 10), addPro
 productRouter.post('/stock', authSeller, changeStock);
 productRouter.post('/update', authSeller, updateProduct);
 productRouter.post('/delete', authSeller, deleteProduct);
+productRouter.post('/unarchive', authSeller, unarchiveProduct);
+productRouter.get('/admin-list', authSeller, adminProductList);
 productRouter.post('/scrape-import', authSeller, scrapeImport);
 productRouter.post('/sync-airtable', authSeller, syncAirtable);
 
@@ -102,6 +108,8 @@ productRouter.post('/staff/add', authStaff, requireRole('admin', 'commercant'), 
 
 productRouter.post('/staff/update', authStaff, requireRole('admin', 'commercant'), updateProduct);
 productRouter.post('/staff/delete', authStaff, requireRole('admin', 'commercant'), deleteProduct);
+productRouter.post('/staff/unarchive', authStaff, requireRole('admin', 'commercant'), unarchiveProduct);
+productRouter.get('/staff/admin-list', authStaff, requireRole('admin', 'commercant'), adminProductList);
 productRouter.post('/staff/add-images', authStaff, requireRole('admin', 'commercant'), upload.array('images', 10), addProductImages);
 productRouter.post('/staff/sync-airtable', authStaff, requireRole('admin', 'commercant'), syncAirtable);
 

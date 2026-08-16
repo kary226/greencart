@@ -1,10 +1,25 @@
 import { v2 as cloudinary } from "cloudinary";
 import Product from "../models/Product.js";
+import Order from "../models/Order.js";
 import { scrapeProductPreview, fetchImagesAsDataUrls } from "../services/scraper.js";
 import { withCache, CACHE_KEYS } from "../configs/redisCache.js";
 import { genererSkuUnique, normaliserSku, skuEstDisponible, skuEstValide } from "../utils/sku.js";
 import { estErreurUrlBloquee } from "../utils/urlGuard.js";
 import { syncProductToAirtable, deleteProductFromAirtable, resyncAllProducts } from "../services/airtableSync.js";
+
+/**
+ * Extrait le public_id Cloudinary d'une secure_url, pour pouvoir supprimer
+ * l'image correspondante. Ex :
+ * https://res.cloudinary.com/xxx/image/upload/v123/products/images/abc.jpg
+ * -> products/images/abc
+ * Renvoie null si l'URL ne correspond pas au format attendu (mieux vaut
+ * ignorer une image que planter la suppression du produit).
+ */
+const extraireCloudinaryPublicId = (url) => {
+    if (!url || typeof url !== 'string') return null;
+    const match = url.match(/\/upload\/(?:v\d+\/)?(.+)\.\w+(?:\?.*)?$/);
+    return match ? match[1] : null;
+};
 
 /**
  * Résout le code article à enregistrer.
@@ -236,6 +251,30 @@ export const addProductImages = async (req, res) => {
     }
 };
 
+// ✅ Vérification par lot : quels produits d'un panier sont encore
+// disponibles (ni supprimés, ni archivés) ? Utilisé pour nettoyer le
+// panier côté client sans dépendre de la liste paginée /list (qui ne
+// contient qu'une page de produits et donnerait de faux positifs).
+export const checkAvailability = async (req, res) => {
+    try {
+        const { ids } = req.body;
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return res.json({ success: true, availableIds: [] });
+        }
+
+        const uniqueIds = [...new Set(ids)].filter(id => typeof id === 'string' && id.length === 24);
+        const available = await Product.find({
+            _id: { $in: uniqueIds },
+            isArchived: { $ne: true }
+        }).select('_id').lean();
+
+        res.json({ success: true, availableIds: available.map(p => p._id.toString()) });
+    } catch (error) {
+        console.log(error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 // ✅ Get Product : /api/product/list
 export const productList = async (req, res) => {
     try {
@@ -244,7 +283,7 @@ export const productList = async (req, res) => {
         const sort = req.query.sort || 'createdAt';
         const skip = (page - 1) * limit;
 
-        const filter = {};
+        const filter = { isArchived: { $ne: true } };
         if (req.query.boutiqueId) {
             filter.boutiqueId = req.query.boutiqueId;
         }
@@ -345,7 +384,7 @@ export const productList = async (req, res) => {
 export const productById = async (req, res) => {
     try {
         const id = req.body?.id || req.query?.id;
-        const product = await Product.findById(id)
+        const product = await Product.findOne({ _id: id, isArchived: { $ne: true } })
             .select('-purchasePrice -externalLink') // infos internes, jamais exposées publiquement
             .lean(); // [PHASE 2 - PERF] lecture pure
         res.json({ success: true, product });
@@ -521,7 +560,11 @@ export const updateProduct = async (req, res) => {
     }
 };
 
-// ✅ Delete Product - AVEC VÉRIFICATION BOUTIQUE
+// ✅ Delete Product — AVEC VÉRIFICATION BOUTIQUE
+// Un produit déjà commandé n'est JAMAIS supprimé en dur : ça casserait
+// l'historique de commande des clients qui l'ont acheté. On l'archive à
+// la place (voir models/Product.js). Seul un produit jamais vendu est
+// vraiment effacé (base + images/vidéo Cloudinary + ligne Airtable).
 export const deleteProduct = async (req, res) => {
     try {
         const { id } = req.body;
@@ -545,7 +588,30 @@ export const deleteProduct = async (req, res) => {
                 });
             }
         }
-        
+
+        const dejaCommande = await Order.exists({ 'items.product': id });
+
+        if (dejaCommande) {
+            // Archivage : disparaît de la boutique, reste en base pour ne
+            // pas casser les commandes passées (nom/image/sku déjà copiés
+            // dedans, mais on garde aussi le produit et ses médias intacts
+            // par simplicité et cohérence visuelle avec l'historique).
+            await Product.findByIdAndUpdate(id, {
+                isArchived: true,
+                archivedAt: new Date(),
+                inStock: false,
+            });
+
+            syncProductToAirtable(id); // reste dans Airtable, "En stock" décoché
+
+            return res.json({
+                success: true,
+                archived: true,
+                message: "Produit déjà commandé par des clients : archivé plutôt que supprimé, pour préserver leur historique de commande."
+            });
+        }
+
+        // Jamais commandé : suppression définitive, y compris les médias.
         if (product.videoPublicId) {
             try {
                 await cloudinary.uploader.destroy(product.videoPublicId, {
@@ -555,12 +621,74 @@ export const deleteProduct = async (req, res) => {
                 console.error('❌ Erreur suppression vidéo:', error);
             }
         }
+
+        if (Array.isArray(product.image) && product.image.length > 0) {
+            await Promise.all(product.image.map(async (url) => {
+                const publicId = extraireCloudinaryPublicId(url);
+                if (!publicId) return;
+                try {
+                    await cloudinary.uploader.destroy(publicId, { resource_type: 'image' });
+                } catch (error) {
+                    console.error('❌ Erreur suppression image:', error);
+                }
+            }));
+        }
         
         await Product.findByIdAndDelete(id);
 
         deleteProductFromAirtable(id);
 
-        res.json({ success: true, message: "Product Deleted" });
+        res.json({ success: true, archived: false, message: "Product Deleted" });
+    } catch (error) {
+        console.log(error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// ✅ Restaurer un produit archivé (le rend de nouveau visible en boutique)
+export const unarchiveProduct = async (req, res) => {
+    try {
+        const { id } = req.body;
+        const product = await Product.findById(id);
+
+        if (!product) {
+            return res.status(404).json({ success: false, message: "Produit non trouvé" });
+        }
+
+        if (req.staffUser && req.staffUser.role === 'commercant') {
+            if (product.boutiqueId?.toString() !== req.staffUser.boutiqueId?.toString()) {
+                return res.status(403).json({ success: false, message: "Vous n'êtes pas autorisé à restaurer ce produit" });
+            }
+        }
+
+        await Product.findByIdAndUpdate(id, { isArchived: false, archivedAt: null });
+
+        syncProductToAirtable(id);
+
+        res.json({ success: true, message: "Produit restauré" });
+    } catch (error) {
+        console.log(error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// ✅ Liste complète pour l'espace admin/vendeur : contrairement à
+// productList (publique, storefront), celle-ci renvoie AUSSI les produits
+// archivés et les champs internes (purchasePrice, externalLink), pour que
+// ProductList.jsx (admin) puisse tout afficher/éditer/restaurer. Pas de
+// pagination : le catalogue d'un vendeur reste d'une taille gérable côté
+// client, et ProductList.jsx filtre/trie déjà tout en mémoire.
+export const adminProductList = async (req, res) => {
+    try {
+        const filter = {};
+        if (req.staffUser && req.staffUser.role === 'commercant') {
+            filter.boutiqueId = req.staffUser.boutiqueId;
+        } else if (req.query.boutiqueId) {
+            filter.boutiqueId = req.query.boutiqueId;
+        }
+
+        const products = await Product.find(filter).sort({ createdAt: -1 }).lean();
+        res.json({ success: true, products });
     } catch (error) {
         console.log(error.message);
         res.status(500).json({ success: false, message: error.message });
@@ -630,7 +758,8 @@ export const getBestSellers = async (req, res) => {
             const Product = await import('../models/Product.js').then(m => m.default);
             const bestSellers = await Product.find({
                 _id: { $in: sortedProducts.slice(0, 10) },
-                inStock: true
+                inStock: true,
+                isArchived: { $ne: true }
             }).select('-purchasePrice -externalLink').lean();
 
             return sortedProducts

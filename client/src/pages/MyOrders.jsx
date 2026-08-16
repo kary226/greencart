@@ -114,7 +114,7 @@ export default function MyOrders() {
             const q = search.trim().toLowerCase()
             list = list.filter((o) =>
                 o._id.toLowerCase().includes(q) ||
-                o.items?.some((it) => it.product?.name?.toLowerCase().includes(q))
+                o.items?.some((it) => (it.name || it.product?.name)?.toLowerCase().includes(q))
             )
         }
         const sorted = [...list]
@@ -312,7 +312,11 @@ export default function MyOrders() {
 
                                             <div className="flex gap-2 mb-2.5">
                                                 {order.items?.slice(0, 3).map((it, i) => {
-                                                    const img = it.product?.image?.[0]
+                                                    // Priorité à l'instantané pris à la commande (toujours fiable,
+                                                    // même si le produit a été modifié/archivé/supprimé depuis) ;
+                                                    // repli sur le produit lié pour les commandes créées avant ce
+                                                    // champ (voir models/Order.js).
+                                                    const img = it.image || it.product?.image?.[0]
                                                     return (
                                                         <div key={i} className="w-14 h-14 rounded-lg overflow-hidden bg-ink-50 shrink-0">
                                                             {img ? (

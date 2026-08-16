@@ -138,18 +138,24 @@ export default function OrderDetail() {
                 {/* ── Articles commandés ─────────────────────────────────── */}
                 <div className="rs-card">
                     <p className="font-bold text-[14px] text-ink-900 mb-3">Articles commandés</p>
-                    {order.items.map((item, idx) => (
+                    {order.items.map((item, idx) => {
+                        // Priorité à l'instantané pris à la commande (fiable même si le
+                        // produit a changé/a été archivé/supprimé depuis) ; repli sur le
+                        // produit lié pour les commandes créées avant ce champ.
+                        const nom = item.name || item.product?.name || 'Produit indisponible'
+                        const image = item.image || item.product?.image?.[0]
+                        return (
                         <div key={idx} className={`flex gap-3 py-2.5 ${idx < order.items.length - 1 ? 'border-b border-ink-100' : ''}`}>
                             <div className="w-14 h-14 rounded-lg overflow-hidden bg-ink-50 shrink-0">
-                                {item.product?.image?.[0] ? (
-                                    <img src={getPresetImageUrl(item.product.image[0], "thumbnail")} alt="" className="w-full h-full object-cover" loading="lazy" />
+                                {image ? (
+                                    <img src={getPresetImageUrl(image, "thumbnail")} alt="" className="w-full h-full object-cover" loading="lazy" />
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center"><Package size={18} className="text-ink-300" /></div>
                                 )}
                             </div>
                             <div className="flex-1 min-w-0">
                                 <p className="font-semibold text-[13.5px] text-ink-900 leading-snug">
-                                    {item.product?.name || 'Produit indisponible'}
+                                    {nom}
                                 </p>
                                 <p className="text-[12px] text-ink-400 mt-0.5">
                                     {[item.color, item.size].filter((v) => v && v !== 'null').join(' | ')}
@@ -160,7 +166,8 @@ export default function OrderDetail() {
                             </div>
                             <p className="text-[12.5px] text-ink-400 shrink-0">x{item.quantity || 1}</p>
                         </div>
-                    ))}
+                        )
+                    })}
                 </div>
 
                 {/* ── Résumé de la commande ─────────────────────────────── */}

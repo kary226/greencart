@@ -121,7 +121,8 @@ export const getBoutiqueById = async (req, res) => {
 
         const produits = await Product.find({
             boutiqueId: id,
-            inStock: true
+            inStock: true,
+            isArchived: { $ne: true }
         }).select('name price offerPrice image categories salesCount');
 
         return res.status(200).json({

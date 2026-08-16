@@ -86,6 +86,22 @@ const productSchema = new mongoose.Schema({
         type: String,
         default: null,
         trim: true,
+    },
+
+    // ✅ ARCHIVAGE : un produit déjà commandé n'est JAMAIS supprimé en dur
+    // (ça casserait l'historique de commande des clients qui l'ont acheté).
+    // À la place on l'archive : il disparaît de la boutique et des
+    // recherches, mais reste consultable côté admin (avec un bouton
+    // "Restaurer"). Seul un produit n'ayant JAMAIS été commandé peut être
+    // supprimé en dur (voir productController.deleteProduct).
+    isArchived: {
+        type: Boolean,
+        default: false,
+        index: true,
+    },
+    archivedAt: {
+        type: Date,
+        default: null,
     }
 
 }, { timestamps: true });
