@@ -31,7 +31,7 @@ const Dashboard = () => {
     const [ventes, setVentes] = useState([]);
 
     useEffect(() => {
-        if (!boutique) return;
+        if (!boutique) { setLoading(false); return; }
 
         const loadDashboard = async () => {
             setLoading(true);
@@ -123,6 +123,16 @@ const Dashboard = () => {
         return (
             <div className="flex items-center justify-center py-24">
                 <Loader2 className="animate-spin text-burgundy-600" size={32} />
+            </div>
+        );
+    }
+
+    if (!boutique) {
+        return (
+            <div className="flex flex-col items-center justify-center py-24 text-center px-4">
+                <Store className="text-blush-400 mb-3" size={40} />
+                <h3 className="text-base font-medium text-gray-800">Aucune boutique associée</h3>
+                <p className="text-sm text-gray-400 mt-1">Contactez l'administrateur pour qu'il vous en attribue une.</p>
             </div>
         );
     }

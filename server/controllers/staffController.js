@@ -403,6 +403,26 @@ export const updateStaffRole = async (req, res) => {
         }
 
         staffUser.role = role;
+
+        // ✅ FIX : si le compte devient (ou redevient) commerçant et n'a
+        // toujours pas de boutique/portefeuille — cas d'un compte créé
+        // avec un autre rôle puis promu ici — on les crée maintenant.
+        // Sans ça, le compte passe "commerçant" mais reste bloqué partout
+        // (dashboard, produits, ajout d'article) faute de boutiqueId.
+        if (role === 'commercant' && !staffUser.boutiqueId) {
+            const boutique = await Boutique.create({
+                nom: `Boutique de ${staffUser.nom}`,
+                ownerId: staffUser._id,
+                statut: 'active',
+            });
+            staffUser.boutiqueId = boutique._id;
+
+            const walletExistant = await Wallet.findOne({ ownerId: staffUser._id });
+            if (!walletExistant) {
+                await Wallet.create({ ownerId: staffUser._id, solde: 0 });
+            }
+        }
+
         await staffUser.save();
 
         return res.status(200).json({

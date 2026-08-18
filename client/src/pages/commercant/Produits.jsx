@@ -19,7 +19,7 @@ const Produits = () => {
     const [categories, setCategories] = useState([]);
 
     const loadProduits = async () => {
-        if (!boutique) return;
+        if (!boutique) { setLoading(false); return; }
         setLoading(true);
         try {
             const params = new URLSearchParams();
@@ -108,6 +108,12 @@ const Produits = () => {
 
             {loading ? (
                 <div className="flex justify-center py-16"><Loader2 className="animate-spin text-burgundy-600" size={32} /></div>
+            ) : !boutique ? (
+                <div className="bg-white rounded-2xl border border-blush-200 p-14 text-center">
+                    <Package className="mx-auto text-blush-400 mb-3" size={40} />
+                    <h3 className="text-base font-medium text-gray-800">Aucune boutique associée</h3>
+                    <p className="text-sm text-gray-400 mt-1">Contactez l'administrateur pour qu'il vous en attribue une.</p>
+                </div>
             ) : produits.length === 0 ? (
                 <div className="bg-white rounded-2xl border border-blush-200 p-14 text-center">
                     <Package className="mx-auto text-blush-400 mb-3" size={40} />
