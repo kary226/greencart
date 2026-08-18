@@ -16,6 +16,7 @@ import {
 import authSeller from '../middlewares/authSeller.js';
 import authUser from '../middlewares/authUser.js';
 import authStaff, { requireRole } from '../middlewares/authStaff.js';
+import requireBoutiqueActive from '../middlewares/requireBoutiqueActive.js';
 import { couponLimiter } from '../middlewares/rateLimiters.js';
 
 const couponRouter = express.Router();
@@ -29,10 +30,10 @@ couponRouter.post('/toggle', authSeller, toggleCouponStatus);
 
 // Routes commerçant (scopées à sa propre boutique)
 couponRouter.get('/mes-coupons', authStaff, requireRole('commercant'), getMesCoupons);
-couponRouter.post('/mes-coupons/add', authStaff, requireRole('commercant'), addMonCoupon);
-couponRouter.post('/mes-coupons/update', authStaff, requireRole('commercant'), updateMonCoupon);
-couponRouter.post('/mes-coupons/delete', authStaff, requireRole('commercant'), deleteMonCoupon);
-couponRouter.post('/mes-coupons/toggle', authStaff, requireRole('commercant'), toggleMonCouponStatus);
+couponRouter.post('/mes-coupons/add', authStaff, requireRole('commercant'), requireBoutiqueActive, addMonCoupon);
+couponRouter.post('/mes-coupons/update', authStaff, requireRole('commercant'), requireBoutiqueActive, updateMonCoupon);
+couponRouter.post('/mes-coupons/delete', authStaff, requireRole('commercant'), requireBoutiqueActive, deleteMonCoupon);
+couponRouter.post('/mes-coupons/toggle', authStaff, requireRole('commercant'), requireBoutiqueActive, toggleMonCouponStatus);
 
 // Routes client
 couponRouter.post('/validate', authUser, couponLimiter, validateCoupon);

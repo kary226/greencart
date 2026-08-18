@@ -8,6 +8,7 @@ import {
     getBoutiqueById,
     listAllBoutiques,
     createBoutiqueForCommercial,
+    updateBoutiqueStatut,
 } from '../controllers/boutiqueController.js';
 
 const boutiqueRouter = express.Router();
@@ -20,6 +21,7 @@ boutiqueRouter.patch('/moi/zones-livraison', authStaff, requireRole('commercant'
 // ✅ Routes ADMIN
 boutiqueRouter.get('/', authStaff, requireRole('admin'), listAllBoutiques);
 boutiqueRouter.post('/', authStaff, requireRole('admin'), createBoutiqueForCommercial);
+boutiqueRouter.patch('/:id/statut', authStaff, requireRole('admin'), updateBoutiqueStatut);
 
 // ✅ Routes PUBLIQUES (avec paramètre :id) — DOIVENT être EN DERNIER
 boutiqueRouter.get('/:id', getBoutiqueById);

@@ -13,6 +13,7 @@ import WalletTransaction from "../models/WalletTransaction.js";
 // était re-résolu (et son cache re-consulté) pour chaque boutique du
 // panier, un coût inutile sur le chemin de la commande.
 import Boutique from "../models/Boutique.js";
+import { getIdsBoutiquesSuspendues } from "../services/boutiqueService.js";
 import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
 import { sendPushToUser } from './pushController.js';
 import { syncManyProductsToAirtable } from '../services/airtableSync.js';
@@ -188,6 +189,11 @@ export const placeOrderCOD = async (req, res) => {
             return res.status(400).json({ success: false, message: "Invalid data" });
         }
 
+        // Un panier peut avoir été rempli avant la suspension d'une
+        // boutique : on revérifie à la commande, sinon l'article serait
+        // vendu alors que plus personne ne peut l'expédier.
+        const boutiquesSuspendues = await getIdsBoutiquesSuspendues();
+
         let amount = 0;
         const itemsWithPrice = await Promise.all(items.map(async (item) => {
             const product = await Product.findById(item.product);
@@ -199,6 +205,10 @@ export const placeOrderCOD = async (req, res) => {
             }
 
             const boutiqueId = product.boutiqueId || null;
+
+            if (boutiqueId && boutiquesSuspendues.includes(boutiqueId.toString())) {
+                throw new Error(`"${product.name}" n'est plus disponible à la vente`);
+            }
 
             let priceAtOrder = product.offerPrice;
             if (product.variants && product.variants.length > 0) {

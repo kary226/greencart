@@ -3,6 +3,7 @@ import { Link, useOutletContext } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
 import { getPresetImageUrl } from '../../utils/cloudinaryImage';
+import BoutiqueIndisponible from './BoutiqueIndisponible';
 import {
     Package, Wallet, TrendingUp,
     ShoppingBag, Clock, Loader2, PlusCircle, Store, Banknote, Tag, Trophy,
@@ -12,7 +13,7 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 
 const Dashboard = () => {
     const { axios } = useAppContext();
-    const { moi, boutique } = useOutletContext();
+    const { moi, boutique, boutiqueEnCours, erreurBoutique, rechargerBoutique } = useOutletContext();
 
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({
@@ -127,12 +128,18 @@ const Dashboard = () => {
         );
     }
 
+    if (boutiqueEnCours) {
+        return (
+            <div className="flex items-center justify-center py-24">
+                <Loader2 className="animate-spin text-burgundy-600" size={32} />
+            </div>
+        );
+    }
+
     if (!boutique) {
         return (
-            <div className="flex flex-col items-center justify-center py-24 text-center px-4">
-                <Store className="text-blush-400 mb-3" size={40} />
-                <h3 className="text-base font-medium text-gray-800">Aucune boutique associée</h3>
-                <p className="text-sm text-gray-400 mt-1">Contactez l'administrateur pour qu'il vous en attribue une.</p>
+            <div className="py-16 px-4">
+                <BoutiqueIndisponible erreur={erreurBoutique} onRetry={rechargerBoutique} />
             </div>
         );
     }

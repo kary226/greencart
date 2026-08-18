@@ -6,6 +6,14 @@ import StaffUser from '../models/StaffUser.js';
 import Invitation from '../models/Invitation.js';
 import Boutique from '../models/Boutique.js';
 import Wallet from '../models/Wallet.js';
+import Product from '../models/Product.js';
+import Coupon from '../models/Coupon.js';
+import WalletTransaction from '../models/WalletTransaction.js';
+import DemandeRetrait from '../models/DemandeRetrait.js';
+import {
+    assurerBoutiqueCommercant,
+    invaliderCacheBoutiquesSuspendues,
+} from '../services/boutiqueService.js';
 import { sendStaffInvitationEmail } from '../configs/email.js';
 import { TYPE_STAFF } from '../utils/jwtTypes.js';
 
@@ -184,23 +192,12 @@ export const activateAccount = async (req, res) => {
             creePar: invitation.creePar,
         });
 
-        // ✅ PHASE 3 : Création automatique de la boutique et du wallet
-        if (staffUser.role === 'commercant') {
-            // Créer la boutique
-            const boutique = await Boutique.create({
-                nom: `Boutique de ${staffUser.nom}`,
-                ownerId: staffUser._id,
-                statut: 'active',
-            });
-            staffUser.boutiqueId = boutique._id;
-            await staffUser.save();
-
-            // Créer le portefeuille
-            await Wallet.create({
-                ownerId: staffUser._id,
-                solde: 0,
-            });
-        }
+        // Invitation « commerçant » = boutique + portefeuille créés d'office.
+        // Le commerçant n'a plus qu'à renseigner lui-même le nom définitif,
+        // la description, le logo et ses zones de livraison depuis « Ma
+        // boutique ». Passe par le service pour rester identique aux autres
+        // chemins de création (promotion de rôle, auto-réparation).
+        await assurerBoutiqueCommercant(staffUser);
 
         invitation.utilisee = true;
         await invitation.save();
@@ -370,6 +367,13 @@ export const updateStaffStatus = async (req, res) => {
         staffUser.statut = statut;
         await staffUser.save();
 
+        // Suspendre le compte d'un commerçant retire aussi ses articles du
+        // catalogue public (personne ne peut plus les expédier) — la liste
+        // des boutiques masquées est mise en cache, on la réinitialise.
+        if (staffUser.role === 'commercant') {
+            await invaliderCacheBoutiquesSuspendues();
+        }
+
         return res.status(200).json({
             success: true,
             message: 'Statut mis à jour',
@@ -404,26 +408,18 @@ export const updateStaffRole = async (req, res) => {
 
         staffUser.role = role;
 
-        // ✅ FIX : si le compte devient (ou redevient) commerçant et n'a
-        // toujours pas de boutique/portefeuille — cas d'un compte créé
-        // avec un autre rôle puis promu ici — on les crée maintenant.
-        // Sans ça, le compte passe "commerçant" mais reste bloqué partout
-        // (dashboard, produits, ajout d'article) faute de boutiqueId.
-        if (role === 'commercant' && !staffUser.boutiqueId) {
-            const boutique = await Boutique.create({
-                nom: `Boutique de ${staffUser.nom}`,
-                ownerId: staffUser._id,
-                statut: 'active',
-            });
-            staffUser.boutiqueId = boutique._id;
+        await staffUser.save();
 
-            const walletExistant = await Wallet.findOne({ ownerId: staffUser._id });
-            if (!walletExistant) {
-                await Wallet.create({ ownerId: staffUser._id, solde: 0 });
-            }
+        // Un compte promu commerçant reçoit sa boutique et son portefeuille
+        // ici, sinon il resterait bloqué partout faute de boutiqueId.
+        if (role === 'commercant') {
+            await assurerBoutiqueCommercant(staffUser);
         }
 
-        await staffUser.save();
+        // Le catalogue public masque les boutiques dont le compte n'est pas
+        // actif : un changement de rôle peut faire entrer ou sortir une
+        // boutique de cette liste.
+        await invaliderCacheBoutiquesSuspendues();
 
         return res.status(200).json({
             success: true,
@@ -432,6 +428,150 @@ export const updateStaffRole = async (req, res) => {
         });
     } catch (error) {
         console.error('Erreur updateStaffRole:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+
+// ------------------------------------------------------------------ //
+// GET /api/staff/comptes/:id/suppression — Admin uniquement
+// ------------------------------------------------------------------ //
+// Aperçu de ce que la suppression va emporter, et des raisons éventuelles
+// de la refuser. L'admin voit exactement ce qu'il détruit AVANT de cliquer.
+export const getSuppressionApercu = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const staffUser = await StaffUser.findById(id).select('-password -totpSecret');
+        if (!staffUser) {
+            return res.status(404).json({ success: false, message: 'Compte introuvable' });
+        }
+
+        const apercu = await construireApercuSuppression(staffUser);
+
+        return res.status(200).json({
+            success: true,
+            compte: toPublicStaff(staffUser),
+            ...apercu,
+        });
+    } catch (error) {
+        console.error('Erreur getSuppressionApercu:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// Ce que la suppression d'un compte emporte, et ce qui l'empêche.
+//
+// Deux garde-fous, tous deux liés à de l'argent réel :
+//   - un portefeuille non vide (la plateforme doit encore cet argent) ;
+//   - une demande de retrait en attente (dossier ouvert côté admin).
+// Dans les deux cas, l'admin règle d'abord, supprime ensuite. En attendant,
+// il lui reste la suspension, qui coupe l'activité immédiatement.
+const construireApercuSuppression = async (staffUser) => {
+    if (staffUser.role !== 'commercant') {
+        return { boutique: null, nombreProduits: 0, nombreCoupons: 0, soldeWallet: 0, retraitsEnAttente: 0, bloquants: [] };
+    }
+
+    const boutique = await Boutique.findOne({ ownerId: staffUser._id }).select('nom statut').lean();
+    const wallet = await Wallet.findOne({ ownerId: staffUser._id }).select('solde').lean();
+
+    const [nombreProduits, nombreCoupons, retraitsEnAttente] = await Promise.all([
+        boutique ? Product.countDocuments({ boutiqueId: boutique._id }) : 0,
+        boutique ? Coupon.countDocuments({ boutiqueId: boutique._id }) : 0,
+        DemandeRetrait.countDocuments({ commercialId: staffUser._id, statut: 'en_attente' }),
+    ]);
+
+    const soldeWallet = wallet?.solde || 0;
+    const bloquants = [];
+    if (soldeWallet > 0) {
+        bloquants.push(`Portefeuille non soldé : ${soldeWallet.toLocaleString('fr-FR')} FCFA restent dus au commerçant.`);
+    }
+    if (retraitsEnAttente > 0) {
+        bloquants.push(`${retraitsEnAttente} demande(s) de retrait encore en attente de traitement.`);
+    }
+
+    return { boutique, nombreProduits, nombreCoupons, soldeWallet, retraitsEnAttente, bloquants };
+};
+
+// ------------------------------------------------------------------ //
+// DELETE /api/staff/comptes/:id — Admin uniquement
+// ------------------------------------------------------------------ //
+export const deleteStaffAccount = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (id === req.staffUser._id.toString()) {
+            return res.status(403).json({ success: false, message: 'Vous ne pouvez pas supprimer votre propre compte' });
+        }
+
+        const staffUser = await StaffUser.findById(id);
+        if (!staffUser) {
+            return res.status(404).json({ success: false, message: 'Compte introuvable' });
+        }
+
+        // Ne jamais se retrouver sans aucun administrateur actif : plus
+        // personne ne pourrait alors inviter ni gérer qui que ce soit.
+        if (staffUser.role === 'admin') {
+            const autresAdmins = await StaffUser.countDocuments({
+                _id: { $ne: staffUser._id },
+                role: 'admin',
+                statut: 'actif',
+            });
+            if (autresAdmins === 0) {
+                return res.status(409).json({
+                    success: false,
+                    message: 'Impossible de supprimer le dernier administrateur actif',
+                });
+            }
+        }
+
+        const { boutique, bloquants } = await construireApercuSuppression(staffUser);
+
+        if (bloquants.length > 0) {
+            return res.status(409).json({
+                success: false,
+                message: `Suppression impossible. ${bloquants.join(' ')} Suspendez le compte en attendant.`,
+                bloquants,
+            });
+        }
+
+        if (boutique) {
+            // Les articles ne sont PAS effacés : ils sont référencés par des
+            // commandes passées, dont l'historique doit rester lisible côté
+            // client comme côté comptabilité. On les archive (invisibles au
+            // catalogue, hors stock), ce que fait déjà la corbeille produits.
+            await Product.updateMany(
+                { boutiqueId: boutique._id },
+                { $set: { isArchived: true, inStock: false } }
+            );
+            // Les coupons, eux, n'ont plus aucun sens sans la boutique.
+            await Coupon.deleteMany({ boutiqueId: boutique._id });
+            await Boutique.deleteOne({ _id: boutique._id });
+        }
+
+        const wallet = await Wallet.findOne({ ownerId: staffUser._id });
+        if (wallet) {
+            await WalletTransaction.deleteMany({ walletId: wallet._id });
+            await Wallet.deleteOne({ _id: wallet._id });
+        }
+
+        // Demandes déjà traitées : historique de paiement, on les garde.
+        await DemandeRetrait.deleteMany({ commercialId: staffUser._id, statut: 'en_attente' });
+
+        // Invitations non utilisées à cette adresse : sinon un vieux lien
+        // permettrait de recréer le compte qu'on vient de supprimer.
+        await Invitation.deleteMany({ email: staffUser.email, utilisee: false });
+
+        await StaffUser.deleteOne({ _id: staffUser._id });
+
+        await invaliderCacheBoutiquesSuspendues();
+
+        return res.status(200).json({
+            success: true,
+            message: `Compte de ${staffUser.nom} supprimé`,
+        });
+    } catch (error) {
+        console.error('Erreur deleteStaffAccount:', error.message);
         res.status(500).json({ success: false, message: error.message });
     }
 };

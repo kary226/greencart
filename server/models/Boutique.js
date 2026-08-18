@@ -33,6 +33,13 @@ const boutiqueSchema = new mongoose.Schema({
         enum: ['active', 'suspendue'],
         default: 'active',
     },
+    // Renseigné par l'admin au moment d'une suspension, affiché tel quel au
+    // commerçant pour qu'il sache quoi corriger.
+    motifSuspension: {
+        type: String,
+        default: '',
+        trim: true,
+    },
     // Zones où le commerçant livre lui-même. Uniquement les villes/communes
     // (pas de prix ici : les tarifs de livraison restent gérés par l'admin
     // au niveau plateforme). communeId à null = livre toute la ville.

@@ -11,6 +11,8 @@ import {
     listStaffAccounts,
     updateStaffStatus,
     updateStaffRole,
+    getSuppressionApercu,
+    deleteStaffAccount,
 } from '../controllers/staffController.js';
 
 const staffRouter = express.Router();
@@ -46,5 +48,7 @@ staffRouter.get('/invitations', authStaff, requireRole('admin'), listInvitations
 staffRouter.get('/comptes', authStaff, requireRole('admin'), listStaffAccounts);
 staffRouter.patch('/comptes/:id/statut', authStaff, requireRole('admin'), updateStaffStatus);
 staffRouter.patch('/comptes/:id/role', authStaff, requireRole('admin'), updateStaffRole);
+staffRouter.get('/comptes/:id/suppression', authStaff, requireRole('admin'), getSuppressionApercu);
+staffRouter.delete('/comptes/:id', authStaff, requireRole('admin'), deleteStaffAccount);
 
 export default staffRouter;

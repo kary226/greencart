@@ -3,6 +3,7 @@ import Product from "../models/Product.js";
 import Order from "../models/Order.js";
 import { scrapeProductPreview, fetchImagesAsDataUrls } from "../services/scraper.js";
 import { withCache, CACHE_KEYS } from "../configs/redisCache.js";
+import { appliquerFiltreBoutiquesActives, getIdsBoutiquesSuspendues } from "../services/boutiqueService.js";
 import { genererSkuUnique, normaliserSku, skuEstDisponible, skuEstValide } from "../utils/sku.js";
 import { estErreurUrlBloquee } from "../utils/urlGuard.js";
 import { syncProductToAirtable, deleteProductFromAirtable, resyncAllProducts } from "../services/airtableSync.js";
@@ -283,12 +284,22 @@ export const productList = async (req, res) => {
         const sort = req.query.sort || 'createdAt';
         const skip = (page - 1) * limit;
 
-        const filter = { isArchived: { $ne: true } };
+        let filter = { isArchived: { $ne: true } };
         if (req.query.boutiqueId) {
             filter.boutiqueId = req.query.boutiqueId;
         }
         if (req.staffUser && req.staffUser.role === 'commercant') {
             filter.boutiqueId = req.staffUser.boutiqueId;
+        }
+
+        // Vitrine publique : les articles des boutiques suspendues (ou dont
+        // le compte commerçant n'est plus actif) en sortent. Un commerçant
+        // connecté continue de voir les siens dans son espace, sinon il
+        // n'aurait plus aucun moyen de les corriger.
+        const estSonPropreCatalogue = req.staffUser?.role === 'commercant'
+            && filter.boutiqueId?.toString() === req.staffUser.boutiqueId?.toString();
+        if (!estSonPropreCatalogue && req.staffUser?.role !== 'admin') {
+            filter = await appliquerFiltreBoutiquesActives(filter);
         }
 
         if (sort === 'discount') {
@@ -387,6 +398,17 @@ export const productById = async (req, res) => {
         const product = await Product.findOne({ _id: id, isArchived: { $ne: true } })
             .select('-purchasePrice -externalLink') // infos internes, jamais exposées publiquement
             .lean(); // [PHASE 2 - PERF] lecture pure
+
+        // Masquer la fiche d'un article dont la boutique est suspendue :
+        // sinon un lien direct (favori, moteur de recherche) permettrait
+        // encore de l'acheter alors qu'il a quitté le catalogue.
+        if (product?.boutiqueId) {
+            const suspendues = await getIdsBoutiquesSuspendues();
+            if (suspendues.includes(product.boutiqueId.toString())) {
+                return res.json({ success: true, product: null });
+            }
+        }
+
         res.json({ success: true, product });
     } catch (error) {
         console.log(error.message);
@@ -756,10 +778,14 @@ export const getBestSellers = async (req, res) => {
                 .map(entry => entry[0]);
 
             const Product = await import('../models/Product.js').then(m => m.default);
+            // Le résultat est mis en cache 5 min AVEC ce filtre : une
+            // suspension invalide explicitement products:bestsellers.
+            const suspendues = await getIdsBoutiquesSuspendues();
             const bestSellers = await Product.find({
                 _id: { $in: sortedProducts.slice(0, 10) },
                 inStock: true,
-                isArchived: { $ne: true }
+                isArchived: { $ne: true },
+                ...(suspendues.length ? { boutiqueId: { $nin: suspendues } } : {}),
             }).select('-purchasePrice -externalLink').lean();
 
             return sortedProducts

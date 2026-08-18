@@ -2,10 +2,12 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
+import AdminNav from './AdminNav';
+import SupprimerCompteModal from './SupprimerCompteModal';
 import {
-    Users, UserPlus, LogOut, Mail, Clock, ShieldAlert,
+    UserPlus, Mail, Clock, ShieldAlert,
     Ban, RotateCcw, Loader2, Send, ChevronLeft, ChevronRight,
-    Search, X
+    Search, X, Trash2
 } from 'lucide-react';
 
 const ROLE_LABELS = {
@@ -44,6 +46,10 @@ const AdminComptes = () => {
     const [inviteEmail, setInviteEmail] = useState('');
     const [inviteRole, setInviteRole] = useState('commercant');
     const [inviteLoading, setInviteLoading] = useState(false);
+
+    // Compte visé par une suppression définitive (modale partagée avec
+    // l'écran Boutiques).
+    const [cibleSuppression, setCibleSuppression] = useState(null);
 
     const loadAll = useCallback(async () => {
         setLoadingList(true);
@@ -169,13 +175,6 @@ const AdminComptes = () => {
         }
     };
 
-    const handleLogout = async () => {
-        try {
-            await axios.get('/api/staff/logout');
-        } catch (_) { /* on quitte quand même */ }
-        navigate('/staff/login');
-    };
-
     // Réinitialiser les filtres
     const clearFilters = () => {
         setFilterRole('');
@@ -213,26 +212,10 @@ const AdminComptes = () => {
 
     return (
         <div className="min-h-screen bg-gray-50">
-            {/* En-tête */}
-            <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-                <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <Users size={22} className="text-emerald-600" />
-                        <div>
-                            <h1 className="text-lg font-bold text-gray-900">Gestion des comptes</h1>
-                            <p className="text-xs text-gray-400">
-                                {moi?.nom} · Administrateur · {totalItems} compte{totalItems > 1 ? 's' : ''}
-                            </p>
-                        </div>
-                    </div>
-                    <button
-                        onClick={handleLogout}
-                        className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-red-600 transition px-3 py-1.5 rounded-lg hover:bg-red-50"
-                    >
-                        <LogOut size={16} /> Déconnexion
-                    </button>
-                </div>
-            </div>
+            <AdminNav
+                titre="Gestion des comptes"
+                sousTitre={`${moi?.nom} · Administrateur · ${totalItems} compte${totalItems > 1 ? 's' : ''}`}
+            />
 
             <div className="max-w-6xl mx-auto px-4 py-6 space-y-8">
 
@@ -420,18 +403,28 @@ const AdminComptes = () => {
                                                             : 'Jamais'}
                                                     </td>
                                                     <td className="px-5 py-3 text-right">
-                                                        <button
-                                                            disabled={estMoi}
-                                                            onClick={() => handleToggleStatus(c)}
-                                                            title={c.statut === 'actif' ? 'Suspendre' : 'Réactiver'}
-                                                            className={`p-1.5 rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed ${
-                                                                c.statut === 'actif'
-                                                                    ? 'text-red-600 hover:bg-red-50'
-                                                                    : 'text-green-600 hover:bg-green-50'
-                                                            }`}
-                                                        >
-                                                            {c.statut === 'actif' ? <Ban size={16} /> : <RotateCcw size={16} />}
-                                                        </button>
+                                                        <div className="flex items-center justify-end gap-1">
+                                                            <button
+                                                                disabled={estMoi}
+                                                                onClick={() => handleToggleStatus(c)}
+                                                                title={c.statut === 'actif' ? 'Suspendre' : 'Réactiver'}
+                                                                className={`p-1.5 rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed ${
+                                                                    c.statut === 'actif'
+                                                                        ? 'text-red-600 hover:bg-red-50'
+                                                                        : 'text-green-600 hover:bg-green-50'
+                                                                }`}
+                                                            >
+                                                                {c.statut === 'actif' ? <Ban size={16} /> : <RotateCcw size={16} />}
+                                                            </button>
+                                                            <button
+                                                                disabled={estMoi}
+                                                                onClick={() => setCibleSuppression(c)}
+                                                                title="Supprimer définitivement"
+                                                                className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             );
@@ -468,6 +461,14 @@ const AdminComptes = () => {
                     )}
                 </div>
             </div>
+
+            {cibleSuppression && (
+                <SupprimerCompteModal
+                    compte={cibleSuppression}
+                    onClose={() => setCibleSuppression(null)}
+                    onSupprime={loadAll}
+                />
+            )}
         </div>
     );
 };

@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
+import BoutiqueIndisponible from './BoutiqueIndisponible';
 import { getPresetImageUrl } from '../../utils/cloudinaryImage';
 import { Package, Plus, Edit, Trash2, Loader2, Search, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 const Produits = () => {
     const { axios } = useAppContext();
-    const { boutique } = useOutletContext();
+    const { boutique, boutiqueEnCours, erreurBoutique, rechargerBoutique } = useOutletContext();
 
     const [loading, setLoading] = useState(true);
     const [produits, setProduits] = useState([]);
@@ -76,9 +77,20 @@ const Produits = () => {
                     <h1 className="font-display text-2xl font-semibold text-gray-900">Mes produits</h1>
                     <p className="text-sm text-gray-400">{totalItems} article{totalItems > 1 ? 's' : ''}</p>
                 </div>
-                <Link to="/commercant/produits/ajouter" className="flex items-center gap-2 bg-burgundy-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-burgundy-700 transition">
-                    <Plus size={16} /> Ajouter un article
-                </Link>
+                {/* Boutique suspendue : le serveur refuserait la publication,
+                    autant ne pas laisser remplir tout le formulaire pour rien. */}
+                {boutique?.statut === 'suspendue' ? (
+                    <span
+                        title="Boutique suspendue : publication impossible"
+                        className="flex items-center gap-2 bg-gray-200 text-gray-500 px-4 py-2.5 rounded-xl text-sm font-medium cursor-not-allowed"
+                    >
+                        <Plus size={16} /> Ajouter un article
+                    </span>
+                ) : (
+                    <Link to="/commercant/produits/ajouter" className="flex items-center gap-2 bg-burgundy-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-burgundy-700 transition">
+                        <Plus size={16} /> Ajouter un article
+                    </Link>
+                )}
             </div>
 
             <div className="bg-white rounded-2xl border border-blush-200 p-4 mb-6">
@@ -106,22 +118,20 @@ const Produits = () => {
                 </div>
             </div>
 
-            {loading ? (
+            {(loading || boutiqueEnCours) ? (
                 <div className="flex justify-center py-16"><Loader2 className="animate-spin text-burgundy-600" size={32} /></div>
             ) : !boutique ? (
-                <div className="bg-white rounded-2xl border border-blush-200 p-14 text-center">
-                    <Package className="mx-auto text-blush-400 mb-3" size={40} />
-                    <h3 className="text-base font-medium text-gray-800">Aucune boutique associée</h3>
-                    <p className="text-sm text-gray-400 mt-1">Contactez l'administrateur pour qu'il vous en attribue une.</p>
-                </div>
+                <BoutiqueIndisponible erreur={erreurBoutique} onRetry={rechargerBoutique} />
             ) : produits.length === 0 ? (
                 <div className="bg-white rounded-2xl border border-blush-200 p-14 text-center">
                     <Package className="mx-auto text-blush-400 mb-3" size={40} />
                     <h3 className="text-base font-medium text-gray-800">Aucun produit</h3>
                     <p className="text-sm text-gray-400 mt-1">Commencez par ajouter votre premier article</p>
-                    <Link to="/commercant/produits/ajouter" className="mt-4 inline-flex items-center gap-2 bg-burgundy-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-burgundy-700 transition">
-                        <Plus size={16} /> Ajouter un article
-                    </Link>
+                    {boutique?.statut !== 'suspendue' && (
+                        <Link to="/commercant/produits/ajouter" className="mt-4 inline-flex items-center gap-2 bg-burgundy-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-burgundy-700 transition">
+                            <Plus size={16} /> Ajouter un article
+                        </Link>
+                    )}
                 </div>
             ) : (
                 <>

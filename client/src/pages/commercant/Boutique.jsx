@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
+import BoutiqueIndisponible from './BoutiqueIndisponible';
 import { Store, Edit, Save, X, Loader2, Camera, Upload, MapPin, ChevronDown } from 'lucide-react';
 
 const Boutique = () => {
     const { axios } = useAppContext();
-    const { boutique, setBoutique } = useOutletContext();
+    const { boutique, setBoutique, boutiqueEnCours, erreurBoutique, rechargerBoutique } = useOutletContext();
 
     const [editing, setEditing] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -92,8 +93,16 @@ const Boutique = () => {
 
     const zonesCount = zones.length;
 
-    if (!boutique) {
+    if (boutiqueEnCours) {
         return <div className="flex justify-center py-24"><Loader2 className="animate-spin text-burgundy-600" size={28} /></div>;
+    }
+
+    if (!boutique) {
+        return (
+            <div className="py-16 px-4">
+                <BoutiqueIndisponible erreur={erreurBoutique} onRetry={rechargerBoutique} />
+            </div>
+        );
     }
 
     const startEditing = () => {
@@ -143,7 +152,7 @@ const Boutique = () => {
 
     return (
         <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-2">
                 <h1 className="font-display text-2xl font-semibold text-gray-900">Ma boutique</h1>
                 {!editing && (
                     <button onClick={startEditing} className="flex items-center gap-2 bg-burgundy-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-burgundy-700 transition">
@@ -151,6 +160,21 @@ const Boutique = () => {
                     </button>
                 )}
             </div>
+            <p className="text-sm text-gray-500 mb-6">
+                Votre boutique a été créée avec votre compte. À vous de la personnaliser : nom, description,
+                logo et zones de livraison.
+            </p>
+
+            {boutique.statut === 'suspendue' && (
+                <div className="mb-6 bg-red-50 border border-red-200 rounded-2xl p-4 text-sm">
+                    <p className="font-medium text-red-800">Boutique suspendue par l'administrateur</p>
+                    <p className="text-red-700 mt-1">
+                        Vos articles sont retirés du catalogue et la publication est bloquée. Vous pouvez
+                        toujours corriger les informations ci-dessous.
+                        {boutique.motifSuspension ? ` Motif : ${boutique.motifSuspension}` : ''}
+                    </p>
+                </div>
+            )}
 
             <div className="bg-white rounded-2xl border border-blush-200 overflow-hidden">
                 <div className="p-6 border-b border-blush-100 flex items-center gap-5">

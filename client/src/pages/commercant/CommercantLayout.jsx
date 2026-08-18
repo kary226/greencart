@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import {
-    LayoutDashboard, Store, Package, Wallet, Banknote, LogOut, Loader2, ShieldAlert, Tag
+    LayoutDashboard, Store, Package, Wallet, Banknote, LogOut, Loader2, ShieldAlert, Tag, AlertTriangle
 } from 'lucide-react';
 
 const NAV_LINKS = [
@@ -20,6 +20,31 @@ const CommercantLayout = () => {
     const [authorized, setAuthorized] = useState(null);
     const [moi, setMoi] = useState(null);
     const [boutique, setBoutique] = useState(null);
+    // Distinguer « pas encore chargée » de « le serveur n'a pas répondu » :
+    // sans ça, une simple coupure réseau s'affichait comme « aucune boutique
+    // associée », et le commerçant n'avait plus qu'à appeler l'admin.
+    const [boutiqueEnCours, setBoutiqueEnCours] = useState(true);
+    const [erreurBoutique, setErreurBoutique] = useState(null);
+
+    // Le serveur crée la boutique à l'invitation, et la recrée ici si elle
+    // manque (compte ancien, activation interrompue). Un simple rechargement
+    // suffit donc à débloquer la situation.
+    const chargerBoutique = useCallback(async () => {
+        setBoutiqueEnCours(true);
+        setErreurBoutique(null);
+        try {
+            const { data } = await axios.get('/api/boutiques/moi');
+            if (data.success) {
+                setBoutique(data.boutique);
+            } else {
+                setErreurBoutique(data.message || 'Boutique indisponible');
+            }
+        } catch (error) {
+            setErreurBoutique(error.response?.data?.message || error.message);
+        } finally {
+            setBoutiqueEnCours(false);
+        }
+    }, [axios]);
 
     useEffect(() => {
         (async () => {
@@ -28,18 +53,17 @@ const CommercantLayout = () => {
                 if (data.success && data.staffUser?.role === 'commercant') {
                     setMoi(data.staffUser);
                     setAuthorized(true);
-                    try {
-                        const boutiqueRes = await axios.get('/api/boutiques/moi');
-                        if (boutiqueRes.data.success) setBoutique(boutiqueRes.data.boutique);
-                    } catch (_) {}
+                    await chargerBoutique();
                 } else {
                     setAuthorized(false);
+                    setBoutiqueEnCours(false);
                 }
             } catch (error) {
                 setAuthorized(false);
+                setBoutiqueEnCours(false);
             }
         })();
-    }, [axios]);
+    }, [axios, chargerBoutique]);
 
     const handleLogout = async () => {
         try { await axios.get('/api/staff/logout'); } catch (_) {}
@@ -105,6 +129,20 @@ const CommercantLayout = () => {
                 </div>
             </div>
 
+            {boutique?.statut === 'suspendue' && (
+                <div className="bg-red-50 border-b border-red-200 px-4 sm:px-6 py-3 flex items-start gap-2.5">
+                    <AlertTriangle size={18} className="text-red-600 shrink-0 mt-0.5" />
+                    <div className="text-sm">
+                        <p className="font-medium text-red-800">Votre boutique est suspendue par l'administrateur.</p>
+                        <p className="text-red-700 mt-0.5">
+                            Vos articles ne sont plus visibles dans le catalogue et vous ne pouvez ni en publier
+                            ni en modifier. Vos ventes passées et votre portefeuille restent consultables.
+                            {boutique.motifSuspension ? ` Motif : ${boutique.motifSuspension}` : ''}
+                        </p>
+                    </div>
+                </div>
+            )}
+
             <div className="flex">
                 <div className="w-16 lg:w-60 bg-white border-r border-blush-200 h-[calc(100vh-61px)] sticky top-[61px] flex flex-col shrink-0">
                     <nav className="flex-1 py-4">
@@ -125,7 +163,7 @@ const CommercantLayout = () => {
                 </div>
 
                 <div className="flex-1 min-w-0">
-                    <Outlet context={{ moi, boutique, setBoutique }} />
+                    <Outlet context={{ moi, boutique, setBoutique, boutiqueEnCours, erreurBoutique, rechargerBoutique: chargerBoutique }} />
                 </div>
             </div>
         </div>

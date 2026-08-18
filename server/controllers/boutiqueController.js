@@ -1,16 +1,31 @@
 import { v2 as cloudinary } from 'cloudinary';
 import Boutique from '../models/Boutique.js';
 import Product from '../models/Product.js';
+import Wallet from '../models/Wallet.js';
 import StaffUser from '../models/StaffUser.js';
 import City from '../models/City.js';
 import Commune from '../models/Commune.js';
+import {
+    assurerBoutiqueCommercant,
+    invaliderCacheBoutiquesSuspendues,
+} from '../services/boutiqueService.js';
 
 // GET /api/boutiques/moi — Récupérer sa propre boutique
+//
+// La boutique est créée à l'activation de l'invitation, mais on la
+// (re)garantit ici : un compte plus ancien que la Phase 3, ou dont
+// l'activation s'est interrompue après la création du compte, se retrouvait
+// sinon définitivement bloqué sur « Aucune boutique associée » sans pouvoir
+// rien y faire. Le commerçant renseigne ensuite lui-même nom, description,
+// logo et zones de livraison.
 export const getMaBoutique = async (req, res) => {
     try {
+        await assurerBoutiqueCommercant(req.staffUser);
+
         const boutique = await Boutique.findOne({ ownerId: req.staffUser._id })
             .populate('zonesLivraison.cityId', 'name')
             .populate('zonesLivraison.communeId', 'name');
+
         if (!boutique) {
             return res.status(404).json({ success: false, message: 'Boutique non trouvée' });
         }
@@ -119,6 +134,12 @@ export const getBoutiqueById = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Boutique non trouvée' });
         }
 
+        // Une boutique suspendue disparaît de la vitrine publique : elle est
+        // traitée comme inexistante, sans révéler qu'elle a été suspendue.
+        if (boutique.statut === 'suspendue') {
+            return res.status(404).json({ success: false, message: 'Boutique non trouvée' });
+        }
+
         const produits = await Product.find({
             boutiqueId: id,
             inStock: true,
@@ -136,16 +157,106 @@ export const getBoutiqueById = async (req, res) => {
     }
 };
 
-// GET /api/boutiques — Admin : lister toutes les boutiques
+// GET /api/boutiques — Admin : vue d'ensemble des boutiques
+//
+// Chaque ligne porte de quoi décider sans avoir à ouvrir la boutique :
+// le commerçant et l'état de son compte, le nombre d'articles en ligne, le
+// solde du portefeuille (qui bloque une éventuelle suppression) et le
+// chiffre d'affaires déjà réalisé.
 export const listAllBoutiques = async (req, res) => {
     try {
         const boutiques = await Boutique.find()
-            .populate('ownerId', 'nom email')
-            .sort('-createdAt');
+            .populate('ownerId', 'nom email telephone statut derniereConnexion')
+            .sort('-createdAt')
+            .lean();
 
-        return res.status(200).json({ success: true, boutiques });
+        const boutiqueIds = boutiques.map((b) => b._id);
+        const ownerIds = boutiques.map((b) => b.ownerId?._id).filter(Boolean);
+
+        const [produitsParBoutique, walletsParOwner] = await Promise.all([
+            Product.aggregate([
+                { $match: { boutiqueId: { $in: boutiqueIds } } },
+                {
+                    $group: {
+                        _id: '$boutiqueId',
+                        total: { $sum: 1 },
+                        enLigne: {
+                            $sum: { $cond: [{ $ne: ['$isArchived', true] }, 1, 0] },
+                        },
+                    },
+                },
+            ]),
+            Wallet.find({ ownerId: { $in: ownerIds } }).select('ownerId solde').lean(),
+        ]);
+
+        const parBoutique = new Map(produitsParBoutique.map((p) => [p._id.toString(), p]));
+        const parOwner = new Map(walletsParOwner.map((w) => [w.ownerId.toString(), w.solde]));
+
+        const enrichies = boutiques.map((b) => {
+            const stats = parBoutique.get(b._id.toString());
+            return {
+                ...b,
+                nombreProduits: stats?.total || 0,
+                produitsEnLigne: stats?.enLigne || 0,
+                soldeWallet: b.ownerId ? (parOwner.get(b.ownerId._id.toString()) || 0) : 0,
+            };
+        });
+
+        // Comptes commerçants sans boutique : normalement aucun (la boutique
+        // est créée à l'activation, et réparée à la première ouverture de
+        // l'espace commerçant). On les remonte quand même pour que l'admin
+        // puisse débloquer la situation sans attendre la connexion du
+        // commerçant.
+        const idsAvecBoutique = boutiques.map((b) => b.ownerId?._id).filter(Boolean);
+        const sansBoutique = await StaffUser.find({
+            role: 'commercant',
+            _id: { $nin: idsAvecBoutique },
+        }).select('nom email statut createdAt').lean();
+
+        return res.status(200).json({ success: true, boutiques: enrichies, sansBoutique });
     } catch (error) {
         console.error('Erreur listAllBoutiques:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// PATCH /api/boutiques/:id/statut — Admin : suspendre / réactiver
+//
+// Suspendre agit sur la VITRINE : les articles de la boutique sortent du
+// catalogue public et le commerçant ne peut plus en publier. Son compte
+// reste utilisable (il voit ses ventes passées, son portefeuille, et peut
+// corriger sa fiche boutique) — pour couper l'accès complet, c'est le
+// statut du COMPTE qu'il faut suspendre depuis la gestion des comptes.
+export const updateBoutiqueStatut = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { statut, motif } = req.body;
+
+        if (!['active', 'suspendue'].includes(statut)) {
+            return res.status(400).json({ success: false, message: 'Statut invalide' });
+        }
+
+        const boutique = await Boutique.findById(id);
+        if (!boutique) {
+            return res.status(404).json({ success: false, message: 'Boutique non trouvée' });
+        }
+
+        boutique.statut = statut;
+        if (typeof motif === 'string') boutique.motifSuspension = statut === 'suspendue' ? motif.trim() : '';
+        await boutique.save();
+
+        // Le catalogue public lit une liste d'ids suspendus mise en cache :
+        // sans invalidation, la suspension mettrait jusqu'à une minute à
+        // se voir côté client.
+        await invaliderCacheBoutiquesSuspendues();
+
+        return res.status(200).json({
+            success: true,
+            message: statut === 'suspendue' ? 'Boutique suspendue' : 'Boutique réactivée',
+            boutique,
+        });
+    } catch (error) {
+        console.error('Erreur updateBoutiqueStatut:', error.message);
         res.status(500).json({ success: false, message: error.message });
     }
 };
