@@ -21,7 +21,9 @@ import {
     scrapeImport,
     genererCodeArticle,
     syncAirtable,
-    checkAvailability
+    checkAvailability,
+    changeStockCommercant,
+    assignerBoutique
 } from '../controllers/productController.js';
 
 const productRouter = express.Router();
@@ -95,6 +97,10 @@ productRouter.post('/delete', authSeller, deleteProduct);
 productRouter.post('/unarchive', authSeller, unarchiveProduct);
 productRouter.get('/admin-list', authSeller, adminProductList);
 productRouter.post('/scrape-import', authSeller, scrapeImport);
+// Attribution d'un article existant à une boutique (ou retour au catalogue
+// principal). Réservé au vendeur : c'est lui qui décide de qui dépend un
+// article, pas le commerçant qui le reçoit.
+productRouter.post('/assign-boutique', authSeller, assignerBoutique);
 productRouter.post('/sync-airtable', authSeller, syncAirtable);
 
 // ✅ PHASE 3 : Routes pour les commerçants (via authStaff)
@@ -114,5 +120,9 @@ productRouter.post('/staff/unarchive', authStaff, requireRole('admin', 'commerca
 productRouter.get('/staff/admin-list', authStaff, requireRole('admin', 'commercant'), adminProductList);
 productRouter.post('/staff/add-images', authStaff, requireRole('admin', 'commercant'), requireBoutiqueActive, upload.array('images', 10), addProductImages);
 productRouter.post('/staff/sync-airtable', authStaff, requireRole('admin', 'commercant'), syncAirtable);
+// Ajustement des quantités seul (réassort / rupture), sans repasser par le
+// formulaire produit complet.
+productRouter.post('/staff/stock', authStaff, requireRole('admin', 'commercant'), requireBoutiqueActive, changeStockCommercant);
+productRouter.post('/staff/assign-boutique', authStaff, requireRole('admin'), assignerBoutique);
 
 export default productRouter;

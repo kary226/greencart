@@ -208,6 +208,10 @@ const ProductList = () => {
 
     // États existants
     const [categoriesList, setCategoriesList] = useState([])
+    // Boutiques disponibles pour l'attribution d'un article (colonne
+    // « Boutique »). Vide = catalogue principal.
+    const [boutiquesList, setBoutiquesList] = useState([])
+    const [attributionEnCours, setAttributionEnCours] = useState(null)
     const [selectedCategories, setSelectedCategories] = useState([])
 
     const [searchTerm, setSearchTerm] = useState('')
@@ -255,8 +259,50 @@ const ProductList = () => {
         }
     };
 
+    const fetchBoutiques = async () => {
+        try {
+            const { data } = await axios.get('/api/boutiques/options');
+            if (data.success) setBoutiquesList(data.boutiques || []);
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    // Attribuer un article existant à une boutique — ou l'en détacher.
+    // L'article passe alors sous la responsabilité du commerçant : il le voit
+    // dans son espace, en gère les quantités, et ses ventes lui sont créditées.
+    const changerBoutique = async (product, nouvelleBoutiqueId) => {
+        const actuel = product.boutiqueId?._id || product.boutiqueId || '';
+        if (actuel === nouvelleBoutiqueId) return;
+
+        const nom = boutiquesList.find((b) => b._id === nouvelleBoutiqueId)?.nom;
+        const question = nouvelleBoutiqueId
+            ? `Attribuer « ${product.name} » à la boutique ${nom} ? Les ventes futures créditeront le portefeuille de ce commerçant.`
+            : `Détacher « ${product.name} » de sa boutique et le remettre au catalogue principal ?`;
+        if (!window.confirm(question)) return;
+
+        setAttributionEnCours(product._id);
+        try {
+            const { data } = await axios.post('/api/product/assign-boutique', {
+                id: product._id,
+                boutiqueId: nouvelleBoutiqueId || null,
+            });
+            if (data.success) {
+                toast.success(data.message);
+                refreshAllProductLists();
+            } else {
+                toast.error(data.message);
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || error.message);
+        } finally {
+            setAttributionEnCours(null);
+        }
+    };
+
     useEffect(() => {
         fetchCategories();
+        fetchBoutiques();
     }, []);
 
     useEffect(() => {
@@ -1005,6 +1051,7 @@ const ProductList = () => {
                                             </th>
                                             <th className="px-4 py-3.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Produit</th>
                                             <th className="px-4 py-3.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Catégorie(s)</th>
+                                            <th className="px-4 py-3.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Boutique</th>
                                             <th className="px-4 py-3.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Prix</th>
                                             <th className="px-4 py-3.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Taille</th>
                                             <th className="px-4 py-3.5 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Stock</th>
@@ -1061,6 +1108,22 @@ const ProductList = () => {
                                                             <span className="text-gray-300 text-sm">—</span>
                                                         )}
                                                     </div>
+                                                </td>
+                                                <td className="px-4 py-3.5">
+                                                    <select
+                                                        value={product.boutiqueId?._id || product.boutiqueId || ''}
+                                                        disabled={attributionEnCours === product._id}
+                                                        onChange={(e) => changerBoutique(product, e.target.value)}
+                                                        className="text-xs border border-gray-200 rounded-lg px-2 py-1 outline-none focus:border-gray-900 transition disabled:opacity-50 max-w-[10rem]"
+                                                        title="Attribuer cet article à une boutique"
+                                                    >
+                                                        <option value="">Catalogue principal</option>
+                                                        {boutiquesList.map((b) => (
+                                                            <option key={b._id} value={b._id}>
+                                                                {b.nom}{b.statut === 'suspendue' ? ' (suspendue)' : ''}
+                                                            </option>
+                                                        ))}
+                                                    </select>
                                                 </td>
                                                 <td className="px-4 py-3.5 text-sm font-medium text-gray-900">
                                                     {product.offerPrice || product.price} {currency}

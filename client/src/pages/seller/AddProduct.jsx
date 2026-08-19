@@ -139,6 +139,12 @@ const AddProduct = () => {
     const [purchasePrice, setPurchasePrice] = useState('');
     const [externalLink, setExternalLink] = useState('');
     const [categoriesList, setCategoriesList] = useState([]);
+    // Boutique à laquelle rattacher l'article. Vide = catalogue principal
+    // (comportement historique). Renseignée, l'article appartient au
+    // commerçant : il apparaît dans son espace, il en gère les quantités et
+    // ses ventes créditent son portefeuille.
+    const [boutiquesList, setBoutiquesList] = useState([]);
+    const [boutiqueId, setBoutiqueId] = useState('');
 
     const [productMode, setProductMode] = useState('simple');
 
@@ -184,8 +190,18 @@ const AddProduct = () => {
         }
     };
 
+    const fetchBoutiques = async () => {
+        try {
+            const { data } = await axios.get('/api/boutiques/options');
+            if (data.success) setBoutiquesList(data.boutiques || []);
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
     useEffect(() => {
         fetchCategories();
+        fetchBoutiques();
     }, []);
 
     const resetSizeForm = () => {
@@ -472,6 +488,9 @@ const AddProduct = () => {
             externalLink: externalLink.trim() || null,
             variants,
             labelType: labelType,
+            // Chaîne vide = catalogue principal : le serveur la traite
+            // comme « aucune boutique ».
+            boutiqueId: boutiqueId || null,
         };
 
         if (productMode === 'simple') {
@@ -697,6 +716,26 @@ const AddProduct = () => {
                                     </button>
                                 ))}
                             </div>
+                        </Field>
+
+                        <Field label="Boutique">
+                            <select
+                                value={boutiqueId}
+                                onChange={(e) => setBoutiqueId(e.target.value)}
+                                className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg outline-none focus:border-gray-900 transition"
+                            >
+                                <option value="">Catalogue principal (aucune boutique)</option>
+                                {boutiquesList.map((b) => (
+                                    <option key={b._id} value={b._id}>
+                                        {b.nom}{b.ownerId?.nom ? ` — ${b.ownerId.nom}` : ''}
+                                        {b.statut === 'suspendue' ? ' (suspendue)' : ''}
+                                    </option>
+                                ))}
+                            </select>
+                            <p className="text-xs text-gray-400 mt-1.5">
+                                Attribuer l'article à une boutique : le commerçant le retrouve dans son
+                                espace, gère ses quantités, et les ventes créditent son portefeuille.
+                            </p>
                         </Field>
                     </div>
                 </Section>

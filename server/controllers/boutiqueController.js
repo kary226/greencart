@@ -220,6 +220,25 @@ export const listAllBoutiques = async (req, res) => {
     }
 };
 
+// GET /api/boutiques/options — Vendeur / admin : liste courte pour les
+// sélecteurs « attribuer à une boutique » des formulaires produit.
+// Volontairement minimaliste (id, nom, statut) : c'est une liste de choix,
+// pas une vue de gestion — celle-ci reste réservée à l'admin.
+export const listBoutiqueOptions = async (req, res) => {
+    try {
+        const boutiques = await Boutique.find()
+            .select('nom statut')
+            .populate('ownerId', 'nom')
+            .sort('nom')
+            .lean();
+
+        return res.status(200).json({ success: true, boutiques });
+    } catch (error) {
+        console.error('Erreur listBoutiqueOptions:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 // PATCH /api/boutiques/:id/statut — Admin : suspendre / réactiver
 //
 // Suspendre agit sur la VITRINE : les articles de la boutique sortent du

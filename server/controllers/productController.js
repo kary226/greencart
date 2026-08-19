@@ -1,6 +1,8 @@
 import { v2 as cloudinary } from "cloudinary";
 import Product from "../models/Product.js";
 import Order from "../models/Order.js";
+import Boutique from "../models/Boutique.js";
+import mongoose from "mongoose";
 import { scrapeProductPreview, fetchImagesAsDataUrls } from "../services/scraper.js";
 import { withCache, CACHE_KEYS } from "../configs/redisCache.js";
 import { appliquerFiltreBoutiquesActives, getIdsBoutiquesSuspendues } from "../services/boutiqueService.js";
@@ -52,6 +54,20 @@ export const genererCodeArticle = async (req, res) => {
     }
 };
 
+// Sentinelle : « une boutique a été demandée, mais elle n'existe pas ».
+// Distinguer ce cas de « aucune boutique demandée » (null) évite de créer
+// silencieusement un article au catalogue principal alors que l'intention
+// était de l'attribuer à un commerçant.
+const INVALIDE = Symbol('boutique-introuvable');
+
+const resoudreBoutiqueDemandee = async (boutiqueIdDemande) => {
+    if (!boutiqueIdDemande) return null;
+    if (!mongoose.Types.ObjectId.isValid(boutiqueIdDemande)) return INVALIDE;
+
+    const boutique = await Boutique.findById(boutiqueIdDemande).select('_id');
+    return boutique ? boutique._id : INVALIDE;
+};
+
 // ✅ Add Product - AVEC VIDÉO ET BOUTIQUE
 export const addProduct = async (req, res) => {
     try {
@@ -60,9 +76,11 @@ export const addProduct = async (req, res) => {
         const videoFile = req.files?.video ? req.files.video[0] : null;
 
         let boutiqueId = null;
-        
+
         if (req.staffUser) {
             if (req.staffUser.role === 'commercant') {
+                // Un commerçant publie forcément dans SA boutique : un
+                // boutiqueId envoyé par le client est ignoré.
                 if (!req.staffUser.boutiqueId) {
                     return res.status(400).json({
                         success: false,
@@ -71,22 +89,31 @@ export const addProduct = async (req, res) => {
                 }
                 boutiqueId = req.staffUser.boutiqueId;
             } else if (req.staffUser.role === 'admin') {
-                boutiqueId = null;
+                boutiqueId = await resoudreBoutiqueDemandee(productData.boutiqueId);
             } else {
                 return res.status(403).json({
                     success: false,
                     message: 'Accès refusé - Rôle non autorisé'
                 });
             }
-        } 
+        }
         else if (req.isTechnicalSeller) {
-            boutiqueId = null;
-        } 
+            // Le vendeur peut créer un article POUR une boutique : il le
+            // saisit une fois, et l'article appartient ensuite au commerçant
+            // (il apparaît dans son espace, celui-ci en gère les quantités,
+            // et les ventes créditent son portefeuille). Sans boutiqueId,
+            // l'article reste au catalogue principal, comme avant.
+            boutiqueId = await resoudreBoutiqueDemandee(productData.boutiqueId);
+        }
         else {
             return res.status(403).json({
                 success: false,
                 message: 'Accès refusé - Non authentifié'
             });
+        }
+
+        if (boutiqueId === INVALIDE) {
+            return res.status(400).json({ success: false, message: 'Boutique introuvable' });
         }
 
         let imagesUrl = [];
@@ -285,11 +312,15 @@ export const productList = async (req, res) => {
         const skip = (page - 1) * limit;
 
         let filter = { isArchived: { $ne: true } };
+
+        // [IMPORTANT] Le périmètre vient UNIQUEMENT de ?boutiqueId, jamais du
+        // compte connecté. Restreindre implicitement la liste à la boutique
+        // du commerçant connecté vidait la vitrine de tous les autres
+        // articles (dont ceux de l'admin) dès qu'un commerçant naviguait sur
+        // le site avec sa session ouverte. L'espace commerçant, lui, passe
+        // toujours son boutiqueId explicitement.
         if (req.query.boutiqueId) {
             filter.boutiqueId = req.query.boutiqueId;
-        }
-        if (req.staffUser && req.staffUser.role === 'commercant') {
-            filter.boutiqueId = req.staffUser.boutiqueId;
         }
 
         // Vitrine publique : les articles des boutiques suspendues (ou dont
@@ -427,6 +458,127 @@ export const changeStock = async (req, res) => {
         res.json({ success: true, message: "Stock Updated" });
     } catch (error) {
         console.log(error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// POST /api/product/staff/stock — Le commerçant ajuste ses quantités
+//
+// Volontairement séparé de updateProduct : ajuster un stock est le geste le
+// plus fréquent d'un commerçant (réassort, rupture), et le faire passer par
+// le formulaire produit complet l'obligeait à re-soumettre prix, images et
+// variantes — avec le risque d'écraser au passage ce que le vendeur avait
+// saisi sur un article qui lui a été attribué.
+export const changeStockCommercant = async (req, res) => {
+    try {
+        const { id, stock, variants, inStock } = req.body;
+
+        const product = await Product.findById(id);
+        if (!product) {
+            return res.status(404).json({ success: false, message: 'Produit non trouvé' });
+        }
+
+        // Cloisonnement : un commerçant ne touche qu'aux articles de SA
+        // boutique — y compris ceux créés par le vendeur puis attribués.
+        if (req.staffUser.role === 'commercant') {
+            if (!product.boutiqueId
+                || product.boutiqueId.toString() !== req.staffUser.boutiqueId?.toString()) {
+                return res.status(403).json({
+                    success: false,
+                    message: "Cet article n'appartient pas à votre boutique",
+                });
+            }
+        }
+
+        const aDesVariantes = product.variants && product.variants.length > 0;
+
+        if (aDesVariantes) {
+            if (!Array.isArray(variants)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Cet article a des variantes : envoyez leurs quantités',
+                });
+            }
+
+            // On ne remplace pas le tableau : on met à jour les quantités des
+            // variantes reconnues (couleur + taille), et rien d'autre. Les
+            // prix et images de variante restent la main du vendeur.
+            const cle = (v) => `${v.color ?? ''}|${v.size ?? ''}`;
+            const quantitesRecues = new Map(
+                variants.map((v) => [cle(v), Math.max(0, Number(v.stock) || 0)])
+            );
+
+            product.variants.forEach((variante) => {
+                const nouvelleQuantite = quantitesRecues.get(cle(variante));
+                if (nouvelleQuantite !== undefined) variante.stock = nouvelleQuantite;
+            });
+
+            product.stock = product.variants.reduce((somme, v) => somme + (v.stock || 0), 0);
+        } else if (stock !== undefined) {
+            product.stock = Math.max(0, Number(stock) || 0);
+        }
+
+        // « Rupture » explicite : le commerçant peut retirer de la vente un
+        // article qui a encore du stock (souci fournisseur, article réservé).
+        // Sinon, la disponibilité découle des quantités.
+        product.inStock = inStock === false ? false : product.stock > 0;
+
+        await product.save();
+
+        syncProductToAirtable(product._id);
+
+        res.json({
+            success: true,
+            message: 'Stock mis à jour',
+            product: {
+                _id: product._id,
+                stock: product.stock,
+                inStock: product.inStock,
+                variants: product.variants,
+            },
+        });
+    } catch (error) {
+        console.error('Erreur changeStockCommercant:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// POST /api/product/assign-boutique — Vendeur / admin
+//
+// Attribue un article existant à une boutique (ou l'en détache avec
+// boutiqueId vide). Après attribution, l'article apparaît dans l'espace du
+// commerçant, qui en gère les quantités, et ses ventes créditent le
+// portefeuille de la boutique.
+export const assignerBoutique = async (req, res) => {
+    try {
+        const { id, boutiqueId } = req.body;
+
+        const product = await Product.findById(id);
+        if (!product) {
+            return res.status(404).json({ success: false, message: 'Produit non trouvé' });
+        }
+
+        const cible = await resoudreBoutiqueDemandee(boutiqueId);
+        if (cible === INVALIDE) {
+            return res.status(400).json({ success: false, message: 'Boutique introuvable' });
+        }
+
+        product.boutiqueId = cible; // null = retour au catalogue principal
+        await product.save();
+
+        syncProductToAirtable(product._id);
+
+        const boutique = cible ? await Boutique.findById(cible).select('nom') : null;
+
+        res.json({
+            success: true,
+            message: boutique
+                ? `Article attribué à « ${boutique.nom} »`
+                : 'Article rattaché au catalogue principal',
+            product: { _id: product._id, boutiqueId: product.boutiqueId },
+        });
+    } catch (error) {
+        console.error('Erreur assignerBoutique:', error.message);
         res.status(500).json({ success: false, message: error.message });
     }
 };

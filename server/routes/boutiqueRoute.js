@@ -1,6 +1,7 @@
 import express from 'express';
 import { upload } from '../configs/multer.js';
 import authStaff, { requireRole } from '../middlewares/authStaff.js';
+import authSeller from '../middlewares/authSeller.js';
 import {
     getMaBoutique,
     updateMaBoutique,
@@ -9,6 +10,7 @@ import {
     listAllBoutiques,
     createBoutiqueForCommercial,
     updateBoutiqueStatut,
+    listBoutiqueOptions,
 } from '../controllers/boutiqueController.js';
 
 const boutiqueRouter = express.Router();
@@ -17,6 +19,10 @@ const boutiqueRouter = express.Router();
 boutiqueRouter.get('/moi', authStaff, requireRole('commercant'), getMaBoutique);
 boutiqueRouter.patch('/moi', authStaff, requireRole('commercant'), upload.single('logo'), updateMaBoutique);
 boutiqueRouter.patch('/moi/zones-livraison', authStaff, requireRole('commercant'), updateMesZonesLivraison);
+
+// ✅ Route VENDEUR (compte technique) — sélecteur de boutique des
+// formulaires produit. Montée AVANT /:id pour ne pas être avalée par elle.
+boutiqueRouter.get('/options', authSeller, listBoutiqueOptions);
 
 // ✅ Routes ADMIN
 boutiqueRouter.get('/', authStaff, requireRole('admin'), listAllBoutiques);

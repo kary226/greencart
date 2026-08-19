@@ -3,8 +3,9 @@ import { Link, useOutletContext } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
 import BoutiqueIndisponible from './BoutiqueIndisponible';
+import StockModal from './StockModal';
 import { getPresetImageUrl } from '../../utils/cloudinaryImage';
-import { Package, Plus, Edit, Trash2, Loader2, Search, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Package, Plus, Edit, Trash2, Loader2, Search, ChevronLeft, ChevronRight, X, Boxes } from 'lucide-react';
 
 const Produits = () => {
     const { axios } = useAppContext();
@@ -12,6 +13,8 @@ const Produits = () => {
 
     const [loading, setLoading] = useState(true);
     const [produits, setProduits] = useState([]);
+    // Article dont on ajuste les quantités (modale dédiée)
+    const [produitStock, setProduitStock] = useState(null);
     const [totalItems, setTotalItems] = useState(0);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
@@ -150,6 +153,7 @@ const Produits = () => {
                                         </div>
                                     )}
                                     <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                                        <button onClick={() => setProduitStock(product)} title="Gérer le stock" className="p-1.5 bg-white rounded-lg shadow-md hover:bg-blush-100 transition"><Boxes size={14} className="text-gray-700" /></button>
                                         <Link to={`/commercant/produits/editer/${product._id}`} className="p-1.5 bg-white rounded-lg shadow-md hover:bg-blush-100 transition"><Edit size={14} className="text-gray-700" /></Link>
                                         <button onClick={() => handleDelete(product._id, product.name)} className="p-1.5 bg-white rounded-lg shadow-md hover:bg-red-50 transition"><Trash2 size={14} className="text-red-500" /></button>
                                     </div>
@@ -166,6 +170,15 @@ const Produits = () => {
                                         </span>
                                     </div>
                                     <p className="text-xs text-gray-400 mt-1 truncate">{product.categories?.join(', ') || 'Sans catégorie'}</p>
+                                    <button
+                                        onClick={() => setProduitStock(product)}
+                                        className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-medium text-burgundy-700 bg-blush-100 hover:bg-blush-200 rounded-lg py-1.5 transition"
+                                    >
+                                        <Boxes size={13} />
+                                        {(product.variants?.length || 0) > 0
+                                            ? `${product.stock ?? 0} en stock · ${product.variants.length} variante${product.variants.length > 1 ? 's' : ''}`
+                                            : `${product.stock ?? 0} en stock`}
+                                    </button>
                                 </div>
                             </div>
                         ))}
@@ -181,6 +194,14 @@ const Produits = () => {
                         </div>
                     )}
                 </>
+            )}
+
+            {produitStock && (
+                <StockModal
+                    product={produitStock}
+                    onClose={() => setProduitStock(null)}
+                    onSaved={loadProduits}
+                />
             )}
         </div>
     );
