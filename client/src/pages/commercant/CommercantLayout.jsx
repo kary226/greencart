@@ -72,24 +72,24 @@ const CommercantLayout = () => {
 
     if (authorized === null) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-ivory-200">
-                <Loader2 className="animate-spin text-burgundy-600" size={28} />
+            <div className="min-h-screen flex items-center justify-center bg-ink-50">
+                <Loader2 className="animate-spin text-ramses-600" size={28} />
             </div>
         );
     }
 
     if (authorized === false) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-ivory-200 px-4">
+            <div className="min-h-screen flex items-center justify-center bg-ink-50 px-4">
                 <div className="text-center max-w-sm">
-                    <ShieldAlert size={44} className="text-burgundy-600 mx-auto mb-3" />
-                    <h1 className="text-lg font-bold text-gray-900">Accès refusé</h1>
-                    <p className="text-sm text-gray-500 mt-1 mb-5">
+                    <ShieldAlert size={44} className="text-ramses-600 mx-auto mb-3" />
+                    <h1 className="text-lg font-bold text-ink-900">Accès refusé</h1>
+                    <p className="text-sm text-ink-500 mt-1 mb-5">
                         Cette page est réservée aux comptes commerçant.
                     </p>
                     <button
                         onClick={() => navigate('/staff/login')}
-                        className="px-4 py-2 bg-burgundy-600 text-white rounded-xl text-sm font-medium hover:bg-burgundy-700 transition"
+                        className="px-4 py-2 bg-ramses-600 text-white rounded-xl text-sm font-medium hover:bg-ramses-700 transition"
                     >
                         Aller à la connexion
                     </button>
@@ -99,30 +99,30 @@ const CommercantLayout = () => {
     }
 
     return (
-        <div className="min-h-screen bg-ivory-200">
-            <div className="flex items-center justify-between px-4 sm:px-6 border-b border-blush-300 py-3.5 bg-white sticky top-0 z-20">
+        <div className="min-h-screen bg-ink-50">
+            <div className="flex items-center justify-between px-4 sm:px-6 border-b border-ink-200 py-3.5 bg-white sticky top-0 z-20">
                 <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-xl bg-burgundy-600 flex items-center justify-center overflow-hidden shrink-0">
+                    <div className="w-9 h-9 rounded-xl bg-ramses-600 flex items-center justify-center overflow-hidden shrink-0">
                         {boutique?.logo ? (
                             <img src={boutique.logo} alt={boutique.nom} className="w-full h-full object-cover" />
                         ) : (
-                            <Store size={18} className="text-ivory-100" />
+                            <Store size={18} className="text-ink-0" />
                         )}
                     </div>
-                    <span className="font-display text-lg font-semibold text-burgundy-800 tracking-tight truncate">
+                    <span className="font-display text-lg font-semibold text-ramses-800 tracking-tight truncate">
                         {boutique?.nom || 'Ma boutique'}
                     </span>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
-                    <div className="hidden sm:flex items-center gap-2 pr-3 border-r border-blush-300">
-                        <div className="w-8 h-8 bg-blush-300 rounded-full flex items-center justify-center text-burgundy-700 font-semibold text-sm">
+                    <div className="hidden sm:flex items-center gap-2 pr-3 border-r border-ink-200">
+                        <div className="w-8 h-8 bg-ink-200 rounded-full flex items-center justify-center text-ramses-700 font-semibold text-sm">
                             {moi?.nom?.[0]?.toUpperCase() || 'C'}
                         </div>
-                        <span className="text-sm font-medium text-gray-700">{moi?.nom}</span>
+                        <span className="text-sm font-medium text-ink-700">{moi?.nom}</span>
                     </div>
                     <button
                         onClick={handleLogout}
-                        className="flex items-center gap-2 px-3.5 py-2 text-sm font-medium text-burgundy-700 bg-blush-100 rounded-xl hover:bg-blush-200 transition"
+                        className="flex items-center gap-2 px-3.5 py-2 text-sm font-medium text-ramses-700 bg-ink-50 rounded-xl hover:bg-ink-200 transition"
                     >
                         <LogOut size={16} /> <span className="hidden sm:inline">Déconnexion</span>
                     </button>
@@ -130,11 +130,11 @@ const CommercantLayout = () => {
             </div>
 
             {boutique?.statut === 'suspendue' && (
-                <div className="bg-red-50 border-b border-red-200 px-4 sm:px-6 py-3 flex items-start gap-2.5">
-                    <AlertTriangle size={18} className="text-red-600 shrink-0 mt-0.5" />
+                <div className="bg-ramses-50 border-b border-ramses-200 px-4 sm:px-6 py-3 flex items-start gap-2.5">
+                    <AlertTriangle size={18} className="text-ramses-600 shrink-0 mt-0.5" />
                     <div className="text-sm">
                         <p className="font-medium text-red-800">Votre boutique est suspendue par l'administrateur.</p>
-                        <p className="text-red-700 mt-0.5">
+                        <p className="text-ramses-700 mt-0.5">
                             Vos articles ne sont plus visibles dans le catalogue et vous ne pouvez ni en publier
                             ni en modifier. Vos ventes passées et votre portefeuille restent consultables.
                             {boutique.motifSuspension ? ` Motif : ${boutique.motifSuspension}` : ''}
@@ -144,7 +144,7 @@ const CommercantLayout = () => {
             )}
 
             <div className="flex">
-                <div className="w-16 lg:w-60 bg-white border-r border-blush-200 h-[calc(100vh-61px)] sticky top-[61px] flex flex-col shrink-0">
+                <div className="w-16 lg:w-60 bg-white border-r border-ink-200 h-[calc(100vh-61px)] sticky top-[61px] flex flex-col shrink-0">
                     <nav className="flex-1 py-4">
                         {NAV_LINKS.map(({ name, path, icon: Icon }) => (
                             <NavLink
@@ -152,7 +152,7 @@ const CommercantLayout = () => {
                                 to={path}
                                 className={({ isActive }) => `
                                     flex items-center gap-3 px-4 py-3 mx-2 rounded-xl text-sm font-medium transition-all
-                                    ${isActive ? 'bg-burgundy-50 text-burgundy-700' : 'text-gray-500 hover:bg-ivory-300 hover:text-gray-800'}
+                                    ${isActive ? 'bg-ramses-50 text-ramses-700' : 'text-ink-500 hover:bg-ink-100 hover:text-ink-800'}
                                 `}
                             >
                                 <Icon size={19} className="shrink-0" />

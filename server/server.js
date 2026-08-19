@@ -34,6 +34,7 @@ import metricsRouter from './routes/metricsRoute.js';
 
 // PHASE 3 - Routes Commerçant
 import boutiqueRouter from './routes/boutiqueRoute.js';
+import journalRouter from './routes/journalRoute.js';
 import walletRouter from './routes/walletRoute.js';
 import retraitRouter from './routes/retraitRoute.js';
 
@@ -165,6 +166,7 @@ app.use('/api/staff', staffRouter);
 
 // PHASE 3 - Routes Commerçant
 app.use('/api/boutiques', boutiqueRouter);
+app.use('/api/journal', journalRouter);
 app.use('/api/wallet', walletRouter);
 app.use('/api/retraits', retraitRouter);
 

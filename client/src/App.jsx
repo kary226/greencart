@@ -53,6 +53,7 @@ const StaffLogin = lazy(() => import('./pages/staff/StaffLogin'));
 const StaffActivation = lazy(() => import('./pages/staff/StaffActivation'));
 const AdminComptes = lazy(() => import('./pages/admin/AdminComptes'));
 const AdminBoutiques = lazy(() => import('./pages/admin/AdminBoutiques'));
+const AdminJournal = lazy(() => import('./pages/admin/AdminJournal'));
 const BoutiqueVitrine = lazy(() => import('./pages/BoutiqueVitrine'));
 
 // Zone Commerçant
@@ -212,6 +213,7 @@ const App = () => {
             <Route path='/staff/activation/:token' element={<StaffActivation />} />
             <Route path='/staff/admin/comptes' element={<AdminComptes />} />
             <Route path='/staff/admin/boutiques' element={<AdminBoutiques />} />
+            <Route path='/staff/admin/journal' element={<AdminJournal />} />
 
             {/* ✅ PHASE 3 - Routes Commerçant */}
             <Route path='/commercant' element={<CommercantLayout />}>

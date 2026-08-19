@@ -94,7 +94,7 @@ const Boutique = () => {
     const zonesCount = zones.length;
 
     if (boutiqueEnCours) {
-        return <div className="flex justify-center py-24"><Loader2 className="animate-spin text-burgundy-600" size={28} /></div>;
+        return <div className="flex justify-center py-24"><Loader2 className="animate-spin text-ramses-600" size={28} /></div>;
     }
 
     if (!boutique) {
@@ -153,22 +153,22 @@ const Boutique = () => {
     return (
         <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
             <div className="flex items-center justify-between mb-2">
-                <h1 className="font-display text-2xl font-semibold text-gray-900">Ma boutique</h1>
+                <h1 className="font-display text-2xl font-semibold text-ink-900">Ma boutique</h1>
                 {!editing && (
-                    <button onClick={startEditing} className="flex items-center gap-2 bg-burgundy-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-burgundy-700 transition">
+                    <button onClick={startEditing} className="flex items-center gap-2 bg-ramses-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-ramses-700 transition">
                         <Edit size={15} /> Modifier
                     </button>
                 )}
             </div>
-            <p className="text-sm text-gray-500 mb-6">
+            <p className="text-sm text-ink-500 mb-6">
                 Votre boutique a été créée avec votre compte. À vous de la personnaliser : nom, description,
                 logo et zones de livraison.
             </p>
 
             {boutique.statut === 'suspendue' && (
-                <div className="mb-6 bg-red-50 border border-red-200 rounded-2xl p-4 text-sm">
+                <div className="mb-6 bg-ramses-50 border border-ramses-200 rounded-2xl p-4 text-sm">
                     <p className="font-medium text-red-800">Boutique suspendue par l'administrateur</p>
-                    <p className="text-red-700 mt-1">
+                    <p className="text-ramses-700 mt-1">
                         Vos articles sont retirés du catalogue et la publication est bloquée. Vous pouvez
                         toujours corriger les informations ci-dessous.
                         {boutique.motifSuspension ? ` Motif : ${boutique.motifSuspension}` : ''}
@@ -176,30 +176,30 @@ const Boutique = () => {
                 </div>
             )}
 
-            <div className="bg-white rounded-2xl border border-blush-200 overflow-hidden">
-                <div className="p-6 border-b border-blush-100 flex items-center gap-5">
+            <div className="bg-white rounded-2xl border border-ink-200 overflow-hidden">
+                <div className="p-6 border-b border-ink-50 flex items-center gap-5">
                     <div className="relative shrink-0">
-                        <div className="w-20 h-20 rounded-2xl bg-blush-100 flex items-center justify-center overflow-hidden">
+                        <div className="w-20 h-20 rounded-2xl bg-ink-50 flex items-center justify-center overflow-hidden">
                             {(logoPreview || boutique.logo) ? (
                                 <img src={logoPreview || boutique.logo} alt="Logo" className="w-full h-full object-cover" />
                             ) : (
-                                <Camera size={26} className="text-blush-500" />
+                                <Camera size={26} className="text-ink-400" />
                             )}
                         </div>
                         {editing && (
-                            <label className="absolute -bottom-1.5 -right-1.5 bg-burgundy-600 text-white p-1.5 rounded-full cursor-pointer hover:bg-burgundy-700 transition shadow-sm">
+                            <label className="absolute -bottom-1.5 -right-1.5 bg-ramses-600 text-white p-1.5 rounded-full cursor-pointer hover:bg-ramses-700 transition shadow-sm">
                                 <Upload size={13} />
                                 <input type="file" accept="image/*" onChange={handleLogoChange} className="hidden" />
                             </label>
                         )}
                     </div>
                     <div>
-                        <h2 className="font-display text-lg font-semibold text-gray-900">{boutique.nom}</h2>
-                        <p className="text-xs text-gray-400 mt-0.5">
+                        <h2 className="font-display text-lg font-semibold text-ink-900">{boutique.nom}</h2>
+                        <p className="text-xs text-ink-400 mt-0.5">
                             {boutique.statut === 'active' ? (
-                                <span className="text-green-600 font-medium">● Active</span>
+                                <span className="text-ok-500 font-medium">● Active</span>
                             ) : (
-                                <span className="text-red-600 font-medium">● Suspendue</span>
+                                <span className="text-ramses-600 font-medium">● Suspendue</span>
                             )}
                             <span className="mx-1.5">·</span>
                             Créée le {new Date(boutique.createdAt).toLocaleDateString('fr-FR')}
@@ -209,27 +209,27 @@ const Boutique = () => {
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Nom de la boutique</label>
+                        <label className="block text-sm font-medium text-ink-700 mb-1">Nom de la boutique</label>
                         <input
                             type="text"
                             value={editing ? nom : boutique.nom}
                             onChange={(e) => setNom(e.target.value)}
                             disabled={!editing}
                             className={`w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none transition ${
-                                editing ? 'border-blush-300 focus:border-burgundy-500 focus:ring-1 focus:ring-burgundy-500' : 'border-transparent bg-ivory-300 text-gray-600'
+                                editing ? 'border-ink-200 focus:border-ramses-500 focus:ring-1 focus:ring-ramses-500' : 'border-transparent bg-ink-100 text-ink-600'
                             }`}
                             required
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                        <label className="block text-sm font-medium text-ink-700 mb-1">Description</label>
                         <textarea
                             value={editing ? description : (boutique.description || 'Aucune description')}
                             onChange={(e) => setDescription(e.target.value)}
                             disabled={!editing}
                             rows={4}
                             className={`w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none transition resize-none ${
-                                editing ? 'border-blush-300 focus:border-burgundy-500 focus:ring-1 focus:ring-burgundy-500' : 'border-transparent bg-ivory-300 text-gray-600'
+                                editing ? 'border-ink-200 focus:border-ramses-500 focus:ring-1 focus:ring-ramses-500' : 'border-transparent bg-ink-100 text-ink-600'
                             }`}
                             placeholder="Décrivez votre boutique..."
                         />
@@ -237,10 +237,10 @@ const Boutique = () => {
 
                     {editing && (
                         <div className="flex items-center gap-3 pt-2">
-                            <button type="submit" disabled={uploading} className="flex items-center gap-2 bg-burgundy-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-burgundy-700 transition disabled:opacity-50">
+                            <button type="submit" disabled={uploading} className="flex items-center gap-2 bg-ramses-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-ramses-700 transition disabled:opacity-50">
                                 {uploading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Enregistrer
                             </button>
-                            <button type="button" onClick={() => setEditing(false)} className="flex items-center gap-2 bg-ivory-300 text-gray-600 px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-blush-200 transition">
+                            <button type="button" onClick={() => setEditing(false)} className="flex items-center gap-2 bg-ink-100 text-ink-600 px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-ink-200 transition">
                                 <X size={16} /> Annuler
                             </button>
                         </div>
@@ -248,27 +248,27 @@ const Boutique = () => {
                 </form>
             </div>
 
-            <div className="bg-white rounded-2xl border border-blush-200 overflow-hidden mt-6">
-                <div className="p-6 border-b border-blush-100 flex items-center justify-between">
+            <div className="bg-white rounded-2xl border border-ink-200 overflow-hidden mt-6">
+                <div className="p-6 border-b border-ink-50 flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
-                        <MapPin size={18} className="text-burgundy-600" />
+                        <MapPin size={18} className="text-ramses-600" />
                         <div>
-                            <h2 className="font-display text-lg font-semibold text-gray-900">Zones de livraison</h2>
-                            <p className="text-xs text-gray-400">
+                            <h2 className="font-display text-lg font-semibold text-ink-900">Zones de livraison</h2>
+                            <p className="text-xs text-ink-400">
                                 Les endroits où vous livrez vous-même. Les tarifs de livraison restent fixés par la plateforme.
                             </p>
                         </div>
                     </div>
                     {zonesCount > 0 && (
-                        <span className="text-xs font-medium text-burgundy-700 bg-blush-100 px-2.5 py-1 rounded-full shrink-0">
+                        <span className="text-xs font-medium text-ramses-700 bg-ink-50 px-2.5 py-1 rounded-full shrink-0">
                             {zonesCount} zone{zonesCount > 1 ? 's' : ''}
                         </span>
                     )}
                 </div>
 
-                <div className="p-4 max-h-80 overflow-y-auto divide-y divide-blush-100">
+                <div className="p-4 max-h-80 overflow-y-auto divide-y divide-ink-50">
                     {cities.length === 0 ? (
-                        <p className="text-sm text-gray-400 px-2 py-4">Aucune ville disponible pour le moment.</p>
+                        <p className="text-sm text-ink-400 px-2 py-4">Aucune ville disponible pour le moment.</p>
                     ) : cities.map((city) => (
                         <div key={city._id} className="py-2">
                             <div className="flex items-center gap-3 px-2">
@@ -276,22 +276,22 @@ const Boutique = () => {
                                     type="checkbox"
                                     checked={isWholeCitySelected(city._id)}
                                     onChange={() => toggleWholeCity(city._id)}
-                                    className="w-4 h-4 rounded accent-burgundy-600"
+                                    className="w-4 h-4 rounded accent-ramses-600"
                                 />
                                 <button
                                     type="button"
                                     onClick={() => toggleCityOpen(city._id)}
                                     className="flex-1 flex items-center justify-between text-left py-1.5"
                                 >
-                                    <span className="text-sm font-medium text-gray-800">{city.name}</span>
-                                    <ChevronDown size={16} className={`text-gray-400 transition-transform ${openCity === city._id ? 'rotate-180' : ''}`} />
+                                    <span className="text-sm font-medium text-ink-800">{city.name}</span>
+                                    <ChevronDown size={16} className={`text-ink-400 transition-transform ${openCity === city._id ? 'rotate-180' : ''}`} />
                                 </button>
                             </div>
 
                             {openCity === city._id && (
                                 <div className="pl-9 pr-2 pb-2 flex flex-wrap gap-2">
                                     {(communesByCity[city._id] || []).length === 0 ? (
-                                        <p className="text-xs text-gray-400 py-1">Chargement…</p>
+                                        <p className="text-xs text-ink-400 py-1">Chargement…</p>
                                     ) : communesByCity[city._id].map((commune) => (
                                         <button
                                             type="button"
@@ -300,8 +300,8 @@ const Boutique = () => {
                                             disabled={isWholeCitySelected(city._id)}
                                             className={`px-3 py-1.5 rounded-full text-xs font-medium border transition disabled:opacity-40 ${
                                                 isCommuneSelected(city._id, commune._id)
-                                                    ? 'bg-burgundy-600 border-burgundy-600 text-white'
-                                                    : 'bg-white border-blush-300 text-gray-600 hover:border-burgundy-400'
+                                                    ? 'bg-ramses-600 border-ramses-600 text-white'
+                                                    : 'bg-white border-ink-200 text-ink-600 hover:border-ramses-400'
                                             }`}
                                         >
                                             {commune.name}
@@ -313,11 +313,11 @@ const Boutique = () => {
                     ))}
                 </div>
 
-                <div className="p-4 border-t border-blush-100">
+                <div className="p-4 border-t border-ink-50">
                     <button
                         onClick={saveZones}
                         disabled={savingZones}
-                        className="flex items-center gap-2 bg-burgundy-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-burgundy-700 transition disabled:opacity-50"
+                        className="flex items-center gap-2 bg-ramses-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-ramses-700 transition disabled:opacity-50"
                     >
                         {savingZones ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Enregistrer les zones
                     </button>

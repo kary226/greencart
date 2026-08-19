@@ -77,61 +77,75 @@ const Produits = () => {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
             <div className="flex items-center justify-between mb-6">
                 <div>
-                    <h1 className="font-display text-2xl font-semibold text-gray-900">Mes produits</h1>
-                    <p className="text-sm text-gray-400">{totalItems} article{totalItems > 1 ? 's' : ''}</p>
+                    <h1 className="font-display text-2xl font-semibold text-ink-900">Mes produits</h1>
+                    <p className="text-sm text-ink-400">{totalItems} article{totalItems > 1 ? 's' : ''}</p>
                 </div>
-                {/* Boutique suspendue : le serveur refuserait la publication,
-                    autant ne pas laisser remplir tout le formulaire pour rien. */}
-                {boutique?.statut === 'suspendue' ? (
+                {/* Deux raisons de ne pas laisser remplir le formulaire pour
+                    rien : la boutique est suspendue, ou l'admin n'a pas (encore)
+                    ouvert le droit d'ajouter des articles. Le serveur refuse
+                    dans les deux cas — autant le dire avant. */}
+                {(boutique?.statut === 'suspendue' || !boutique?.peutCreerProduits) ? (
                     <span
-                        title="Boutique suspendue : publication impossible"
-                        className="flex items-center gap-2 bg-gray-200 text-gray-500 px-4 py-2.5 rounded-xl text-sm font-medium cursor-not-allowed"
+                        title={boutique?.statut === 'suspendue'
+                            ? 'Boutique suspendue : publication impossible'
+                            : "Indisponible pour l'instant : l'ajout d'articles n'a pas été activé par l'administrateur"}
+                        className="flex items-center gap-2 bg-ink-100 text-ink-400 px-4 py-2.5 rounded-xl text-sm font-medium cursor-not-allowed"
                     >
                         <Plus size={16} /> Ajouter un article
                     </span>
                 ) : (
-                    <Link to="/commercant/produits/ajouter" className="flex items-center gap-2 bg-burgundy-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-burgundy-700 transition">
+                    <Link to="/commercant/produits/ajouter" className="flex items-center gap-2 bg-ramses-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-ramses-700 transition">
                         <Plus size={16} /> Ajouter un article
                     </Link>
                 )}
             </div>
 
-            <div className="bg-white rounded-2xl border border-blush-200 p-4 mb-6">
+            {boutique && !boutique.peutCreerProduits && boutique.statut !== 'suspendue' && (
+                <div className="mb-6 rounded-2xl border border-ink-200 bg-ink-50 px-4 py-3 text-sm">
+                    <p className="font-medium text-ink-800">Ajout d'articles indisponible pour l'instant</p>
+                    <p className="text-ink-500 mt-0.5">
+                        L'administrateur ne vous a pas encore ouvert ce droit. Vous pouvez gérer les
+                        quantités et les descriptions de vos articles existants.
+                    </p>
+                </div>
+            )}
+
+            <div className="bg-white rounded-2xl border border-ink-200 p-4 mb-6">
                 <div className="flex flex-col sm:flex-row gap-3">
                     <div className="relative flex-1">
-                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" />
                         <input
                             type="text" placeholder="Rechercher un produit..."
                             value={searchTerm}
                             onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
-                            className="w-full pl-9 pr-3 py-2.5 border border-blush-200 rounded-xl text-sm outline-none focus:border-burgundy-500 focus:ring-1 focus:ring-burgundy-500"
+                            className="w-full pl-9 pr-3 py-2.5 border border-ink-200 rounded-xl text-sm outline-none focus:border-ramses-500 focus:ring-1 focus:ring-ramses-500"
                         />
                     </div>
                     <select
                         value={filterCategory}
                         onChange={(e) => { setFilterCategory(e.target.value); setPage(1); }}
-                        className="px-3 py-2.5 border border-blush-200 rounded-xl text-sm outline-none focus:border-burgundy-500 focus:ring-1 focus:ring-burgundy-500"
+                        className="px-3 py-2.5 border border-ink-200 rounded-xl text-sm outline-none focus:border-ramses-500 focus:ring-1 focus:ring-ramses-500"
                     >
                         <option value="">Toutes les catégories</option>
                         {categories.map((cat) => <option key={cat._id} value={cat.name}>{cat.name}</option>)}
                     </select>
                     {(searchTerm || filterCategory) && (
-                        <button onClick={clearFilters} className="p-2.5 text-gray-400 hover:text-gray-600 rounded-xl hover:bg-ivory-300 transition"><X size={18} /></button>
+                        <button onClick={clearFilters} className="p-2.5 text-ink-400 hover:text-ink-600 rounded-xl hover:bg-ink-100 transition"><X size={18} /></button>
                     )}
                 </div>
             </div>
 
             {(loading || boutiqueEnCours) ? (
-                <div className="flex justify-center py-16"><Loader2 className="animate-spin text-burgundy-600" size={32} /></div>
+                <div className="flex justify-center py-16"><Loader2 className="animate-spin text-ramses-600" size={32} /></div>
             ) : !boutique ? (
                 <BoutiqueIndisponible erreur={erreurBoutique} onRetry={rechargerBoutique} />
             ) : produits.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-blush-200 p-14 text-center">
-                    <Package className="mx-auto text-blush-400 mb-3" size={40} />
-                    <h3 className="text-base font-medium text-gray-800">Aucun produit</h3>
-                    <p className="text-sm text-gray-400 mt-1">Commencez par ajouter votre premier article</p>
-                    {boutique?.statut !== 'suspendue' && (
-                        <Link to="/commercant/produits/ajouter" className="mt-4 inline-flex items-center gap-2 bg-burgundy-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-burgundy-700 transition">
+                <div className="bg-white rounded-2xl border border-ink-200 p-14 text-center">
+                    <Package className="mx-auto text-ink-300 mb-3" size={40} />
+                    <h3 className="text-base font-medium text-ink-800">Aucun produit</h3>
+                    <p className="text-sm text-ink-400 mt-1">Commencez par ajouter votre premier article</p>
+                    {boutique?.statut !== 'suspendue' && boutique?.peutCreerProduits && (
+                        <Link to="/commercant/produits/ajouter" className="mt-4 inline-flex items-center gap-2 bg-ramses-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-ramses-700 transition">
                             <Plus size={16} /> Ajouter un article
                         </Link>
                     )}
@@ -140,39 +154,47 @@ const Produits = () => {
                 <>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                         {produits.map((product) => (
-                            <div key={product._id} className="bg-white rounded-2xl border border-blush-200 overflow-hidden hover:shadow-md transition group">
-                                <div className="relative aspect-square bg-blush-100">
+                            <div key={product._id} className="bg-white rounded-2xl border border-ink-200 overflow-hidden hover:shadow-md transition group">
+                                <div className="relative aspect-square bg-ink-50">
                                     {product.image?.[0] ? (
                                         <img src={getPresetImageUrl(product.image[0], "thumbnail")} alt={product.name} className="w-full h-full object-cover" loading="lazy" />
                                     ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-blush-400"><Package size={30} /></div>
+                                        <div className="w-full h-full flex items-center justify-center text-ink-300"><Package size={30} /></div>
+                                    )}
+                                    {/* Repère visuel : cet article vient de la plateforme, son
+                                        prix et ses photos ne sont pas modifiables ici. Mieux vaut
+                                        le savoir avant d'ouvrir le formulaire. */}
+                                    {product.origine === 'plateforme' && (
+                                        <span className="absolute top-2 left-2 text-[10px] font-semibold uppercase tracking-wide bg-ink-900/80 text-white px-1.5 py-0.5 rounded">
+                                            Plateforme
+                                        </span>
                                     )}
                                     {!product.inStock && (
                                         <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                            <span className="text-white font-semibold text-xs px-3 py-1 bg-burgundy-700 rounded-full">Rupture</span>
+                                            <span className="text-white font-semibold text-xs px-3 py-1 bg-ramses-700 rounded-full">Rupture</span>
                                         </div>
                                     )}
                                     <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition">
-                                        <button onClick={() => setProduitStock(product)} title="Gérer le stock" className="p-1.5 bg-white rounded-lg shadow-md hover:bg-blush-100 transition"><Boxes size={14} className="text-gray-700" /></button>
-                                        <Link to={`/commercant/produits/editer/${product._id}`} className="p-1.5 bg-white rounded-lg shadow-md hover:bg-blush-100 transition"><Edit size={14} className="text-gray-700" /></Link>
-                                        <button onClick={() => handleDelete(product._id, product.name)} className="p-1.5 bg-white rounded-lg shadow-md hover:bg-red-50 transition"><Trash2 size={14} className="text-red-500" /></button>
+                                        <button onClick={() => setProduitStock(product)} title="Gérer le stock" className="p-1.5 bg-white rounded-lg shadow-md hover:bg-ink-50 transition"><Boxes size={14} className="text-ink-700" /></button>
+                                        <Link to={`/commercant/produits/editer/${product._id}`} className="p-1.5 bg-white rounded-lg shadow-md hover:bg-ink-50 transition"><Edit size={14} className="text-ink-700" /></Link>
+                                        <button onClick={() => handleDelete(product._id, product.name)} className="p-1.5 bg-white rounded-lg shadow-md hover:bg-ramses-50 transition"><Trash2 size={14} className="text-ramses-600" /></button>
                                     </div>
                                 </div>
                                 <div className="p-3">
-                                    <p className="text-sm font-medium text-gray-800 truncate">{product.name}</p>
+                                    <p className="text-sm font-medium text-ink-800 truncate">{product.name}</p>
                                     <div className="flex items-center justify-between mt-1">
                                         <div>
-                                            <span className="text-sm font-bold text-burgundy-700">{product.offerPrice?.toLocaleString()} FCFA</span>
-                                            {product.price > product.offerPrice && <span className="text-xs text-gray-400 line-through ml-2">{product.price.toLocaleString()}</span>}
+                                            <span className="text-sm font-bold text-ramses-700">{product.offerPrice?.toLocaleString()} FCFA</span>
+                                            {product.price > product.offerPrice && <span className="text-xs text-ink-400 line-through ml-2">{product.price.toLocaleString()}</span>}
                                         </div>
-                                        <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${product.inStock ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                        <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${product.inStock ? 'bg-ok-50 text-ok-500' : 'bg-ramses-100 text-ramses-700'}`}>
                                             {product.inStock ? 'En stock' : 'Rupture'}
                                         </span>
                                     </div>
-                                    <p className="text-xs text-gray-400 mt-1 truncate">{product.categories?.join(', ') || 'Sans catégorie'}</p>
+                                    <p className="text-xs text-ink-400 mt-1 truncate">{product.categories?.join(', ') || 'Sans catégorie'}</p>
                                     <button
                                         onClick={() => setProduitStock(product)}
-                                        className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-medium text-burgundy-700 bg-blush-100 hover:bg-blush-200 rounded-lg py-1.5 transition"
+                                        className="mt-2 w-full flex items-center justify-center gap-1.5 text-xs font-medium text-ramses-700 bg-ink-50 hover:bg-ink-200 rounded-lg py-1.5 transition"
                                     >
                                         <Boxes size={13} />
                                         {(product.variants?.length || 0) > 0
@@ -186,10 +208,10 @@ const Produits = () => {
 
                     {totalPages > 1 && (
                         <div className="flex items-center justify-between mt-6">
-                            <p className="text-sm text-gray-400">Page {page} sur {totalPages}</p>
+                            <p className="text-sm text-ink-400">Page {page} sur {totalPages}</p>
                             <div className="flex gap-1">
-                                <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="p-2 rounded-xl border border-blush-200 hover:bg-blush-100 disabled:opacity-50 transition"><ChevronLeft size={18} /></button>
-                                <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="p-2 rounded-xl border border-blush-200 hover:bg-blush-100 disabled:opacity-50 transition"><ChevronRight size={18} /></button>
+                                <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="p-2 rounded-xl border border-ink-200 hover:bg-ink-50 disabled:opacity-50 transition"><ChevronLeft size={18} /></button>
+                                <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="p-2 rounded-xl border border-ink-200 hover:bg-ink-50 disabled:opacity-50 transition"><ChevronRight size={18} /></button>
                             </div>
                         </div>
                     )}

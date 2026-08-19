@@ -3,7 +3,7 @@ import { upload } from '../configs/multer.js';
 import authStaff, { requireRole } from '../middlewares/authStaff.js';
 import authSeller from '../middlewares/authSeller.js';
 import { valider } from '../middlewares/valider.js';
-import { schemaStatutBoutique } from '../schemas/index.js';
+import { schemaStatutBoutique, schemaAutorisationsBoutique } from '../schemas/index.js';
 import {
     getMaBoutique,
     updateMaBoutique,
@@ -14,6 +14,7 @@ import {
     updateBoutiqueStatut,
     listBoutiqueOptions,
     getBoutiqueApercu,
+    updateAutorisationsBoutique,
 } from '../controllers/boutiqueController.js';
 
 const boutiqueRouter = express.Router();
@@ -31,6 +32,7 @@ boutiqueRouter.get('/options', authSeller, listBoutiqueOptions);
 boutiqueRouter.get('/', authStaff, requireRole('admin'), listAllBoutiques);
 boutiqueRouter.post('/', authStaff, requireRole('admin'), createBoutiqueForCommercial);
 boutiqueRouter.patch('/:id/statut', authStaff, requireRole('admin'), valider(schemaStatutBoutique), updateBoutiqueStatut);
+boutiqueRouter.patch('/:id/autorisations', authStaff, requireRole('admin'), valider(schemaAutorisationsBoutique), updateAutorisationsBoutique);
 
 // ✅ Routes PUBLIQUES (avec paramètre :id) — DOIVENT être EN DERNIER
 boutiqueRouter.get('/:id/apercu', getBoutiqueApercu);

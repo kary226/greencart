@@ -47,6 +47,10 @@ export const schemaStatutBoutique = z.object({
     motif: z.string().trim().max(300).optional().default(''),
 });
 
+export const schemaAutorisationsBoutique = z.object({
+    peutCreerProduits: z.boolean(),
+});
+
 // ---- Produit ---------------------------------------------------------- //
 
 export const schemaStock = z.object({

@@ -40,6 +40,19 @@ const boutiqueSchema = new mongoose.Schema({
         default: '',
         trim: true,
     },
+    // Droit d'AJOUTER des articles, accordé par l'admin boutique par
+    // boutique. Sans lui, le commerçant gère ce qu'il a déjà — quantités,
+    // descriptions, caractéristiques — mais ne peut pas créer de nouvelle
+    // fiche.
+    //
+    // Par défaut à false : c'est l'admin qui ouvre le droit, jamais l'inverse.
+    // Conséquence à connaître pour les boutiques DÉJÀ en base : elles
+    // perdent la création tant que l'admin ne l'a pas activée.
+    peutCreerProduits: {
+        type: Boolean,
+        default: false,
+    },
+
     // Zones où le commerçant livre lui-même. Uniquement les villes/communes
     // (pas de prix ici : les tarifs de livraison restent gérés par l'admin
     // au niveau plateforme). communeId à null = livre toute la ville.

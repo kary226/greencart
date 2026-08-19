@@ -184,24 +184,24 @@ const AdminComptes = () => {
 
     if (authorized === null) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <Loader2 className="animate-spin text-emerald-600" size={28} />
+            <div className="min-h-screen flex items-center justify-center bg-ink-50">
+                <Loader2 className="animate-spin text-ramses-600" size={28} />
             </div>
         );
     }
 
     if (authorized === false) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+            <div className="min-h-screen flex items-center justify-center bg-ink-50 px-4">
                 <div className="text-center max-w-sm">
-                    <ShieldAlert size={44} className="text-red-500 mx-auto mb-3" />
-                    <h1 className="text-lg font-bold text-gray-900">Accès refusé</h1>
-                    <p className="text-sm text-gray-500 mt-1 mb-5">
+                    <ShieldAlert size={44} className="text-ramses-600 mx-auto mb-3" />
+                    <h1 className="text-lg font-bold text-ink-900">Accès refusé</h1>
+                    <p className="text-sm text-ink-500 mt-1 mb-5">
                         Cette page est réservée aux comptes admin. Connectez-vous avec un compte autorisé.
                     </p>
                     <button
                         onClick={() => navigate('/staff/login')}
-                        className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition"
+                        className="px-4 py-2 bg-ramses-600 text-white rounded-xl text-sm font-medium hover:bg-ramses-700 transition"
                     >
                         Aller à la connexion
                     </button>
@@ -211,7 +211,7 @@ const AdminComptes = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-ink-50">
             <AdminNav
                 titre="Gestion des comptes"
                 sousTitre={`${moi?.nom} · Administrateur · ${totalItems} compte${totalItems > 1 ? 's' : ''}`}
@@ -220,12 +220,12 @@ const AdminComptes = () => {
             <div className="max-w-6xl mx-auto px-4 py-6 space-y-8">
 
                 {/* Bouton inviter + formulaire */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                <div className="bg-white rounded-2xl shadow-sm border border-ink-100 p-5">
                     <div className="flex items-center justify-between">
-                        <h2 className="font-semibold text-gray-900">Inviter un nouveau membre</h2>
+                        <h2 className="font-semibold text-ink-900">Inviter un nouveau membre</h2>
                         <button
                             onClick={() => setShowInviteForm(!showInviteForm)}
-                            className="flex items-center gap-1.5 text-sm bg-emerald-600 text-white px-3 py-2 rounded-xl hover:bg-emerald-700 transition"
+                            className="flex items-center gap-1.5 text-sm bg-ramses-600 text-white px-3 py-2 rounded-xl hover:bg-ramses-700 transition"
                         >
                             <UserPlus size={16} /> {showInviteForm ? 'Annuler' : 'Inviter'}
                         </button>
@@ -234,20 +234,20 @@ const AdminComptes = () => {
                     {showInviteForm && (
                         <form onSubmit={handleInvite} className="mt-4 flex flex-col sm:flex-row gap-3">
                             <div className="relative flex-1">
-                                <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" />
                                 <input
                                     type="email"
                                     required
                                     value={inviteEmail}
                                     onChange={(e) => setInviteEmail(e.target.value)}
                                     placeholder="email@exemple.com"
-                                    className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                                    className="w-full pl-9 pr-3 py-2.5 border border-ink-200 rounded-xl text-sm outline-none focus:border-ramses-600 focus:ring-1 focus:ring-ramses-600"
                                 />
                             </div>
                             <select
                                 value={inviteRole}
                                 onChange={(e) => setInviteRole(e.target.value)}
-                                className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                                className="px-3 py-2.5 border border-ink-200 rounded-xl text-sm outline-none focus:border-ramses-600 focus:ring-1 focus:ring-ramses-600"
                             >
                                 {ROLES.map((r) => (
                                     <option key={r} value={r}>{ROLE_LABELS[r]}</option>
@@ -255,7 +255,7 @@ const AdminComptes = () => {
                             </select>
                             <button
                                 disabled={inviteLoading}
-                                className="flex items-center justify-center gap-1.5 bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50"
+                                className="flex items-center justify-center gap-1.5 bg-ink-900 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-ink-800 transition disabled:opacity-50"
                             >
                                 {inviteLoading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                                 Envoyer
@@ -266,20 +266,20 @@ const AdminComptes = () => {
 
                 {/* Invitations en attente */}
                 {invitations.length > 0 && (
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div className="px-5 py-4 border-b border-gray-100">
-                            <h2 className="font-semibold text-gray-900">
+                    <div className="bg-white rounded-2xl shadow-sm border border-ink-100 overflow-hidden">
+                        <div className="px-5 py-4 border-b border-ink-100">
+                            <h2 className="font-semibold text-ink-900">
                                 Invitations en attente ({invitations.length})
                             </h2>
                         </div>
-                        <div className="divide-y divide-gray-100">
+                        <div className="divide-y divide-ink-100">
                             {invitations.map((inv) => (
                                 <div key={inv._id} className="px-5 py-3 flex items-center justify-between text-sm">
                                     <div>
-                                        <p className="font-medium text-gray-800">{inv.email}</p>
-                                        <p className="text-xs text-gray-400">{ROLE_LABELS[inv.role] || inv.role}</p>
+                                        <p className="font-medium text-ink-800">{inv.email}</p>
+                                        <p className="text-xs text-ink-400">{ROLE_LABELS[inv.role] || inv.role}</p>
                                     </div>
-                                    <div className="flex items-center gap-1.5 text-xs text-amber-600">
+                                    <div className="flex items-center gap-1.5 text-xs text-warn-500">
                                         <Clock size={13} />
                                         Expire le {new Date(inv.expireA).toLocaleDateString('fr-FR')}
                                     </div>
@@ -290,28 +290,28 @@ const AdminComptes = () => {
                 )}
 
                 {/* Comptes existants */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div className="px-5 py-4 border-b border-gray-100">
+                <div className="bg-white rounded-2xl shadow-sm border border-ink-100 overflow-hidden">
+                    <div className="px-5 py-4 border-b border-ink-100">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <h2 className="font-semibold text-gray-900">
+                            <h2 className="font-semibold text-ink-900">
                                 Comptes ({totalItems})
                             </h2>
                             {/* Filtres */}
                             <div className="flex flex-col sm:flex-row gap-2">
                                 <div className="relative">
-                                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" />
                                     <input
                                         type="text"
                                         placeholder="Rechercher..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="pl-9 pr-3 py-1.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 w-full sm:w-40"
+                                        className="pl-9 pr-3 py-1.5 border border-ink-200 rounded-xl text-sm outline-none focus:border-ramses-600 focus:ring-1 focus:ring-ramses-600 w-full sm:w-40"
                                     />
                                 </div>
                                 <select
                                     value={filterRole}
                                     onChange={(e) => setFilterRole(e.target.value)}
-                                    className="px-3 py-1.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                                    className="px-3 py-1.5 border border-ink-200 rounded-xl text-sm outline-none focus:border-ramses-600 focus:ring-1 focus:ring-ramses-600"
                                 >
                                     <option value="">Tous les rôles</option>
                                     {ROLES.map((r) => (
@@ -321,7 +321,7 @@ const AdminComptes = () => {
                                 <select
                                     value={filterStatus}
                                     onChange={(e) => setFilterStatus(e.target.value)}
-                                    className="px-3 py-1.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                                    className="px-3 py-1.5 border border-ink-200 rounded-xl text-sm outline-none focus:border-ramses-600 focus:ring-1 focus:ring-ramses-600"
                                 >
                                     <option value="">Tous les statuts</option>
                                     <option value="actif">Actif</option>
@@ -330,7 +330,7 @@ const AdminComptes = () => {
                                 {(filterRole || filterStatus || searchTerm) && (
                                     <button
                                         onClick={clearFilters}
-                                        className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition"
+                                        className="p-1.5 text-ink-400 hover:text-ink-600 rounded-lg hover:bg-ink-100 transition"
                                         title="Effacer les filtres"
                                     >
                                         <X size={18} />
@@ -342,10 +342,10 @@ const AdminComptes = () => {
 
                     {loadingList ? (
                         <div className="p-8 flex justify-center">
-                            <Loader2 className="animate-spin text-gray-400" size={22} />
+                            <Loader2 className="animate-spin text-ink-400" size={22} />
                         </div>
                     ) : comptes.length === 0 ? (
-                        <div className="p-8 text-center text-gray-500 text-sm">
+                        <div className="p-8 text-center text-ink-500 text-sm">
                             {searchTerm || filterRole || filterStatus
                                 ? 'Aucun compte ne correspond aux filtres'
                                 : 'Aucun compte créé pour le moment'
@@ -356,7 +356,7 @@ const AdminComptes = () => {
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
                                     <thead>
-                                        <tr className="text-left text-xs text-gray-400 uppercase tracking-wide">
+                                        <tr className="text-left text-xs text-ink-400 uppercase tracking-wide">
                                             <th className="px-5 py-2.5">Nom</th>
                                             <th className="px-5 py-2.5">Email</th>
                                             <th className="px-5 py-2.5">Rôle</th>
@@ -365,21 +365,21 @@ const AdminComptes = () => {
                                             <th className="px-5 py-2.5"></th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-100">
+                                    <tbody className="divide-y divide-ink-100">
                                         {comptes.map((c) => {
                                             const estMoi = c._id === moi?._id;
                                             return (
-                                                <tr key={c._id} className="hover:bg-gray-50">
-                                                    <td className="px-5 py-3 font-medium text-gray-800">
-                                                        {c.nom} {estMoi && <span className="text-xs text-gray-400">(vous)</span>}
+                                                <tr key={c._id} className="hover:bg-ink-50">
+                                                    <td className="px-5 py-3 font-medium text-ink-800">
+                                                        {c.nom} {estMoi && <span className="text-xs text-ink-400">(vous)</span>}
                                                     </td>
-                                                    <td className="px-5 py-3 text-gray-600">{c.email}</td>
+                                                    <td className="px-5 py-3 text-ink-600">{c.email}</td>
                                                     <td className="px-5 py-3">
                                                         <select
                                                             value={c.role}
                                                             disabled={estMoi}
                                                             onChange={(e) => handleRoleChange(c, e.target.value)}
-                                                            className="border border-gray-200 rounded-lg text-xs px-2 py-1 outline-none disabled:opacity-50 disabled:bg-gray-50"
+                                                            className="border border-ink-200 rounded-lg text-xs px-2 py-1 outline-none disabled:opacity-50 disabled:bg-ink-50"
                                                         >
                                                             {ROLES.map((r) => (
                                                                 <option key={r} value={r}>{ROLE_LABELS[r]}</option>
@@ -389,15 +389,15 @@ const AdminComptes = () => {
                                                     <td className="px-5 py-3">
                                                         <span className={`text-xs px-2 py-1 rounded-full font-medium ${
                                                             c.statut === 'actif'
-                                                                ? 'bg-green-100 text-green-700'
+                                                                ? 'bg-ok-50 text-ok-500'
                                                                 : c.statut === 'suspendu'
-                                                                    ? 'bg-red-100 text-red-700'
+                                                                    ? 'bg-ramses-100 text-ramses-700'
                                                                     : 'bg-yellow-100 text-yellow-700'
                                                         }`}>
                                                             {c.statut}
                                                         </span>
                                                     </td>
-                                                    <td className="px-5 py-3 text-gray-500 text-xs">
+                                                    <td className="px-5 py-3 text-ink-500 text-xs">
                                                         {c.derniereConnexion
                                                             ? new Date(c.derniereConnexion).toLocaleString('fr-FR')
                                                             : 'Jamais'}
@@ -410,8 +410,8 @@ const AdminComptes = () => {
                                                                 title={c.statut === 'actif' ? 'Suspendre' : 'Réactiver'}
                                                                 className={`p-1.5 rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed ${
                                                                     c.statut === 'actif'
-                                                                        ? 'text-red-600 hover:bg-red-50'
-                                                                        : 'text-green-600 hover:bg-green-50'
+                                                                        ? 'text-ramses-600 hover:bg-ramses-50'
+                                                                        : 'text-ok-500 hover:bg-ok-50'
                                                                 }`}
                                                             >
                                                                 {c.statut === 'actif' ? <Ban size={16} /> : <RotateCcw size={16} />}
@@ -420,7 +420,7 @@ const AdminComptes = () => {
                                                                 disabled={estMoi}
                                                                 onClick={() => setCibleSuppression(c)}
                                                                 title="Supprimer définitivement"
-                                                                className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                                                                className="p-1.5 rounded-lg text-ink-400 hover:text-ramses-600 hover:bg-ramses-50 transition disabled:opacity-30 disabled:cursor-not-allowed"
                                                             >
                                                                 <Trash2 size={16} />
                                                             </button>
@@ -435,22 +435,22 @@ const AdminComptes = () => {
 
                             {/* Pagination */}
                             {totalPages > 1 && (
-                                <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between">
-                                    <div className="text-sm text-gray-500">
+                                <div className="px-5 py-4 border-t border-ink-100 flex items-center justify-between">
+                                    <div className="text-sm text-ink-500">
                                         Page {page} sur {totalPages}
                                     </div>
                                     <div className="flex gap-1">
                                         <button
                                             onClick={() => setPage(p => Math.max(1, p - 1))}
                                             disabled={page === 1}
-                                            className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                                            className="p-2 rounded-lg hover:bg-ink-100 disabled:opacity-30 disabled:cursor-not-allowed transition"
                                         >
                                             <ChevronLeft size={18} />
                                         </button>
                                         <button
                                             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                                             disabled={page === totalPages}
-                                            className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                                            className="p-2 rounded-lg hover:bg-ink-100 disabled:opacity-30 disabled:cursor-not-allowed transition"
                                         >
                                             <ChevronRight size={18} />
                                         </button>

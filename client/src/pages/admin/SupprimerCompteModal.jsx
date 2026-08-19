@@ -57,17 +57,17 @@ const SupprimerCompteModal = ({ compte, onClose, onSupprime }) => {
     return (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4 z-50">
             <div className="bg-white rounded-2xl max-w-md w-full p-6">
-                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                    <Trash2 size={18} className="text-red-600" /> Supprimer {compte.nom}
+                <h3 className="font-semibold text-ink-900 flex items-center gap-2">
+                    <Trash2 size={18} className="text-ramses-600" /> Supprimer {compte.nom}
                 </h3>
-                <p className="text-xs text-gray-400 mt-0.5">{compte.email}</p>
+                <p className="text-xs text-ink-400 mt-0.5">{compte.email}</p>
 
                 {chargement ? (
                     <div className="py-8 flex justify-center">
-                        <Loader2 className="animate-spin text-gray-400" size={22} />
+                        <Loader2 className="animate-spin text-ink-400" size={22} />
                     </div>
                 ) : bloquee ? (
-                    <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">
+                    <div className="mt-3 bg-warn-50 border border-warn-500/30 rounded-xl p-3 text-sm text-warn-500">
                         <p className="font-medium flex items-center gap-1.5">
                             <AlertTriangle size={15} /> Suppression impossible pour l'instant
                         </p>
@@ -81,7 +81,7 @@ const SupprimerCompteModal = ({ compte, onClose, onSupprime }) => {
                     </div>
                 ) : (
                     <>
-                        <p className="text-sm text-gray-500 mt-3">
+                        <p className="text-sm text-ink-500 mt-3">
                             Action <strong>irréversible</strong>.
                             {estCommercant
                                 ? ` Seront supprimés : le compte, sa boutique${apercu?.boutique ? ` « ${apercu.boutique.nom} »` : ''}, ses codes promo et son portefeuille.`
@@ -91,40 +91,40 @@ const SupprimerCompteModal = ({ compte, onClose, onSupprime }) => {
                         {estCommercant && (
                             <>
                                 <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-                                    <div className="bg-gray-50 rounded-xl p-2.5">
-                                        <p className="text-xs text-gray-400 flex items-center justify-center gap-1">
+                                    <div className="bg-ink-50 rounded-xl p-2.5">
+                                        <p className="text-xs text-ink-400 flex items-center justify-center gap-1">
                                             <Package size={12} /> Articles
                                         </p>
-                                        <p className="font-semibold text-gray-800">{apercu.nombreProduits}</p>
+                                        <p className="font-semibold text-ink-800">{apercu.nombreProduits}</p>
                                     </div>
-                                    <div className="bg-gray-50 rounded-xl p-2.5">
-                                        <p className="text-xs text-gray-400">Codes promo</p>
-                                        <p className="font-semibold text-gray-800">{apercu.nombreCoupons}</p>
+                                    <div className="bg-ink-50 rounded-xl p-2.5">
+                                        <p className="text-xs text-ink-400">Codes promo</p>
+                                        <p className="font-semibold text-ink-800">{apercu.nombreCoupons}</p>
                                     </div>
-                                    <div className="bg-gray-50 rounded-xl p-2.5">
-                                        <p className="text-xs text-gray-400 flex items-center justify-center gap-1">
+                                    <div className="bg-ink-50 rounded-xl p-2.5">
+                                        <p className="text-xs text-ink-400 flex items-center justify-center gap-1">
                                             <Wallet size={12} /> Solde
                                         </p>
-                                        <p className="font-semibold text-gray-800">
+                                        <p className="font-semibold text-ink-800">
                                             {(apercu.soldeWallet || 0).toLocaleString('fr-FR')}
                                         </p>
                                     </div>
                                 </div>
-                                <p className="text-xs text-gray-400 mt-3">
+                                <p className="text-xs text-ink-400 mt-3">
                                     Les articles restent rattachés aux commandes déjà passées : ils sont archivés,
                                     pas effacés, pour que l'historique des clients reste lisible.
                                 </p>
                             </>
                         )}
 
-                        <label className="block text-sm font-medium text-gray-700 mt-4 mb-1">
-                            Tapez <span className="font-mono text-red-600">SUPPRIMER</span> pour confirmer
+                        <label className="block text-sm font-medium text-ink-700 mt-4 mb-1">
+                            Tapez <span className="font-mono text-ramses-600">SUPPRIMER</span> pour confirmer
                         </label>
                         <input
                             type="text"
                             value={confirmation}
                             onChange={(e) => setConfirmation(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                            className="w-full px-3 py-2 border border-ink-200 rounded-xl text-sm outline-none focus:border-ramses-600 focus:ring-1 focus:ring-ramses-600"
                         />
                     </>
                 )}
@@ -134,7 +134,7 @@ const SupprimerCompteModal = ({ compte, onClose, onSupprime }) => {
                         <button
                             onClick={supprimer}
                             disabled={confirmation !== 'SUPPRIMER' || suppressionEnCours}
-                            className="flex-1 flex items-center justify-center gap-2 bg-red-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-red-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="flex-1 flex items-center justify-center gap-2 bg-white text-ramses-700 border border-ramses-200 hover:bg-ramses-50 px-4 py-2.5 rounded-xl text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                             {suppressionEnCours ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                             Supprimer définitivement
@@ -142,7 +142,7 @@ const SupprimerCompteModal = ({ compte, onClose, onSupprime }) => {
                     )}
                     <button
                         onClick={onClose}
-                        className="px-4 py-2.5 rounded-xl text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
+                        className="px-4 py-2.5 rounded-xl text-sm font-medium bg-ink-100 text-ink-600 hover:bg-ink-200 transition"
                     >
                         Fermer
                     </button>

@@ -10,11 +10,14 @@ import { genererSkuUnique, normaliserSku, skuEstDisponible, skuEstValide } from 
 import { estErreurUrlBloquee } from "../utils/urlGuard.js";
 import { construireFiltreRecherche } from "../utils/recherche.js";
 import { acteurDepuisRequete } from "../middlewares/authActeur.js";
+import { journaliser, apercuProduit } from "../services/journalService.js";
 import {
     normaliserVariantes,
     calculerStockTotal,
     determinerDisponibilite,
     appliquerQuantites,
+    estArticlePlateforme,
+    appliquerVerrouillagePlateforme,
 } from "../services/productService.js";
 import { syncProductToAirtable, deleteProductFromAirtable, resyncAllProducts } from "../services/airtableSync.js";
 
@@ -102,6 +105,18 @@ export const addProduct = async (req, res) => {
                     message: 'Vous n\'avez pas de boutique. Contactez l\'administrateur.'
                 });
             }
+            // La création d'articles est un droit accordé boutique par
+            // boutique par l'admin. Vérifié ICI, côté serveur : masquer le
+            // bouton dans l'interface ne protège de rien.
+            const saBoutique = await Boutique.findById(acteur.boutiqueId).select('peutCreerProduits');
+            if (!saBoutique?.peutCreerProduits) {
+                return res.status(403).json({
+                    success: false,
+                    creationNonAutorisee: true,
+                    message: "L'ajout d'articles n'est pas activé pour votre boutique. Contactez l'administrateur.",
+                });
+            }
+
             boutiqueId = acteur.boutiqueId;
         } else if (acteur.role === 'admin') {
             // Un admin — staff ou compte vendeur technique — peut créer un
@@ -207,6 +222,19 @@ export const addProduct = async (req, res) => {
             videoPublicId: videoPublicId,
             labelType: labelType,
             boutiqueId: boutiqueId,
+            // Qui a saisi la fiche décide de qui pourra en changer le prix
+            // et les médias plus tard (voir productService). C'est figé à la
+            // création : un article reste « du commerçant » même si le
+            // vendeur le déplace ensuite d'une boutique à l'autre.
+            origine: acteur.role === 'commercant' ? 'commercant' : 'plateforme',
+        });
+
+        journaliser({
+            acteur,
+            action: 'produit.creation',
+            cible: { id: product._id, libelle: product.name },
+            boutiqueId,
+            apercu: apercuProduit(product),
         });
 
         // Synchro Airtable en tâche de fond — ne doit jamais retarder ni
@@ -257,6 +285,16 @@ export const addProductImages = async (req, res) => {
                     message: "Vous n'êtes pas autorisé à modifier ce produit" 
                 });
             }
+        }
+
+        // Les médias d'un article saisi par la plateforme sont verrouillés
+        // dans updateProduct : sans ce contrôle, cet endpoint serait la porte
+        // dérobée qui permet d'en ajouter quand même.
+        if (req.staffUser?.role === 'commercant' && estArticlePlateforme(product)) {
+            return res.status(403).json({
+                success: false,
+                message: "Les photos de cet article sont fixées par la plateforme.",
+            });
         }
 
         let imagesUrl = await Promise.all(
@@ -556,6 +594,15 @@ export const changeStockCommercant = async (req, res) => {
 
         await product.save();
 
+        journaliser({
+            acteur: acteurDepuisRequete(req),
+            action: 'produit.stock',
+            cible: { id: product._id, libelle: product.name },
+            boutiqueId: product.boutiqueId,
+            apercu: apercuProduit(product),
+            note: product.inStock ? '' : 'Article retiré de la vente.',
+        });
+
         syncProductToAirtable(product._id);
 
         res.json({
@@ -625,6 +672,8 @@ export const updateProduct = async (req, res) => {
         if (!existingProduct) {
             return res.status(404).json({ success: false, message: "Produit non trouvé" });
         }
+
+        const acteurProduit = acteurDepuisRequete(req);
 
 
         // ✅ Vérification des droits pour le commerçant
@@ -733,11 +782,44 @@ export const updateProduct = async (req, res) => {
             updateData.videoPublicId = null;
         }
 
+        // Article saisi par la plateforme puis confié à cette boutique : le
+        // commerçant en gère les quantités et les caractéristiques, mais ni
+        // le prix ni les médias.
+        //
+        // Appliqué ICI, en tout dernier : les blocs image et vidéo ci-dessus
+        // réécrivent `updateData`, un filtrage plus haut serait donc défait
+        // juste après. Et on retire les champs plutôt que de rejeter toute la
+        // requête — le reste de la modification est légitime.
+        let champsRefuses = [];
+        if (acteurProduit?.role === 'commercant' && estArticlePlateforme(existingProduct)) {
+            const verrouillage = appliquerVerrouillagePlateforme(updateData, existingProduct);
+            for (const cle of Object.keys(updateData)) delete updateData[cle];
+            Object.assign(updateData, verrouillage.miseAJour);
+            champsRefuses = verrouillage.champsRefuses;
+        }
+
         await Product.findByIdAndUpdate(id, updateData);
+
+        journaliser({
+            acteur: acteurProduit,
+            action: 'produit.modification',
+            cible: { id: existingProduct._id, libelle: updateData.name || existingProduct.name },
+            boutiqueId: existingProduct.boutiqueId,
+            apercu: apercuProduit({ ...existingProduct.toObject(), ...updateData }),
+            note: champsRefuses.length > 0
+                ? `Champs verrouillés ignorés : ${champsRefuses.join(', ')}.`
+                : '',
+        });
 
         syncProductToAirtable(id);
 
-        res.json({ success: true, message: "Product Updated" });
+        res.json({
+            success: true,
+            message: champsRefuses.length > 0
+                ? 'Article mis à jour. Le prix et les médias sont fixés par la plateforme et n\'ont pas été modifiés.'
+                : 'Product Updated',
+            ...(champsRefuses.length > 0 ? { champsRefuses } : {}),
+        });
     } catch (error) {
         console.log('❌ Erreur updateProduct:', error.message);
         res.status(500).json({ success: false, message: error.message });
@@ -788,6 +870,15 @@ export const deleteProduct = async (req, res) => {
 
             syncProductToAirtable(id); // reste dans Airtable, "En stock" décoché
 
+            journaliser({
+                acteur: acteurDepuisRequete(req),
+                action: 'produit.archivage',
+                cible: { id: product._id, libelle: product.name },
+                boutiqueId: product.boutiqueId,
+                apercu: apercuProduit(product),
+                note: "Déjà commandé : archivé au lieu d'être supprimé.",
+            });
+
             return res.json({
                 success: true,
                 archived: true,
@@ -818,6 +909,18 @@ export const deleteProduct = async (req, res) => {
             }));
         }
         
+        // La trace est écrite AVANT l'effacement : après, il ne reste plus
+        // rien à recopier. C'est tout l'intérêt du journal ici — savoir
+        // exactement ce qui a disparu, et par qui.
+        journaliser({
+            acteur: acteurDepuisRequete(req),
+            action: 'produit.suppression',
+            cible: { id: product._id, libelle: product.name },
+            boutiqueId: product.boutiqueId,
+            apercu: apercuProduit(product),
+            note: 'Jamais commandé : suppression définitive, médias compris.',
+        });
+
         await Product.findByIdAndDelete(id);
 
         deleteProductFromAirtable(id);

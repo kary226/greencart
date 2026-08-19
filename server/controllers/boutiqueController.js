@@ -269,6 +269,38 @@ export const listBoutiqueOptions = async (req, res) => {
     }
 };
 
+// PATCH /api/boutiques/:id/autorisations — Admin
+//
+// Pour l'instant une seule autorisation : le droit de créer des articles.
+// Le champ est nommé au pluriel et l'endpoint conçu pour en accueillir
+// d'autres, plutôt que d'ajouter une route par droit.
+export const updateAutorisationsBoutique = async (req, res) => {
+    try {
+        const { peutCreerProduits } = req.body;
+
+        const boutique = await Boutique.findById(req.params.id);
+        if (!boutique) {
+            return res.status(404).json({ success: false, message: 'Boutique non trouvée' });
+        }
+
+        if (typeof peutCreerProduits === 'boolean') {
+            boutique.peutCreerProduits = peutCreerProduits;
+        }
+        await boutique.save();
+
+        return res.status(200).json({
+            success: true,
+            message: boutique.peutCreerProduits
+                ? "Ajout d'articles activé pour cette boutique"
+                : "Ajout d'articles désactivé pour cette boutique",
+            boutique,
+        });
+    } catch (error) {
+        console.error('Erreur updateAutorisationsBoutique:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 // PATCH /api/boutiques/:id/statut — Admin : suspendre / réactiver
 //
 // Suspendre agit sur la VITRINE : les articles de la boutique sortent du

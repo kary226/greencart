@@ -123,7 +123,7 @@ const Dashboard = () => {
     if (loading) {
         return (
             <div className="flex items-center justify-center py-24">
-                <Loader2 className="animate-spin text-burgundy-600" size={32} />
+                <Loader2 className="animate-spin text-ramses-600" size={32} />
             </div>
         );
     }
@@ -131,7 +131,7 @@ const Dashboard = () => {
     if (boutiqueEnCours) {
         return (
             <div className="flex items-center justify-center py-24">
-                <Loader2 className="animate-spin text-burgundy-600" size={32} />
+                <Loader2 className="animate-spin text-ramses-600" size={32} />
             </div>
         );
     }
@@ -150,7 +150,7 @@ const Dashboard = () => {
             title: "Chiffre d'affaires", 
             value: `${stats.totalVentes.toLocaleString()} FCFA`, 
             icon: TrendingUp, 
-            accent: 'text-emerald-600 bg-emerald-50',
+            accent: 'text-ramses-600 bg-ramses-50',
             croissance: stats.croissanceCA,
             color: 'emerald'
         },
@@ -174,29 +174,29 @@ const Dashboard = () => {
             title: 'Solde portefeuille', 
             value: `${stats.soldeWallet.toLocaleString()} FCFA`, 
             icon: Wallet, 
-            accent: 'text-burgundy-600 bg-burgundy-50',
+            accent: 'text-ramses-600 bg-ramses-50',
             croissance: stats.croissanceWallet,
             color: 'burgundy'
         },
     ];
 
     const getCroissanceIcon = (valeur) => {
-        if (valeur > 0) return <ArrowUpRight size={14} className="text-emerald-500" />;
-        if (valeur < 0) return <ArrowDownRight size={14} className="text-red-500" />;
-        return <Minus size={14} className="text-gray-400" />;
+        if (valeur > 0) return <ArrowUpRight size={14} className="text-ramses-600" />;
+        if (valeur < 0) return <ArrowDownRight size={14} className="text-ramses-600" />;
+        return <Minus size={14} className="text-ink-400" />;
     };
 
     return (
-        <div className="bg-ivory-200 min-h-screen">
+        <div className="bg-ink-50 min-h-screen">
             {/* En-tête */}
-            <div className="bg-burgundy-600 px-4 sm:px-6 py-4 flex items-center justify-between">
+            <div className="bg-ramses-600 px-4 sm:px-6 py-4 flex items-center justify-between">
                 <div>
                     <h1 className="font-display text-xl font-bold text-white">Tableau de bord</h1>
-                    <p className="text-blush-200 text-xs mt-0.5">Bienvenue, {moi?.nom?.split(' ')[0] || 'Commerçant'} ! 🎉</p>
+                    <p className="text-ink-200 text-xs mt-0.5">Bienvenue, {moi?.nom?.split(' ')[0] || 'Commerçant'} ! 🎉</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <span className="text-xs bg-blush-200/20 text-blush-100 px-3 py-1 rounded-full">Commerçant</span>
-                    <div className="w-9 h-9 rounded-full bg-blush-300 flex items-center justify-center text-burgundy-700 font-bold text-sm">
+                    <span className="text-xs bg-ink-200/20 text-ink-50 px-3 py-1 rounded-full">Commerçant</span>
+                    <div className="w-9 h-9 rounded-full bg-ink-200 flex items-center justify-center text-ramses-700 font-bold text-sm">
                         {moi?.nom?.[0]?.toUpperCase() || 'C'}
                     </div>
                 </div>
@@ -209,11 +209,11 @@ const Dashboard = () => {
                     {statCards.map((s) => {
                         const Icon = s.icon;
                         return (
-                            <div key={s.title} className="bg-white rounded-2xl p-4 border border-blush-200 shadow-sm hover:shadow-md transition">
+                            <div key={s.title} className="bg-white rounded-2xl p-4 border border-ink-200 shadow-sm hover:shadow-md transition">
                                 <div className="flex items-start justify-between">
                                     <div>
-                                        <p className="text-[10px] text-gray-400 uppercase tracking-wider">{s.title}</p>
-                                        <p className="text-lg font-bold text-gray-900 mt-0.5">{s.value}</p>
+                                        <p className="text-[10px] text-ink-400 uppercase tracking-wider">{s.title}</p>
+                                        <p className="text-lg font-bold text-ink-900 mt-0.5">{s.value}</p>
                                     </div>
                                     <div className={`p-2 rounded-xl ${s.accent}`}>
                                         <Icon size={16} />
@@ -221,7 +221,7 @@ const Dashboard = () => {
                                 </div>
                                 <div className="flex items-center gap-1.5 mt-2">
                                     {getCroissanceIcon(s.croissance)}
-                                    <span className={`text-xs font-medium ${s.croissance > 0 ? 'text-emerald-600' : s.croissance < 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                                    <span className={`text-xs font-medium ${s.croissance > 0 ? 'text-ramses-600' : s.croissance < 0 ? 'text-ramses-600' : 'text-ink-400'}`}>
                                         {s.croissance > 0 ? '+' : ''}{s.croissance}% vs mois dernier
                                     </span>
                                 </div>
@@ -232,45 +232,45 @@ const Dashboard = () => {
 
                 {/* Actions rapides */}
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
-                    <Link to="/commercant/produits/ajouter" className="bg-burgundy-600 text-white rounded-2xl p-4 text-center hover:bg-burgundy-700 transition shadow-sm">
+                    <Link to="/commercant/produits/ajouter" className="bg-ramses-600 text-white rounded-2xl p-4 text-center hover:bg-ramses-700 transition shadow-sm">
                         <PlusCircle className="mx-auto mb-1.5" size={22} />
                         <p className="text-xs font-medium">Ajouter un produit</p>
                     </Link>
-                    <Link to="/commercant/commandes" className="bg-white border border-blush-200 rounded-2xl p-4 text-center hover:border-burgundy-300 hover:shadow-sm transition">
-                        <ShoppingBag className="mx-auto text-burgundy-600 mb-1.5" size={22} />
-                        <p className="text-xs font-medium text-gray-700">Voir les commandes</p>
+                    <Link to="/commercant/commandes" className="bg-white border border-ink-200 rounded-2xl p-4 text-center hover:border-ramses-300 hover:shadow-sm transition">
+                        <ShoppingBag className="mx-auto text-ramses-600 mb-1.5" size={22} />
+                        <p className="text-xs font-medium text-ink-700">Voir les commandes</p>
                     </Link>
-                    <Link to="/commercant/retraits" className="bg-white border border-blush-200 rounded-2xl p-4 text-center hover:border-burgundy-300 hover:shadow-sm transition">
-                        <Banknote className="mx-auto text-burgundy-600 mb-1.5" size={22} />
-                        <p className="text-xs font-medium text-gray-700">Demander un retrait</p>
+                    <Link to="/commercant/retraits" className="bg-white border border-ink-200 rounded-2xl p-4 text-center hover:border-ramses-300 hover:shadow-sm transition">
+                        <Banknote className="mx-auto text-ramses-600 mb-1.5" size={22} />
+                        <p className="text-xs font-medium text-ink-700">Demander un retrait</p>
                     </Link>
-                    <Link to="/commercant/portefeuille" className="bg-white border border-blush-200 rounded-2xl p-4 text-center hover:border-burgundy-300 hover:shadow-sm transition">
-                        <Wallet className="mx-auto text-burgundy-600 mb-1.5" size={22} />
-                        <p className="text-xs font-medium text-gray-700">Voir le portefeuille</p>
+                    <Link to="/commercant/portefeuille" className="bg-white border border-ink-200 rounded-2xl p-4 text-center hover:border-ramses-300 hover:shadow-sm transition">
+                        <Wallet className="mx-auto text-ramses-600 mb-1.5" size={22} />
+                        <p className="text-xs font-medium text-ink-700">Voir le portefeuille</p>
                     </Link>
-                    <Link to="/commercant/boutique" className="bg-white border border-blush-200 rounded-2xl p-4 text-center hover:border-burgundy-300 hover:shadow-sm transition col-span-2 sm:col-span-1">
-                        <Store className="mx-auto text-burgundy-600 mb-1.5" size={22} />
-                        <p className="text-xs font-medium text-gray-700">Ma boutique</p>
+                    <Link to="/commercant/boutique" className="bg-white border border-ink-200 rounded-2xl p-4 text-center hover:border-ramses-300 hover:shadow-sm transition col-span-2 sm:col-span-1">
+                        <Store className="mx-auto text-ramses-600 mb-1.5" size={22} />
+                        <p className="text-xs font-medium text-ink-700">Ma boutique</p>
                     </Link>
                 </div>
 
                 {/* Aperçu des ventes + Top produits */}
                 <div className="grid lg:grid-cols-3 gap-5 mb-6">
-                    <div className="lg:col-span-2 bg-white rounded-2xl border border-blush-200 p-5 shadow-sm">
+                    <div className="lg:col-span-2 bg-white rounded-2xl border border-ink-200 p-5 shadow-sm">
                         <div className="flex items-center justify-between mb-4">
-                            <h2 className="font-semibold text-gray-900">Aperçu des ventes</h2>
-                            <span className="text-xs text-gray-400">7 derniers jours</span>
+                            <h2 className="font-semibold text-ink-900">Aperçu des ventes</h2>
+                            <span className="text-xs text-ink-400">7 derniers jours</span>
                         </div>
                         <div className="flex items-center gap-6 mb-4">
                             <div>
-                                <p className="text-xs text-gray-400">Total ventes</p>
-                                <p className="text-xl font-bold text-gray-900">
+                                <p className="text-xs text-ink-400">Total ventes</p>
+                                <p className="text-xl font-bold text-ink-900">
                                     {revenueChartData.reduce((sum, d) => sum + d.ca, 0).toLocaleString()} FCFA
                                 </p>
                             </div>
                             <div>
-                                <p className="text-xs text-gray-400">Moyenne quotidienne</p>
-                                <p className="text-xl font-bold text-gray-900">
+                                <p className="text-xs text-ink-400">Moyenne quotidienne</p>
+                                <p className="text-xl font-bold text-ink-900">
                                     {Math.round(revenueChartData.reduce((sum, d) => sum + d.ca, 0) / 7).toLocaleString()} FCFA
                                 </p>
                             </div>
@@ -294,25 +294,25 @@ const Dashboard = () => {
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-2xl border border-blush-200 p-5 shadow-sm">
-                        <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <div className="bg-white rounded-2xl border border-ink-200 p-5 shadow-sm">
+                        <h2 className="font-semibold text-ink-900 mb-4 flex items-center gap-2">
                             <Trophy size={16} className="text-amber-500" /> Produits les plus vendus
                         </h2>
                         {topProduits.length === 0 ? (
-                            <p className="text-sm text-gray-400 py-6 text-center">Pas encore de ventes</p>
+                            <p className="text-sm text-ink-400 py-6 text-center">Pas encore de ventes</p>
                         ) : (
                             <div className="space-y-3.5">
                                 {topProduits.map((p, idx) => (
                                     <div key={idx} className="flex items-center gap-3">
-                                        <span className={`w-5 text-xs font-bold ${idx === 0 ? 'text-amber-500' : 'text-gray-400'}`}>
+                                        <span className={`w-5 text-xs font-bold ${idx === 0 ? 'text-amber-500' : 'text-ink-400'}`}>
                                             {idx + 1}
                                         </span>
-                                        <div className="w-10 h-10 rounded-full bg-blush-100 overflow-hidden shrink-0 border border-blush-200">
+                                        <div className="w-10 h-10 rounded-full bg-ink-50 overflow-hidden shrink-0 border border-ink-200">
                                             {p.image ? <img src={getPresetImageUrl(p.image, "thumbnail")} alt={p.name} className="w-full h-full object-cover" loading="lazy" /> : null}
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-medium text-gray-800 truncate">{p.name}</p>
-                                            <p className="text-xs text-gray-400">{p.quantite} vendu(s)</p>
+                                            <p className="text-sm font-medium text-ink-800 truncate">{p.name}</p>
+                                            <p className="text-xs text-ink-400">{p.quantite} vendu(s)</p>
                                         </div>
                                     </div>
                                 ))}
@@ -322,31 +322,31 @@ const Dashboard = () => {
                 </div>
 
                 {/* Ventes récentes */}
-                <div className="bg-white rounded-2xl border border-blush-200 overflow-hidden shadow-sm">
-                    <div className="px-6 py-4 border-b border-blush-100 flex items-center justify-between">
-                        <h2 className="font-semibold text-gray-900">Ventes récentes</h2>
-                        <Link to="/commercant/commandes" className="text-xs text-burgundy-600 hover:text-burgundy-700 font-medium flex items-center gap-1">
+                <div className="bg-white rounded-2xl border border-ink-200 overflow-hidden shadow-sm">
+                    <div className="px-6 py-4 border-b border-ink-50 flex items-center justify-between">
+                        <h2 className="font-semibold text-ink-900">Ventes récentes</h2>
+                        <Link to="/commercant/commandes" className="text-xs text-ramses-600 hover:text-ramses-700 font-medium flex items-center gap-1">
                             Voir toutes <ChevronRight size={14} />
                         </Link>
                     </div>
                     {dernieresVentes.length === 0 ? (
-                        <div className="p-10 text-center text-sm text-gray-400">Aucune vente pour l'instant.</div>
+                        <div className="p-10 text-center text-sm text-ink-400">Aucune vente pour l'instant.</div>
                     ) : (
-                        <div className="divide-y divide-blush-100">
+                        <div className="divide-y divide-ink-50">
                             {dernieresVentes.map((order) => (
-                                <div key={order._id} className="px-6 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-blush-50 transition">
+                                <div key={order._id} className="px-6 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-ink-50 transition">
                                     <div>
-                                        <p className="text-sm font-medium text-gray-800">#{order._id.slice(-8)}</p>
-                                        <p className="text-xs text-gray-400">
+                                        <p className="text-sm font-medium text-ink-800">#{order._id.slice(-8)}</p>
+                                        <p className="text-xs text-ink-400">
                                             {order.address?.name || 'Client'} · {new Date(order.createdAt).toLocaleDateString('fr-FR')}
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-4">
-                                        <span className="text-sm font-semibold text-gray-800">{order.montantBoutique.toLocaleString()} FCFA</span>
+                                        <span className="text-sm font-semibold text-ink-800">{order.montantBoutique.toLocaleString()} FCFA</span>
                                         <span className={`text-[10px] px-2.5 py-1 rounded-full font-medium ${
-                                            order.status === 'Delivered' ? 'bg-green-100 text-green-700' :
-                                            (order.status === 'Cancelled' || order.status === 'Returned') ? 'bg-red-100 text-red-700' :
-                                            'bg-amber-100 text-amber-700'
+                                            order.status === 'Delivered' ? 'bg-ok-50 text-ok-500' :
+                                            (order.status === 'Cancelled' || order.status === 'Returned') ? 'bg-ramses-100 text-ramses-700' :
+                                            'bg-warn-50 text-warn-500'
                                         }`}>
                                             {order.status === 'Delivered' ? 'Livrée' :
                                              order.status === 'Cancelled' ? 'Annulée' :
@@ -360,7 +360,7 @@ const Dashboard = () => {
                 </div>
 
                 {/* Footer */}
-                <div className="mt-6 text-center text-[11px] text-gray-400">
+                <div className="mt-6 text-center text-[11px] text-ink-400">
                     Boutique {boutique?.nom || 'BioFresh'} · {new Date().getFullYear()}
                 </div>
             </div>
