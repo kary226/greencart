@@ -11,6 +11,7 @@ import {
     createBoutiqueForCommercial,
     updateBoutiqueStatut,
     listBoutiqueOptions,
+    getBoutiqueApercu,
 } from '../controllers/boutiqueController.js';
 
 const boutiqueRouter = express.Router();
@@ -30,6 +31,7 @@ boutiqueRouter.post('/', authStaff, requireRole('admin'), createBoutiqueForComme
 boutiqueRouter.patch('/:id/statut', authStaff, requireRole('admin'), updateBoutiqueStatut);
 
 // ✅ Routes PUBLIQUES (avec paramètre :id) — DOIVENT être EN DERNIER
+boutiqueRouter.get('/:id/apercu', getBoutiqueApercu);
 boutiqueRouter.get('/:id', getBoutiqueById);
 
 export default boutiqueRouter;

@@ -89,6 +89,33 @@ const ProductDetails = () => {
   const isYouTube = (url) => url?.includes("youtube.com") || url?.includes("youtu.be");
   const isVimeo = (url) => url?.includes("vimeo.com");
 
+  // Aperçu de la boutique du produit (nom + logo), pour la pastille
+  // « Vendu par ». Chargé à part : la liste du catalogue ne transporte que
+  // l'identifiant, et peupler chaque produit alourdirait toutes les pages.
+  const [boutiqueApercu, setBoutiqueApercu] = useState(null);
+
+  useEffect(() => {
+    const boutiqueId = product?.boutiqueId?._id || product?.boutiqueId;
+    if (!boutiqueId) {
+      setBoutiqueApercu(null);
+      return;
+    }
+
+    let annule = false;
+    (async () => {
+      try {
+        const { data } = await axios.get(`/api/boutiques/${boutiqueId}/apercu`);
+        if (!annule && data.success) setBoutiqueApercu(data.boutique);
+      } catch (error) {
+        // Boutique suspendue ou supprimée : la fiche reste utilisable, on
+        // n'affiche simplement pas la pastille.
+        if (!annule) setBoutiqueApercu(null);
+      }
+    })();
+
+    return () => { annule = true; };
+  }, [product?.boutiqueId, axios]);
+
   // Effets
   useEffect(() => {
     const fetchReturnPolicy = async () => {
@@ -624,6 +651,46 @@ const ProductDetails = () => {
 
         <div className="pd-info">
           <h1 className="pd-title">{product.name}</h1>
+
+          {boutiqueApercu && (
+            <Link
+              to={`/boutique/${boutiqueApercu._id}`}
+              className="pd-shop"
+              aria-label={`Voir la boutique ${boutiqueApercu.nom}`}
+            >
+              <span className="pd-shop-avatar" aria-hidden="true">
+                {boutiqueApercu.logo ? (
+                  <img
+                    src={getPresetImageUrl(boutiqueApercu.logo, "thumbnail")}
+                    alt=""
+                    width={28}
+                    height={28}
+                    loading="lazy"
+                  />
+                ) : (
+                  boutiqueApercu.nom?.[0]?.toUpperCase() || "B"
+                )}
+              </span>
+              <span className="pd-shop-text">
+                <span className="pd-shop-label">Vendu par</span>
+                <span className="pd-shop-name">{boutiqueApercu.nom}</span>
+              </span>
+              <svg
+                className="pd-shop-chevron"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="m9 18 6-6-6-6" />
+              </svg>
+            </Link>
+          )}
 
           <div className="pd-price">
             {discount && (

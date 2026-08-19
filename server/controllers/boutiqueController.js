@@ -140,11 +140,17 @@ export const getBoutiqueById = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Boutique non trouvée' });
         }
 
+        // Mêmes champs que ceux lus par ProductCard côté vitrine : sans
+        // variants/stock, les cartes perdent pastilles de couleur et mention
+        // « bientôt épuisé ».
         const produits = await Product.find({
             boutiqueId: id,
             inStock: true,
             isArchived: { $ne: true }
-        }).select('name price offerPrice image categories salesCount');
+        })
+            .select('name price offerPrice image categories salesCount variants stock inStock')
+            .sort('-salesCount')
+            .lean();
 
         return res.status(200).json({
             success: true,
@@ -153,6 +159,30 @@ export const getBoutiqueById = async (req, res) => {
         });
     } catch (error) {
         console.error('Erreur getBoutiqueById:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// GET /api/boutiques/:id/apercu — Public
+//
+// Juste de quoi afficher la pastille « Vendu par » d'une fiche produit :
+// nom et logo. Volontairement distinct de GET /:id, qui charge en plus tout
+// le catalogue de la boutique — inutile (et coûteux) sur chaque fiche.
+export const getBoutiqueApercu = async (req, res) => {
+    try {
+        const boutique = await Boutique.findById(req.params.id).select('nom logo statut').lean();
+
+        // Une boutique suspendue n'existe pas côté vitrine.
+        if (!boutique || boutique.statut === 'suspendue') {
+            return res.status(404).json({ success: false, message: 'Boutique non trouvée' });
+        }
+
+        return res.status(200).json({
+            success: true,
+            boutique: { _id: boutique._id, nom: boutique.nom, logo: boutique.logo },
+        });
+    } catch (error) {
+        console.error('Erreur getBoutiqueApercu:', error.message);
         res.status(500).json({ success: false, message: error.message });
     }
 };

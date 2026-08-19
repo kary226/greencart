@@ -53,6 +53,7 @@ const StaffLogin = lazy(() => import('./pages/staff/StaffLogin'));
 const StaffActivation = lazy(() => import('./pages/staff/StaffActivation'));
 const AdminComptes = lazy(() => import('./pages/admin/AdminComptes'));
 const AdminBoutiques = lazy(() => import('./pages/admin/AdminBoutiques'));
+const BoutiqueVitrine = lazy(() => import('./pages/BoutiqueVitrine'));
 
 // Zone Commerçant
 const CommercantLayout = lazy(() => import('./pages/commercant/CommercantLayout'));
@@ -197,6 +198,9 @@ const App = () => {
             <Route path='/forgot-password' element={<ForgotPassword />} />
             <Route path='/reset-password' element={<ResetPassword />} />
             <Route path='/install' element={<InstallApp />} />
+            {/* Vitrine publique d'une boutique — cible de la pastille
+                « Vendu par » des fiches produit. */}
+            <Route path='/boutique/:id' element={<BoutiqueVitrine />} />
             <Route path='/valider-panier-shein' element={<ValiderPanierShein />} />
             <Route path='/mes-colis-shein' element={<MesColisShein />} />
             <Route path='/colis-shein/:id' element={<ColisSheinConversation />} />

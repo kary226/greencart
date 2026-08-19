@@ -848,3 +848,71 @@
   .pd-btn-cart,
   .pd-btn-buy { transition: none !important; animation: none !important; }
 }
+/* ---- Pastille « Vendu par » -------------------------------------------- */
+/* Elle vit juste sous le titre, avant le prix : c'est une information de
+   confiance, pas une action commerciale — elle ne doit donc pas concurrencer
+   le prix ni le bouton d'achat. D'où le gris, l'absence de fond plein, et un
+   nom tronqué plutôt qu'un retour à la ligne qui pousserait le prix hors de
+   l'écran sur un téléphone. */
+.pd-shop {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  min-height: 44px;          /* cible tactile — DESIGN.md §8 */
+  margin: 2px 0 0;
+  padding: 4px 10px 4px 4px;
+  border: 1px solid var(--color-ink-200);
+  border-radius: 999px;
+  background: var(--color-ink-0);
+  text-decoration: none;
+  transition: background-color .15s ease, border-color .15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.pd-shop:hover { background: var(--color-ink-50); border-color: var(--color-ink-300); }
+.pd-shop:active { background: var(--color-ink-100); }
+.pd-shop:focus-visible { outline: none; box-shadow: var(--rs-focus); }
+
+.pd-shop-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--color-ink-100);
+  color: var(--color-ink-500);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+}
+.pd-shop-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+.pd-shop-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;              /* sans ça, l'ellipsis ne se déclenche jamais */
+  line-height: 1.15;
+}
+.pd-shop-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--color-ink-400);
+}
+.pd-shop-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ink-900);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 42vw;           /* garde le prix sur la même ligne visuelle */
+}
+@media (min-width: 768px) {
+  .pd-shop-name { max-width: 220px; }
+}
+
+.pd-shop-chevron { color: var(--color-ink-300); flex-shrink: 0; }
