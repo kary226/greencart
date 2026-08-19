@@ -3,6 +3,7 @@ import { upload } from '../configs/multer.js';
 import authSeller from '../middlewares/authSeller.js';
 import authStaff, { requireRole } from '../middlewares/authStaff.js';
 import requireBoutiqueActive from '../middlewares/requireBoutiqueActive.js';
+import requireDroitCreation from '../middlewares/requireDroitCreation.js';
 import attachStaffOptionnel from '../middlewares/attachStaffOptionnel.js';
 import { valider } from '../middlewares/valider.js';
 import { schemaStock, schemaAffectationBoutique } from '../schemas/index.js';
@@ -110,7 +111,7 @@ productRouter.post('/assign-boutique', authSeller, valider(schemaAffectationBout
 productRouter.post('/sync-airtable', authSeller, syncAirtable);
 
 // ✅ PHASE 3 : Routes pour les commerçants (via authStaff)
-productRouter.post('/staff/add', authStaff, requireRole('admin', 'commercant'), requireBoutiqueActive, (req, res, next) => {
+productRouter.post('/staff/add', authStaff, requireRole('admin', 'commercant'), requireBoutiqueActive, requireDroitCreation, (req, res, next) => {
     upload.fields([
         { name: 'images', maxCount: 10 },
         { name: 'video', maxCount: 1 }

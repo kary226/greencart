@@ -16,6 +16,11 @@ dist/
 build/
 .vercel/
 
+# Base MongoDB locale de développement (scripts/baseLocale.js) et binaires
+# téléchargés par mongodb-memory-server : données jetables, jamais versionnées.
+server/.mongo-local/
+.cache/mongodb-binaries/
+
 # Logs et fichiers temporaires
 *.log
 npm-debug.log*

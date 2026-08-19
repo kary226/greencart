@@ -82,7 +82,19 @@ const resoudreBoutiqueDemandee = async (boutiqueIdDemande) => {
 // ✅ Add Product - AVEC VIDÉO ET BOUTIQUE
 export const addProduct = async (req, res) => {
     try {
-        let productData = JSON.parse(req.body.productData);
+        // Le corps arrive en multipart : productData est une chaîne JSON.
+        // Sans ce garde, une requête malformée produisait une 500 avec un
+        // message de parsing — illisible pour l'appelant, et bruyant dans
+        // les logs d'erreur.
+        let productData;
+        try {
+            productData = JSON.parse(req.body.productData);
+        } catch {
+            return res.status(400).json({
+                success: false,
+                message: 'Données du produit illisibles (productData attendu au format JSON).',
+            });
+        }
         const images = req.files?.images || [];
         const videoFile = req.files?.video ? req.files.video[0] : null;
 
@@ -105,9 +117,10 @@ export const addProduct = async (req, res) => {
                     message: 'Vous n\'avez pas de boutique. Contactez l\'administrateur.'
                 });
             }
-            // La création d'articles est un droit accordé boutique par
-            // boutique par l'admin. Vérifié ICI, côté serveur : masquer le
-            // bouton dans l'interface ne protège de rien.
+            // Le droit de création est vérifié en amont par le middleware
+            // requireDroitCreation (avant l'upload). On le revérifie ici :
+            // ce contrôleur est monté sur deux routes, et une seule ligne de
+            // route oubliée suffirait à ouvrir la création à tout le monde.
             const saBoutique = await Boutique.findById(acteur.boutiqueId).select('peutCreerProduits');
             if (!saBoutique?.peutCreerProduits) {
                 return res.status(403).json({
