@@ -9,6 +9,7 @@ import { appliquerFiltreBoutiquesActives, getIdsBoutiquesSuspendues } from "../s
 import { genererSkuUnique, normaliserSku, skuEstDisponible, skuEstValide } from "../utils/sku.js";
 import { estErreurUrlBloquee } from "../utils/urlGuard.js";
 import { construireFiltreRecherche } from "../utils/recherche.js";
+import { acteurDepuisRequete } from "../middlewares/authActeur.js";
 import {
     normaliserVariantes,
     calculerStockTotal,
@@ -61,30 +62,6 @@ export const genererCodeArticle = async (req, res) => {
     }
 };
 
-// Pont de transition vers l'acteur unifié (middlewares/authActeur.js).
-//
-// Toutes les routes n'ont pas encore basculé : certaines passent par
-// authStaff, d'autres par authSeller. Cette fonction reconstruit la même
-// forme dans les trois cas, pour que les contrôleurs soient déjà écrits
-// comme si la bascule était terminée — le jour où le compte technique
-// disparaît, il n'y aura rien à changer ici.
-const resoudreActeur = (req) => {
-    if (req.acteur) return req.acteur;
-    if (req.staffUser) {
-        return {
-            type: 'staff',
-            id: req.staffUser._id,
-            role: req.staffUser.role,
-            boutiqueId: req.staffUser.boutiqueId || null,
-            nom: req.staffUser.nom,
-        };
-    }
-    if (req.isTechnicalSeller) {
-        return { type: 'vendeur_technique', id: null, role: 'admin', boutiqueId: null, nom: 'Compte vendeur' };
-    }
-    return null;
-};
-
 // Sentinelle : « une boutique a été demandée, mais elle n'existe pas ».
 // Distinguer ce cas de « aucune boutique demandée » (null) évite de créer
 // silencieusement un article au catalogue principal alors que l'intention
@@ -109,7 +86,7 @@ export const addProduct = async (req, res) => {
         // Acteur normalisé (voir middlewares/authActeur.js) : le compte
         // technique vendeur et le staff admin ont désormais la même forme,
         // donc un seul chemin de code au lieu de deux à tenir en parallèle.
-        const acteur = resoudreActeur(req);
+        const acteur = acteurDepuisRequete(req);
         if (!acteur) {
             return res.status(403).json({ success: false, message: 'Accès refusé - Non authentifié' });
         }

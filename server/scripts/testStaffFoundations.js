@@ -17,12 +17,15 @@
 //   node scripts/testStaffFoundations.js http://localhost:5000   (si autre port)
 
 import 'dotenv/config';
+import crypto from 'crypto';
 import dns from 'dns';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import { authenticator } from 'otplib';
 import StaffUser from '../models/StaffUser.js';
 import Invitation from '../models/Invitation.js';
+import Boutique from '../models/Boutique.js';
+import Wallet from '../models/Wallet.js';
 
 dns.setServers(['8.8.8.8', '8.8.4.4']);
 
@@ -70,8 +73,21 @@ const makeClient = () => {
 };
 
 const cleanup = async () => {
-    await StaffUser.deleteMany({ email: { $in: [TEST_ADMIN_EMAIL, TEST_COMMERCANT_EMAIL] } });
+    // L'activation d'un compte commerçant crée AUSSI sa boutique et son
+    // portefeuille. Tant que l'activation échouait (cf. correctif du jeton
+    // plus bas), ces deux collections n'étaient jamais touchées et le
+    // nettoyage paraissait complet. Maintenant que le script fonctionne, il
+    // doit reprendre tout ce qu'il a créé — sinon chaque exécution laisse
+    // une boutique orpheline dans la base.
+    const comptes = await StaffUser.find({
+        email: { $in: [TEST_ADMIN_EMAIL, TEST_COMMERCANT_EMAIL] },
+    }).select('_id');
+    const ids = comptes.map((c) => c._id);
+
+    await Boutique.deleteMany({ ownerId: { $in: ids } });
+    await Wallet.deleteMany({ ownerId: { $in: ids } });
     await Invitation.deleteMany({ email: { $in: [TEST_ADMIN_EMAIL, TEST_COMMERCANT_EMAIL] } });
+    await StaffUser.deleteMany({ _id: { $in: ids } });
 };
 
 const run = async () => {
@@ -123,8 +139,25 @@ const run = async () => {
     const invitation = await Invitation.findOne({ email: TEST_COMMERCANT_EMAIL, utilisee: false });
     check('Invitation retrouvée en base avec un token', !!invitation?.token);
 
+    // [CORRECTIF] Ce script postait `invitation.token` tel quel comme lien
+    // d'activation. Or seule l'EMPREINTE du jeton est stockée en base (le
+    // lien en clair ne vit que dans l'e-mail) : le serveur hachait donc une
+    // empreinte, ne retrouvait rien, et l'activation échouait toujours —
+    // entraînant l'échec de toutes les vérifications suivantes.
+    //
+    // On rejoue donc l'invitation avec un jeton dont on connaît le clair,
+    // en calculant son empreinte exactement comme le serveur. L'appel à
+    // l'API ci-dessus reste utile : il teste bien l'endpoint de création.
+    const jetonClair = crypto.randomBytes(32).toString('hex');
+    await Invitation.updateOne(
+        { _id: invitation._id },
+        { token: crypto.createHash('sha256').update(jetonClair).digest('hex') }
+    );
+    check("L'empreinte stockée diffère du jeton envoyé par e-mail",
+        invitation.token !== jetonClair);
+
     const commercantClient = makeClient();
-    r = await commercantClient(`/api/staff/activation/${invitation.token}`, {
+    r = await commercantClient(`/api/staff/activation/${jetonClair}`, {
         method: 'POST',
         body: JSON.stringify({ nom: 'Commerçant Test', password: TEST_PASSWORD }),
     });

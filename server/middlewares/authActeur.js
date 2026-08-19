@@ -38,7 +38,7 @@ const lireJeton = (req, nomCookie) =>
  * @property {string} nom
  */
 
-const acteurDepuisStaff = (staffUser) => ({
+export const acteurDepuisStaff = (staffUser) => ({
     type: 'staff',
     id: staffUser._id,
     role: staffUser.role,
@@ -48,13 +48,32 @@ const acteurDepuisStaff = (staffUser) => ({
 
 // Le compte technique a exactement les pouvoirs d'un admin : le déclarer
 // ainsi permet aux contrôleurs de ne raisonner que sur des rôles.
-const acteurVendeurTechnique = () => ({
+export const acteurVendeurTechnique = () => ({
     type: 'vendeur_technique',
     id: null,
     role: 'admin',
     boutiqueId: null,
     nom: 'Compte vendeur',
 });
+
+/**
+ * Reconstruit l'acteur à partir d'une requête, quelle que soit la porte
+ * d'entrée empruntée : ce middleware (`req.acteur`), l'ancien `authStaff`
+ * (`req.staffUser`) ou l'ancien `authSeller` (`req.isTechnicalSeller`).
+ *
+ * C'est ce qui permet aux contrôleurs d'être écrits dès aujourd'hui comme si
+ * la bascule était terminée, sans avoir à migrer toutes les routes d'un
+ * coup. La forme de l'acteur n'est définie qu'ICI — la dupliquer dans un
+ * contrôleur garantirait qu'un jour les deux versions divergent.
+ *
+ * @returns {object|null} l'acteur, ou null si la requête n'est pas authentifiée
+ */
+export const acteurDepuisRequete = (req) => {
+    if (req.acteur) return req.acteur;
+    if (req.staffUser) return acteurDepuisStaff(req.staffUser);
+    if (req.isTechnicalSeller) return acteurVendeurTechnique();
+    return null;
+};
 
 const authActeur = async (req, res, next) => {
     try {
