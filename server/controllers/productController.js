@@ -8,6 +8,13 @@ import { withCache, CACHE_KEYS } from "../configs/redisCache.js";
 import { appliquerFiltreBoutiquesActives, getIdsBoutiquesSuspendues } from "../services/boutiqueService.js";
 import { genererSkuUnique, normaliserSku, skuEstDisponible, skuEstValide } from "../utils/sku.js";
 import { estErreurUrlBloquee } from "../utils/urlGuard.js";
+import { construireFiltreRecherche } from "../utils/recherche.js";
+import {
+    normaliserVariantes,
+    calculerStockTotal,
+    determinerDisponibilite,
+    appliquerQuantites,
+} from "../services/productService.js";
 import { syncProductToAirtable, deleteProductFromAirtable, resyncAllProducts } from "../services/airtableSync.js";
 
 /**
@@ -54,6 +61,30 @@ export const genererCodeArticle = async (req, res) => {
     }
 };
 
+// Pont de transition vers l'acteur unifié (middlewares/authActeur.js).
+//
+// Toutes les routes n'ont pas encore basculé : certaines passent par
+// authStaff, d'autres par authSeller. Cette fonction reconstruit la même
+// forme dans les trois cas, pour que les contrôleurs soient déjà écrits
+// comme si la bascule était terminée — le jour où le compte technique
+// disparaît, il n'y aura rien à changer ici.
+const resoudreActeur = (req) => {
+    if (req.acteur) return req.acteur;
+    if (req.staffUser) {
+        return {
+            type: 'staff',
+            id: req.staffUser._id,
+            role: req.staffUser.role,
+            boutiqueId: req.staffUser.boutiqueId || null,
+            nom: req.staffUser.nom,
+        };
+    }
+    if (req.isTechnicalSeller) {
+        return { type: 'vendeur_technique', id: null, role: 'admin', boutiqueId: null, nom: 'Compte vendeur' };
+    }
+    return null;
+};
+
 // Sentinelle : « une boutique a été demandée, mais elle n'existe pas ».
 // Distinguer ce cas de « aucune boutique demandée » (null) évite de créer
 // silencieusement un article au catalogue principal alors que l'intention
@@ -75,40 +106,38 @@ export const addProduct = async (req, res) => {
         const images = req.files?.images || [];
         const videoFile = req.files?.video ? req.files.video[0] : null;
 
+        // Acteur normalisé (voir middlewares/authActeur.js) : le compte
+        // technique vendeur et le staff admin ont désormais la même forme,
+        // donc un seul chemin de code au lieu de deux à tenir en parallèle.
+        const acteur = resoudreActeur(req);
+        if (!acteur) {
+            return res.status(403).json({ success: false, message: 'Accès refusé - Non authentifié' });
+        }
+
         let boutiqueId = null;
 
-        if (req.staffUser) {
-            if (req.staffUser.role === 'commercant') {
-                // Un commerçant publie forcément dans SA boutique : un
-                // boutiqueId envoyé par le client est ignoré.
-                if (!req.staffUser.boutiqueId) {
-                    return res.status(400).json({
-                        success: false,
-                        message: 'Vous n\'avez pas de boutique. Contactez l\'administrateur.'
-                    });
-                }
-                boutiqueId = req.staffUser.boutiqueId;
-            } else if (req.staffUser.role === 'admin') {
-                boutiqueId = await resoudreBoutiqueDemandee(productData.boutiqueId);
-            } else {
-                return res.status(403).json({
+        if (acteur.role === 'commercant') {
+            // Un commerçant publie forcément dans SA boutique : un
+            // boutiqueId envoyé par le client est ignoré.
+            if (!acteur.boutiqueId) {
+                return res.status(400).json({
                     success: false,
-                    message: 'Accès refusé - Rôle non autorisé'
+                    message: 'Vous n\'avez pas de boutique. Contactez l\'administrateur.'
                 });
             }
-        }
-        else if (req.isTechnicalSeller) {
-            // Le vendeur peut créer un article POUR une boutique : il le
-            // saisit une fois, et l'article appartient ensuite au commerçant
-            // (il apparaît dans son espace, celui-ci en gère les quantités,
-            // et les ventes créditent son portefeuille). Sans boutiqueId,
-            // l'article reste au catalogue principal, comme avant.
+            boutiqueId = acteur.boutiqueId;
+        } else if (acteur.role === 'admin') {
+            // Un admin — staff ou compte vendeur technique — peut créer un
+            // article POUR une boutique : il le saisit une fois, et l'article
+            // appartient ensuite au commerçant (il apparaît dans son espace,
+            // celui-ci en gère les quantités, et les ventes créditent son
+            // portefeuille). Sans boutiqueId, l'article reste au catalogue
+            // principal, comme avant.
             boutiqueId = await resoudreBoutiqueDemandee(productData.boutiqueId);
-        }
-        else {
+        } else {
             return res.status(403).json({
                 success: false,
-                message: 'Accès refusé - Non authentifié'
+                message: 'Accès refusé - Rôle non autorisé'
             });
         }
 
@@ -303,6 +332,40 @@ export const checkAvailability = async (req, res) => {
     }
 };
 
+// Champs strictement nécessaires à l'affichage d'un article dans une liste
+// ou une carte. Tout le reste (description, vidéo, et surtout purchasePrice /
+// externalLink qui sont des informations internes) est exclu explicitement :
+// une liste publique ne doit jamais transporter la marge de la boutique.
+const CHAMPS_CATALOGUE = 'name sku price offerPrice image categories variants stock inStock salesCount labelType size boutiqueId createdAt';
+
+// GET /api/product/catalogue — Catalogue complet allégé (public)
+//
+// [CORRECTIF ARCHITECTURE] Le client garde un catalogue en mémoire dont
+// dépendent le panier (calcul du total !), la fiche produit, les pages
+// catégorie et la recherche. Il l'alimentait avec /api/product/list SANS
+// paramètre, donc avec les 12 articles les plus récents seulement : au-delà,
+// une fiche s'ouvrait vide et une ligne de panier inconnue était comptée
+// zéro. Cet endpoint renvoie TOUT le catalogue, mais sans les champs lourds
+// — c'est ce compromis qui rend l'état global tenable.
+//
+// Les articles en rupture sont inclus volontairement : ils peuvent être déjà
+// dans un panier, et les masquer ferait à nouveau mentir le total.
+export const productCatalogue = async (req, res) => {
+    try {
+        const filter = await appliquerFiltreBoutiquesActives({ isArchived: { $ne: true } });
+
+        const products = await Product.find(filter)
+            .select(CHAMPS_CATALOGUE)
+            .sort({ createdAt: -1 })
+            .lean();
+
+        res.json({ success: true, products, total: products.length });
+    } catch (error) {
+        console.error('Erreur productCatalogue:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 // ✅ Get Product : /api/product/list
 export const productList = async (req, res) => {
     try {
@@ -322,6 +385,13 @@ export const productList = async (req, res) => {
         if (req.query.boutiqueId) {
             filter.boutiqueId = req.query.boutiqueId;
         }
+
+        // [CORRECTIF] search / category / prix étaient déjà envoyés par
+        // l'espace commerçant mais totalement ignorés ici : la barre de
+        // recherche « fonctionnait » en n'ayant aucun effet. La construction
+        // du filtre (et l'échappement des métacaractères) vit dans
+        // utils/recherche.js, où elle est testée.
+        Object.assign(filter, construireFiltreRecherche(req.query));
 
         // Vitrine publique : les articles des boutiques suspendues (ou dont
         // le compte commerçant n'est plus actif) en sortent. Un commerçant
@@ -499,29 +569,13 @@ export const changeStockCommercant = async (req, res) => {
                     message: 'Cet article a des variantes : envoyez leurs quantités',
                 });
             }
-
-            // On ne remplace pas le tableau : on met à jour les quantités des
-            // variantes reconnues (couleur + taille), et rien d'autre. Les
-            // prix et images de variante restent la main du vendeur.
-            const cle = (v) => `${v.color ?? ''}|${v.size ?? ''}`;
-            const quantitesRecues = new Map(
-                variants.map((v) => [cle(v), Math.max(0, Number(v.stock) || 0)])
-            );
-
-            product.variants.forEach((variante) => {
-                const nouvelleQuantite = quantitesRecues.get(cle(variante));
-                if (nouvelleQuantite !== undefined) variante.stock = nouvelleQuantite;
-            });
-
-            product.stock = product.variants.reduce((somme, v) => somme + (v.stock || 0), 0);
+            appliquerQuantites(product.variants, variants);
         } else if (stock !== undefined) {
             product.stock = Math.max(0, Number(stock) || 0);
         }
 
-        // « Rupture » explicite : le commerçant peut retirer de la vente un
-        // article qui a encore du stock (souci fournisseur, article réservé).
-        // Sinon, la disponibilité découle des quantités.
-        product.inStock = inStock === false ? false : product.stock > 0;
+        product.stock = calculerStockTotal(product);
+        product.inStock = determinerDisponibilite(product.stock, inStock === false);
 
         await product.save();
 
@@ -589,15 +643,12 @@ export const updateProduct = async (req, res) => {
         const { id, name, description, categories, price, offerPrice, purchasePrice, externalLink, variants, stock, size, videoUrl, videoPublicId, labelType, image, sku } = req.body;
         const videoFile = req.file;
 
-        console.log('🔍 updateProduct - ID:', id);
-        console.log('🔍 updateProduct - req.staffUser:', req.staffUser);
 
         const existingProduct = await Product.findById(id);
         if (!existingProduct) {
             return res.status(404).json({ success: false, message: "Produit non trouvé" });
         }
 
-        console.log('🔍 updateProduct - existingProduct.boutiqueId:', existingProduct.boutiqueId);
 
         // ✅ Vérification des droits pour le commerçant
         if (req.staffUser && req.staffUser.role === 'commercant') {
@@ -625,27 +676,9 @@ export const updateProduct = async (req, res) => {
         }
 
         const hasVariants = variants && variants.length > 0;
-        let processedVariants = [];
-        let totalStock = 0;
-        
-        if (hasVariants) {
-            processedVariants = (variants || []).map(v => ({
-                color: v.color,
-                colorCode: v.colorCode,
-                size: v.size || null,
-                price: v.price || 0,
-                offerPrice: v.offerPrice || 0,
-                stock: v.stock || 0,
-                startImageIndex: v.startImageIndex || 0
-            }));
-            totalStock = processedVariants.reduce((sum, v) => sum + v.stock, 0);
-        } else {
-            totalStock = stock || 0;
-        }
-
-        const inStock = hasVariants 
-            ? processedVariants.some(v => v.stock > 0) 
-            : totalStock > 0;
+        const processedVariants = hasVariants ? normaliserVariantes(variants) : [];
+        const totalStock = calculerStockTotal({ variants: processedVariants, stock });
+        const inStock = determinerDisponibilite(totalStock);
 
         let descriptionToSave = description;
         if (typeof description === 'string') {

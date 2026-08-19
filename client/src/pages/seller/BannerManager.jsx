@@ -59,7 +59,10 @@ const BannerManager = () => {
 
     const fetchProducts = async () => {
         try {
-            const { data } = await axios.get('/api/product/list');
+            // admin-list, pas /list : cette dernière est paginée (12 par
+            // défaut), on ne pouvait donc mettre en avant que les 12 articles
+            // les plus récents.
+            const { data } = await axios.get('/api/product/admin-list');
             if (data.success) {
                 setProducts(data.products);
             }

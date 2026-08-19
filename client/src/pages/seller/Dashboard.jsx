@@ -32,7 +32,9 @@ const Dashboard = () => {
             silencieux ? setRafraichit(true) : setChargement(true);
             const [{ data }, { data: dataProduits }] = await Promise.all([
                 axios.get('/api/order/seller'),
-                axios.get('/api/product/list'),
+                // admin-list : /list est paginée (12), les statistiques
+                // produits portaient donc sur un échantillon arbitraire.
+                axios.get('/api/product/admin-list'),
             ]);
             if (!data.success) throw new Error(data.message || 'Chargement des commandes impossible');
             setCommandes(data.orders || []);

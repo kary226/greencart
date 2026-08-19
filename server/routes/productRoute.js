@@ -4,6 +4,8 @@ import authSeller from '../middlewares/authSeller.js';
 import authStaff, { requireRole } from '../middlewares/authStaff.js';
 import requireBoutiqueActive from '../middlewares/requireBoutiqueActive.js';
 import attachStaffOptionnel from '../middlewares/attachStaffOptionnel.js';
+import { valider } from '../middlewares/valider.js';
+import { schemaStock, schemaAffectationBoutique } from '../schemas/index.js';
 import cacheControl from '../middlewares/cacheControl.js';
 import { publicCatalogLimiter } from '../middlewares/rateLimiters.js';
 import { 
@@ -23,7 +25,8 @@ import {
     syncAirtable,
     checkAvailability,
     changeStockCommercant,
-    assignerBoutique
+    assignerBoutique,
+    productCatalogue
 } from '../controllers/productController.js';
 
 const productRouter = express.Router();
@@ -68,6 +71,9 @@ const handleMulterError = (err, req, res, next) => {
 // identiques pour tous les visiteurs et ne changent pas seconde par
 // seconde, un TTL court suffit à absorber l'essentiel du trafic répété.
 productRouter.get('/list', cacheControl(60), publicCatalogLimiter, attachStaffOptionnel, productList);
+// Catalogue complet allégé : source de vérité de l'état global du client
+// (panier, fiche produit, recherche). Voir le commentaire du contrôleur.
+productRouter.get('/catalogue', cacheControl(60), publicCatalogLimiter, productCatalogue);
 productRouter.get('/bestsellers', cacheControl(120), publicCatalogLimiter, getBestSellers);
 productRouter.get('/id', cacheControl(60), publicCatalogLimiter, productById);
 productRouter.post('/variant', publicCatalogLimiter, getVariantDetails);
@@ -100,7 +106,7 @@ productRouter.post('/scrape-import', authSeller, scrapeImport);
 // Attribution d'un article existant à une boutique (ou retour au catalogue
 // principal). Réservé au vendeur : c'est lui qui décide de qui dépend un
 // article, pas le commerçant qui le reçoit.
-productRouter.post('/assign-boutique', authSeller, assignerBoutique);
+productRouter.post('/assign-boutique', authSeller, valider(schemaAffectationBoutique), assignerBoutique);
 productRouter.post('/sync-airtable', authSeller, syncAirtable);
 
 // ✅ PHASE 3 : Routes pour les commerçants (via authStaff)
@@ -122,7 +128,7 @@ productRouter.post('/staff/add-images', authStaff, requireRole('admin', 'commerc
 productRouter.post('/staff/sync-airtable', authStaff, requireRole('admin', 'commercant'), syncAirtable);
 // Ajustement des quantités seul (réassort / rupture), sans repasser par le
 // formulaire produit complet.
-productRouter.post('/staff/stock', authStaff, requireRole('admin', 'commercant'), requireBoutiqueActive, changeStockCommercant);
-productRouter.post('/staff/assign-boutique', authStaff, requireRole('admin'), assignerBoutique);
+productRouter.post('/staff/stock', authStaff, requireRole('admin', 'commercant'), requireBoutiqueActive, valider(schemaStock), changeStockCommercant);
+productRouter.post('/staff/assign-boutique', authStaff, requireRole('admin'), valider(schemaAffectationBoutique), assignerBoutique);
 
 export default productRouter;

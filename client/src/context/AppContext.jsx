@@ -175,9 +175,16 @@ export const AppContextProvider = ({ children }) => {
     };
 
     // ✅ fetchProducts CORRIGÉ - Plus de dummyProducts
+    // [CORRECTIF ARCHITECTURE] Anciennement /api/product/list SANS paramètre,
+    // donc les 12 articles les plus récents seulement. Or cet état alimente
+    // le panier (y compris le CALCUL DU TOTAL), la fiche produit, les pages
+    // catégorie et la recherche : au-delà de 12 articles, une fiche s'ouvrait
+    // vide et une ligne de panier inconnue était comptée pour zéro.
+    // /api/product/catalogue renvoie tout le catalogue, sans les champs
+    // lourds (description, vidéo) ni les champs internes.
     const fetchProducts = async () => {
         try {
-            const { data } = await axios.get('/api/product/list');
+            const { data } = await axios.get('/api/product/catalogue');
             if (data.success) {
                 setProducts(data.products);
             } else {

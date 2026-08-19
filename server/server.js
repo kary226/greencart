@@ -29,6 +29,7 @@ import dns from 'dns';
 
 // [PHASE 3 - OBSERVABILITÉ] Mesure des temps de réponse
 import requestMetrics from './middlewares/requestMetrics.js';
+import { estOperationnelle } from './utils/AppError.js';
 import metricsRouter from './routes/metricsRoute.js';
 
 // PHASE 3 - Routes Commerçant
@@ -174,7 +175,15 @@ app.use('/api/message-colis', messageColisRouter);
 // [PHASE 3 - OBSERVABILITÉ] Lecture des métriques (protégée, voir le routeur)
 app.use('/api/metrics', metricsRouter);
 
-// ✅ AJOUT : Gestionnaire d'erreur global pour les uploads
+// Route d'API inconnue : renvoyer du JSON, pas la page HTML par défaut
+// d'Express — un client qui attend du JSON recevait jusqu'ici du HTML et
+// échouait au parsing, avec un message incompréhensible.
+app.use('/api', (req, res) => {
+    res.status(404).json({ success: false, message: 'Endpoint inexistant' });
+});
+
+// ✅ Gestionnaire d'erreurs CENTRAL (pratique 2.4 de nodebestpractices) :
+// un seul endroit décide quoi répondre, quoi journaliser et à quel niveau.
 app.use((err, req, res, next) => {
     // Erreur CORS
     if (err && err.message === 'Origine non autorisée par CORS') {
@@ -197,7 +206,29 @@ app.use((err, req, res, next) => {
         });
     }
     
-    // Erreur inattendue
+    // Erreur MÉTIER volontairement levée (AppError) : le serveur va bien,
+    // c'est une règle qui s'applique. On répond le statut prévu et le
+    // message tel quel — il a été écrit pour être lu par l'utilisateur.
+    // Journalisée en `warn`, pas en `error` : ce n'est pas un incident.
+    if (estOperationnelle(err)) {
+        console.warn(JSON.stringify({
+            type: 'warn',
+            ts: new Date().toISOString(),
+            method: req.method,
+            route: req.originalUrl?.split('?')[0],
+            status: err.statusCode,
+            message: err.message,
+        }));
+        return res.status(err.statusCode || 400).json({
+            success: false,
+            message: err.message,
+            ...(err.details ? { details: err.details } : {}),
+        });
+    }
+
+    // Erreur inattendue = BUG (pratique 2.3). Le message interne ne doit
+    // jamais atteindre le client : il révèle la structure du code et des
+    // données. Trace complète côté serveur, message générique côté client.
     // [PHASE 3 - OBSERVABILITÉ] Log structuré en plus du message lisible :
     // même format `type`/`ts`/`route` que les logs de requêtes, pour pouvoir
     // filtrer `type=error` dans les logs Vercel et corréler un pic d'erreurs

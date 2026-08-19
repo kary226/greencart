@@ -60,7 +60,17 @@ const ProductDetails = () => {
   const sizeSectionRef = useRef(null);
   const relatedCarouselRef = useRef(null);
 
-  const product = products.find((item) => item._id === id);
+  // [CORRECTIF ARCHITECTURE] La fiche ne peut pas se contenter du catalogue
+  // en mémoire : celui-ci est volontairement allégé (ni description, ni
+  // vidéo), et un lien partagé ou un résultat de moteur de recherche arrive
+  // ici avant même que le catalogue soit chargé. On charge donc toujours
+  // l'article complet par son identifiant ; l'entrée du catalogue ne sert
+  // que de contenu provisoire pour un affichage immédiat.
+  const produitDuCatalogue = products.find((item) => item._id === id);
+  const [produitComplet, setProduitComplet] = useState(null);
+  const [chargementProduit, setChargementProduit] = useState(true);
+
+  const product = produitComplet || produitDuCatalogue;
   const labelType = product?.labelType || "size";
 
   // Fonctions utilitaires
@@ -88,6 +98,27 @@ const ProductDetails = () => {
   const isCurrentVideo = currentMedia?.type === "video";
   const isYouTube = (url) => url?.includes("youtube.com") || url?.includes("youtu.be");
   const isVimeo = (url) => url?.includes("vimeo.com");
+
+  useEffect(() => {
+    if (!id) return;
+
+    let annule = false;
+    setChargementProduit(true);
+
+    (async () => {
+      try {
+        const { data } = await axios.get(`/api/product/id?id=${id}`);
+        if (annule) return;
+        setProduitComplet(data.success ? data.product : null);
+      } catch (error) {
+        if (!annule) setProduitComplet(null);
+      } finally {
+        if (!annule) setChargementProduit(false);
+      }
+    })();
+
+    return () => { annule = true; };
+  }, [id, axios]);
 
   // Aperçu de la boutique du produit (nom + logo), pour la pastille
   // « Vendu par ». Chargé à part : la liste du catalogue ne transporte que
@@ -504,7 +535,28 @@ const ProductDetails = () => {
     setShowDetails(false);
   }, [products, id]);
 
-  if (!product) return null;
+  // Un écran blanc laissait le visiteur sans explication ni porte de sortie
+  // — c'est exactement ce que produisait un lien vers un article absent du
+  // catalogue chargé.
+  if (!product) {
+    if (chargementProduit) {
+      return (
+        <div className="max-w-7xl mx-auto px-4 py-24 flex justify-center">
+          <div className="w-8 h-8 rounded-full border-2 border-ink-200 border-t-ramses-600 animate-spin" />
+        </div>
+      );
+    }
+
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-20 text-center">
+        <p className="rs-h2 mb-1.5">Article introuvable</p>
+        <p className="text-[13px] text-ink-400 mb-6 max-w-[320px] mx-auto">
+          Cet article n'existe plus ou n'est plus en vente.
+        </p>
+        <Link to="/products" className="rs-btn rs-btn--primary">Voir tous les articles</Link>
+      </div>
+    );
+  }
 
   const discount =
     currentOfferPrice && currentOfferPrice < currentPrice
