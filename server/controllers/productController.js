@@ -55,6 +55,32 @@ const resoudreSku = async (valeurBrute, exclureId = null) => {
     return { sku };
 };
 
+/**
+ * Vérifie qu'un lien fournisseur (« Lien supplémentaire ») n'est pas déjà
+ * utilisé par un autre produit encore ACTIF — c-à-d non archivé et avec du
+ * stock (stock > 0). But : éviter qu'une même fiche/annonce (ex. SHEIN)
+ * soit ré-importée par erreur pendant qu'elle est toujours en vente.
+ *
+ * Un produit dont le stock est retombé à 0 (ou qui a été archivé) libère
+ * son lien : le réutiliser pour un réassort ne déclenche pas l'erreur.
+ *
+ * `exclureId` sert à l'édition : on ne doit pas se signaler soi-même comme
+ * conflit quand on resauvegarde un produit sans changer son lien.
+ *
+ * Renvoie le produit en conflit (juste de quoi composer un message utile),
+ * ou null si le lien est libre.
+ */
+const trouverProduitActifAvecLien = async (lien, exclureId = null) => {
+    if (!lien) return null;
+    const filtre = {
+        externalLink: lien,
+        isArchived: false,
+        stock: { $gt: 0 },
+    };
+    if (exclureId) filtre._id = { $ne: exclureId };
+    return Product.findOne(filtre).select('name sku stock');
+};
+
 // ✅ Fournit un code libre au formulaire (bouton « Générer »).
 export const genererCodeArticle = async (req, res) => {
     try {
@@ -148,6 +174,21 @@ export const addProduct = async (req, res) => {
 
         if (boutiqueId === INVALIDE) {
             return res.status(400).json({ success: false, message: 'Boutique introuvable' });
+        }
+
+        // ✅ Anti-doublon : un lien fournisseur déjà utilisé par un produit
+        // encore en stock signale probablement qu'on est en train de
+        // ré-ajouter le même article. On bloque avant l'upload (inutile de
+        // dépenser du Cloudinary pour un envoi qui va échouer).
+        const lienExterneBrut = productData.externalLink?.trim();
+        if (lienExterneBrut) {
+            const conflit = await trouverProduitActifAvecLien(lienExterneBrut);
+            if (conflit) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Ce lien est déjà utilisé par « ${conflit.name} » (SKU ${conflit.sku}), encore en stock (${conflit.stock}). Vérifiez qu'il ne s'agit pas du même article avant d'en créer un nouveau.`,
+                });
+            }
         }
 
         let imagesUrl = [];
@@ -711,6 +752,23 @@ export const updateProduct = async (req, res) => {
                     success: false,
                     message: "Vous n'êtes pas autorisé à modifier ce produit"
                 });
+            }
+        }
+
+        // ✅ Anti-doublon (voir addProduct) : on ne vérifie que si le lien
+        // est transmis ET non vide — un champ vidé volontairement ne peut
+        // pas être « en conflit ». `exclureId` évite de se signaler
+        // soi-même quand on resauvegarde le produit sans changer son lien.
+        if (externalLink !== undefined) {
+            const lienExterneBrut = externalLink?.trim();
+            if (lienExterneBrut) {
+                const conflit = await trouverProduitActifAvecLien(lienExterneBrut, existingProduct._id);
+                if (conflit) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Ce lien est déjà utilisé par « ${conflit.name} » (SKU ${conflit.sku}), encore en stock (${conflit.stock}). Vérifiez qu'il ne s'agit pas du même article.`,
+                    });
+                }
             }
         }
 
