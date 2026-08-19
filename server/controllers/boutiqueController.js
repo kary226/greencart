@@ -5,6 +5,7 @@ import Wallet from '../models/Wallet.js';
 import StaffUser from '../models/StaffUser.js';
 import City from '../models/City.js';
 import Commune from '../models/Commune.js';
+import { assainirTexte } from '../utils/assainir.js';
 import {
     assurerBoutiqueCommercant,
     invaliderCacheBoutiquesSuspendues,
@@ -46,8 +47,11 @@ export const updateMaBoutique = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Boutique non trouvée' });
         }
 
-        if (nom) boutique.nom = nom;
-        if (description !== undefined) boutique.description = description;
+        // Nom et description de boutique sont affichés en texte : on retire
+        // toute balise à l'entrée (le nom sert aussi de titre de page, d'alt
+        // d'image, de libellé dans le journal — autant de rendus hors React).
+        if (nom) boutique.nom = assainirTexte(nom);
+        if (description !== undefined) boutique.description = assainirTexte(description);
 
         // ✅ Upload direct du logo vers Cloudinary
         if (req.file) {
@@ -126,8 +130,12 @@ export const updateMesZonesLivraison = async (req, res) => {
 export const getBoutiqueById = async (req, res) => {
     try {
         const { id } = req.params;
+        // ⚠️ Route PUBLIQUE (aucune authentification) : ne sélectionner que
+        // les champs destinés à la vitrine. Ne jamais populate() l'email du
+        // propriétaire ici, et ne jamais renvoyer motifSuspension ou tout
+        // autre champ interne — voir RAMCI-2026-xxx (Strix).
         const boutique = await Boutique.findById(id)
-            .populate('ownerId', 'nom email')
+            .select('nom description logo statut zonesLivraison')
             .populate('zonesLivraison.cityId', 'name')
             .populate('zonesLivraison.communeId', 'name');
         if (!boutique) {

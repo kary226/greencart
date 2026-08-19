@@ -1,6 +1,7 @@
 import Review from "../models/Review.js";
 import Order from "../models/Order.js";
 import User from "../models/User.js";
+import { assainirTexte } from "../utils/assainir.js";
 
 // Ajouter un avis
 export const addReview = async (req, res) => {
@@ -37,7 +38,8 @@ export const addReview = async (req, res) => {
             userId,
             userName: user.name || "Client",
             rating: Number(rating),
-            comment,
+            // Un avis est du texte pur : aucune balise n'y a sa place.
+            comment: assainirTexte(comment),
             verified: !!hasPurchased
         });
 

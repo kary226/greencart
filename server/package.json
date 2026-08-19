@@ -15,7 +15,8 @@
     "test:watch": "node --test --watch \"tests/*.test.js\"",
     "audit": "npm audit --audit-level=high",
     "local": "node scripts/devLocal.js",
-    "local:reset": "node scripts/resetLocal.js"
+    "local:reset": "node scripts/resetLocal.js",
+    "pentest": "node scripts/pentestLocal.mjs && node scripts/pentestLocal2.mjs"
   },
   "keywords": [],
   "author": "",
@@ -45,6 +46,7 @@
     "otplib": "^12.0.1",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
+    "sanitize-html": "^2.17.7",
     "stripe": "^17.7.0",
     "web-push": "^3.6.7",
     "zod": "^4.4.3"

@@ -11,6 +11,7 @@ import { estErreurUrlBloquee } from "../utils/urlGuard.js";
 import { construireFiltreRecherche } from "../utils/recherche.js";
 import { acteurDepuisRequete } from "../middlewares/authActeur.js";
 import { journaliser, apercuProduit } from "../services/journalService.js";
+import { assainirRiche } from "../utils/assainir.js";
 import {
     normaliserVariantes,
     calculerStockTotal,
@@ -261,7 +262,8 @@ export const addProduct = async (req, res) => {
         const product = await Product.create({
             name: productData.name,
             sku: resultatSku.sku,
-            description: productData.description,
+            // Assaini à la source : la description est du HTML riche (Quill).
+            description: assainirRiche(productData.description),
             categories: productData.categories,
             price: productData.price,
             offerPrice: productData.offerPrice,
@@ -778,11 +780,11 @@ export const updateProduct = async (req, res) => {
         const inStock = determinerDisponibilite(totalStock);
 
         let descriptionToSave = description;
-        if (typeof description === 'string') {
-            descriptionToSave = description;
-        } else if (Array.isArray(description)) {
+        if (Array.isArray(description)) {
             descriptionToSave = description.join('\n');
         }
+        // HTML riche (Quill) : assaini à l'entrée, quel que soit le client.
+        descriptionToSave = assainirRiche(descriptionToSave);
 
         const updateData = {
             name,
