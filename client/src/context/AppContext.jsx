@@ -50,6 +50,11 @@ export const AppContextProvider = ({ children }) => {
     const [recentlyViewed, setRecentlyViewed] = useState([]);
     const [orders, setOrders] = useState([]);
     const [colisShein, setColisShein] = useState([]);
+    // Section « Colis SHEIN » activée ou non par l'admin. Par défaut MASQUÉE :
+    // tant que le réglage n'a pas été explicitement activé, la section
+    // n'apparaît pas côté client (onglet du bas, lien du menu). C'est ce
+    // qu'attend une fonctionnalité pas encore prête à être utilisée.
+    const [colisSheinActif, setColisSheinActif] = useState(false);
     const [installPromptEvent, setInstallPromptEvent] = useState(null);
     const [canInstallPWA, setCanInstallPWA] = useState(false);
     const [isPWAInstalled, setIsPWAInstalled] = useState(
@@ -554,6 +559,16 @@ export const AppContextProvider = ({ children }) => {
         }
         fetchProducts();
         loadRecentlyViewed();
+
+        // Visibilité de la section Colis SHEIN. Réglage absent = masqué.
+        (async () => {
+            try {
+                const { data } = await axios.get('/api/setting/colisSheinActif');
+                setColisSheinActif(data.success && data.data === true);
+            } catch {
+                setColisSheinActif(false);
+            }
+        })();
     }, []);
 
     useEffect(() => {
@@ -634,7 +649,7 @@ export const AppContextProvider = ({ children }) => {
         loginSeller, logoutSeller,
         recentlyViewed, addToRecentlyViewed,
         orders,
-        colisShein, fetchColisShein,
+        colisShein, fetchColisShein, colisSheinActif, setColisSheinActif,
         canInstallPWA, isPWAInstalled, installPWA,
         subscribeToPushNotifications
     };

@@ -24,18 +24,20 @@ import "../styles/bottom-nav.css";
  * d'ajouter une entrée au tableau `tabs` ci-dessous — et d'en retirer une.
  */
 const BottomNav = () => {
-  const { wishlist, colisShein } = useAppContext();
+  const { wishlist, colisShein, colisSheinActif } = useAppContext();
   const location = useLocation();
 
   const colisActifsCount = colisShein?.filter(c => c.statut !== "livre" && c.statut !== "annule").length || 0;
 
+  // L'onglet Colis n'apparaît que si l'admin a activé la section. Filtré
+  // ici plutôt que masqué en CSS : la barre reste équilibrée à 4 onglets.
   const tabs = [
     { to: "/", label: "Accueil", Icon: Home, exact: true },
     { to: "/categories", label: "Catégories", Icon: LayoutGrid },
     { to: "/my-orders", label: "Commandes", Icon: ReceiptText },
-    { to: "/mes-colis-shein", label: "Colis", Icon: Package, badge: colisActifsCount },
+    colisSheinActif && { to: "/mes-colis-shein", label: "Colis", Icon: Package, badge: colisActifsCount },
     { to: "/account", label: "Moi", Icon: User },
-  ];
+  ].filter(Boolean);
 
   // Masquée là où un autre élément occupe déjà le bas de l'écran (barre de
   // commande du panier, barre d'achat de la fiche produit) ou là où la

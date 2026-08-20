@@ -17,6 +17,11 @@ const SettingsManager = () => {
     const [paymentMethods, setPaymentMethods] = useState({ jeko: true });
     const [savingPaymentMethods, setSavingPaymentMethods] = useState(false);
 
+    // Visibilité de la section « Colis SHEIN » côté client (onglet du bas,
+    // lien du menu). Désactivée = la section disparaît pour les clients.
+    const [colisSheinActif, setColisSheinActif] = useState(false);
+    const [savingColis, setSavingColis] = useState(false);
+
     useEffect(() => {
         const fetchReturnPolicy = async () => {
             try {
@@ -40,9 +45,41 @@ const SettingsManager = () => {
                 // Pas encore configuré — reste sur les valeurs par défaut
             }
         };
+        const fetchColisShein = async () => {
+            try {
+                const { data } = await axios.get('/api/setting/colisSheinActif');
+                if (data.success) setColisSheinActif(data.data === true);
+            } catch (error) {
+                // Pas encore configuré — reste masqué par défaut.
+            }
+        };
         fetchReturnPolicy();
         fetchPaymentMethods();
+        fetchColisShein();
     }, []);
+
+    const toggleColisShein = async () => {
+        const next = !colisSheinActif;
+        setColisSheinActif(next); // optimiste
+        setSavingColis(true);
+        try {
+            const { data } = await axios.post('/api/setting/update', {
+                key: 'colisSheinActif',
+                value: next,
+            });
+            if (data.success) {
+                toast.success(next ? 'Section Colis activée ✓' : 'Section Colis masquée ✓');
+            } else {
+                toast.error(data.message);
+                setColisSheinActif(!next); // annule
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || error.message);
+            setColisSheinActif(!next);
+        } finally {
+            setSavingColis(false);
+        }
+    };
 
     const togglePaymentMethod = async (key) => {
         const next = { ...paymentMethods, [key]: !paymentMethods[key] };
@@ -96,6 +133,32 @@ const SettingsManager = () => {
 
     return (
         <div className="max-w-4xl mx-auto p-4 sm:p-6 grid gap-5">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
+                <h1 className="text-2xl font-bold text-gray-900">Sections du site</h1>
+                <p className="text-sm text-gray-500 mt-1 mb-5">
+                    Affiche ou masque des sections entières côté client, sans redéployer.
+                </p>
+
+                <div className="flex items-center justify-between gap-3 border border-gray-200 rounded-lg p-3.5">
+                    <div>
+                        <p className="font-semibold text-gray-800 text-sm">Colis SHEIN</p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            Onglet « Colis » de la barre du bas et lien « Valider le panier SHEIN » du menu.
+                            Désactivé, la section n'apparaît pas pour les clients.
+                        </p>
+                    </div>
+                    <button
+                        onClick={toggleColisShein}
+                        disabled={savingColis}
+                        role="switch"
+                        aria-checked={colisSheinActif}
+                        className={`shrink-0 w-11 h-6 rounded-full transition relative disabled:opacity-50 ${colisSheinActif ? 'bg-red-500' : 'bg-gray-300'}`}
+                    >
+                        <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition ${colisSheinActif ? 'left-[22px]' : 'left-0.5'}`} />
+                    </button>
+                </div>
+            </div>
+
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
                 <h1 className="text-2xl font-bold text-gray-900">Moyens de paiement</h1>
                 <p className="text-sm text-gray-500 mt-1 mb-5">
