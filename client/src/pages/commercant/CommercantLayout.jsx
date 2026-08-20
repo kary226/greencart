@@ -2,13 +2,14 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import {
-    LayoutDashboard, Store, Package, Wallet, Banknote, LogOut, Loader2, ShieldAlert, Tag, AlertTriangle
+    LayoutDashboard, Store, Package, Wallet, Banknote, LogOut, Loader2, ShieldAlert, Tag, AlertTriangle, ShoppingBag
 } from 'lucide-react';
 
 const NAV_LINKS = [
     { name: 'Tableau de bord', path: '/commercant/dashboard', icon: LayoutDashboard },
     { name: 'Ma boutique', path: '/commercant/boutique', icon: Store },
     { name: 'Produits', path: '/commercant/produits', icon: Package },
+    { name: 'Commandes', path: '/commercant/commandes', icon: ShoppingBag },
     { name: 'Codes promo', path: '/commercant/codes-promo', icon: Tag },
     { name: 'Portefeuille', path: '/commercant/portefeuille', icon: Wallet },
     { name: 'Retraits', path: '/commercant/retraits', icon: Banknote },

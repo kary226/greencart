@@ -61,6 +61,7 @@ const CommercantLayout = lazy(() => import('./pages/commercant/CommercantLayout'
 const DashboardCommercant = lazy(() => import('./pages/commercant/Dashboard'));
 const Boutique = lazy(() => import('./pages/commercant/Boutique'));
 const Produits = lazy(() => import('./pages/commercant/Produits'));
+const Commandes = lazy(() => import('./pages/commercant/Commandes'));
 const ProduitForm = lazy(() => import('./pages/commercant/ProduitForm'));
 const CodesPromo = lazy(() => import('./pages/commercant/CodesPromo'));
 const Portefeuille = lazy(() => import('./pages/commercant/Portefeuille'));
@@ -220,6 +221,7 @@ const App = () => {
               <Route path='dashboard' element={<DashboardCommercant />} />
               <Route path='boutique' element={<Boutique />} />
               <Route path='produits' element={<Produits />} />
+              <Route path='commandes' element={<Commandes />} />
               <Route path='produits/ajouter' element={<ProduitForm />} />
               <Route path='produits/editer/:id' element={<ProduitForm />} />
               <Route path='codes-promo' element={<CodesPromo />} />
