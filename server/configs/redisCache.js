@@ -104,6 +104,7 @@ export const CACHE_KEYS = {
     bannersBottom: 'banners:bottom',
     bannersAll: 'banners:all', // quand /api/banner est appelée sans filtre position
     bestSellers: 'products:bestsellers',
+    catalogueComplet: 'products:catalogue', // catalogue allégé chargé par le client
     boutiquesSuspendues: 'boutiques:suspendues',
     deliveryTypesActive: 'delivery:types:active',
     deliveryPrices: (communeId, deliveryTypeId) => `delivery:price:${communeId}:${deliveryTypeId}`,

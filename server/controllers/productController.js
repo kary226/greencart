@@ -423,12 +423,21 @@ const CHAMPS_CATALOGUE = 'name sku price offerPrice image categories variants st
 // dans un panier, et les masquer ferait à nouveau mentir le total.
 export const productCatalogue = async (req, res) => {
     try {
-        const filter = await appliquerFiltreBoutiquesActives({ isArchived: { $ne: true } });
-
-        const products = await Product.find(filter)
-            .select(CHAMPS_CATALOGUE)
-            .sort({ createdAt: -1 })
-            .lean();
+        // [PERF] Ce catalogue est chargé au démarrage du client, sur chaque
+        // visite. Sans cache, chaque chargement de page refaisait la requête
+        // complète en base — lent, et coûteux en connexions Atlas depuis le
+        // serverless. On le met en cache 60 s : le catalogue change rarement
+        // (ajout/modif d'article) et 60 s de fraîcheur est sans conséquence
+        // pour une vitrine. Aucune invalidation manuelle à maintenir : la
+        // donnée se rafraîchit d'elle-même au pire une minute plus tard —
+        // exactement la promesse du Cache-Control HTTP déjà posé sur la route.
+        const products = await withCache(CACHE_KEYS.catalogueComplet, 60, async () => {
+            const filter = await appliquerFiltreBoutiquesActives({ isArchived: { $ne: true } });
+            return Product.find(filter)
+                .select(CHAMPS_CATALOGUE)
+                .sort({ createdAt: -1 })
+                .lean();
+        });
 
         res.json({ success: true, products, total: products.length });
     } catch (error) {

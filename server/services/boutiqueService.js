@@ -104,10 +104,16 @@ export const getIdsBoutiquesSuspendues = async () => {
 };
 
 export const invaliderCacheBoutiquesSuspendues = async () => {
-    // Les meilleures ventes sont calculées puis mises en cache avec le
-    // filtre déjà appliqué : sans cette seconde invalidation, un article
-    // d'une boutique suspendue resterait en page d'accueil jusqu'à 5 min.
-    await invalidateCache(CACHE_KEYS.boutiquesSuspendues, CACHE_KEYS.bestSellers);
+    // Les meilleures ventes ET le catalogue complet sont mis en cache avec le
+    // filtre des boutiques suspendues déjà appliqué : sans ces invalidations,
+    // les articles d'une boutique qu'on vient de suspendre resteraient
+    // visibles côté client jusqu'à l'expiration de leur cache (5 min pour les
+    // meilleures ventes, 60 s pour le catalogue).
+    await invalidateCache(
+        CACHE_KEYS.boutiquesSuspendues,
+        CACHE_KEYS.bestSellers,
+        CACHE_KEYS.catalogueComplet,
+    );
 };
 
 /**
