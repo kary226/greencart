@@ -69,10 +69,10 @@ const SelectSearch = ({ name, placeholder, options = [], value, handleChange, lo
             </button>
 
             {isOpen && (
-                <div className="absolute z-20 w-full mt-2 bg-ink-0 border border-ink-100 rounded-xl shadow-lg max-h-64 overflow-auto">
+                <div className="rs-float absolute z-20 w-full mt-2 rounded-xl max-h-64 overflow-auto">
                     <div className="sticky top-0 bg-ink-0 p-2 border-b border-ink-100">
                         <div className="relative">
-                            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none" />
+                            <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none" />
                             <input
                                 ref={searchRef}
                                 type="text"
@@ -80,7 +80,7 @@ const SelectSearch = ({ name, placeholder, options = [], value, handleChange, lo
                                 aria-label="Filtrer la liste"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="rs-input !min-h-[40px] pl-9 text-[16px]"
+                                className="rs-input rs-input--icon-l !min-h-[40px]"
                             />
                         </div>
                     </div>

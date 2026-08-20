@@ -1,22 +1,37 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { assets } from '../assets/assets'
 import { useAppContext } from '../context/AppContext'
 import toast from 'react-hot-toast'
+import { ArrowLeft, User, MapPin, Home, Phone, Truck, Wallet, PhoneCall } from 'lucide-react'
 // Selecteur partage et accessible (etait duplique ici et dans Account).
 import SelectSearch from '../components/SelectSearch'
 
-const InputField = ({ type, placeholder, name, handleChange, address, id, inputMode }) => (
-    <input
-        id={id}
-        className="rs-input"
-        type={type}
-        inputMode={inputMode}
-        placeholder={placeholder}
-        onChange={handleChange}
-        name={name}
-        value={address[name] || ''}
-        required
-    />
+const InputField = ({ type, placeholder, name, handleChange, address, id, inputMode, icon: Icon }) => (
+    <div className="relative">
+        {Icon && (
+            <Icon aria-hidden="true" size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none" />
+        )}
+        <input
+            id={id}
+            className={`rs-input ${Icon ? 'rs-input--icon-l' : ''}`}
+            type={type}
+            inputMode={inputMode}
+            placeholder={placeholder}
+            onChange={handleChange}
+            name={name}
+            value={address[name] || ''}
+            required
+        />
+    </div>
+)
+
+const Reassurance = ({ icon: Icon, children }) => (
+    <li className="flex items-center gap-3 text-[13px] text-ink-600">
+        <span className="grid place-items-center w-8 h-8 rounded-full bg-ink-0 text-ramses-600 shrink-0">
+            {Icon && <Icon size={15} />}
+        </span>
+        {children}
+    </li>
 )
 
 
@@ -171,37 +186,57 @@ const AddAddress = () => {
         </label>
     )
 
+    const Groupe = ({ eyebrow, children }) => (
+        <div>
+            <p className="rs-label text-ink-400 mb-3">{eyebrow}</p>
+            <div className="grid gap-4">{children}</div>
+        </div>
+    )
+
     return (
-        <div className="bg-ink-50 min-h-screen">
-            <div className="max-w-5xl mx-auto px-4 py-8">
+        <div className="rs-sunken min-h-screen">
+            <div className="max-w-5xl mx-auto px-4 py-6 md:py-8">
 
-                <header className="mb-7">
-                    <h1 className="rs-display">Adresse de livraison</h1>
-                    <p className="text-[13px] text-ink-400 mt-1.5">
-                        Tous les champs sont nécessaires pour livrer votre commande.
-                    </p>
-                </header>
+                <div className="flex items-center gap-2 mb-6">
+                    <button
+                        onClick={() => navigate('/cart')}
+                        className="rs-icon-btn"
+                        aria-label="Retour au panier"
+                    >
+                        <ArrowLeft size={20} />
+                    </button>
+                    <div>
+                        <h1 className="rs-h1">Adresse de livraison</h1>
+                        <p className="text-[13px] text-ink-400 mt-0.5">
+                            Tous les champs sont nécessaires pour livrer votre commande.
+                        </p>
+                    </div>
+                </div>
 
-                <div className="flex flex-col-reverse lg:flex-row justify-between gap-10">
+                <div className="grid lg:grid-cols-[1fr_320px] gap-5 items-start">
 
-                    <div className="flex-1 max-w-lg">
-                        <form onSubmit={onSubmitHandler} className="grid gap-4">
+                    <form onSubmit={onSubmitHandler} className="rs-raised rounded-2xl p-5 md:p-7 grid gap-7">
+
+                        <Groupe eyebrow="Destinataire">
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <Champ htmlFor="firstName">Prénom</Champ>
-                                    <InputField id="firstName" handleChange={handleChange} address={address} name="firstName" type="text" placeholder="Votre prénom" />
+                                    <InputField id="firstName" icon={User} handleChange={handleChange} address={address} name="firstName" type="text" placeholder="Votre prénom" />
                                 </div>
                                 <div>
                                     <Champ htmlFor="lastName">Nom</Champ>
-                                    <InputField id="lastName" handleChange={handleChange} address={address} name="lastName" type="text" placeholder="Votre nom" />
+                                    <InputField id="lastName" icon={User} handleChange={handleChange} address={address} name="lastName" type="text" placeholder="Votre nom" />
                                 </div>
                             </div>
+                        </Groupe>
 
+                        <Groupe eyebrow="Adresse">
                             <div>
                                 <Champ htmlFor="cityId">Ville</Champ>
                                 <SelectSearch
                                     id="cityId"
                                     name="cityId"
+                                    icon={MapPin}
                                     placeholder="Sélectionner une ville"
                                     options={cities}
                                     value={address.cityId}
@@ -215,6 +250,7 @@ const AddAddress = () => {
                                 <SelectSearch
                                     id="communeId"
                                     name="communeId"
+                                    icon={MapPin}
                                     placeholder={address.cityId ? 'Sélectionner une commune' : "Choisissez d'abord une ville"}
                                     options={communes}
                                     value={address.communeId}
@@ -225,31 +261,38 @@ const AddAddress = () => {
 
                             <div>
                                 <Champ htmlFor="street">Quartier / Rue</Champ>
-                                <InputField id="street" handleChange={handleChange} address={address} name="street" type="text" placeholder="Ex : Rue 12, Quartier Central" />
+                                <InputField id="street" icon={Home} handleChange={handleChange} address={address} name="street" type="text" placeholder="Ex : Rue 12, Quartier Central" />
                             </div>
+                        </Groupe>
 
+                        <Groupe eyebrow="Contact">
                             <div>
                                 <Champ htmlFor="phone">Téléphone</Champ>
-                                <InputField id="phone" handleChange={handleChange} address={address} name="phone" type="tel" inputMode="tel" placeholder="Ex : 05 01 02 03 04" />
+                                <InputField id="phone" icon={Phone} handleChange={handleChange} address={address} name="phone" type="tel" inputMode="tel" placeholder="Ex : 05 01 02 03 04" />
                                 <p className="text-[11.5px] text-ink-400 mt-1.5">
                                     Le livreur vous appellera sur ce numéro.
                                 </p>
                             </div>
+                        </Groupe>
 
-                            <button type="submit" disabled={enregistrement} className="rs-btn rs-btn--primary rs-btn--block mt-2">
-                                {enregistrement ? 'Enregistrement…' : "Enregistrer l'adresse"}
-                            </button>
-                        </form>
-                    </div>
+                        <button type="submit" disabled={enregistrement} className="rs-btn rs-btn--primary rs-btn--block">
+                            {enregistrement ? 'Enregistrement…' : "Enregistrer l'adresse"}
+                        </button>
+                    </form>
 
-                    <div className="flex justify-center lg:block shrink-0">
+                    <aside className="rs-card bg-ramses-50 border-ramses-100 rounded-2xl overflow-hidden">
                         <img
-                            className="w-56 lg:w-72 object-contain"
+                            className="w-full max-w-[180px] mx-auto object-contain pt-2"
                             src={assets.add_address_iamge}
                             alt=""
                             loading="lazy"
                         />
-                    </div>
+                        <ul className="grid gap-3 mt-5">
+                            <Reassurance icon={Truck}>Livraison rapide, partout à Abidjan</Reassurance>
+                            <Reassurance icon={Wallet}>Paiement à la livraison possible</Reassurance>
+                            <Reassurance icon={PhoneCall}>Le livreur vous appelle avant de passer</Reassurance>
+                        </ul>
+                    </aside>
                 </div>
             </div>
         </div>
