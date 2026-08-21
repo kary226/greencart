@@ -833,9 +833,9 @@ const AddProduct = () => {
                 </Section>
 
                 {/* Tarification */}
-                <Section icon={Tag} title="Tarification" subtitle="Prix appliqués par défaut à tout le produit">
+                <Section icon={Tag} title="Prix de vente client" subtitle="Prix finaux affichés et payés par le client">
                     <div className="grid grid-cols-2 gap-4">
-                        <Field label="Prix" required>
+                        <Field label="Prix de vente client" required>
                             <input
                                 onChange={(e) => setPrice(e.target.value)}
                                 value={price}
@@ -845,7 +845,7 @@ const AddProduct = () => {
                                 required
                             />
                         </Field>
-                        <Field label="Prix promo" hint="Vide = pas de promo, le prix normal s'applique.">
+                        <Field label="Prix promotionnel client" hint="Vide = pas de promotion ; le prix de vente normal s'applique.">
                             <input
                                 onChange={(e) => setOfferPrice(e.target.value)}
                                 value={offerPrice}
@@ -855,10 +855,10 @@ const AddProduct = () => {
                             />
                         </Field>
                     </div>
-                    <Hint>Une variante peut avoir son propre prix ; à défaut, elle utilise ceux-ci.</Hint>
+                    <Hint>Le prix saisi ici est déjà le prix final client. Aucune commission de 10 % ne sera ajoutée après la saisie. Une variante peut avoir son propre prix final.</Hint>
 
                     <div className="mt-4">
-                        <Field label="Prix d'achat" hint="Sert uniquement au calcul de marge dans le récap Airtable — jamais affiché au client.">
+                        <Field label="Prix d'achat" hint="Donnée interne uniquement ; jamais affichée au client et indépendante du prix de vente.">
                             <input
                                 onChange={(e) => setPurchasePrice(e.target.value)}
                                 value={purchasePrice}
@@ -1157,7 +1157,7 @@ const AddProduct = () => {
                                             );
                                         })}
                                     </div>
-                                    <Hint>Prix et promo vides → le produit utilise le prix par défaut défini plus haut.</Hint>
+                                    <Hint>Les prix de variantes sont eux aussi des prix finaux client. Vides → le produit utilise le prix par défaut défini plus haut.</Hint>
                                 </div>
                             )}
                         </div>

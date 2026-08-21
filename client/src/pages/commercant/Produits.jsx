@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useOutletContext } from 'react-router-dom';
+import { useOutletContext } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
 import BoutiqueIndisponible from './BoutiqueIndisponible';
 import StockModal from './StockModal';
 import { getPresetImageUrl } from '../../utils/cloudinaryImage';
-import { Package, Plus, Edit, Trash2, Loader2, Search, ChevronLeft, ChevronRight, X, Boxes } from 'lucide-react';
+import { Package, Loader2, Search, ChevronLeft, ChevronRight, X, Boxes } from 'lucide-react';
 
 const Produits = () => {
     const { axios } = useAppContext();
@@ -60,17 +60,6 @@ const Produits = () => {
         loadCategories();
     }, [axios]);
 
-    const handleDelete = async (id, name) => {
-        if (!window.confirm(`Supprimer "${name}" ?`)) return;
-        try {
-            const { data } = await axios.post('/api/product/staff/delete', { id });
-            if (data.success) { toast.success('Produit supprimé'); loadProduits(); }
-            else toast.error(data.message);
-        } catch (error) {
-            toast.error(error.response?.data?.message || error.message);
-        }
-    };
-
     const clearFilters = () => { setSearchTerm(''); setFilterCategory(''); setPage(1); };
 
     return (
@@ -80,32 +69,20 @@ const Produits = () => {
                     <h1 className="font-display text-2xl font-semibold text-ink-900">Mes produits</h1>
                     <p className="text-sm text-ink-400">{totalItems} article{totalItems > 1 ? 's' : ''}</p>
                 </div>
-                {/* Deux raisons de ne pas laisser remplir le formulaire pour
-                    rien : la boutique est suspendue, ou l'admin n'a pas (encore)
-                    ouvert le droit d'ajouter des articles. Le serveur refuse
-                    dans les deux cas — autant le dire avant. */}
-                {(boutique?.statut === 'suspendue' || !boutique?.peutCreerProduits) ? (
-                    <span
-                        title={boutique?.statut === 'suspendue'
-                            ? 'Boutique suspendue : publication impossible'
-                            : "Indisponible pour l'instant : l'ajout d'articles n'a pas été activé par l'administrateur"}
-                        className="flex items-center gap-2 bg-ink-100 text-ink-400 px-4 py-2.5 rounded-xl text-sm font-medium cursor-not-allowed"
-                    >
-                        <Plus size={16} /> Ajouter un article
-                    </span>
-                ) : (
-                    <Link to="/commercant/produits/ajouter" className="flex items-center gap-2 bg-ramses-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-ramses-700 transition">
-                        <Plus size={16} /> Ajouter un article
-                    </Link>
-                )}
+                <span
+                    className="flex items-center gap-2 bg-ink-100 text-ink-500 px-4 py-2.5 rounded-xl text-sm font-medium"
+                    title="Les produits et leurs prix sont gérés exclusivement par le Seller."
+                >
+                    Catalogue géré par le Seller
+                </span>
             </div>
 
-            {boutique && !boutique.peutCreerProduits && boutique.statut !== 'suspendue' && (
+            {boutique && boutique.statut !== 'suspendue' && (
                 <div className="mb-6 rounded-2xl border border-ink-200 bg-ink-50 px-4 py-3 text-sm">
-                    <p className="font-medium text-ink-800">Ajout d'articles indisponible pour l'instant</p>
+                    <p className="font-medium text-ink-800">Produits gérés par le Seller</p>
                     <p className="text-ink-500 mt-0.5">
-                        L'administrateur ne vous a pas encore ouvert ce droit. Vous pouvez gérer les
-                        quantités et les descriptions de vos articles existants.
+                        Vous pouvez consulter les articles de votre boutique et ajuster leurs quantités.
+                        La création, le prix, les images et la suppression des produits sont gérés exclusivement par le Seller/Admin.
                     </p>
                 </div>
             )}
@@ -143,12 +120,8 @@ const Produits = () => {
                 <div className="bg-white rounded-2xl border border-ink-200 p-14 text-center">
                     <Package className="mx-auto text-ink-300 mb-3" size={40} />
                     <h3 className="text-base font-medium text-ink-800">Aucun produit</h3>
-                    <p className="text-sm text-ink-400 mt-1">Commencez par ajouter votre premier article</p>
-                    {boutique?.statut !== 'suspendue' && boutique?.peutCreerProduits && (
-                        <Link to="/commercant/produits/ajouter" className="mt-4 inline-flex items-center gap-2 bg-ramses-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-ramses-700 transition">
-                            <Plus size={16} /> Ajouter un article
-                        </Link>
-                    )}
+                    <p className="text-sm text-ink-400 mt-1">Aucun article n'est actuellement affecté à votre boutique.</p>
+                    <p className="text-xs text-ink-400 mt-2">Le Seller/Admin doit affecter les produits à votre boutique.</p>
                 </div>
             ) : (
                 <>
@@ -174,10 +147,8 @@ const Produits = () => {
                                             <span className="text-white font-semibold text-xs px-3 py-1 bg-ramses-700 rounded-full">Rupture</span>
                                         </div>
                                     )}
-                                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition">
                                         <button onClick={() => setProduitStock(product)} title="Gérer le stock" className="p-1.5 bg-white rounded-lg shadow-md hover:bg-ink-50 transition"><Boxes size={14} className="text-ink-700" /></button>
-                                        <Link to={`/commercant/produits/editer/${product._id}`} className="p-1.5 bg-white rounded-lg shadow-md hover:bg-ink-50 transition"><Edit size={14} className="text-ink-700" /></Link>
-                                        <button onClick={() => handleDelete(product._id, product.name)} className="p-1.5 bg-white rounded-lg shadow-md hover:bg-ramses-50 transition"><Trash2 size={14} className="text-ramses-600" /></button>
                                     </div>
                                 </div>
                                 <div className="p-3">

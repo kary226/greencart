@@ -133,6 +133,19 @@ export const addProduct = async (req, res) => {
             return res.status(403).json({ success: false, message: 'Accès refusé - Non authentifié' });
         }
 
+        // NOUVEAU MODÈLE : le catalogue et les prix sont exclusivement gérés
+        // par le Seller/Admin. Le Commerçant ne crée plus aucun produit.
+        // Cette vérification reste volontairement dans le contrôleur en plus
+        // de la restriction des routes : une ancienne route oubliée ne doit
+        // jamais permettre de recréer le parcours commerçant.
+        if (acteur.role === 'commercant') {
+            return res.status(403).json({
+                success: false,
+                creationNonAutorisee: true,
+                message: "Les produits sont créés et tarifés exclusivement par le Seller.",
+            });
+        }
+
         let boutiqueId = null;
 
         if (acteur.role === 'commercant') {
@@ -326,6 +339,15 @@ export const addProductImages = async (req, res) => {
         const product = await Product.findById(productId);
         if (!product) {
             return res.status(404).json({ success: false, message: "Produit non trouvé" });
+        }
+
+        // NOUVEAU MODÈLE : les médias font partie de la fiche catalogue et
+        // sont donc gérés uniquement par Seller/Admin.
+        if (req.staffUser?.role === 'commercant') {
+            return res.status(403).json({
+                success: false,
+                message: "Les images des produits sont gérées exclusivement par le Seller.",
+            });
         }
 
         if (req.staffUser && req.staffUser.role === 'commercant') {
@@ -740,8 +762,16 @@ export const updateProduct = async (req, res) => {
 
         const acteurProduit = acteurDepuisRequete(req);
 
+        // NOUVEAU MODÈLE : un Commerçant ne modifie plus la fiche produit.
+        // Son seul droit catalogue est l'ajustement du stock via /staff/stock.
+        if (acteurProduit?.role === 'commercant') {
+            return res.status(403).json({
+                success: false,
+                message: "Le produit et son prix sont gérés exclusivement par le Seller.",
+            });
+        }
 
-        // ✅ Vérification des droits pour le commerçant
+        // Ancienne vérification conservée pour les éventuels autres usages.
         if (req.staffUser && req.staffUser.role === 'commercant') {
             // Vérifier que le commerçant a une boutique
             if (!req.staffUser.boutiqueId) {
@@ -922,6 +952,13 @@ export const deleteProduct = async (req, res) => {
             return res.status(404).json({ success: false, message: "Produit non trouvé" });
         }
 
+        if (req.staffUser?.role === 'commercant') {
+            return res.status(403).json({
+                success: false,
+                message: "La suppression des produits est réservée au Seller/Admin.",
+            });
+        }
+
         if (req.staffUser && req.staffUser.role === 'commercant') {
             if (!product.boutiqueId) {
                 return res.status(403).json({
@@ -1022,6 +1059,13 @@ export const unarchiveProduct = async (req, res) => {
 
         if (!product) {
             return res.status(404).json({ success: false, message: "Produit non trouvé" });
+        }
+
+        if (req.staffUser?.role === 'commercant') {
+            return res.status(403).json({
+                success: false,
+                message: "La restauration des produits est réservée au Seller/Admin.",
+            });
         }
 
         if (req.staffUser && req.staffUser.role === 'commercant') {
