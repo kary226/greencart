@@ -11,6 +11,11 @@ import {
     assignerLivreur,
     getLivraisonsLivreur,
     updateLivraisonStatus,
+    getCollectesLivreur,
+    reserverCollecte,
+    collecterArticle,
+    terminerCollecte,
+    sellerMarkShipped,
     getMesVentesCommercant,
     confirmerCommandeCommercant,
     listCommandesAValider,
@@ -19,12 +24,21 @@ import {
 import authSeller from '../middlewares/authSeller.js';
 import { initiateJeko } from '../controllers/jekoController.js';
 import Order from '../models/Order.js';
+import User from '../models/User.js';
 
 const orderRouter = express.Router();
 
 // Routes client
 orderRouter.post('/cod', authUser, orderCreationLimiter, placeOrderCOD);
 orderRouter.get('/user', authUser, getUserOrders);
+orderRouter.get('/user/credit', authUser, async (req, res) => {
+    try {
+        const user = await User.findById(req.body.userId).select('creditBalance');
+        return res.json({ success: true, creditBalance: user?.creditBalance || 0 });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+});
 orderRouter.post('/jeko/initiate', authUser, paymentLimiter, initiateJeko);
 
 // Routes admin (seller)
@@ -38,6 +52,12 @@ orderRouter.post('/admin/assigner-livreur', authStaff, requireRole('admin'), ass
 // ✅ PHASE 4 : Routes pour livreur
 orderRouter.get('/livreur/mes-livraisons', authStaff, requireRole('livreur'), getLivraisonsLivreur);
 orderRouter.patch('/livreur/statut', authStaff, requireRole('livreur'), updateLivraisonStatus);
+orderRouter.get('/livreur/collectes', authStaff, requireRole('livreur'), getCollectesLivreur);
+orderRouter.post('/livreur/collectes/reserver', authStaff, requireRole('livreur'), reserverCollecte);
+orderRouter.post('/livreur/collectes/collecter', authStaff, requireRole('livreur'), collecterArticle);
+orderRouter.post('/livreur/collectes/terminer', authStaff, requireRole('livreur'), terminerCollecte);
+
+orderRouter.post('/seller/mark-shipped', authSeller, sellerMarkShipped);
 
 // ✅ Commerçant : ses ventes uniquement (scopées à sa boutique)
 orderRouter.get('/commercant/mes-ventes', authStaff, requireRole('commercant'), getMesVentesCommercant);

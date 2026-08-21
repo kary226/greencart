@@ -84,7 +84,7 @@ const CommandeCard = ({ order, onConfirmer, confirmationEnCours }) => {
                                 <div className="min-w-0 flex-1">
                                     <p className="text-sm text-ink-800 truncate">{item.nom || 'Produit supprimé'}</p>
                                     <p className="text-xs text-ink-400">
-                                        {item.quantite} × {(item.prixUnitaire || 0).toLocaleString('fr-FR')} FCFA
+                                        {item.quantite} × {(item.prixUnitaire || 0).toLocaleString('fr-FR')} FCFA · {item.availabilityStatus === 'unavailable' ? 'Indisponible' : item.availabilityStatus === 'available' ? 'Disponible' : 'À vérifier'}
                                         {(item.couleur || item.taille) && (
                                             <> · {[item.couleur, item.taille].filter(Boolean).join(' / ')}</>
                                         )}
@@ -98,16 +98,23 @@ const CommandeCard = ({ order, onConfirmer, confirmationEnCours }) => {
                     </ul>
 
                     {peutConfirmer && (
-                        <button
-                            onClick={() => onConfirmer(order._id)}
-                            disabled={confirmationEnCours === order._id}
-                            className="flex items-center justify-center gap-2 bg-ramses-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-ramses-700 transition disabled:opacity-50"
-                        >
-                            {confirmationEnCours === order._id
-                                ? <Loader2 size={16} className="animate-spin" />
-                                : <PackageCheck size={16} />}
-                            J'ai mis le colis de côté — confirmer
-                        </button>
+                        <div className="grid gap-2">
+                            <button
+                                onClick={() => onConfirmer(order, [])}
+                                disabled={confirmationEnCours === order._id}
+                                className="flex items-center justify-center gap-2 bg-ramses-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-ramses-700 transition disabled:opacity-50"
+                            >
+                                {confirmationEnCours === order._id ? <Loader2 size={16} className="animate-spin" /> : <PackageCheck size={16} />}
+                                Tout est disponible — mettre de côté
+                            </button>
+                            <button
+                                onClick={() => { const raw = window.prompt('Numéro(s) des articles indisponibles, séparés par des virgules (1,2...)'); if (raw) onConfirmer(order, raw.split(',').map(x => parseInt(x.trim(),10)).filter(Number.isInteger)); }}
+                                disabled={confirmationEnCours === order._id}
+                                className="flex items-center justify-center gap-2 border border-red-200 text-red-600 px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-red-50 transition disabled:opacity-50"
+                            >
+                                Signaler un article indisponible
+                            </button>
+                        </div>
                     )}
                     {order.statut?.cle === 'confirmee' && (
                         <p className="text-xs text-warn-500">Confirmée de ton côté — en attente de validation par l'équipe RAMCI.</p>
@@ -150,21 +157,19 @@ const Commandes = () => {
         charger();
     }, [axios, boutique]);
 
-    const confirmer = async (orderId) => {
-        setConfirmationEnCours(orderId);
+    const confirmer = async (order, indisponibles = []) => {
+        setConfirmationEnCours(order._id);
         try {
-            const { data } = await axios.post('/api/order/commercant/confirmer', { orderId });
-            if (data.success) {
-                toast.success(data.message);
-                charger();
-            } else {
-                toast.error(data.message);
-            }
-        } catch (error) {
-            toast.error(error.response?.data?.message || error.message);
-        } finally {
-            setConfirmationEnCours(null);
-        }
+            const ids = (order.articles || []).map(a => String(a.itemId));
+            const unavailable = indisponibles.map(Number).map(i => ids[i - 1]).filter(Boolean);
+            const available = ids.filter(id => !unavailable.includes(id));
+            const { data } = await axios.post('/api/order/commercant/disponibilite', {
+                orderId: order._id, availableItemIds: available, unavailableItemIds: unavailable,
+                reason: unavailable.length ? 'Article déclaré indisponible par le commerçant' : ''
+            });
+            if (data.success) { toast.success(data.message); charger(); } else toast.error(data.message);
+        } catch (error) { toast.error(error.response?.data?.message || error.message); }
+        finally { setConfirmationEnCours(null); }
     };
 
     const filtrees = useMemo(() => {

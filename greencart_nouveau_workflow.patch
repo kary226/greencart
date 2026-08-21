@@ -1,0 +1,489 @@
+diff --git a/client/src/App.jsx b/client/src/App.jsx
+index c77f7ff..56f0615 100644
+--- a/client/src/App.jsx
++++ b/client/src/App.jsx
+@@ -72,6 +72,7 @@ const DemandeRetrait = lazy(() => import('./pages/commercant/DemandeRetrait'));
+ // Zone Livreur
+ const MesLivraisons = lazy(() => import('./pages/livreur/MesLivraisons'));
+ const LivraisonDetail = lazy(() => import('./pages/livreur/LivraisonDetail'));
++const Collectes = lazy(() => import('./pages/livreur/Collectes'));
+ 
+ // Zone Assistant Shein (back-office)
+ const Conversations = lazy(() => import('./pages/assistant/Conversations'));
+@@ -235,6 +236,7 @@ const App = () => {
+ 
+             {/* ✅ PHASE 4 - Routes Livreur */}
+             <Route path='/livreur/mes-livraisons' element={<MesLivraisons />} />
++            <Route path='/livreur/collectes' element={<Collectes />} />
+             <Route path='/livreur/commande/:orderId' element={<LivraisonDetail />} />
+ 
+             {/* ✅ PHASE 5 - Routes Assistant Shein */}
+diff --git a/client/src/pages/commercant/Commandes.jsx b/client/src/pages/commercant/Commandes.jsx
+index 6babfe3..58ff522 100644
+--- a/client/src/pages/commercant/Commandes.jsx
++++ b/client/src/pages/commercant/Commandes.jsx
+@@ -84,7 +84,7 @@ const CommandeCard = ({ order, onConfirmer, confirmationEnCours }) => {
+                                 <div className="min-w-0 flex-1">
+                                     <p className="text-sm text-ink-800 truncate">{item.nom || 'Produit supprimé'}</p>
+                                     <p className="text-xs text-ink-400">
+-                                        {item.quantite} × {(item.prixUnitaire || 0).toLocaleString('fr-FR')} FCFA
++                                        {item.quantite} × {(item.prixUnitaire || 0).toLocaleString('fr-FR')} FCFA · {item.availabilityStatus === 'unavailable' ? 'Indisponible' : item.availabilityStatus === 'available' ? 'Disponible' : 'À vérifier'}
+                                         {(item.couleur || item.taille) && (
+                                             <> · {[item.couleur, item.taille].filter(Boolean).join(' / ')}</>
+                                         )}
+@@ -98,16 +98,23 @@ const CommandeCard = ({ order, onConfirmer, confirmationEnCours }) => {
+                     </ul>
+ 
+                     {peutConfirmer && (
+-                        <button
+-                            onClick={() => onConfirmer(order._id)}
+-                            disabled={confirmationEnCours === order._id}
+-                            className="flex items-center justify-center gap-2 bg-ramses-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-ramses-700 transition disabled:opacity-50"
+-                        >
+-                            {confirmationEnCours === order._id
+-                                ? <Loader2 size={16} className="animate-spin" />
+-                                : <PackageCheck size={16} />}
+-                            J'ai mis le colis de côté — confirmer
+-                        </button>
++                        <div className="grid gap-2">
++                            <button
++                                onClick={() => onConfirmer(order, [])}
++                                disabled={confirmationEnCours === order._id}
++                                className="flex items-center justify-center gap-2 bg-ramses-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-ramses-700 transition disabled:opacity-50"
++                            >
++                                {confirmationEnCours === order._id ? <Loader2 size={16} className="animate-spin" /> : <PackageCheck size={16} />}
++                                Tout est disponible — mettre de côté
++                            </button>
++                            <button
++                                onClick={() => { const raw = window.prompt('Numéro(s) des articles indisponibles, séparés par des virgules (1,2...)'); if (raw) onConfirmer(order, raw.split(',').map(x => parseInt(x.trim(),10)).filter(Number.isInteger)); }}
++                                disabled={confirmationEnCours === order._id}
++                                className="flex items-center justify-center gap-2 border border-red-200 text-red-600 px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-red-50 transition disabled:opacity-50"
++                            >
++                                Signaler un article indisponible
++                            </button>
++                        </div>
+                     )}
+                     {order.statut?.cle === 'confirmee' && (
+                         <p className="text-xs text-warn-500">Confirmée de ton côté — en attente de validation par l'équipe RAMCI.</p>
+@@ -150,21 +157,19 @@ const Commandes = () => {
+         charger();
+     }, [axios, boutique]);
+ 
+-    const confirmer = async (orderId) => {
+-        setConfirmationEnCours(orderId);
++    const confirmer = async (order, indisponibles = []) => {
++        setConfirmationEnCours(order._id);
+         try {
+-            const { data } = await axios.post('/api/order/commercant/confirmer', { orderId });
+-            if (data.success) {
+-                toast.success(data.message);
+-                charger();
+-            } else {
+-                toast.error(data.message);
+-            }
+-        } catch (error) {
+-            toast.error(error.response?.data?.message || error.message);
+-        } finally {
+-            setConfirmationEnCours(null);
+-        }
++            const ids = (order.articles || []).map(a => String(a.itemId));
++            const unavailable = indisponibles.map(Number).map(i => ids[i - 1]).filter(Boolean);
++            const available = ids.filter(id => !unavailable.includes(id));
++            const { data } = await axios.post('/api/order/commercant/disponibilite', {
++                orderId: order._id, availableItemIds: available, unavailableItemIds: unavailable,
++                reason: unavailable.length ? 'Article déclaré indisponible par le commerçant' : ''
++            });
++            if (data.success) { toast.success(data.message); charger(); } else toast.error(data.message);
++        } catch (error) { toast.error(error.response?.data?.message || error.message); }
++        finally { setConfirmationEnCours(null); }
+     };
+ 
+     const filtrees = useMemo(() => {
+diff --git a/client/src/pages/livreur/index.js b/client/src/pages/livreur/index.js
+index d1dfa5a..689f55a 100644
+--- a/client/src/pages/livreur/index.js
++++ b/client/src/pages/livreur/index.js
+@@ -1,2 +1,3 @@
+ export { default as MesLivraisons } from './MesLivraisons';
+-export { default as LivraisonDetail } from './LivraisonDetail';
+\ No newline at end of file
++export { default as LivraisonDetail } from './LivraisonDetail';
++export { default as Collectes } from './Collectes';
+diff --git a/client/src/pages/seller/Orders.jsx b/client/src/pages/seller/Orders.jsx
+index 3fc10cc..43305c2 100644
+--- a/client/src/pages/seller/Orders.jsx
++++ b/client/src/pages/seller/Orders.jsx
+@@ -75,6 +75,16 @@ const Orders = () => {
+         return null;
+     };
+ 
++    const markShipped = async (orderId) => {
++        setUpdatingStatus(orderId);
++        try {
++            const { data } = await axios.post('/api/order/seller/mark-shipped', { orderId });
++            if (data.success) { toast.success('Colis reçu en entrepôt et marqué expédié.'); await fetchOrders(); }
++            else toast.error(data.message);
++        } catch (error) { toast.error(error.response?.data?.message || error.message); }
++        finally { setUpdatingStatus(null); }
++    };
++
+     const updateOrderStatus = async (orderId, newStatus) => {
+         setUpdatingStatus(orderId)
+         try {
+@@ -100,6 +110,9 @@ const Orders = () => {
+         const statusMap = {
+             'Order Placed': 'Commandée',
+             'Confirmed': 'Confirmée',
++            'Checking Availability': 'Vérification disponibilité',
++            'Collecting': 'Collecte en cours',
++            'Ready for Shipment': 'Collectée — à expédier',
+             'Shipped': 'Expédiée',
+             'Out for Delivery': 'En livraison',
+             'Delivered': 'Livrée',
+@@ -114,7 +127,7 @@ const Orders = () => {
+             case 'Delivered': return <CheckCircle size={14} className="text-green-600" />;
+             case 'Returned': return <RotateCw size={14} className="text-purple-600" />;
+             case 'Cancelled': return <XCircle size={14} className="text-red-600" />;
+-            case 'Shipped': case 'Out for Delivery': return <Truck size={14} className="text-purple-600" />;
++            case 'Shipped': case 'Out for Delivery': case 'Collecting': case 'Ready for Shipment': return <Truck size={14} className="text-purple-600" />;
+             default: return <Clock size={14} className="text-blue-600" />;
+         }
+     };
+@@ -123,7 +136,7 @@ const Orders = () => {
+         if (status === 'Delivered') return 'bg-green-100 text-green-700';
+         if (status === 'Returned') return 'bg-purple-100 text-purple-700';
+         if (status === 'Cancelled') return 'bg-red-100 text-red-700';
+-        if (status === 'Shipped' || status === 'Out for Delivery') return 'bg-purple-100 text-purple-700';
++        if (status === 'Shipped' || status === 'Out for Delivery' || status === 'Collecting' || status === 'Ready for Shipment') return 'bg-purple-100 text-purple-700';
+         return 'bg-blue-100 text-blue-700';
+     };
+ 
+@@ -473,7 +486,7 @@ const Orders = () => {
+                                                 className="text-xs border border-gray-200 rounded-lg px-2 py-1 outline-none focus:border-purple-500"
+                                             >
+                                                 <option value="Confirmed">Confirmée</option>
+-                                                <option value="Shipped">Expédiée</option>
++                                                
+                                                 <option value="Out for Delivery">En livraison</option>
+                                                 <option value="Delivered">Livrée</option>
+                                             </select>
+@@ -718,6 +731,11 @@ const Orders = () => {
+                                             </div>
+                                             
+                                             <div className="flex items-center gap-2">
++                                                {order.status === 'Ready for Shipment' && (
++                                                    <button onClick={() => markShipped(order._id)} disabled={updatingStatus === order._id} className="px-3 py-1.5 rounded-xl bg-green-600 text-white text-xs font-medium disabled:opacity-50">
++                                                        Marquer expédiée
++                                                    </button>
++                                                )}
+                                                 <select 
+                                                     defaultValue={order.status}
+                                                     onChange={(e) => updateOrderStatus(order._id, e.target.value)}
+@@ -726,7 +744,7 @@ const Orders = () => {
+                                                 >
+                                                     <option value="Order Placed">Commandée</option>
+                                                     <option value="Confirmed">Confirmée</option>
+-                                                    <option value="Shipped">Expédiée</option>
++                                                    
+                                                     <option value="Out for Delivery">En livraison</option>
+                                                     <option value="Delivered">Livrée</option>
+                                                     <option value="Returned">Retournée</option>
+diff --git a/server/controllers/orderController.js b/server/controllers/orderController.js
+index 9b7b00b..8fc5345 100644
+--- a/server/controllers/orderController.js
++++ b/server/controllers/orderController.js
+@@ -24,6 +24,8 @@ import {
+ import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
+ import { sendPushToUser } from './pushController.js';
+ import { syncManyProductsToAirtable } from '../services/airtableSync.js';
++import { decideAvailability, reserveCollection, collectItem, markReceivedAndShipped, availabilityState, activeItems } from '../services/orderWorkflowService.js';
++import { soldeCreditClient } from '../services/customerCreditService.js';
+ 
+ // Messages affichés dans la notification push
+ const orderStatusPushMessages = {
+@@ -280,8 +282,6 @@ export const placeOrderCOD = async (req, res) => {
+         // revient — c'est la condition pour qu'il accepte de préparer et de
+         // remettre son colis. Il ne pourra le retirer qu'après validation
+         // de l'admin (voir confirmerCommandeAdmin).
+-        await crediterVenteEnAttente(order);
+-
+         await User.findByIdAndUpdate(userId, { cartItems: {} });
+ 
+         const user = await User.findById(userId);
+@@ -309,7 +309,7 @@ export const placeOrderCOD = async (req, res) => {
+ export const updateOrderStatus = async (req, res) => {
+     try {
+         const { orderId, status } = req.body;
+-        const validStatuses = ['Order Placed', 'Confirmed', 'Shipped', 'Out for Delivery', 'Delivered', 'Returned', 'Cancelled'];
++        const validStatuses = ['Cancelled', 'Returned', 'Disputed'];
+         
+         if (!validStatuses.includes(status)) {
+             return res.status(400).json({ success: false, message: "Statut invalide" });
+@@ -471,6 +471,15 @@ export const updateLivraisonStatus = async (req, res) => {
+ // =============================================================
+ // COMMANDES UTILISATEUR
+ // =============================================================
++export const getCustomerCredit = async (req, res) => {
++    try {
++        const balance = await soldeCreditClient(req.body.userId);
++        return res.json({ success: true, balance });
++    } catch (error) {
++        return res.status(500).json({ success: false, message: error.message });
++    }
++};
++
+ export const getUserOrders = async (req, res) => {
+     try {
+         const { userId } = req.body;
+@@ -555,10 +564,10 @@ export const getMesVentesCommercant = async (req, res) => {
+             );
+ 
+             const montantBoutique = mesArticles.reduce(
+-                (somme, item) => somme + (item.priceAtOrder || 0) * (item.quantity || 0), 0
++                (somme, item) => item.availabilityStatus !== 'unavailable' ? somme + (item.priceAtOrder || 0) * (item.quantity || 0) : somme, 0
+             );
+ 
+-            const aConfirme = (order.confirmationsBoutiques || []).some(
++            const aConfirme = (order.availabilityDecisions || []).some(
+                 (c) => c.boutiqueId?.toString() === boutiqueId.toString()
+             );
+ 
+@@ -569,6 +578,8 @@ export const getMesVentesCommercant = async (req, res) => {
+                 reference: order._id.toString().slice(-6).toUpperCase(),
+                 dateCommande: order.createdAt,
+                 articles: mesArticles.map((item) => ({
++                    itemId: item._id,
++                    availabilityStatus: item.availabilityStatus,
+                     nom: item.name,
+                     sku: item.sku,
+                     image: item.image,
+@@ -692,7 +703,7 @@ export const listCommandesAValider = async (req, res) => {
+     try {
+         const orders = await Order.find({
+             confirmeParAdminLe: null,
+-            status: { $nin: ['Cancelled', 'Returned', 'pending_payment'] },
++            status: 'Shipped',
+         })
+             .sort({ createdAt: -1 })
+             .limit(100)
+@@ -735,50 +746,59 @@ export const listCommandesAValider = async (req, res) => {
+ // commerçants (transfert du solde en attente vers le solde disponible).
+ export const confirmerCommandeAdmin = async (req, res) => {
+     try {
+-        const { orderId, forcer } = req.body;
+-
++        const { orderId } = req.body;
+         const order = await Order.findById(orderId);
+-        if (!order) {
+-            return res.status(404).json({ success: false, message: 'Commande introuvable' });
+-        }
+-
+-        if (order.confirmeParAdminLe) {
+-            return res.status(409).json({
+-                success: false,
+-                message: 'Cette commande a déjà été validée',
+-            });
+-        }
+-
+-        const etat = etatConfirmations(order);
+-
+-        // On refuse par défaut tant qu'un commerçant n'a pas confirmé : le
+-        // circuit perdrait son sens si l'admin validait avant que les colis
+-        // soient mis de côté. `forcer` reste possible pour les cas réels
+-        // (commerçant injoignable), mais c'est un choix explicite.
+-        if (!etat.toutesConfirmees && !forcer) {
+-            return res.status(409).json({
+-                success: false,
+-                message: `${etat.manquantes.length} boutique(s) n'ont pas encore confirmé`,
+-                enAttenteDe: etat.manquantes.length,
+-            });
+-        }
+-
++        if (!order) return res.status(404).json({ success: false, message: 'Commande introuvable' });
++        if (order.confirmeParAdminLe) return res.status(409).json({ success: false, message: 'Cette commande a déjà été validée' });
++        if (order.status !== 'Shipped') return res.status(409).json({ success: false, message: 'Les fonds ne peuvent être libérés qu’après réception entrepôt et statut Expédiée.' });
++        const resultat = await libererFonds(order);
+         order.confirmeParAdminLe = new Date();
+         order.confirmeParAdmin = req.staffUser._id;
+         await order.save();
+-
+-        const resultat = await libererFonds(order);
+-
+-        return res.json({
+-            success: true,
+-            message: resultat.liberees > 0
+-                ? `Commande validée — fonds libérés pour ${resultat.liberees} boutique(s)`
+-                : 'Commande validée',
+-            boutiquesCreditees: resultat.liberees,
+-            montantLibere: resultat.montantTotal,
+-        });
++        return res.json({ success: true, message: `Fonds libérés pour ${resultat.liberees} boutique(s)`, montantLibere: resultat.montantTotal });
+     } catch (error) {
+         console.error('Erreur confirmerCommandeAdmin:', error.message);
+-        res.status(500).json({ success: false, message: error.message });
++        return res.status(500).json({ success: false, message: error.message });
+     }
+ };
++
++export const confirmerDisponibiliteCommercant = async (req, res) => {
++    try {
++        const { orderId, availableItemIds = [], unavailableItemIds = [], reason = '' } = req.body;
++        const boutiqueId = req.staffUser.boutiqueId;
++        if (!boutiqueId) return res.status(400).json({ success: false, message: 'Aucune boutique associée' });
++        const result = await decideAvailability({ orderId, boutiqueId, staffUser: req.staffUser, availableItemIds, unavailableItemIds, reason });
++        return res.json({ success: true, message: result.state.allAnswered ? 'Toutes les disponibilités sont reçues. Commande confirmée.' : 'Disponibilité enregistrée.', order: result.order, toutesReponses: result.state.allAnswered });
++    } catch (error) { return res.status(400).json({ success: false, message: error.message }); }
++};
++
++export const getCollectesLivreur = async (req, res) => {
++    try {
++        const now = new Date();
++        const orders = await Order.find({ status: { $in: ['Confirmed','Collecting'] }, $or: [{ collecteReserveePar: null }, { collecteReservationExpireLe: { $lt: now } }] }).sort({ createdAt: -1 }).lean();
++        return res.json({ success: true, orders });
++    } catch (error) { return res.status(500).json({ success: false, message: error.message }); }
++};
++
++export const reserverCollecteLivreur = async (req, res) => {
++    try { const order = await reserveCollection({ orderId: req.params.orderId, livreurId: req.staffUser._id }); return res.json({ success: true, order }); }
++    catch (error) { return res.status(409).json({ success: false, message: error.message }); }
++};
++
++export const collecterArticleLivreur = async (req, res) => {
++    try { const order = await collectItem({ orderId: req.params.orderId, itemId: req.params.itemId, livreurId: req.staffUser._id }); return res.json({ success: true, order }); }
++    catch (error) { return res.status(409).json({ success: false, message: error.message }); }
++};
++
++export const terminerCollecteLivreur = async (req, res) => {
++    try {
++        const order = await Order.findOne({ _id: req.params.orderId, collecteReserveePar: req.staffUser._id, status: 'Ready for Shipment' });
++        if (!order) return res.status(409).json({ success: false, message: 'Tous les articles ne sont pas collectés ou collecte invalide' });
++        return res.json({ success: true, message: 'Collecte terminée. Le Seller peut réceptionner le colis.', order });
++    } catch (error) { return res.status(500).json({ success: false, message: error.message }); }
++};
++
++export const markShippedSeller = async (req, res) => {
++    try { const result = await markReceivedAndShipped({ orderId: req.body.orderId, sellerId: req.sellerId || null }); return res.json({ success: true, message: 'Colis reçu en entrepôt et marqué Expédié. Fonds éligibles à la libération.', resultat: result }); }
++    catch (error) { return res.status(409).json({ success: false, message: error.message }); }
++};
+diff --git a/server/models/Order.js b/server/models/Order.js
+index e4c968b..ab3f817 100644
+--- a/server/models/Order.js
++++ b/server/models/Order.js
+@@ -16,6 +16,10 @@ const orderItemSchema = new mongoose.Schema({
+     name: { type: String, default: null },
+     image: { type: String, default: null },
+     sku: { type: String, default: null },
++    availabilityStatus: { type: String, enum: ['pending', 'available', 'unavailable', 'collected'], default: 'pending' },
++    availabilityReason: { type: String, default: null },
++    collectedAt: { type: Date, default: null },
++    collectedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'staffuser', default: null },
+     // ✅ NOUVEAU PHASE 3 : Boutique du produit au moment de la commande.
+     // [FIX] null est une valeur valide et volontaire (produit du magasin
+     // principal, hors système commerçant) — jekoController.js et
+@@ -33,6 +37,10 @@ const orderSchema = new mongoose.Schema({
+     userId: { type: String, required: true, ref: 'user' },
+     items: [orderItemSchema],
+     amount: { type: Number, required: true },
++    originalAmount: { type: Number, default: null },
++    customerRefundDue: { type: Number, default: 0 },
++    customerRefundCredited: { type: Number, default: 0 },
++    customerCreditApplied: { type: Number, default: 0 },
+     deliveryPrice: { type: Number, default: 0 },
+     discountAmount: { type: Number, default: 0 },
+     couponApplied: { type: String, default: null },
+@@ -40,7 +48,7 @@ const orderSchema = new mongoose.Schema({
+     status: { 
+         type: String, 
+         default: 'pending_payment',
+-        enum: ['pending_payment', 'Order Placed', 'Confirmed', 'Shipped', 'Out for Delivery', 'Delivered', 'Returned', 'Cancelled']
++        enum: ['pending_payment', 'Order Placed', 'Checking Availability', 'Confirmed', 'Collecting', 'Ready for Shipment', 'Shipped', 'Out for Delivery', 'Delivered', 'Returned', 'Cancelled', 'Disputed']
+     },
+     paymentType: { type: String, required: true },
+     isPaid: { type: Boolean, required: true, default: false },
+@@ -50,6 +58,13 @@ const orderSchema = new mongoose.Schema({
+     estimatedDeliveryEnd: { type: Date, default: null },
+     deliveredAt: { type: Date, default: null },
+     // ✅ NOUVEAU PHASE 3 : Livreur assigné
++    collecteReserveePar: { type: mongoose.Schema.Types.ObjectId, ref: 'staffuser', default: null },
++    collecteReserveeLe: { type: Date, default: null },
++    collecteReservationExpireLe: { type: Date, default: null },
++    collecteTermineeLe: { type: Date, default: null },
++    entrepotRecuLe: { type: Date, default: null },
++    shippedAt: { type: Date, default: null },
++    shippedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'staffuser', default: null },
+     livreurId: {
+         type: mongoose.Schema.Types.ObjectId,
+         ref: 'staffuser',
+@@ -82,6 +97,14 @@ const orderSchema = new mongoose.Schema({
+         ref: 'staffuser',
+         default: null,
+     },
++    availabilityDecisions: [{
++        boutiqueId: { type: mongoose.Schema.Types.ObjectId, ref: 'boutique', required: true },
++        decision: { type: String, enum: ['available', 'unavailable'], required: true },
++        unavailableItemIds: [{ type: mongoose.Schema.Types.ObjectId }],
++        confirmePar: { type: mongoose.Schema.Types.ObjectId, ref: 'staffuser', default: null },
++        confirmeParNom: { type: String, default: '' },
++        confirmeLe: { type: Date, default: Date.now },
++    }],
+ }, { timestamps: true });
+ 
+ // Index pour accélérer les requêtes
+diff --git a/server/models/Product.js b/server/models/Product.js
+index ac3e2eb..becb92c 100644
+--- a/server/models/Product.js
++++ b/server/models/Product.js
+@@ -77,7 +77,7 @@ const productSchema = new mongoose.Schema({
+     origine: {
+         type: String,
+         enum: ['commercant', 'plateforme'],
+-        default: 'commercant',
++        default: 'plateforme',
+     },
+ 
+     // ✅ NOUVEAU PHASE 3 : Boutique du produit
+diff --git a/server/routes/orderRoute.js b/server/routes/orderRoute.js
+index a40f03f..48352a6 100644
+--- a/server/routes/orderRoute.js
++++ b/server/routes/orderRoute.js
+@@ -14,7 +14,14 @@ import {
+     getMesVentesCommercant,
+     confirmerCommandeCommercant,
+     listCommandesAValider,
+-    confirmerCommandeAdmin
++    confirmerCommandeAdmin,
++    confirmerDisponibiliteCommercant,
++    getCollectesLivreur,
++    reserverCollecteLivreur,
++    collecterArticleLivreur,
++    terminerCollecteLivreur,
++    markShippedSeller,
++    getCustomerCredit
+ } from '../controllers/orderController.js';
+ import authSeller from '../middlewares/authSeller.js';
+ import { initiateJeko } from '../controllers/jekoController.js';
+@@ -25,6 +32,7 @@ const orderRouter = express.Router();
+ // Routes client
+ orderRouter.post('/cod', authUser, orderCreationLimiter, placeOrderCOD);
+ orderRouter.get('/user', authUser, getUserOrders);
++orderRouter.get('/user/credit', authUser, getCustomerCredit);
+ orderRouter.post('/jeko/initiate', authUser, paymentLimiter, initiateJeko);
+ 
+ // Routes admin (seller)
+@@ -43,10 +51,16 @@ orderRouter.patch('/livreur/statut', authStaff, requireRole('livreur'), updateLi
+ orderRouter.get('/commercant/mes-ventes', authStaff, requireRole('commercant'), getMesVentesCommercant);
+ // Le commerçant confirme avoir vu la commande et mis son colis de côté.
+ orderRouter.post('/commercant/confirmer', authStaff, requireRole('commercant'), confirmerCommandeCommercant);
++orderRouter.post('/commercant/disponibilite', authStaff, requireRole('commercant'), confirmerDisponibiliteCommercant);
+ 
+ // Validation finale par l'admin : c'est elle qui libère les fonds.
+ orderRouter.get('/admin/a-valider', authStaff, requireRole('admin'), listCommandesAValider);
+ orderRouter.post('/admin/confirmer', authStaff, requireRole('admin'), confirmerCommandeAdmin);
++orderRouter.get('/livreur/collectes', authStaff, requireRole('livreur'), getCollectesLivreur);
++orderRouter.post('/livreur/collectes/:orderId/reserver', authStaff, requireRole('livreur'), reserverCollecteLivreur);
++orderRouter.post('/livreur/collectes/:orderId/items/:itemId/collecter', authStaff, requireRole('livreur'), collecterArticleLivreur);
++orderRouter.post('/livreur/collectes/:orderId/terminer', authStaff, requireRole('livreur'), terminerCollecteLivreur);
++orderRouter.post('/seller/mark-shipped', authSeller, markShippedSeller);
+ 
+ // Récupérer une commande par son ID (client)
+ orderRouter.get('/:orderId', authUser, async (req, res) => {

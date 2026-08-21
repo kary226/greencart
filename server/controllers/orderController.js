@@ -21,6 +21,7 @@ import {
     traiterRetourColis,
     etatConfirmations,
 } from "../services/walletService.js";
+import { crediterClient } from '../services/customerCreditService.js';
 import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
 import { sendPushToUser } from './pushController.js';
 import { syncManyProductsToAirtable } from '../services/airtableSync.js';
@@ -268,20 +269,24 @@ export const placeOrderCOD = async (req, res) => {
             couponApplied: couponApplied ? String(couponApplied).toUpperCase() : null,
             address,
             paymentType: "COD",
-            status: "Order Placed",
+            status: "Checking Availability",
             estimatedDeliveryStart: deliveryStart,
             estimatedDeliveryEnd: deliveryEnd,
         });
 
         await reduceVariantStock(itemsWithPrice);
 
-        // [ARGENT] Crédit du solde EN ATTENTE de chaque boutique concernée,
-        // dès la commande. Le commerçant voit immédiatement ce qui lui
-        // revient — c'est la condition pour qu'il accepte de préparer et de
-        // remettre son colis. Il ne pourra le retirer qu'après validation
-        // de l'admin (voir confirmerCommandeAdmin).
-        await crediterVenteEnAttente(order);
+        // Une commande composée uniquement du catalogue principal n'attend
+        // aucun commerçant.
+        if (!itemsWithPrice.some(item => item.boutiqueId)) {
+            order.status = 'Confirmed';
+            order.confirmedAt = new Date();
+            await order.save();
+        }
 
+        // Le portefeuille n'est crédité qu'après validation de disponibilité
+        // de toutes les boutiques. Une commande simplement créée ne constitue
+        // pas encore une créance commerçant définitive.
         await User.findByIdAndUpdate(userId, { cartItems: {} });
 
         const user = await User.findById(userId);
@@ -315,32 +320,12 @@ export const updateOrderStatus = async (req, res) => {
             return res.status(400).json({ success: false, message: "Statut invalide" });
         }
         
-        const currentOrder = await Order.findById(orderId);
-        if (!currentOrder) {
-            return res.status(404).json({ success: false, message: 'Commande introuvable' });
-        }
-
-        if (status === 'Out for Delivery' && currentOrder.status !== 'Shipped') {
-            return res.status(409).json({ success: false, message: 'Le colis doit d’abord être marqué comme expédié avant sa récupération.' });
-        }
-        if (status === 'Delivered' && currentOrder.status !== 'Out for Delivery' && !currentOrder.colisRecupereLe) {
-            return res.status(409).json({ success: false, message: 'Le colis doit être récupéré avant de pouvoir être déclaré livré.' });
-        }
-
         const updateData = { status };
-        if (status === 'Out for Delivery' && !currentOrder.colisRecupereLe) {
-            updateData.colisRecupereLe = new Date();
-        }
         if (status === 'Delivered') {
-            const deliveredAt = new Date();
-            updateData.deliveredAt = deliveredAt;
-            updateData.releaseEligibleAt = getReleaseEligibleAt(deliveredAt);
-            // En COD, la livraison confirme aussi l'encaissement auprès du
-            // client. Les commandes Jèko sont déjà isPaid=true via le webhook.
-            if (currentOrder.paymentType === 'COD') updateData.isPaid = true;
+            updateData.deliveredAt = new Date();
         }
         
-        const order = await Order.findByIdAndUpdate(orderId, updateData, { new: true });
+        const order = await Order.findByIdAndUpdate(orderId, updateData);
 
         // [ARGENT] Le crédit se fait désormais À LA COMMANDE (solde en
         // attente), plus à la livraison — sinon le commerçant serait payé
@@ -409,6 +394,151 @@ export const assignerLivreur = async (req, res) => {
 };
 
 // =============================================================
+// COLLECTE LIVREUR — une commande est visible par tous les livreurs,
+// mais une réservation est atomique et exclusive.
+// =============================================================
+export const getCollectesLivreur = async (req, res) => {
+    try {
+        const livreurId = req.staffUser._id;
+        const orders = await Order.find({
+            status: { $in: ['Confirmed', 'Collecting', 'Ready for Shipment'] },
+            $or: [
+                { collecteLivreurId: null },
+                { collecteLivreurId: livreurId }
+            ]
+        }).populate('items.product address').sort({ createdAt: -1 }).lean();
+
+        return res.json({ success: true, orders });
+    } catch (error) {
+        console.error('Erreur getCollectesLivreur:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const reserverCollecte = async (req, res) => {
+    try {
+        const livreurId = req.staffUser._id;
+        const { orderId } = req.body;
+        const updated = await Order.findOneAndUpdate(
+            {
+                _id: orderId,
+                status: 'Confirmed',
+                collecteLivreurId: null
+            },
+            {
+                $set: {
+                    status: 'Collecting',
+                    collecteLivreurId: livreurId,
+                    collecteReserveeLe: new Date()
+                }
+            },
+            { new: true }
+        ).populate('items.product address');
+
+        if (!updated) {
+            return res.status(409).json({
+                success: false,
+                message: 'Cette collecte a déjà été réservée ou n’est plus disponible.'
+            });
+        }
+
+        return res.json({ success: true, order: updated });
+    } catch (error) {
+        console.error('Erreur reserverCollecte:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const collecterArticle = async (req, res) => {
+    try {
+        const { orderId, itemId } = req.body;
+        const livreurId = req.staffUser._id;
+        const order = await Order.findOne({
+            _id: orderId,
+            collecteLivreurId: livreurId,
+            status: { $in: ['Collecting', 'Ready for Shipment'] }
+        });
+
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Collecte introuvable ou non réservée à ce livreur.' });
+        }
+
+        const item = order.items.id(itemId);
+        if (!item) return res.status(404).json({ success: false, message: 'Article introuvable.' });
+        if (item.availabilityStatus === 'unavailable') {
+            return res.status(409).json({ success: false, message: 'Cet article est indisponible.' });
+        }
+        if (item.availabilityStatus === 'collected') {
+            return res.json({ success: true, message: 'Article déjà collecté.' });
+        }
+
+        item.availabilityStatus = 'collected';
+        item.collectedAt = new Date();
+        item.collectedBy = livreurId;
+
+        const actifs = order.items.filter(i => i.availabilityStatus !== 'unavailable');
+        const tousCollectes = actifs.length > 0 && actifs.every(i => i.availabilityStatus === 'collected');
+
+        order.status = tousCollectes ? 'Ready for Shipment' : 'Collecting';
+        await order.save();
+
+        return res.json({
+            success: true,
+            tousCollectes,
+            status: order.status
+        });
+    } catch (error) {
+        console.error('Erreur collecterArticle:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const terminerCollecte = async (req, res) => {
+    try {
+        const livreurId = req.staffUser._id;
+        const { orderId } = req.body;
+        const order = await Order.findOne({
+            _id: orderId,
+            collecteLivreurId: livreurId,
+            status: 'Ready for Shipment'
+        });
+        if (!order) return res.status(409).json({ success: false, message: 'Tous les articles disponibles ne sont pas encore collectés.' });
+        return res.json({ success: true, message: 'Collecte terminée. Le Seller peut réceptionner le colis.' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// Seller : réception de l'entrepôt et passage à Shipped.
+// C'est cette étape qui rend les fonds éligibles à la libération Admin.
+export const sellerMarkShipped = async (req, res) => {
+    try {
+        const { orderId } = req.body;
+        const order = await Order.findById(orderId);
+        if (!order) return res.status(404).json({ success: false, message: 'Commande introuvable.' });
+
+        if (order.status !== 'Ready for Shipment') {
+            return res.status(409).json({ success: false, message: 'La commande doit avoir été entièrement collectée avant expédition.' });
+        }
+
+        const actifs = order.items.filter(i => i.availabilityStatus !== 'unavailable');
+        if (!actifs.length || !actifs.every(i => i.availabilityStatus === 'collected')) {
+            return res.status(409).json({ success: false, message: 'Tous les articles disponibles doivent être collectés.' });
+        }
+
+        order.status = 'Shipped';
+        order.shippedAt = new Date();
+        order.shippedBy = req.staffUser?._id || null;
+        await order.save();
+
+        return res.json({ success: true, message: 'Commande reçue en entrepôt et marquée Expédiée.' });
+    } catch (error) {
+        console.error('Erreur sellerMarkShipped:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// =============================================================
 // ✅ PHASE 4 : RÉCUPÉRER LES COMMANDES D'UN LIVREUR
 // =============================================================
 export const getLivraisonsLivreur = async (req, res) => {
@@ -454,22 +584,9 @@ export const updateLivraisonStatus = async (req, res) => {
             return res.status(404).json({ success: false, message: "Commande non trouvée ou non assignée à ce livreur" });
         }
         
-        if (status === 'Out for Delivery' && !['Shipped'].includes(order.status)) {
-            return res.status(409).json({ success: false, message: 'Le colis doit d’abord être marqué comme expédié par le Seller.' });
-        }
-        if (status === 'Delivered' && order.status !== 'Out for Delivery') {
-            return res.status(409).json({ success: false, message: 'Le colis doit être récupéré et en cours de livraison avant de pouvoir être déclaré livré.' });
-        }
-
         const updateData = { status };
-        if (status === 'Out for Delivery') {
-            updateData.colisRecupereLe = order.colisRecupereLe || new Date();
-        }
         if (status === 'Delivered') {
-            const deliveredAt = new Date();
-            updateData.deliveredAt = deliveredAt;
-            updateData.releaseEligibleAt = getReleaseEligibleAt(deliveredAt);
-            if (order.paymentType === 'COD') updateData.isPaid = true;
+            updateData.deliveredAt = new Date();
         }
         
         await Order.findByIdAndUpdate(orderId, updateData);
@@ -663,7 +780,7 @@ export const getUserOrdersByAdmin = async (req, res) => {
 // commande devient prête à être validée par l'admin.
 export const confirmerCommandeCommercant = async (req, res) => {
     try {
-        const { orderId } = req.body;
+        const { orderId, available = true, reason = '' } = req.body;
         const boutiqueId = req.staffUser.boutiqueId;
 
         if (!boutiqueId) {
@@ -671,44 +788,119 @@ export const confirmerCommandeCommercant = async (req, res) => {
         }
 
         const order = await Order.findById(orderId);
-        if (!order) {
-            return res.status(404).json({ success: false, message: 'Commande introuvable' });
+        if (!order) return res.status(404).json({ success: false, message: 'Commande introuvable' });
+
+        const itemsBoutique = (order.items || []).filter(
+            item => item.boutiqueId?.toString() === boutiqueId.toString()
+        );
+        if (!itemsBoutique.length) {
+            return res.status(403).json({ success: false, message: "Cette commande ne concerne pas votre boutique" });
         }
 
-        // Le commerçant ne confirme que s'il est réellement concerné.
-        const estConcerne = (order.items || []).some(
-            (item) => item.boutiqueId?.toString() === boutiqueId.toString()
-        );
-        if (!estConcerne) {
-            return res.status(403).json({
-                success: false,
-                message: "Cette commande ne concerne pas votre boutique",
+        // Une boutique répond une seule fois. Le choix est enregistré article
+        // par article pour permettre les commandes multi-boutiques et les
+        // indisponibilités partielles.
+        const now = new Date();
+        const newlyUnavailable = [];
+        for (const item of itemsBoutique) {
+            if (item.availabilityStatus && item.availabilityStatus !== 'pending') continue;
+            item.availabilityStatus = available ? 'available' : 'unavailable';
+            item.unavailableReason = available ? null : String(reason || 'Article indisponible').slice(0, 300);
+            if (!available) newlyUnavailable.push(item);
+        }
+
+        if (!available) {
+            // L'article avait été réservé au moment de la commande. On rend
+            // son stock disponible à nouveau, une seule fois, avant de le
+            // retirer du panier financier.
+            const products = await Product.find({
+                _id: { $in: newlyUnavailable.map(i => i.product) }
             });
+            for (const item of newlyUnavailable) {
+                const product = products.find(p => p._id.toString() === item.product.toString());
+                if (!product) continue;
+                if (product.variants?.length) {
+                    const variant = product.variants.find(v =>
+                        (item.color == null ? v.color == null : v.color === item.color) &&
+                        (item.size == null ? v.size == null : v.size === item.size)
+                    );
+                    if (variant) {
+                        variant.stock = Number(variant.stock || 0) + Number(item.quantity || 0);
+                        product.inStock = product.variants.some(v => Number(v.stock || 0) > 0);
+                        await product.save();
+                    }
+                } else if (product.stock !== null && product.stock !== undefined) {
+                    product.stock = Number(product.stock || 0) + Number(item.quantity || 0);
+                    product.inStock = product.stock > 0;
+                    await product.save();
+                }
+            }
+
+            // Le montant client est diminué. Pour une commande déjà payée,
+            // on crée un crédit client interne plutôt qu'un payout automatique.
+            const refund = itemsBoutique
+                .filter(i => i.availabilityStatus === 'unavailable')
+                .reduce((sum, i) => sum + (Number(i.priceAtOrder) || 0) * (Number(i.quantity) || 0), 0);
+            const refundWithTax = Math.floor(refund * 1.02);
+            order.amount = Math.max(0, Number(order.amount || 0) - refundWithTax);
+            order.refundDue = Number(order.refundDue || 0) + refundWithTax;
+
+            if (order.isPaid && refundWithTax > 0) {
+                let credited = 0;
+                for (const item of newlyUnavailable) {
+                    const lineRefund = Math.floor((Number(item.priceAtOrder) || 0) * (Number(item.quantity) || 0) * 1.02);
+                    if (lineRefund <= 0) continue;
+                    const ok = await crediterClient({
+                        userId: order.userId,
+                        orderId: order._id,
+                        itemId: item._id,
+                        amount: lineRefund,
+                        description: `Article indisponible — commande ${order._id}`
+                    });
+                    if (ok) credited += lineRefund;
+                }
+                if (credited > 0) order.refundCreditedAt = now;
+            }
         }
 
-        const dejaConfirme = (order.confirmationsBoutiques || []).some(
-            (c) => c.boutiqueId?.toString() === boutiqueId.toString()
-        );
+        const allResponded = (order.items || [])
+            .filter(i => i.boutiqueId)
+            .every(i => i.availabilityStatus !== 'pending');
 
-        if (!dejaConfirme) {
+        const dejaConfirmation = (order.confirmationsBoutiques || []).some(
+            c => c.boutiqueId?.toString() === boutiqueId.toString()
+        );
+        if (!dejaConfirmation) {
             order.confirmationsBoutiques.push({
                 boutiqueId,
                 confirmePar: req.staffUser._id,
-                confirmeParNom: req.staffUser.nom,
-                confirmeLe: new Date(),
+                confirmeParNom: req.staffUser.nom || req.staffUser.email || 'Commerçant',
+                confirmeLe: now,
             });
+        }
+
+        // Les produits du catalogue principal n'ont pas de commerçant à
+        // confirmer. Une fois toutes les boutiques concernées décidées, la
+        // commande devient automatiquement Confirmed.
+        if (allResponded) {
+            order.status = 'Confirmed';
+            order.confirmedAt = now;
+
+            // Le crédit en attente n'est créé qu'à ce moment : uniquement
+            // pour les articles réellement disponibles.
+            await order.save();
+            await crediterVenteEnAttente(order);
+        } else {
+            order.status = 'Checking Availability';
             await order.save();
         }
 
-        const etat = etatConfirmations(order);
-
         return res.json({
             success: true,
-            message: dejaConfirme
-                ? 'Commande déjà confirmée'
-                : 'Commande confirmée — colis à mettre de côté',
-            toutesConfirmees: etat.toutesConfirmees,
-            enAttenteDe: etat.manquantes.length,
+            message: available ? 'Disponibilité confirmée' : 'Article marqué indisponible',
+            toutesConfirmees: allResponded,
+            status: order.status,
+            refundDue: order.refundDue || 0,
         });
     } catch (error) {
         console.error('Erreur confirmerCommandeCommercant:', error.message);
@@ -725,7 +917,7 @@ export const listCommandesAValider = async (req, res) => {
     try {
         const orders = await Order.find({
             confirmeParAdminLe: null,
-            status: { $nin: ['Cancelled', 'Returned', 'pending_payment'] },
+            status: 'Shipped',
         })
             .sort({ createdAt: -1 })
             .limit(100)
@@ -748,17 +940,13 @@ export const listCommandesAValider = async (req, res) => {
                 toutesConfirmees: etat.toutesConfirmees,
                 boutiquesConfirmees: etat.confirmees.map((id) => nomParBoutique.get(id) || 'Boutique'),
                 boutiquesManquantes: etat.manquantes.map((id) => nomParBoutique.get(id) || 'Boutique'),
-                colisRecupereLe: order.colisRecupereLe,
-                deliveredAt: order.deliveredAt,
-                releaseEligibleAt: order.releaseEligibleAt,
-                liberation: verifierEligibiliteLiberation(order),
             };
         });
 
         return res.json({
             success: true,
             orders: resultat,
-            pretes: resultat.filter((o) => o.liberation?.eligible).length,
+            pretes: resultat.filter((o) => o.toutesConfirmees).length,
         });
     } catch (error) {
         console.error('Erreur listCommandesAValider:', error.message);
@@ -772,33 +960,18 @@ export const listCommandesAValider = async (req, res) => {
 // commerçants (transfert du solde en attente vers le solde disponible).
 export const confirmerCommandeAdmin = async (req, res) => {
     try {
-        const { orderId, forcer } = req.body;
-
+        const { orderId } = req.body;
         const order = await Order.findById(orderId);
-        if (!order) {
-            return res.status(404).json({ success: false, message: 'Commande introuvable' });
-        }
+        if (!order) return res.status(404).json({ success: false, message: 'Commande introuvable' });
 
         if (order.confirmeParAdminLe) {
-            return res.status(409).json({
-                success: false,
-                message: 'Cette commande a déjà été validée',
-            });
+            return res.status(409).json({ success: false, message: 'Cette commande a déjà été validée' });
         }
 
-        const etat = etatConfirmations(order);
-        const eligibilite = verifierEligibiliteLiberation(order);
-
-        // La confirmation des boutiques reste utile pour le suivi opérationnel,
-        // mais elle ne suffit plus à libérer l'argent. La condition financière
-        // est désormais : paiement + récupération + livraison + délai de sécurité.
-        if (!eligibilite.eligible) {
+        if (order.status !== 'Shipped') {
             return res.status(409).json({
                 success: false,
-                code: eligibilite.code,
-                message: eligibilite.message,
-                eligibleAt: eligibilite.eligibleAt || null,
-                toutesConfirmees: etat.toutesConfirmees,
+                message: 'Les fonds ne peuvent être libérés qu’après réception du colis et passage à Expédiée par le Seller.'
             });
         }
 
@@ -811,8 +984,8 @@ export const confirmerCommandeAdmin = async (req, res) => {
         return res.json({
             success: true,
             message: resultat.liberees > 0
-                ? `Commande validée — fonds libérés pour ${resultat.liberees} boutique(s)`
-                : 'Commande validée',
+                ? `Fonds libérés pour ${resultat.liberees} boutique(s)`
+                : 'Aucun fonds commerçant à libérer',
             boutiquesCreditees: resultat.liberees,
             montantLibere: resultat.montantTotal,
         });

@@ -16,6 +16,14 @@ const orderItemSchema = new mongoose.Schema({
     name: { type: String, default: null },
     image: { type: String, default: null },
     sku: { type: String, default: null },
+    availabilityStatus: {
+        type: String,
+        enum: ['pending', 'available', 'unavailable', 'collected'],
+        default: 'pending',
+    },
+    unavailableReason: { type: String, default: null },
+    collectedAt: { type: Date, default: null },
+    collectedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'staffuser', default: null },
     // ✅ NOUVEAU PHASE 3 : Boutique du produit au moment de la commande.
     // [FIX] null est une valeur valide et volontaire (produit du magasin
     // principal, hors système commerçant) — jekoController.js et
@@ -49,13 +57,9 @@ const orderSchema = new mongoose.Schema({
     estimatedDeliveryStart: { type: Date, default: null },
     estimatedDeliveryEnd: { type: Date, default: null },
     deliveredAt: { type: Date, default: null },
-    // Preuve logistique : le colis a effectivement été récupéré par le livreur.
-    // Le simple statut 'Shipped' ne suffit pas à rendre les fonds libérables.
-    colisRecupereLe: { type: Date, default: null },
-    // Date à partir de laquelle les fonds peuvent être proposés à la libération.
-    // Elle est fixée après la livraison + délai de sécurité.
-    releaseEligibleAt: { type: Date, default: null },
-    fondsLiberesLe: { type: Date, default: null },
+    confirmedAt: { type: Date, default: null },
+    refundDue: { type: Number, default: 0 },
+    refundCreditedAt: { type: Date, default: null },
     // ✅ NOUVEAU PHASE 3 : Livreur assigné
     livreurId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -89,6 +93,16 @@ const orderSchema = new mongoose.Schema({
         ref: 'staffuser',
         default: null,
     },
+    // Réservation atomique d'une collecte par un livreur.
+    collecteLivreurId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'staffuser',
+        default: null,
+        index: true,
+    },
+    collecteReserveeLe: { type: Date, default: null },
+    shippedAt: { type: Date, default: null },
+    shippedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'staffuser', default: null },
 }, { timestamps: true });
 
 // Index pour accélérer les requêtes

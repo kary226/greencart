@@ -65,14 +65,15 @@ const productSchema = new mongoose.Schema({
 
     // Qui a SAISI l'article — distinct de « à quelle boutique il appartient ».
     //
-    // NOUVEAU MODÈLE : les nouveaux articles sont créés par le Seller/Admin,
-    // puis éventuellement rattachés à une boutique. Le Commerçant ne crée
-    // plus de fiches et ne fixe plus les prix.
+    // 'plateforme' : créé par le vendeur/admin, puis rattaché à une boutique.
+    //   Le commerçant en gère les quantités et les caractéristiques, mais ni
+    //   le prix ni les médias : c'est la plateforme qui les a fixés.
+    // 'commercant' : saisi par le commerçant lui-même, il en garde la main
+    //   complète.
     //
-    // 'plateforme' : créé par le Seller/Admin.
-    // 'commercant' : ancienne origine conservée uniquement pour les produits
-    // historiques déjà présents en base. Aucun nouveau parcours ne doit
-    // créer cette origine.
+    // Valeur par défaut volontairement 'commercant' : les articles déjà en
+    // base ont tous été créés par leur commerçant, leur appliquer le
+    // verrouillage rétroactivement leur retirerait des droits acquis.
     origine: {
         type: String,
         enum: ['commercant', 'plateforme'],

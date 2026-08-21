@@ -64,6 +64,7 @@ const DashboardCommercant = lazy(() => import('./pages/commercant/Dashboard'));
 const Boutique = lazy(() => import('./pages/commercant/Boutique'));
 const Produits = lazy(() => import('./pages/commercant/Produits'));
 const Commandes = lazy(() => import('./pages/commercant/Commandes'));
+const ProduitForm = lazy(() => import('./pages/commercant/ProduitForm'));
 const CodesPromo = lazy(() => import('./pages/commercant/CodesPromo'));
 const Portefeuille = lazy(() => import('./pages/commercant/Portefeuille'));
 const DemandeRetrait = lazy(() => import('./pages/commercant/DemandeRetrait'));
@@ -71,6 +72,7 @@ const DemandeRetrait = lazy(() => import('./pages/commercant/DemandeRetrait'));
 // Zone Livreur
 const MesLivraisons = lazy(() => import('./pages/livreur/MesLivraisons'));
 const LivraisonDetail = lazy(() => import('./pages/livreur/LivraisonDetail'));
+const Collectes = lazy(() => import('./pages/livreur/Collectes'));
 
 // Zone Assistant Shein (back-office)
 const Conversations = lazy(() => import('./pages/assistant/Conversations'));
@@ -225,6 +227,8 @@ const App = () => {
               <Route path='boutique' element={<Boutique />} />
               <Route path='produits' element={<Produits />} />
               <Route path='commandes' element={<Commandes />} />
+              <Route path='produits/ajouter' element={<ProduitForm />} />
+              <Route path='produits/editer/:id' element={<ProduitForm />} />
               <Route path='codes-promo' element={<CodesPromo />} />
               <Route path='portefeuille' element={<Portefeuille />} />
               <Route path='retraits' element={<DemandeRetrait />} />
@@ -232,6 +236,7 @@ const App = () => {
 
             {/* ✅ PHASE 4 - Routes Livreur */}
             <Route path='/livreur/mes-livraisons' element={<MesLivraisons />} />
+            <Route path='/livreur/collectes' element={<Collectes />} />
             <Route path='/livreur/commande/:orderId' element={<LivraisonDetail />} />
 
             {/* ✅ PHASE 5 - Routes Assistant Shein */}

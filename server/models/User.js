@@ -9,6 +9,9 @@ const userSchema = new mongoose.Schema({
     googleId: { type: String, default: null },    // ID unique Google
     avatar: { type: String, default: '' },        // photo de profil Google
     cartItems: { type: Object, default: {} },
+    // Crédit interne GreenCart utilisé pour les remboursements d'articles
+    // indisponibles/retours sur commandes déjà payées.
+    creditBalance: { type: Number, default: 0, min: 0 },
     wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: 'product' }],
     phone: { type: String, default: '' },
     street: { type: String, default: '' },

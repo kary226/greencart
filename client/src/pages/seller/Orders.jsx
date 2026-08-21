@@ -75,6 +75,16 @@ const Orders = () => {
         return null;
     };
 
+    const markShipped = async (orderId) => {
+        setUpdatingStatus(orderId);
+        try {
+            const { data } = await axios.post('/api/order/seller/mark-shipped', { orderId });
+            if (data.success) { toast.success('Colis reçu en entrepôt et marqué expédié.'); await fetchOrders(); }
+            else toast.error(data.message);
+        } catch (error) { toast.error(error.response?.data?.message || error.message); }
+        finally { setUpdatingStatus(null); }
+    };
+
     const updateOrderStatus = async (orderId, newStatus) => {
         setUpdatingStatus(orderId)
         try {
@@ -100,6 +110,9 @@ const Orders = () => {
         const statusMap = {
             'Order Placed': 'Commandée',
             'Confirmed': 'Confirmée',
+            'Checking Availability': 'Vérification disponibilité',
+            'Collecting': 'Collecte en cours',
+            'Ready for Shipment': 'Collectée — à expédier',
             'Shipped': 'Expédiée',
             'Out for Delivery': 'En livraison',
             'Delivered': 'Livrée',
@@ -114,7 +127,7 @@ const Orders = () => {
             case 'Delivered': return <CheckCircle size={14} className="text-green-600" />;
             case 'Returned': return <RotateCw size={14} className="text-purple-600" />;
             case 'Cancelled': return <XCircle size={14} className="text-red-600" />;
-            case 'Shipped': case 'Out for Delivery': return <Truck size={14} className="text-purple-600" />;
+            case 'Shipped': case 'Out for Delivery': case 'Collecting': case 'Ready for Shipment': return <Truck size={14} className="text-purple-600" />;
             default: return <Clock size={14} className="text-blue-600" />;
         }
     };
@@ -123,7 +136,7 @@ const Orders = () => {
         if (status === 'Delivered') return 'bg-green-100 text-green-700';
         if (status === 'Returned') return 'bg-purple-100 text-purple-700';
         if (status === 'Cancelled') return 'bg-red-100 text-red-700';
-        if (status === 'Shipped' || status === 'Out for Delivery') return 'bg-purple-100 text-purple-700';
+        if (status === 'Shipped' || status === 'Out for Delivery' || status === 'Collecting' || status === 'Ready for Shipment') return 'bg-purple-100 text-purple-700';
         return 'bg-blue-100 text-blue-700';
     };
 
@@ -473,7 +486,7 @@ const Orders = () => {
                                                 className="text-xs border border-gray-200 rounded-lg px-2 py-1 outline-none focus:border-purple-500"
                                             >
                                                 <option value="Confirmed">Confirmée</option>
-                                                <option value="Shipped">Expédiée</option>
+                                                
                                                 <option value="Out for Delivery">En livraison</option>
                                                 <option value="Delivered">Livrée</option>
                                             </select>
@@ -718,6 +731,11 @@ const Orders = () => {
                                             </div>
                                             
                                             <div className="flex items-center gap-2">
+                                                {order.status === 'Ready for Shipment' && (
+                                                    <button onClick={() => markShipped(order._id)} disabled={updatingStatus === order._id} className="px-3 py-1.5 rounded-xl bg-green-600 text-white text-xs font-medium disabled:opacity-50">
+                                                        Marquer expédiée
+                                                    </button>
+                                                )}
                                                 <select 
                                                     defaultValue={order.status}
                                                     onChange={(e) => updateOrderStatus(order._id, e.target.value)}
@@ -726,7 +744,7 @@ const Orders = () => {
                                                 >
                                                     <option value="Order Placed">Commandée</option>
                                                     <option value="Confirmed">Confirmée</option>
-                                                    <option value="Shipped">Expédiée</option>
+                                                    
                                                     <option value="Out for Delivery">En livraison</option>
                                                     <option value="Delivered">Livrée</option>
                                                     <option value="Returned">Retournée</option>
