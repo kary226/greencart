@@ -200,7 +200,7 @@ const MesLivraisons = () => {
                                                         onClick={() => handleUpdateStatus(order, 'Out for Delivery')}
                                                         className="flex items-center gap-1 text-sm bg-amber-600 text-white px-3 py-1.5 rounded-lg hover:bg-amber-700 transition"
                                                     >
-                                                        <Truck size={14} /> En livraison
+                                                        <Truck size={14} /> Colis récupéré
                                                     </button>
                                                 )}
                                             </div>

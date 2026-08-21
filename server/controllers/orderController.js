@@ -315,12 +315,32 @@ export const updateOrderStatus = async (req, res) => {
             return res.status(400).json({ success: false, message: "Statut invalide" });
         }
         
+        const currentOrder = await Order.findById(orderId);
+        if (!currentOrder) {
+            return res.status(404).json({ success: false, message: 'Commande introuvable' });
+        }
+
+        if (status === 'Out for Delivery' && currentOrder.status !== 'Shipped') {
+            return res.status(409).json({ success: false, message: 'Le colis doit d’abord être marqué comme expédié avant sa récupération.' });
+        }
+        if (status === 'Delivered' && currentOrder.status !== 'Out for Delivery' && !currentOrder.colisRecupereLe) {
+            return res.status(409).json({ success: false, message: 'Le colis doit être récupéré avant de pouvoir être déclaré livré.' });
+        }
+
         const updateData = { status };
+        if (status === 'Out for Delivery' && !currentOrder.colisRecupereLe) {
+            updateData.colisRecupereLe = new Date();
+        }
         if (status === 'Delivered') {
-            updateData.deliveredAt = new Date();
+            const deliveredAt = new Date();
+            updateData.deliveredAt = deliveredAt;
+            updateData.releaseEligibleAt = getReleaseEligibleAt(deliveredAt);
+            // En COD, la livraison confirme aussi l'encaissement auprès du
+            // client. Les commandes Jèko sont déjà isPaid=true via le webhook.
+            if (currentOrder.paymentType === 'COD') updateData.isPaid = true;
         }
         
-        const order = await Order.findByIdAndUpdate(orderId, updateData);
+        const order = await Order.findByIdAndUpdate(orderId, updateData, { new: true });
 
         // [ARGENT] Le crédit se fait désormais À LA COMMANDE (solde en
         // attente), plus à la livraison — sinon le commerçant serait payé
@@ -434,9 +454,22 @@ export const updateLivraisonStatus = async (req, res) => {
             return res.status(404).json({ success: false, message: "Commande non trouvée ou non assignée à ce livreur" });
         }
         
+        if (status === 'Out for Delivery' && !['Shipped'].includes(order.status)) {
+            return res.status(409).json({ success: false, message: 'Le colis doit d’abord être marqué comme expédié par le Seller.' });
+        }
+        if (status === 'Delivered' && order.status !== 'Out for Delivery') {
+            return res.status(409).json({ success: false, message: 'Le colis doit être récupéré et en cours de livraison avant de pouvoir être déclaré livré.' });
+        }
+
         const updateData = { status };
+        if (status === 'Out for Delivery') {
+            updateData.colisRecupereLe = order.colisRecupereLe || new Date();
+        }
         if (status === 'Delivered') {
-            updateData.deliveredAt = new Date();
+            const deliveredAt = new Date();
+            updateData.deliveredAt = deliveredAt;
+            updateData.releaseEligibleAt = getReleaseEligibleAt(deliveredAt);
+            if (order.paymentType === 'COD') updateData.isPaid = true;
         }
         
         await Order.findByIdAndUpdate(orderId, updateData);
@@ -715,13 +748,17 @@ export const listCommandesAValider = async (req, res) => {
                 toutesConfirmees: etat.toutesConfirmees,
                 boutiquesConfirmees: etat.confirmees.map((id) => nomParBoutique.get(id) || 'Boutique'),
                 boutiquesManquantes: etat.manquantes.map((id) => nomParBoutique.get(id) || 'Boutique'),
+                colisRecupereLe: order.colisRecupereLe,
+                deliveredAt: order.deliveredAt,
+                releaseEligibleAt: order.releaseEligibleAt,
+                liberation: verifierEligibiliteLiberation(order),
             };
         });
 
         return res.json({
             success: true,
             orders: resultat,
-            pretes: resultat.filter((o) => o.toutesConfirmees).length,
+            pretes: resultat.filter((o) => o.liberation?.eligible).length,
         });
     } catch (error) {
         console.error('Erreur listCommandesAValider:', error.message);
@@ -750,16 +787,18 @@ export const confirmerCommandeAdmin = async (req, res) => {
         }
 
         const etat = etatConfirmations(order);
+        const eligibilite = verifierEligibiliteLiberation(order);
 
-        // On refuse par défaut tant qu'un commerçant n'a pas confirmé : le
-        // circuit perdrait son sens si l'admin validait avant que les colis
-        // soient mis de côté. `forcer` reste possible pour les cas réels
-        // (commerçant injoignable), mais c'est un choix explicite.
-        if (!etat.toutesConfirmees && !forcer) {
+        // La confirmation des boutiques reste utile pour le suivi opérationnel,
+        // mais elle ne suffit plus à libérer l'argent. La condition financière
+        // est désormais : paiement + récupération + livraison + délai de sécurité.
+        if (!eligibilite.eligible) {
             return res.status(409).json({
                 success: false,
-                message: `${etat.manquantes.length} boutique(s) n'ont pas encore confirmé`,
-                enAttenteDe: etat.manquantes.length,
+                code: eligibilite.code,
+                message: eligibilite.message,
+                eligibleAt: eligibilite.eligibleAt || null,
+                toutesConfirmees: etat.toutesConfirmees,
             });
         }
 

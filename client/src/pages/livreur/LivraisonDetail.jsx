@@ -201,7 +201,7 @@ const LivraisonDetail = () => {
                                     className="flex items-center justify-center gap-2 w-full py-3 bg-amber-600 text-white rounded-xl font-medium hover:bg-amber-700 transition disabled:opacity-50"
                                 >
                                     {updating ? <Loader2 size={18} className="animate-spin" /> : <Truck size={18} />}
-                                    Démarrer la livraison
+                                    Récupérer le colis & démarrer la livraison
                                 </button>
                             )}
                             {order.status === 'Out for Delivery' && (

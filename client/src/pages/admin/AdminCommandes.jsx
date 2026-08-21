@@ -19,40 +19,10 @@ import {
 // tout...).
 
 const ONGLETS = [
-    { value: 'pretes', label: 'Prêtes à valider' },
-    { value: 'attente', label: 'En attente de confirmation' },
+    { value: 'pretes', label: 'Libérables' },
+    { value: 'attente', label: 'En attente' },
     { value: 'toutes', label: 'Toutes' },
 ];
-
-const ModaleForcer = ({ order, onClose, onConfirm, enCours }) => (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4" onClick={onClose}>
-        <div className="bg-white rounded-2xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-start gap-2.5 mb-4">
-                <AlertTriangle size={20} className="text-warn-500 shrink-0 mt-0.5" />
-                <div>
-                    <h3 className="font-semibold text-ink-900">Forcer la validation ?</h3>
-                    <p className="text-sm text-ink-500 mt-1">
-                        {order.boutiquesManquantes.length} boutique{order.boutiquesManquantes.length > 1 ? 's n\'ont' : ' n\'a'} pas encore confirmé :
-                        {' '}<span className="font-medium text-ink-700">{order.boutiquesManquantes.join(', ')}</span>.
-                        Les fonds seront tout de même libérés pour toutes les boutiques concernées par cette commande.
-                    </p>
-                </div>
-            </div>
-            <div className="flex gap-2">
-                <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-xl border border-ink-200 text-sm font-medium hover:bg-ink-50 transition">
-                    Annuler
-                </button>
-                <button
-                    onClick={() => onConfirm(order._id, true)}
-                    disabled={enCours}
-                    className="flex-1 px-4 py-2.5 rounded-xl bg-warn-500 text-white text-sm font-medium hover:brightness-95 transition disabled:opacity-50"
-                >
-                    {enCours ? <Loader2 size={16} className="animate-spin mx-auto" /> : 'Forcer quand même'}
-                </button>
-            </div>
-        </div>
-    </div>
-);
 
 const AdminCommandes = () => {
     const { axios } = useAppContext();
@@ -66,7 +36,6 @@ const AdminCommandes = () => {
     const [loading, setLoading] = useState(true);
     const [onglet, setOnglet] = useState('pretes');
     const [actionEnCours, setActionEnCours] = useState(null);
-    const [modaleForcer, setModaleForcer] = useState(null);
 
     const charger = useCallback(async () => {
         setLoading(true);
@@ -109,7 +78,6 @@ const AdminCommandes = () => {
             const { data } = await axios.post('/api/order/admin/confirmer', { orderId, forcer });
             if (data.success) {
                 toast.success(data.message);
-                setModaleForcer(null);
                 charger();
             } else {
                 toast.error(data.message);
@@ -122,8 +90,8 @@ const AdminCommandes = () => {
     };
 
     const filtrees = useMemo(() => {
-        if (onglet === 'pretes') return orders.filter((o) => o.toutesConfirmees);
-        if (onglet === 'attente') return orders.filter((o) => !o.toutesConfirmees);
+        if (onglet === 'pretes') return orders.filter((o) => o.liberation?.eligible);
+        if (onglet === 'attente') return orders.filter((o) => !o.liberation?.eligible);
         return orders;
     }, [orders, onglet]);
 
@@ -170,8 +138,7 @@ const AdminCommandes = () => {
                     <div className="bg-ok-50 border border-ok-500/30 rounded-2xl p-4 flex items-start gap-2.5">
                         <CheckCircle2 size={18} className="text-ok-500 shrink-0 mt-0.5" />
                         <p className="text-sm text-ok-500">
-                            {pretes} commande{pretes > 1 ? 's ont' : ' a'} toutes leurs boutiques confirmées — valider libère
-                            immédiatement les fonds correspondants.
+                            {pretes} commande{pretes > 1 ? 's sont' : ' est'} livrée{pretes > 1 ? 's' : ''}, délai de sécurité écoulé et prête{pretes > 1 ? 's' : ''} à libérer.
                         </p>
                     </div>
                 )}
@@ -204,13 +171,13 @@ const AdminCommandes = () => {
                                             <span className="font-semibold text-ink-900">#{o._id.slice(-6).toUpperCase()}</span>
                                             <span className="text-sm text-ink-600">{(o.amount || 0).toLocaleString('fr-FR')} FCFA</span>
                                             <span className="text-xs text-ink-400">{o.nombreArticles} article{o.nombreArticles > 1 ? 's' : ''}</span>
-                                            {o.toutesConfirmees ? (
+                                            {o.liberation?.eligible ? (
                                                 <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium bg-ok-50 text-ok-500">
-                                                    <CheckCircle2 size={12} /> Toutes confirmées
+                                                    <CheckCircle2 size={12} /> Libérable
                                                 </span>
                                             ) : (
                                                 <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium bg-warn-50 text-warn-500">
-                                                    <AlertTriangle size={12} /> {o.boutiquesManquantes.length} en attente
+                                                    <AlertTriangle size={12} /> {o.status === 'Delivered' ? 'Délai de sécurité' : o.status === 'Out for Delivery' ? 'En livraison' : 'Pas encore livrée'}
                                                 </span>
                                             )}
                                         </div>
@@ -228,7 +195,7 @@ const AdminCommandes = () => {
                                     </div>
 
                                     <div className="shrink-0">
-                                        {o.toutesConfirmees ? (
+                                        {o.liberation?.eligible ? (
                                             <button
                                                 onClick={() => valider(o._id, false)}
                                                 disabled={actionEnCours === o._id}
@@ -237,12 +204,18 @@ const AdminCommandes = () => {
                                                 {actionEnCours === o._id ? <Loader2 size={16} className="animate-spin mx-auto" /> : 'Valider — libérer les fonds'}
                                             </button>
                                         ) : (
-                                            <button
-                                                onClick={() => setModaleForcer(o)}
-                                                className="px-4 py-2.5 rounded-xl border border-warn-500/40 text-warn-500 text-sm font-medium hover:bg-warn-50 transition"
-                                            >
-                                                Forcer la validation
-                                            </button>
+                                            <div className="text-right max-w-xs">
+                                                <p className="text-xs font-medium text-ink-500">
+                                                    {o.status === 'Delivered' && o.releaseEligibleAt
+                                                        ? `Libérable le ${new Date(o.releaseEligibleAt).toLocaleString('fr-FR')}`
+                                                        : o.status === 'Out for Delivery'
+                                                            ? 'Colis récupéré — livraison en cours'
+                                                            : o.status === 'Shipped'
+                                                                ? 'Expédiée — attente de récupération'
+                                                                : 'Attente de livraison'}
+                                                </p>
+                                                {o.toutesConfirmees && <p className="text-[11px] text-ink-400 mt-1">Boutiques confirmées</p>}
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -252,14 +225,6 @@ const AdminCommandes = () => {
                 </div>
             </div>
 
-            {modaleForcer && (
-                <ModaleForcer
-                    order={modaleForcer}
-                    onClose={() => setModaleForcer(null)}
-                    onConfirm={valider}
-                    enCours={actionEnCours === modaleForcer._id}
-                />
-            )}
         </div>
     );
 };

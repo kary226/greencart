@@ -4,6 +4,36 @@ import Boutique from '../models/Boutique.js';
 import Product from '../models/Product.js';
 import { repartirCommission } from './commissionService.js';
 
+// Délai de sécurité après livraison avant que les fonds deviennent
+// réellement libérables. Configurable sans modifier le code.
+const DELAI_SECURITE_LIBERATION_HEURES = Math.max(0, Number(process.env.WALLET_RELEASE_DELAY_HOURS ?? 24));
+
+export const getReleaseEligibleAt = (deliveredAt) => {
+    if (!deliveredAt) return null;
+    return new Date(new Date(deliveredAt).getTime() + DELAI_SECURITE_LIBERATION_HEURES * 60 * 60 * 1000);
+};
+
+/**
+ * Une commande ne peut libérer les fonds que si :
+ *  - elle est réellement payée ;
+ *  - le colis a été récupéré par le livreur ;
+ *  - elle est livrée ;
+ *  - le délai de sécurité est écoulé.
+ *
+ * Cette vérification est volontairement centralisée côté service financier
+ * afin qu'aucune route future ne puisse libérer l'argent en se contentant
+ * du statut 'Shipped'.
+ */
+export const verifierEligibiliteLiberation = (order, maintenant = new Date()) => {
+    if (!order?.isPaid) return { eligible: false, code: 'NOT_PAID', message: 'La commande n’est pas encore payée.' };
+    if (!order?.colisRecupereLe) return { eligible: false, code: 'NOT_PICKED_UP', message: 'Le colis n’a pas encore été récupéré par le livreur.' };
+    if (order.status !== 'Delivered') return { eligible: false, code: 'NOT_DELIVERED', message: 'La commande doit être livrée avant toute libération.' };
+    const eligibleAt = order.releaseEligibleAt ? new Date(order.releaseEligibleAt) : getReleaseEligibleAt(order.deliveredAt);
+    if (!eligibleAt || Number.isNaN(eligibleAt.getTime())) return { eligible: false, code: 'NO_ELIGIBILITY_DATE', message: 'La date de libération n’est pas disponible.' };
+    if (eligibleAt > maintenant) return { eligible: false, code: 'SAFETY_DELAY', eligibleAt, message: `Les fonds seront libérables après le ${eligibleAt.toLocaleString('fr-FR')}.` };
+    return { eligible: true, eligibleAt };
+};
+
 // Mouvements d'argent des portefeuilles commerçants.
 //
 // Tout est concentré ici parce que c'est le seul endroit du projet où une
@@ -148,6 +178,11 @@ export const crediterVenteEnAttente = async (order) => {
 export const libererFonds = async (order) => {
     if (!order?.items?.length) return { liberees: 0, montantTotal: 0 };
 
+    const eligibilite = verifierEligibiliteLiberation(order);
+    if (!eligibilite.eligible) {
+        return { liberees: 0, montantTotal: 0, eligible: false, code: eligibilite.code, message: eligibilite.message, eligibleAt: eligibilite.eligibleAt || null };
+    }
+
     const boutiqueParProduit = await chargerBoutiquesDesProduits(order.items);
     const parBoutique = repartirParBoutique(order.items, boutiqueParProduit);
 
@@ -214,7 +249,7 @@ export const libererFonds = async (order) => {
         montantTotal += montantNet;
     }
 
-    return { liberees, montantTotal };
+    return { liberees, montantTotal, eligible: true, eligibleAt: eligibilite.eligibleAt };
 };
 
 /**

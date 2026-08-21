@@ -49,6 +49,13 @@ const orderSchema = new mongoose.Schema({
     estimatedDeliveryStart: { type: Date, default: null },
     estimatedDeliveryEnd: { type: Date, default: null },
     deliveredAt: { type: Date, default: null },
+    // Preuve logistique : le colis a effectivement été récupéré par le livreur.
+    // Le simple statut 'Shipped' ne suffit pas à rendre les fonds libérables.
+    colisRecupereLe: { type: Date, default: null },
+    // Date à partir de laquelle les fonds peuvent être proposés à la libération.
+    // Elle est fixée après la livraison + délai de sécurité.
+    releaseEligibleAt: { type: Date, default: null },
+    fondsLiberesLe: { type: Date, default: null },
     // ✅ NOUVEAU PHASE 3 : Livreur assigné
     livreurId: {
         type: mongoose.Schema.Types.ObjectId,
