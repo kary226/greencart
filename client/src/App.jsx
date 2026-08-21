@@ -53,6 +53,7 @@ const StaffLogin = lazy(() => import('./pages/staff/StaffLogin'));
 const StaffActivation = lazy(() => import('./pages/staff/StaffActivation'));
 const AdminComptes = lazy(() => import('./pages/admin/AdminComptes'));
 const AdminBoutiques = lazy(() => import('./pages/admin/AdminBoutiques'));
+const AdminCommandes = lazy(() => import('./pages/admin/AdminCommandes'));
 const AdminRetraits = lazy(() => import('./pages/admin/AdminRetraits'));
 const AdminJournal = lazy(() => import('./pages/admin/AdminJournal'));
 const BoutiqueVitrine = lazy(() => import('./pages/BoutiqueVitrine'));
@@ -215,6 +216,7 @@ const App = () => {
             <Route path='/staff/activation/:token' element={<StaffActivation />} />
             <Route path='/staff/admin/comptes' element={<AdminComptes />} />
             <Route path='/staff/admin/boutiques' element={<AdminBoutiques />} />
+            <Route path='/staff/admin/commandes' element={<AdminCommandes />} />
             <Route path='/staff/admin/retraits' element={<AdminRetraits />} />
             <Route path='/staff/admin/journal' element={<AdminJournal />} />
 

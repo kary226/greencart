@@ -1,15 +1,16 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
-import { Users, Store, ScrollText, LogOut, Banknote } from 'lucide-react';
+import { Users, Store, ScrollText, LogOut, Banknote, PackageCheck } from 'lucide-react';
 
 // En-tête commun aux écrans d'administration staff. Les pages se répondent
 // en permanence — inviter un commerçant ici, suspendre sa boutique là,
-// payer son retrait ailleurs — il fallait pouvoir passer de l'une à
-// l'autre sans repasser par l'URL.
+// valider une commande pour qu'un retrait devienne possible ailleurs — il
+// fallait pouvoir passer de l'une à l'autre sans repasser par l'URL.
 const ONGLETS = [
     { to: '/staff/admin/comptes', label: 'Comptes', icon: Users },
     { to: '/staff/admin/boutiques', label: 'Boutiques', icon: Store },
+    { to: '/staff/admin/commandes', label: 'Commandes', icon: PackageCheck },
     { to: '/staff/admin/retraits', label: 'Retraits', icon: Banknote },
     { to: '/staff/admin/journal', label: 'Journal', icon: ScrollText },
 ];

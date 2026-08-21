@@ -4,43 +4,41 @@ import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
 import { getPresetImageUrl } from '../../utils/cloudinaryImage';
 import BoutiqueIndisponible from './BoutiqueIndisponible';
-import { Search, Loader2, ShoppingBag, ChevronDown, MapPin, Phone } from 'lucide-react';
+import { Search, Loader2, ShoppingBag, ChevronDown, PackageCheck } from 'lucide-react';
 
-// Mêmes libellés que OrderDetail.jsx (côté client) — une commande a un seul
-// statut, il ne doit pas se lire différemment selon qui la consulte.
-const STATUS_MAP = {
-    'Order Placed': { text: 'En cours', badge: 'bg-ramses-50 text-ramses-700' },
-    'Confirmed': { text: 'En cours', badge: 'bg-ramses-50 text-ramses-700' },
-    'Shipped': { text: 'En cours', badge: 'bg-ramses-50 text-ramses-700' },
-    'Out for Delivery': { text: 'En cours', badge: 'bg-ramses-50 text-ramses-700' },
-    'Delivered': { text: 'Livrée', badge: 'bg-ok-50 text-ok-500' },
-    'Returned': { text: 'Retournée', badge: 'bg-ink-100 text-ink-500' },
-    'Cancelled': { text: 'Annulée', badge: 'bg-ink-100 text-ink-500' },
+// Badge : mêmes tons que le tableau de bord (statutCommercant côté serveur
+// fournit déjà 'action' / 'attente' / 'succes' / 'neutre'), pour que le
+// même statut se lise pareil partout dans l'espace commerçant.
+const TON_CLASSES = {
+    action: 'bg-ramses-100 text-ramses-700',
+    attente: 'bg-warn-50 text-warn-500',
+    succes: 'bg-ok-50 text-ok-500',
+    neutre: 'bg-ink-100 text-ink-500',
 };
-const statutAffichage = (s) => STATUS_MAP[s] || { text: s, badge: 'bg-ink-100 text-ink-500' };
 
 const ONGLETS = [
     { key: 'toutes', label: 'Toutes' },
-    { key: 'en_cours', label: 'En cours' },
-    { key: 'livrees', label: 'Livrées' },
+    { key: 'a_confirmer', label: 'À confirmer' },
+    { key: 'en_attente_validation', label: 'En attente de validation' },
+    { key: 'fonds_disponibles', label: 'Fonds disponibles' },
     { key: 'terminees', label: 'Annulées / retournées' },
 ];
 
-const appartientOnglet = (statut, onglet) => {
+// Regroupe les 6 clés de statut serveur (a_confirmer, confirmee, livree,
+// validee, annulee, retournee) en catégories d'onglet lisibles.
+const appartientOnglet = (cle, onglet) => {
     if (onglet === 'toutes') return true;
-    if (onglet === 'livrees') return statut === 'Delivered';
-    if (onglet === 'terminees') return statut === 'Cancelled' || statut === 'Returned';
-    // 'en_cours' : tout le reste
-    return !['Delivered', 'Cancelled', 'Returned'].includes(statut);
+    if (onglet === 'a_confirmer') return cle === 'a_confirmer';
+    if (onglet === 'en_attente_validation') return cle === 'confirmee';
+    if (onglet === 'fonds_disponibles') return cle === 'livree' || cle === 'validee';
+    if (onglet === 'terminees') return cle === 'annulee' || cle === 'retournee';
+    return true;
 };
 
-const CommandeCard = ({ order }) => {
+const CommandeCard = ({ order, onConfirmer, confirmationEnCours }) => {
     const [ouverte, setOuverte] = useState(false);
-    const badge = statutAffichage(order.status);
-    const client = order.address
-        ? `${order.address.firstName || ''} ${order.address.lastName || ''}`.trim() || 'Client'
-        : 'Client';
-    const nombreArticles = (order.items || []).reduce((n, it) => n + (it.quantity || 0), 0);
+    const ton = TON_CLASSES[order.statut?.ton] || TON_CLASSES.neutre;
+    const peutConfirmer = order.statut?.cle === 'a_confirmer';
 
     return (
         <div className="bg-white rounded-2xl border border-ink-200 overflow-hidden">
@@ -51,17 +49,18 @@ const CommandeCard = ({ order }) => {
                 aria-expanded={ouverte}
             >
                 <div className="min-w-0">
-                    <p className="text-sm font-semibold text-ink-900">#{order._id.slice(-8)}</p>
+                    <p className="text-sm font-semibold text-ink-900">#{order.reference}</p>
                     <p className="text-xs text-ink-400 mt-0.5">
-                        {client} · {new Date(order.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })} · {nombreArticles} article{nombreArticles > 1 ? 's' : ''}
+                        {new Date(order.dateCommande).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        {' · '}{order.nombreArticles} article{order.nombreArticles > 1 ? 's' : ''}
                     </p>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                     <span className="text-sm font-bold text-ink-900">
-                        {(order.montantBoutique || 0).toLocaleString()} FCFA
+                        {(order.montantBoutique || 0).toLocaleString('fr-FR')} FCFA
                     </span>
-                    <span className={`text-[10px] px-2.5 py-1 rounded-full font-medium whitespace-nowrap ${badge.badge}`}>
-                        {badge.text}
+                    <span className={`text-[10px] px-2.5 py-1 rounded-full font-medium whitespace-nowrap ${ton}`}>
+                        {order.statut?.libelle || '—'}
                     </span>
                     <ChevronDown size={16} className={`text-ink-400 transition-transform shrink-0 ${ouverte ? 'rotate-180' : ''}`} />
                 </div>
@@ -69,48 +68,50 @@ const CommandeCard = ({ order }) => {
 
             {ouverte && (
                 <div className="border-t border-ink-100 px-5 py-4 grid gap-4">
-                    {order.address && (
-                        <div className="grid sm:grid-cols-2 gap-3 text-[13px] text-ink-600">
-                            <p className="flex items-center gap-2">
-                                <MapPin size={14} className="text-ink-400 shrink-0" />
-                                {[order.address.street, order.address.communeName, order.address.cityName]
-                                    .filter(Boolean).join(', ') || '—'}
-                            </p>
-                            <p className="flex items-center gap-2">
-                                <Phone size={14} className="text-ink-400 shrink-0" />
-                                {order.address.phone || '—'}
-                            </p>
-                        </div>
-                    )}
-
                     <ul className="grid gap-2.5">
-                        {(order.items || []).map((item, idx) => (
+                        {(order.articles || []).map((item, idx) => (
                             <li key={idx} className="flex items-center gap-3">
                                 <div className="w-11 h-11 rounded-xl bg-ink-50 border border-ink-100 overflow-hidden shrink-0">
-                                    {item.product?.image?.[0] && (
+                                    {item.image && (
                                         <img
-                                            src={getPresetImageUrl(item.product.image[0], 'thumbnail')}
-                                            alt={item.product?.name || ''}
+                                            src={getPresetImageUrl(item.image, 'thumbnail')}
+                                            alt={item.nom || ''}
                                             className="w-full h-full object-cover"
                                             loading="lazy"
                                         />
                                     )}
                                 </div>
                                 <div className="min-w-0 flex-1">
-                                    <p className="text-sm text-ink-800 truncate">{item.product?.name || 'Produit supprimé'}</p>
+                                    <p className="text-sm text-ink-800 truncate">{item.nom || 'Produit supprimé'}</p>
                                     <p className="text-xs text-ink-400">
-                                        {item.quantity} × {(item.priceAtOrder || 0).toLocaleString()} FCFA
-                                        {(item.selectedColor || item.selectedSize) && (
-                                            <> · {[item.selectedColor, item.selectedSize].filter(Boolean).join(' / ')}</>
+                                        {item.quantite} × {(item.prixUnitaire || 0).toLocaleString('fr-FR')} FCFA
+                                        {(item.couleur || item.taille) && (
+                                            <> · {[item.couleur, item.taille].filter(Boolean).join(' / ')}</>
                                         )}
                                     </p>
                                 </div>
                                 <span className="text-sm font-semibold text-ink-800 shrink-0">
-                                    {((item.priceAtOrder || 0) * (item.quantity || 0)).toLocaleString()} FCFA
+                                    {((item.prixUnitaire || 0) * (item.quantite || 0)).toLocaleString('fr-FR')} FCFA
                                 </span>
                             </li>
                         ))}
                     </ul>
+
+                    {peutConfirmer && (
+                        <button
+                            onClick={() => onConfirmer(order._id)}
+                            disabled={confirmationEnCours === order._id}
+                            className="flex items-center justify-center gap-2 bg-ramses-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-ramses-700 transition disabled:opacity-50"
+                        >
+                            {confirmationEnCours === order._id
+                                ? <Loader2 size={16} className="animate-spin" />
+                                : <PackageCheck size={16} />}
+                            J'ai mis le colis de côté — confirmer
+                        </button>
+                    )}
+                    {order.statut?.cle === 'confirmee' && (
+                        <p className="text-xs text-warn-500">Confirmée de ton côté — en attente de validation par l'équipe RAMCI.</p>
+                    )}
                 </div>
             )}
         </div>
@@ -126,41 +127,62 @@ const Commandes = () => {
     const [onglet, setOnglet] = useState('toutes');
     const [recherche, setRecherche] = useState('');
     const [nbAffiches, setNbAffiches] = useState(20);
+    const [confirmationEnCours, setConfirmationEnCours] = useState(null);
+
+    const charger = async () => {
+        setLoading(true);
+        try {
+            const { data } = await axios.get('/api/order/commercant/mes-ventes');
+            if (data.success) {
+                setOrders(data.orders || []);
+            } else {
+                toast.error(data.message);
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
         if (!boutique) { setLoading(false); return; }
-        (async () => {
-            setLoading(true);
-            try {
-                const { data } = await axios.get('/api/order/commercant/mes-ventes');
-                if (data.success) {
-                    setOrders(data.orders || []);
-                } else {
-                    toast.error(data.message);
-                }
-            } catch (error) {
-                toast.error(error.response?.data?.message || error.message);
-            } finally {
-                setLoading(false);
-            }
-        })();
+        charger();
     }, [axios, boutique]);
+
+    const confirmer = async (orderId) => {
+        setConfirmationEnCours(orderId);
+        try {
+            const { data } = await axios.post('/api/order/commercant/confirmer', { orderId });
+            if (data.success) {
+                toast.success(data.message);
+                charger();
+            } else {
+                toast.error(data.message);
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || error.message);
+        } finally {
+            setConfirmationEnCours(null);
+        }
+    };
 
     const filtrees = useMemo(() => {
         const terme = recherche.trim().toLowerCase();
         return orders.filter((o) => {
-            if (!appartientOnglet(o.status, onglet)) return false;
+            if (!appartientOnglet(o.statut?.cle, onglet)) return false;
             if (!terme) return true;
-            const client = `${o.address?.firstName || ''} ${o.address?.lastName || ''}`.toLowerCase();
-            return o._id.toLowerCase().includes(terme) || client.includes(terme);
+            return o.reference.toLowerCase().includes(terme);
         });
     }, [orders, onglet, recherche]);
 
     const compteurs = useMemo(() => {
-        const c = { toutes: orders.length, en_cours: 0, livrees: 0, terminees: 0 };
+        const c = { toutes: orders.length, a_confirmer: 0, en_attente_validation: 0, fonds_disponibles: 0, terminees: 0 };
         orders.forEach((o) => {
-            if (appartientOnglet(o.status, 'en_cours')) c.en_cours += 1;
-            else if (o.status === 'Delivered') c.livrees += 1;
+            const cle = o.statut?.cle;
+            if (cle === 'a_confirmer') c.a_confirmer += 1;
+            else if (cle === 'confirmee') c.en_attente_validation += 1;
+            else if (cle === 'livree' || cle === 'validee') c.fonds_disponibles += 1;
             else c.terminees += 1;
         });
         return c;
@@ -211,7 +233,7 @@ const Commandes = () => {
                         type="text"
                         value={recherche}
                         onChange={(e) => setRecherche(e.target.value)}
-                        placeholder="N° commande, nom du client…"
+                        placeholder="N° commande…"
                         className="rs-input rs-input--icon-l"
                     />
                 </div>
@@ -228,7 +250,12 @@ const Commandes = () => {
                 <>
                     <div className="grid gap-2.5">
                         {filtrees.slice(0, nbAffiches).map((order) => (
-                            <CommandeCard key={order._id} order={order} />
+                            <CommandeCard
+                                key={order._id}
+                                order={order}
+                                onConfirmer={confirmer}
+                                confirmationEnCours={confirmationEnCours}
+                            />
                         ))}
                     </div>
                     {filtrees.length > nbAffiches && (
