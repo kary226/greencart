@@ -14,6 +14,12 @@ import WalletTransaction from "../models/WalletTransaction.js";
 // panier, un coût inutile sur le chemin de la commande.
 import Boutique from "../models/Boutique.js";
 import { getIdsBoutiquesSuspendues } from "../services/boutiqueService.js";
+import {
+    crediterVenteEnAttente,
+    libererFonds,
+    annulerVenteEnAttente,
+    etatConfirmations,
+} from "../services/walletService.js";
 import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
 import { sendPushToUser } from './pushController.js';
 import { syncManyProductsToAirtable } from '../services/airtableSync.js';
@@ -120,68 +126,19 @@ const reduceVariantStock = async (items) => {
     }
 };
 
-// Créditer les wallets des commerçants
+// [ARGENT] L'ancienne fonction crediterWallets() a été retirée.
 //
-// [PHASE 0 - PERF] Avant : un Product.findById PAR article, puis à
-// l'intérieur un import dynamique + un Boutique.findById PAR boutique
-// concernée. Maintenant : un seul Product.find({$in}) pour tous les
-// articles, et un seul Boutique.find({$in}) pour toutes les boutiques
-// concernées (import de Boutique désormais statique en haut du fichier).
-const crediterWallets = async (items) => {
-    if (!items.length) return;
+// Elle créditait le portefeuille des commerçants À LA LIVRAISON, en un seul
+// solde. Le circuit est désormais en deux temps, dans services/walletService.js :
+//   1. crediterVenteEnAttente() — à la commande, sur le solde EN ATTENTE :
+//      le commerçant voit son argent et accepte de remettre son colis ;
+//   2. libererFonds() — à la validation de l'admin, une fois tous les
+//      commerçants confirmés : l'argent devient retirable.
+// annulerVenteEnAttente() reprend le crédit si la commande ne se conclut pas.
+//
+// La laisser en place aurait été un piège : deux fonctions de crédit
+// concurrentes dans le même fichier finissent par être appelées toutes les deux.
 
-    const productIds = [...new Set(items.map(item => item.product.toString()))];
-    const products = await Product.find({ _id: { $in: productIds } }).select('boutiqueId');
-    const boutiqueIdByProductId = new Map(
-        products.map(p => [p._id.toString(), p.boutiqueId ? p.boutiqueId.toString() : null])
-    );
-
-    const ventesParBoutique = {};
-
-    for (const item of items) {
-        const boutiqueId = boutiqueIdByProductId.get(item.product.toString());
-        if (!boutiqueId) continue;
-
-        if (!ventesParBoutique[boutiqueId]) {
-            ventesParBoutique[boutiqueId] = {
-                montantTotal: 0,
-                items: []
-            };
-        }
-        ventesParBoutique[boutiqueId].montantTotal += item.priceAtOrder * item.quantity;
-        ventesParBoutique[boutiqueId].items.push(item);
-    }
-
-    const boutiqueIds = Object.keys(ventesParBoutique);
-    if (boutiqueIds.length === 0) return;
-
-    const boutiques = await Boutique.find({ _id: { $in: boutiqueIds } }).select('ownerId');
-    const ownerIdByBoutiqueId = new Map(boutiques.map(b => [b._id.toString(), b.ownerId]));
-
-    for (const [boutiqueId, data] of Object.entries(ventesParBoutique)) {
-        const ownerId = ownerIdByBoutiqueId.get(boutiqueId);
-        if (!ownerId) continue;
-
-        const wallet = await Wallet.findOne({ ownerId });
-        if (!wallet) continue;
-
-        const montant = data.montantTotal;
-        const description = `Vente - ${data.items.length} article(s)`;
-
-        await WalletTransaction.create({
-            walletId: wallet._id,
-            type: 'vente',
-            montant: montant,
-            description: description,
-        });
-
-        await wallet.recalculerSolde();
-    }
-};
-
-// =============================================================
-// PLACER UNE COMMANDE (COD)
-// =============================================================
 export const placeOrderCOD = async (req, res) => {
     try {
         const { userId, items, address, deliveryType, couponApplied } = req.body;
@@ -316,6 +273,14 @@ export const placeOrderCOD = async (req, res) => {
         });
 
         await reduceVariantStock(itemsWithPrice);
+
+        // [ARGENT] Crédit du solde EN ATTENTE de chaque boutique concernée,
+        // dès la commande. Le commerçant voit immédiatement ce qui lui
+        // revient — c'est la condition pour qu'il accepte de préparer et de
+        // remettre son colis. Il ne pourra le retirer qu'après validation
+        // de l'admin (voir confirmerCommandeAdmin).
+        await crediterVenteEnAttente(order);
+
         await User.findByIdAndUpdate(userId, { cartItems: {} });
 
         const user = await User.findById(userId);
@@ -356,8 +321,12 @@ export const updateOrderStatus = async (req, res) => {
         
         const order = await Order.findByIdAndUpdate(orderId, updateData);
 
-        if (status === 'Delivered' && order) {
-            await crediterWallets(order.items);
+        // [ARGENT] Le crédit se fait désormais À LA COMMANDE (solde en
+        // attente), plus à la livraison — sinon le commerçant serait payé
+        // deux fois. Ici on ne fait que reprendre le crédit si la commande
+        // ne se conclut pas.
+        if (order && (status === 'Cancelled' || status === 'Returned')) {
+            await annulerVenteEnAttente(order);
         }
 
         const pushContent = orderStatusPushMessages[status];
@@ -465,8 +434,9 @@ export const updateLivraisonStatus = async (req, res) => {
         
         await Order.findByIdAndUpdate(orderId, updateData);
         
-        if (status === 'Delivered') {
-            await crediterWallets(order.items);
+        // Voir plus haut : crédit à la commande, reprise si annulation.
+        if (status === 'Cancelled' || status === 'Returned') {
+            await annulerVenteEnAttente(order);
         }
         
         const pushContent = orderStatusPushMessages[status];
@@ -521,6 +491,31 @@ export const getAllOrders = async (req, res) => {
 // ✅ Commerçant : uniquement les commandes contenant au moins un article
 // de SA boutique, avec les montants recalculés sur ses seules lignes
 // (une commande peut mélanger des articles de plusieurs boutiques).
+// Statut tel qu'un COMMERÇANT doit le lire.
+//
+// Les statuts internes ('Order Placed', 'Out for Delivery'…) décrivent la
+// logistique de la plateforme et ne lui apprennent rien d'actionnable. Ce
+// qu'il veut savoir tient en une question : « qu'est-ce que je dois faire,
+// et où en est mon argent ? »
+const statutCommercant = (order, aConfirme) => {
+    if (order.status === 'Cancelled') {
+        return { cle: 'annulee', libelle: 'Annulée', ton: 'neutre' };
+    }
+    if (order.status === 'Returned') {
+        return { cle: 'retournee', libelle: 'Retournée', ton: 'neutre' };
+    }
+    if (!aConfirme) {
+        return { cle: 'a_confirmer', libelle: 'À confirmer', ton: 'action' };
+    }
+    if (!order.confirmeParAdminLe) {
+        return { cle: 'confirmee', libelle: 'Confirmée — en attente de validation', ton: 'attente' };
+    }
+    if (order.status === 'Delivered') {
+        return { cle: 'livree', libelle: 'Livrée — fonds disponibles', ton: 'succes' };
+    }
+    return { cle: 'validee', libelle: 'Validée — fonds disponibles', ton: 'succes' };
+};
+
 export const getMesVentesCommercant = async (req, res) => {
     try {
         const boutiqueId = req.staffUser.boutiqueId;
@@ -528,38 +523,61 @@ export const getMesVentesCommercant = async (req, res) => {
             return res.json({ success: false, message: 'Aucune boutique associée à ce compte' });
         }
 
-        const produitsBoutique = await Product.find({ boutiqueId }).select('_id');
-        const produitIds = produitsBoutique.map((p) => p._id.toString());
-
-        if (produitIds.length === 0) {
-            return res.json({ success: true, orders: [] });
-        }
-
         const orders = await Order.find({
-            'items.product': { $in: produitIds },
-            $or: [{ paymentType: 'COD' }, { isPaid: true }],
-        }).populate('items.product address').sort({ createdAt: -1 });
+            'items.boutiqueId': boutiqueId,
+            status: { $ne: 'pending_payment' },
+        })
+            .sort({ createdAt: -1 })
+            .limit(200)
+            .lean();
 
-        const ordersScoped = orders.map((order) => {
-            const itemsBoutique = order.items.filter(
-                (item) => item.product && produitIds.includes(item.product._id.toString())
+        // [CONFIDENTIALITÉ] Rien de ce qui identifie le CLIENT ne sort d'ici :
+        // ni son nom, ni son téléphone, ni son adresse, ni le contenu des
+        // autres boutiques, ni le montant total de la commande. Le commerçant
+        // prépare un colis — il n'a besoin que de SES articles.
+        //
+        // C'est une reconstruction champ par champ, jamais un filtrage de
+        // l'objet complet : un nouveau champ ajouté au modèle Order ne peut
+        // pas fuiter ici par accident.
+        const ventes = orders.map((order) => {
+            const mesArticles = (order.items || []).filter(
+                (item) => item.boutiqueId?.toString() === boutiqueId.toString()
             );
-            const montantBoutique = itemsBoutique.reduce(
-                (sum, item) => sum + (item.priceAtOrder || 0) * (item.quantity || 0), 0
+
+            const montantBoutique = mesArticles.reduce(
+                (somme, item) => somme + (item.priceAtOrder || 0) * (item.quantity || 0), 0
             );
+
+            const aConfirme = (order.confirmationsBoutiques || []).some(
+                (c) => c.boutiqueId?.toString() === boutiqueId.toString()
+            );
+
             return {
                 _id: order._id,
-                status: order.status,
-                createdAt: order.createdAt,
-                address: order.address,
-                items: itemsBoutique,
+                // Référence courte : le commerçant doit pouvoir nommer la
+                // commande à l'admin sans manipuler un identifiant complet.
+                reference: order._id.toString().slice(-6).toUpperCase(),
+                dateCommande: order.createdAt,
+                articles: mesArticles.map((item) => ({
+                    nom: item.name,
+                    sku: item.sku,
+                    image: item.image,
+                    couleur: item.color,
+                    taille: item.size,
+                    quantite: item.quantity,
+                    prixUnitaire: item.priceAtOrder,
+                })),
+                nombreArticles: mesArticles.length,
                 montantBoutique,
+                aConfirme,
+                statut: statutCommercant(order, aConfirme),
+                fondsLiberes: Boolean(order.confirmeParAdminLe),
             };
         });
 
-        res.json({ success: true, orders: ordersScoped });
+        res.json({ success: true, orders: ventes });
     } catch (error) {
-        console.log(error.message);
+        console.error('Erreur getMesVentesCommercant:', error.message);
         res.status(500).json({ success: false, message: error.message });
     }
 };
@@ -586,6 +604,171 @@ export const getUserOrdersByAdmin = async (req, res) => {
         });
     } catch (error) {
         console.log(error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+// ══════════════════════════════════════════════════════════════════════
+//  CIRCUIT DE CONFIRMATION MULTI-BOUTIQUES
+// ══════════════════════════════════════════════════════════════════════
+
+// POST /api/order/commercant/confirmer — Commerçant
+//
+// « J'ai vu la commande et mis mon colis de côté. »
+//
+// Ne change pas le statut global de la commande : c'est une confirmation
+// PAR BOUTIQUE. Quand toutes les boutiques concernées ont confirmé, la
+// commande devient prête à être validée par l'admin.
+export const confirmerCommandeCommercant = async (req, res) => {
+    try {
+        const { orderId } = req.body;
+        const boutiqueId = req.staffUser.boutiqueId;
+
+        if (!boutiqueId) {
+            return res.status(400).json({ success: false, message: 'Aucune boutique associée à ce compte' });
+        }
+
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Commande introuvable' });
+        }
+
+        // Le commerçant ne confirme que s'il est réellement concerné.
+        const estConcerne = (order.items || []).some(
+            (item) => item.boutiqueId?.toString() === boutiqueId.toString()
+        );
+        if (!estConcerne) {
+            return res.status(403).json({
+                success: false,
+                message: "Cette commande ne concerne pas votre boutique",
+            });
+        }
+
+        const dejaConfirme = (order.confirmationsBoutiques || []).some(
+            (c) => c.boutiqueId?.toString() === boutiqueId.toString()
+        );
+
+        if (!dejaConfirme) {
+            order.confirmationsBoutiques.push({
+                boutiqueId,
+                confirmePar: req.staffUser._id,
+                confirmeParNom: req.staffUser.nom,
+                confirmeLe: new Date(),
+            });
+            await order.save();
+        }
+
+        const etat = etatConfirmations(order);
+
+        return res.json({
+            success: true,
+            message: dejaConfirme
+                ? 'Commande déjà confirmée'
+                : 'Commande confirmée — colis à mettre de côté',
+            toutesConfirmees: etat.toutesConfirmees,
+            enAttenteDe: etat.manquantes.length,
+        });
+    } catch (error) {
+        console.error('Erreur confirmerCommandeCommercant:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// GET /api/order/admin/a-valider — Admin
+//
+// Commandes en attente de validation, avec l'état des confirmations de
+// chaque boutique. C'est l'écran qui dit à l'admin « qui n'a pas encore
+// confirmé », donc qui relancer.
+export const listCommandesAValider = async (req, res) => {
+    try {
+        const orders = await Order.find({
+            confirmeParAdminLe: null,
+            status: { $nin: ['Cancelled', 'Returned', 'pending_payment'] },
+        })
+            .sort({ createdAt: -1 })
+            .limit(100)
+            .lean();
+
+        const boutiqueIds = [...new Set(
+            orders.flatMap((o) => (o.items || []).map((i) => i.boutiqueId?.toString()).filter(Boolean))
+        )];
+        const boutiques = await Boutique.find({ _id: { $in: boutiqueIds } }).select('nom').lean();
+        const nomParBoutique = new Map(boutiques.map((b) => [b._id.toString(), b.nom]));
+
+        const resultat = orders.map((order) => {
+            const etat = etatConfirmations(order);
+            return {
+                _id: order._id,
+                createdAt: order.createdAt,
+                amount: order.amount,
+                status: order.status,
+                nombreArticles: (order.items || []).length,
+                toutesConfirmees: etat.toutesConfirmees,
+                boutiquesConfirmees: etat.confirmees.map((id) => nomParBoutique.get(id) || 'Boutique'),
+                boutiquesManquantes: etat.manquantes.map((id) => nomParBoutique.get(id) || 'Boutique'),
+            };
+        });
+
+        return res.json({
+            success: true,
+            orders: resultat,
+            pretes: resultat.filter((o) => o.toutesConfirmees).length,
+        });
+    } catch (error) {
+        console.error('Erreur listCommandesAValider:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// POST /api/order/admin/confirmer — Admin
+//
+// Validation finale : c'est CE geste qui rend l'argent retirable pour les
+// commerçants (transfert du solde en attente vers le solde disponible).
+export const confirmerCommandeAdmin = async (req, res) => {
+    try {
+        const { orderId, forcer } = req.body;
+
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Commande introuvable' });
+        }
+
+        if (order.confirmeParAdminLe) {
+            return res.status(409).json({
+                success: false,
+                message: 'Cette commande a déjà été validée',
+            });
+        }
+
+        const etat = etatConfirmations(order);
+
+        // On refuse par défaut tant qu'un commerçant n'a pas confirmé : le
+        // circuit perdrait son sens si l'admin validait avant que les colis
+        // soient mis de côté. `forcer` reste possible pour les cas réels
+        // (commerçant injoignable), mais c'est un choix explicite.
+        if (!etat.toutesConfirmees && !forcer) {
+            return res.status(409).json({
+                success: false,
+                message: `${etat.manquantes.length} boutique(s) n'ont pas encore confirmé`,
+                enAttenteDe: etat.manquantes.length,
+            });
+        }
+
+        order.confirmeParAdminLe = new Date();
+        order.confirmeParAdmin = req.staffUser._id;
+        await order.save();
+
+        const resultat = await libererFonds(order);
+
+        return res.json({
+            success: true,
+            message: resultat.liberees > 0
+                ? `Commande validée — fonds libérés pour ${resultat.liberees} boutique(s)`
+                : 'Commande validée',
+            boutiquesCreditees: resultat.liberees,
+            montantLibere: resultat.montantTotal,
+        });
+    } catch (error) {
+        console.error('Erreur confirmerCommandeAdmin:', error.message);
         res.status(500).json({ success: false, message: error.message });
     }
 };

@@ -56,6 +56,32 @@ const orderSchema = new mongoose.Schema({
         default: null,
         index: true,
     },
+
+    // ── Circuit de confirmation multi-boutiques ──────────────────────────
+    //
+    // Une commande peut concerner plusieurs boutiques. Chaque commerçant
+    // concerné doit confirmer qu'il a VU la commande et MIS SON COLIS DE
+    // CÔTÉ. Quand tous ont confirmé, la commande devient prête côté admin.
+    //
+    // On enregistre une ligne par boutique plutôt qu'un simple booléen :
+    // c'est le seul moyen de savoir QUI n'a pas encore confirmé, donc qui
+    // relancer quand une commande traîne.
+    confirmationsBoutiques: [{
+        boutiqueId: { type: mongoose.Schema.Types.ObjectId, ref: 'boutique', required: true },
+        // Dénormalisé : le compte peut être supprimé, la trace doit rester.
+        confirmeParNom: { type: String, default: '' },
+        confirmePar: { type: mongoose.Schema.Types.ObjectId, ref: 'staffuser', default: null },
+        confirmeLe: { type: Date, default: Date.now },
+    }],
+
+    // Validation finale par l'admin : c'est ELLE qui libère les fonds des
+    // commerçants (passage du solde « en attente » au solde retirable).
+    confirmeParAdminLe: { type: Date, default: null },
+    confirmeParAdmin: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'staffuser',
+        default: null,
+    },
 }, { timestamps: true });
 
 // Index pour accélérer les requêtes

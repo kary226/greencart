@@ -11,7 +11,10 @@ import {
     assignerLivreur,
     getLivraisonsLivreur,
     updateLivraisonStatus,
-    getMesVentesCommercant
+    getMesVentesCommercant,
+    confirmerCommandeCommercant,
+    listCommandesAValider,
+    confirmerCommandeAdmin
 } from '../controllers/orderController.js';
 import authSeller from '../middlewares/authSeller.js';
 import { initiateJeko } from '../controllers/jekoController.js';
@@ -38,6 +41,12 @@ orderRouter.patch('/livreur/statut', authStaff, requireRole('livreur'), updateLi
 
 // ✅ Commerçant : ses ventes uniquement (scopées à sa boutique)
 orderRouter.get('/commercant/mes-ventes', authStaff, requireRole('commercant'), getMesVentesCommercant);
+// Le commerçant confirme avoir vu la commande et mis son colis de côté.
+orderRouter.post('/commercant/confirmer', authStaff, requireRole('commercant'), confirmerCommandeCommercant);
+
+// Validation finale par l'admin : c'est elle qui libère les fonds.
+orderRouter.get('/admin/a-valider', authStaff, requireRole('admin'), listCommandesAValider);
+orderRouter.post('/admin/confirmer', authStaff, requireRole('admin'), confirmerCommandeAdmin);
 
 // Récupérer une commande par son ID (client)
 orderRouter.get('/:orderId', authUser, async (req, res) => {

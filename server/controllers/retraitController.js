@@ -20,12 +20,18 @@ export const createRetrait = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Portefeuille non trouvé' });
         }
 
-        await wallet.recalculerSolde();
+        await wallet.recalculerSoldes();
 
+        // Seul le solde DISPONIBLE est retirable. L'argent en attente
+        // appartient bien au commerçant, mais tant que l'admin n'a pas
+        // validé la commande, il ne peut pas le sortir.
         if (wallet.solde < montant) {
+            const complement = wallet.soldeEnAttente > 0
+                ? ` (${wallet.soldeEnAttente.toLocaleString('fr-FR')} FCFA encore en attente de validation)`
+                : '';
             return res.status(400).json({
                 success: false,
-                message: `Solde insuffisant. Solde actuel : ${wallet.solde} FCFA`
+                message: `Solde disponible insuffisant : ${wallet.solde.toLocaleString('fr-FR')} FCFA${complement}`
             });
         }
 

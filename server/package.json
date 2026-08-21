@@ -16,7 +16,8 @@
     "audit": "npm audit --audit-level=high",
     "local": "node scripts/devLocal.js",
     "local:reset": "node scripts/resetLocal.js",
-    "pentest": "node scripts/pentestLocal.mjs && node scripts/pentestLocal2.mjs"
+    "pentest": "node scripts/pentestLocal.mjs && node scripts/pentestLocal2.mjs",
+    "verif:argent": "node scripts/verifierFluxArgent.mjs"
   },
   "keywords": [],
   "author": "",

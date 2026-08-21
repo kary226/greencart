@@ -12,13 +12,17 @@ export const getMyWallet = async (req, res) => {
             });
         }
 
-        await wallet.recalculerSolde();
+        await wallet.recalculerSoldes();
 
         return res.status(200).json({
             success: true,
             wallet: {
                 _id: wallet._id,
+                // Retirable dès maintenant.
                 solde: wallet.solde,
+                // Acquis mais bloqué tant que l'admin n'a pas validé.
+                soldeEnAttente: wallet.soldeEnAttente,
+                soldeTotal: wallet.solde + wallet.soldeEnAttente,
                 ownerId: wallet.ownerId,
                 createdAt: wallet.createdAt,
             }
