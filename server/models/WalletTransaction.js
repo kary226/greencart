@@ -24,7 +24,8 @@ const walletTransactionSchema = new mongoose.Schema({
             'liberation',   // transfert en attente -> disponible (2 écritures)
             'retrait',      // sortie vers le commerçant
             'ajustement',   // correction manuelle
-            'annulation',   // reprise d'un crédit (commande annulée/retournée)
+            'annulation',   // reprise d'un crédit encore en attente
+            'retour',       // colis retourné : reprise, même après retrait
         ],
         required: true,
     },
@@ -36,9 +37,21 @@ const walletTransactionSchema = new mongoose.Schema({
         enum: ['en_attente', 'disponible'],
         default: 'disponible',
     },
+    // Montant porté au compte du commerçant, NET de commission.
     montant: {
         type: Number,
         required: true,
+    },
+    // Traçabilité de la commission, sur les écritures de vente.
+    // Sans ces deux champs, expliquer à un commerçant pourquoi un article
+    // vendu 11 000 lui rapporte 10 000 imposerait de recalculer à la main.
+    montantBrut: {
+        type: Number,
+        default: null,
+    },
+    commission: {
+        type: Number,
+        default: null,
     },
     orderId: {
         type: mongoose.Schema.Types.ObjectId,

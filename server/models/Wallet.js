@@ -30,16 +30,19 @@ const walletSchema = new mongoose.Schema({
         unique: true,
     },
     // Disponible : retirable.
+    //
+    // Peut devenir NÉGATIF : si un colis est retourné après que le
+    // commerçant a déjà retiré son argent, la dette doit apparaître quelque
+    // part. Un plancher à zéro l'aurait effacée silencieusement — la
+    // plateforme aurait perdu la somme sans trace.
     solde: {
         type: Number,
         default: 0,
-        min: 0,
     },
     // En attente : visible, pas encore retirable.
     soldeEnAttente: {
         type: Number,
         default: 0,
-        min: 0,
     },
 }, { timestamps: true });
 
@@ -64,10 +67,11 @@ walletSchema.methods.recalculerSoldes = async function () {
 
     const parCompte = new Map(resultats.map((r) => [r._id, r.total]));
 
-    // Jamais de solde négatif affiché : un total négatif signalerait une
-    // incohérence de données, pas une dette du commerçant.
-    this.solde = Math.max(0, parCompte.get('disponible') || 0);
-    this.soldeEnAttente = Math.max(0, parCompte.get('en_attente') || 0);
+    // Les soldes reflètent EXACTEMENT la somme des écritures, sans plancher :
+    // un solde négatif est une dette réelle (retour après retrait), pas une
+    // anomalie à masquer.
+    this.solde = parCompte.get('disponible') || 0;
+    this.soldeEnAttente = parCompte.get('en_attente') || 0;
 
     await this.save();
     return { solde: this.solde, soldeEnAttente: this.soldeEnAttente };

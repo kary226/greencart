@@ -18,6 +18,7 @@ import {
     crediterVenteEnAttente,
     libererFonds,
     annulerVenteEnAttente,
+    traiterRetourColis,
     etatConfirmations,
 } from "../services/walletService.js";
 import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
@@ -325,8 +326,14 @@ export const updateOrderStatus = async (req, res) => {
         // attente), plus à la livraison — sinon le commerçant serait payé
         // deux fois. Ici on ne fait que reprendre le crédit si la commande
         // ne se conclut pas.
-        if (order && (status === 'Cancelled' || status === 'Returned')) {
+        if (order && status === 'Cancelled') {
+            // Annulation avant libération : simple reprise du crédit.
             await annulerVenteEnAttente(order);
+        }
+        if (order && status === 'Returned') {
+            // Colis retourné : l'argent est repris où qu'il soit, y compris
+            // s'il a déjà été retiré (le solde passe alors en négatif).
+            await traiterRetourColis(order);
         }
 
         const pushContent = orderStatusPushMessages[status];
@@ -435,8 +442,11 @@ export const updateLivraisonStatus = async (req, res) => {
         await Order.findByIdAndUpdate(orderId, updateData);
         
         // Voir plus haut : crédit à la commande, reprise si annulation.
-        if (status === 'Cancelled' || status === 'Returned') {
+        if (status === 'Cancelled') {
             await annulerVenteEnAttente(order);
+        }
+        if (status === 'Returned') {
+            await traiterRetourColis(order);
         }
         
         const pushContent = orderStatusPushMessages[status];

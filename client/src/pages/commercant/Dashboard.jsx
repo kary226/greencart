@@ -43,15 +43,51 @@ const Dashboard = () => {
                     axios.get(`/api/product/list?limit=200&boutiqueId=${boutique._id}`),
                 ]);
 
-                const wallet = walletRes.data.wallet || { solde: 0 };
+                const wallet = walletRes.data.wallet || { solde: 0, soldeEnAttente: 0 };
                 const ventesData = ventesRes.data.orders || [];
                 const totalCommandes = ventesData.length;
+
+                // Les ventes exposent désormais un statut commerçant
+                // (statut.cle) et non le statut logistique interne.
                 const commandesEnCours = ventesData.filter(
-                    (o) => !['Delivered', 'Cancelled', 'Returned'].includes(o.status)
+                    (o) => ['a_confirmer', 'confirmee'].includes(o.statut?.cle)
                 ).length;
+                const aConfirmer = ventesData.filter((o) => o.statut?.cle === 'a_confirmer').length;
+
+                // Chiffre d'affaires = ce qui a été validé, donc réellement acquis.
                 const totalVentes = ventesData
-                    .filter((o) => o.status === 'Delivered')
+                    .filter((o) => o.fondsLiberes)
                     .reduce((sum, o) => sum + (o.montantBoutique || 0), 0);
+
+                // Croissance RÉELLE : mois en cours comparé au mois précédent.
+                // Les valeurs affichées ici étaient auparavant codées en dur
+                // (+12,5 %, +8,3 %…) — des chiffres inventés présentés comme
+                // des mesures, ce qui est pire que pas de chiffre du tout.
+                const maintenant = new Date();
+                const debutMois = new Date(maintenant.getFullYear(), maintenant.getMonth(), 1);
+                const debutMoisPrecedent = new Date(maintenant.getFullYear(), maintenant.getMonth() - 1, 1);
+
+                const dansPeriode = (o, debut, fin) => {
+                    const d = new Date(o.dateCommande);
+                    return d >= debut && (!fin || d < fin);
+                };
+                const sommeSur = (debut, fin) => ventesData
+                    .filter((o) => dansPeriode(o, debut, fin))
+                    .reduce((sum, o) => sum + (o.montantBoutique || 0), 0);
+                const compteSur = (debut, fin) => ventesData.filter((o) => dansPeriode(o, debut, fin)).length;
+
+                // Pas de croissance calculable sans mois précédent : on
+                // renvoie null, et l'affichage n'écrit rien plutôt qu'un 0 %
+                // trompeur.
+                const evolution = (actuel, precedent) => {
+                    if (!precedent) return null;
+                    return Math.round(((actuel - precedent) / precedent) * 1000) / 10;
+                };
+
+                const caMois = sommeSur(debutMois, null);
+                const caMoisPrecedent = sommeSur(debutMoisPrecedent, debutMois);
+                const cmdMois = compteSur(debutMois, null);
+                const cmdMoisPrecedent = compteSur(debutMoisPrecedent, debutMois);
 
                 const products = productsRes.data.products || [];
                 const produitsBasStock = products.filter((p) => {
@@ -63,13 +99,15 @@ const Dashboard = () => {
                     totalVentes,
                     totalCommandes,
                     commandesEnCours,
+                    aConfirmer,
                     soldeWallet: wallet.solde || 0,
+                    soldeEnAttente: wallet.soldeEnAttente || 0,
                     nombreProduits: products.length,
                     produitsBasStock,
-                    croissanceCA: 12.5,
-                    croissanceCommandes: 8.3,
-                    croissanceProduits: 0,
-                    croissanceWallet: 5.2,
+                    croissanceCA: evolution(caMois, caMoisPrecedent),
+                    croissanceCommandes: evolution(cmdMois, cmdMoisPrecedent),
+                    croissanceProduits: null,
+                    croissanceWallet: null,
                 });
                 setVentes(ventesData);
                 setDernieresVentes(ventesData.slice(0, 6));
@@ -93,9 +131,9 @@ const Dashboard = () => {
         const jsToDayKey = (d) => d.toISOString().slice(0, 10);
         const totalsByDay = {};
         ventes
-            .filter((o) => !['Cancelled', 'Returned'].includes(o.status))
+            .filter((o) => !['annulee', 'retournee'].includes(o.statut?.cle))
             .forEach((o) => {
-                const key = jsToDayKey(new Date(o.createdAt));
+                const key = jsToDayKey(new Date(o.dateCommande));
                 totalsByDay[key] = (totalsByDay[key] || 0) + (o.montantBoutique || 0);
             });
         return days.map((d) => ({
@@ -220,9 +258,11 @@ const Dashboard = () => {
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-1.5 mt-2">
-                                    {getCroissanceIcon(s.croissance)}
-                                    <span className={`text-xs font-medium ${s.croissance > 0 ? 'text-ramses-600' : s.croissance < 0 ? 'text-ramses-600' : 'text-ink-400'}`}>
-                                        {s.croissance > 0 ? '+' : ''}{s.croissance}% vs mois dernier
+                                    {s.croissance !== null && s.croissance !== undefined && getCroissanceIcon(s.croissance)}
+                                    <span className={`text-xs font-medium ${s.croissance > 0 ? 'text-ok-500' : s.croissance < 0 ? 'text-ramses-600' : 'text-ink-400'}`}>
+                                        {s.croissance === null || s.croissance === undefined
+                                            ? ''
+                                            : `${s.croissance > 0 ? '+' : ''}${s.croissance}% vs mois dernier`}
                                     </span>
                                 </div>
                             </div>
@@ -336,21 +376,27 @@ const Dashboard = () => {
                             {dernieresVentes.map((order) => (
                                 <div key={order._id} className="px-6 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-ink-50 transition">
                                     <div>
-                                        <p className="text-sm font-medium text-ink-800">#{order._id.slice(-8)}</p>
+                                        {/* Référence de la commande, jamais l'identité du
+                                            client : le commerçant prépare un colis, il n'a
+                                            pas à savoir qui l'a acheté. */}
+                                        <p className="text-sm font-medium text-ink-800">#{order.reference}</p>
                                         <p className="text-xs text-ink-400">
-                                            {order.address?.name || 'Client'} · {new Date(order.createdAt).toLocaleDateString('fr-FR')}
+                                            {order.nombreArticles} article{order.nombreArticles > 1 ? 's' : ''}
+                                            {' · '}
+                                            {new Date(order.dateCommande).toLocaleDateString('fr-FR')}
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-4">
-                                        <span className="text-sm font-semibold text-ink-800">{order.montantBoutique.toLocaleString()} FCFA</span>
+                                        <span className="text-sm font-semibold text-ink-800">
+                                            {(order.montantBoutique || 0).toLocaleString('fr-FR')} FCFA
+                                        </span>
                                         <span className={`text-[10px] px-2.5 py-1 rounded-full font-medium ${
-                                            order.status === 'Delivered' ? 'bg-ok-50 text-ok-500' :
-                                            (order.status === 'Cancelled' || order.status === 'Returned') ? 'bg-ramses-100 text-ramses-700' :
-                                            'bg-warn-50 text-warn-500'
+                                            order.statut?.ton === 'succes' ? 'bg-ok-50 text-ok-500'
+                                                : order.statut?.ton === 'action' ? 'bg-ramses-100 text-ramses-700'
+                                                : order.statut?.ton === 'attente' ? 'bg-warn-50 text-warn-500'
+                                                : 'bg-ink-100 text-ink-500'
                                         }`}>
-                                            {order.status === 'Delivered' ? 'Livrée' :
-                                             order.status === 'Cancelled' ? 'Annulée' :
-                                             order.status === 'Returned' ? 'Retournée' : 'En cours'}
+                                            {order.statut?.libelle || '—'}
                                         </span>
                                     </div>
                                 </div>

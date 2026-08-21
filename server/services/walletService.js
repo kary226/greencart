@@ -2,6 +2,7 @@ import Wallet from '../models/Wallet.js';
 import WalletTransaction from '../models/WalletTransaction.js';
 import Boutique from '../models/Boutique.js';
 import Product from '../models/Product.js';
+import { repartirCommission } from './commissionService.js';
 
 // Mouvements d'argent des portefeuilles commerçants.
 //
@@ -105,19 +106,30 @@ export const crediterVenteEnAttente = async (order) => {
         const cible = await portefeuilleDeLaBoutique(boutiqueId);
         if (!cible) continue;
 
+        // La commission de la plateforme est retirée AVANT le crédit : le
+        // portefeuille du commerçant ne contient que ce qui lui revient
+        // réellement. Il ne voit jamais le prix affiché au client, ce qui
+        // évite toute ambiguïté au moment du retrait.
+        const { net, commission } = repartirCommission(data.montant);
+        if (net <= 0) continue;
+
         await WalletTransaction.create({
             walletId: cible.wallet._id,
             type: 'vente',
             compte: 'en_attente',
-            montant: data.montant,
+            montant: net,
             orderId: order._id,
             boutiqueId,
-            description: `Vente en attente — ${data.nombreArticles} article(s)`,
+            description: `Vente — ${data.nombreArticles} article(s)`,
+            // Trace de la commission : permet de justifier l'écart entre le
+            // prix payé par le client et le montant crédité, sans recalcul.
+            montantBrut: data.montant,
+            commission,
         });
 
         await cible.wallet.recalculerSoldes();
         creditees += 1;
-        montantTotal += data.montant;
+        montantTotal += net;
     }
 
     return { creditees, montantTotal };
@@ -166,12 +178,21 @@ export const libererFonds = async (order) => {
         const cible = await portefeuilleDeLaBoutique(boutiqueId);
         if (!cible) continue;
 
+        // On libère EXACTEMENT ce qui a été mis en attente (net de
+        // commission) : relire le crédit d'origine évite tout écart si le
+        // taux de commission venait à changer entre-temps.
+        const credit = await WalletTransaction.findOne({
+            orderId: order._id, boutiqueId, type: 'vente', compte: 'en_attente',
+        }).select('montant').lean();
+        const montantNet = credit?.montant ?? repartirCommission(data.montant).net;
+        if (montantNet <= 0) continue;
+
         // Sortie du compte en attente
         await WalletTransaction.create({
             walletId: cible.wallet._id,
             type: 'liberation',
             compte: 'en_attente',
-            montant: -data.montant,
+            montant: -montantNet,
             orderId: order._id,
             boutiqueId,
             description: 'Libération — sortie du solde en attente',
@@ -182,7 +203,7 @@ export const libererFonds = async (order) => {
             walletId: cible.wallet._id,
             type: 'liberation',
             compte: 'disponible',
-            montant: data.montant,
+            montant: montantNet,
             orderId: order._id,
             boutiqueId,
             description: 'Libération — fonds retirables',
@@ -190,7 +211,7 @@ export const libererFonds = async (order) => {
 
         await cible.wallet.recalculerSoldes();
         liberees += 1;
-        montantTotal += data.montant;
+        montantTotal += montantNet;
     }
 
     return { liberees, montantTotal };
@@ -242,6 +263,76 @@ export const annulerVenteEnAttente = async (order) => {
     }
 
     return { annulees };
+};
+
+/**
+ * COLIS RETOURNÉ — reprend l'argent d'une vente, où qu'il se trouve.
+ *
+ * Trois situations, traitées dans cet ordre :
+ *   1. les fonds sont encore EN ATTENTE  -> on les reprend là ;
+ *   2. ils ont été LIBÉRÉS mais pas retirés -> on les reprend au disponible ;
+ *   3. ils ont déjà été RETIRÉS -> le solde disponible passe en NÉGATIF.
+ *
+ * Le cas 3 est volontaire. Plafonner à zéro effacerait la dette : la
+ * plateforme perdrait la somme sans trace, et le commerçant repartirait à
+ * zéro au prochain retrait. Un solde négatif se résorbe naturellement avec
+ * les ventes suivantes, et reste visible de tous en attendant.
+ *
+ * Idempotent : un retour déjà traité ne l'est pas deux fois.
+ */
+export const traiterRetourColis = async (order, { boutiqueIds = null } = {}) => {
+    if (!order?.items?.length) return { boutiques: 0, montantRepris: 0 };
+
+    const boutiqueParProduit = await chargerBoutiquesDesProduits(order.items);
+    const parBoutique = repartirParBoutique(order.items, boutiqueParProduit);
+
+    let boutiques = 0;
+    let montantRepris = 0;
+
+    for (const [boutiqueId, data] of parBoutique) {
+        // Retour partiel possible : une seule boutique du panier peut être
+        // concernée. Sans filtre, on reprendrait l'argent des autres.
+        if (boutiqueIds && !boutiqueIds.map(String).includes(String(boutiqueId))) continue;
+
+        const dejaRepris = await WalletTransaction.exists({
+            orderId: order._id, boutiqueId, type: 'retour',
+        });
+        if (dejaRepris) continue;
+
+        // Montant exact crédité à l'origine (net de commission).
+        const credit = await WalletTransaction.findOne({
+            orderId: order._id, boutiqueId, type: 'vente',
+        }).select('montant').lean();
+        if (!credit || credit.montant <= 0) continue;
+
+        const cible = await portefeuilleDeLaBoutique(boutiqueId);
+        if (!cible) continue;
+
+        // Les fonds ont-ils déjà été libérés ?
+        const libere = await WalletTransaction.exists({
+            orderId: order._id, boutiqueId, type: 'liberation', compte: 'disponible',
+        });
+
+        // Encore en attente -> on reprend là. Déjà libéré -> on reprend au
+        // disponible, quitte à le rendre négatif.
+        const compte = libere ? 'disponible' : 'en_attente';
+
+        await WalletTransaction.create({
+            walletId: cible.wallet._id,
+            type: 'retour',
+            compte,
+            montant: -credit.montant,
+            orderId: order._id,
+            boutiqueId,
+            description: 'Colis retour',
+        });
+
+        await cible.wallet.recalculerSoldes();
+        boutiques += 1;
+        montantRepris += credit.montant;
+    }
+
+    return { boutiques, montantRepris };
 };
 
 /**
