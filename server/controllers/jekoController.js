@@ -12,6 +12,7 @@ import ColisShein from '../models/ColisShein.js';
 import MessageColis from '../models/MessageColis.js';
 import { posterMessageStatutAuto } from './colisSheinAdminController.js';
 import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
+import { crediterVenteEnAttente } from '../services/walletService.js';
 
 // Même fenêtre que côté GeniusPay historiquement — 5 minutes.
 const WEBHOOK_MAX_AGE_MS = 5 * 60 * 1000;
@@ -93,11 +94,45 @@ export const confirmerCommandePayee = async (order, { reference, providerField }
     );
 
     if (!updated) {
-        console.log(`ℹ️ Commande ${order._id} déjà confirmée par une autre requête (webhook en double), ignorer`);
+        // La commande peut avoir été marquée payée par un webhook concurrent
+        // alors que le crédit portefeuille n'a pas encore été écrit (erreur
+        // réseau/DB juste après le changement de statut). On retente donc le
+        // crédit idempotent au lieu de sortir immédiatement.
+        const commandeDejaPayee = await Order.findById(order._id);
+        if (!commandeDejaPayee?.isPaid) {
+            return false;
+        }
+
+        try {
+            const walletResult = await crediterVenteEnAttente(commandeDejaPayee);
+            console.log(`💰 Portefeuille Jèko (retry) — ${commandeDejaPayee._id}:`, walletResult);
+        } catch (walletError) {
+            console.error(`❌ Crédit portefeuille Jèko échoué au retry pour ${commandeDejaPayee._id}:`, walletError);
+            throw walletError;
+        }
+
+        console.log(`ℹ️ Commande ${commandeDejaPayee._id} déjà confirmée : traitement portefeuille vérifié`);
         return false;
     }
     order = updated;
     console.log(`✅ Commande ${order._id} marquée comme payée`);
+
+    // IMPORTANT : le flux COD crédite déjà le portefeuille au moment de la
+    // création de commande. Jèko crée d'abord une commande `pending_payment`
+    // puis ne la confirme qu'après le webhook de paiement. Sans ce crédit ici,
+    // les ventes Jèko sont bien payées mais les deux soldes du commerçant
+    // restent à 0. Le service est idempotent : un webhook répété ne crédite
+    // jamais deux fois la même vente.
+    try {
+        const walletResult = await crediterVenteEnAttente(order);
+        console.log(`💰 Portefeuille Jèko crédité — ${order._id}:`, walletResult);
+    } catch (walletError) {
+        // La commande est déjà marquée payée. On remonte l'erreur pour que le
+        // webhook soit rejoué; le chemin `!updated` ci-dessus retentera le
+        // crédit sans retraiter le stock ni les emails.
+        console.error(`❌ Crédit portefeuille Jèko échoué pour ${order._id}:`, walletError);
+        throw walletError;
+    }
 
     const ProductModel = mongoose.model('product');
     const productIds = [...new Set(order.items.map(item => item.product.toString()))];
