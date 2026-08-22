@@ -3,8 +3,23 @@ import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import axios from "axios";
 
+// ─── Configuration Axios ──────────────────────────────────────────────────
+
+// [MIGRATION cookie httpOnly] withCredentials: true = le navigateur envoie
+// automatiquement le cookie httpOnly (posé par le serveur) sur chaque
+// requête vers l'API, sans que le JS ait jamais besoin de le lire ou de
+// le manipuler lui-même.
 axios.defaults.withCredentials = true;
-axios.defaults.baseURL = import.meta.env.VITE_BACKEND_URL;
+
+// [PHASE 3 - CORS] En production, on utilise une URL relative pour éviter
+// les problèmes CORS (Vercel Rewrites proxyfie /api/* vers api.ramci.ci).
+// En développement, on utilise le serveur local.
+// Si VITE_API_URL est défini, on l'utilise (pour les environnements spécifiques).
+const API_BASE_URL = import.meta.env.VITE_API_URL || 
+                     (import.meta.env.PROD ? '' : 'http://localhost:4000');
+axios.defaults.baseURL = API_BASE_URL;
+
+// ─── Constantes ──────────────────────────────────────────────────────────
 
 const getIsSeller = () => localStorage.getItem('isSeller') === 'true';
 const getSellerData = () => {
@@ -28,6 +43,8 @@ const loadCartFromLocalStorage = () => {
     return {};
 };
 
+// ─── Contexte ────────────────────────────────────────────────────────────
+
 export const AppContext = createContext();
 
 export const AppContextProvider = ({ children }) => {
@@ -35,42 +52,40 @@ export const AppContextProvider = ({ children }) => {
     const currency = import.meta.env.VITE_CURRENCY;
     const navigate = useNavigate();
 
+    // ─── État utilisateur (client) ──────────────────────────────────────
+
     const [user, setUser] = useState(null);
-    const [staffUser, setStaffUser] = useState(null); // [PHASE 3] Utilisateur staff
-    const [staffPermissions, setStaffPermissions] = useState([]); // [PHASE 3] Permissions staff
     const [isSeller, setIsSeller] = useState(getIsSeller);
     const [showUserLogin, setShowUserLogin] = useState(false);
+
+    // ─── [PHASE 3] État staff (admin) ──────────────────────────────────
+
+    const [staffUser, setStaffUser] = useState(null);
+    const [staffPermissions, setStaffPermissions] = useState([]);
+
+    // ─── État catalogue ──────────────────────────────────────────────────
+
     const [products, setProducts] = useState([]);
     const [cartItems, setCartItemsState] = useState(loadCartFromLocalStorage);
     const [searchQuery, setSearchQuery] = useState("");
     const [wishlist, setWishlist] = useState([]);
     const [recentlyViewed, setRecentlyViewed] = useState([]);
+
+    // ─── État commandes / colis ──────────────────────────────────────────
+
     const [orders, setOrders] = useState([]);
     const [colisShein, setColisShein] = useState([]);
     const [colisSheinActif, setColisSheinActif] = useState(false);
+
+    // ─── État PWA ────────────────────────────────────────────────────────
+
     const [installPromptEvent, setInstallPromptEvent] = useState(null);
     const [canInstallPWA, setCanInstallPWA] = useState(false);
     const [isPWAInstalled, setIsPWAInstalled] = useState(
         window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
     );
 
-    // ─── [PHASE 3] Récupération du staffUser ──────────────────────────
-
-    const fetchStaffUser = async () => {
-        try {
-            const { data } = await axios.get('/api/staff/is-auth');
-            if (data.success && data.staffUser) {
-                setStaffUser(data.staffUser);
-                setStaffPermissions(data.staffUser.permissions || []);
-                return data.staffUser;
-            }
-        } catch (error) {
-            // Pas de session staff – on laisse staffUser à null
-        }
-        return null;
-    };
-
-    // ─── Fonctions existantes (inchangées) ────────────────────────────
+    // ─── Helpers panier ──────────────────────────────────────────────────
 
     const setCartItems = (newCart) => {
         setCartItemsState(newCart);
@@ -84,6 +99,77 @@ export const AppContextProvider = ({ children }) => {
     const getProductIdFromKey = (key) => {
         return key.split('_')[0];
     };
+
+    const getCartCount = () => {
+        let totalCount = 0;
+        for (const item in cartItems) {
+            if (cartItems[item] > 0) {
+                totalCount += cartItems[item];
+            }
+        }
+        return totalCount;
+    };
+
+    const getCartAmount = () => {
+        let totalAmount = 0;
+        for (const key in cartItems) {
+            const productId = getProductIdFromKey(key);
+            let itemInfo = products.find((product) => product._id === productId);
+            if (itemInfo && cartItems[key] > 0) {
+                totalAmount += itemInfo.offerPrice * cartItems[key];
+            }
+        }
+        if (totalAmount % 1 !== 0) return Math.ceil(totalAmount);
+        return totalAmount;
+    };
+
+    const addToCart = (productId, color = null, size = null) => {
+        const key = getCartKey(productId, color, size);
+        let cartData = structuredClone(cartItems);
+        if (cartData[key]) {
+            cartData[key] += 1;
+        } else {
+            cartData[key] = 1;
+        }
+        setCartItems(cartData);
+    };
+
+    const addToCartWithQuantity = (productId, quantity, color = null, size = null) => {
+        const key = getCartKey(productId, color, size);
+        let cartData = structuredClone(cartItems);
+        if (cartData[key]) {
+            cartData[key] += quantity;
+        } else {
+            cartData[key] = quantity;
+        }
+        setCartItems(cartData);
+        toast.success(`${quantity} article(s) ajouté(s) au panier`);
+    };
+
+    const updateCartItem = (key, quantity) => {
+        let cartData = structuredClone(cartItems);
+        if (quantity <= 0) {
+            delete cartData[key];
+        } else {
+            cartData[key] = quantity;
+        }
+        setCartItems(cartData);
+        toast.success("Panier mis à jour");
+    };
+
+    const removeFromCart = (key) => {
+        let cartData = structuredClone(cartItems);
+        if (cartData[key]) {
+            cartData[key] -= 1;
+            if (cartData[key] === 0) {
+                delete cartData[key];
+            }
+        }
+        toast.success("Retiré du panier");
+        setCartItems(cartData);
+    };
+
+    // ─── Recently viewed ──────────────────────────────────────────────────
 
     const addToRecentlyViewed = (product) => {
         if (!product || !product._id) return;
@@ -108,6 +194,8 @@ export const AppContextProvider = ({ children }) => {
         }
     };
 
+    // ─── Fetch : Commandes ───────────────────────────────────────────────
+
     const fetchOrders = async () => {
         if (!user) return;
         try {
@@ -121,6 +209,8 @@ export const AppContextProvider = ({ children }) => {
         }
     };
 
+    // ─── Fetch : Colis Shein ─────────────────────────────────────────────
+
     const fetchColisShein = async () => {
         if (!user) return;
         if (window.location.pathname.includes('/seller')) return;
@@ -132,6 +222,8 @@ export const AppContextProvider = ({ children }) => {
             setColisShein([]);
         }
     };
+
+    // ─── Fetch : Seller ──────────────────────────────────────────────────
 
     const fetchSeller = async () => {
         try {
@@ -155,10 +247,29 @@ export const AppContextProvider = ({ children }) => {
         }
     };
 
+    // ─── Fetch : Staff User (PHASE 3) ────────────────────────────────────
+
+    const fetchStaffUser = async () => {
+        try {
+            const { data } = await axios.get('/api/staff/is-auth');
+            if (data.success && data.staffUser) {
+                setStaffUser(data.staffUser);
+                setStaffPermissions(data.staffUser.permissions || []);
+                return data.staffUser;
+            }
+        } catch (error) {
+            // Pas de session staff – on laisse staffUser à null
+        }
+        return null;
+    };
+
+    // ─── Fetch : User (client) ──────────────────────────────────────────
+
     const fetchUser = async (silent = false) => {
         if (window.location.pathname.includes('/seller')) {
             return;
         }
+
         try {
             const { data } = await axios.get('/api/user/is-auth');
             if (data.success) {
@@ -181,6 +292,8 @@ export const AppContextProvider = ({ children }) => {
         }
     };
 
+    // ─── Fetch : Produits ─────────────────────────────────────────────────
+
     const fetchProducts = async () => {
         try {
             const { data } = await axios.get('/api/product/catalogue');
@@ -194,6 +307,8 @@ export const AppContextProvider = ({ children }) => {
             setProducts([]);
         }
     };
+
+    // ─── Wishlist ─────────────────────────────────────────────────────────
 
     const fetchWishlist = async () => {
         if (!user) return;
@@ -256,74 +371,19 @@ export const AppContextProvider = ({ children }) => {
         return wishlist.some(item => item._id === productId);
     };
 
-    const addToCart = (productId, color = null, size = null) => {
-        const key = getCartKey(productId, color, size);
-        let cartData = structuredClone(cartItems);
-        if (cartData[key]) {
-            cartData[key] += 1;
-        } else {
-            cartData[key] = 1;
-        }
-        setCartItems(cartData);
+    // ─── [PHASE 3] Permissions ───────────────────────────────────────────
+
+    const hasPermission = (permission) => {
+        if (staffUser?.role === 'super_admin') return true;
+        return staffPermissions.includes(permission);
     };
 
-    const addToCartWithQuantity = (productId, quantity, color = null, size = null) => {
-        const key = getCartKey(productId, color, size);
-        let cartData = structuredClone(cartItems);
-        if (cartData[key]) {
-            cartData[key] += quantity;
-        } else {
-            cartData[key] = quantity;
-        }
-        setCartItems(cartData);
-        toast.success(`${quantity} article(s) ajouté(s) au panier`);
+    const hasAnyPermission = (permissions) => {
+        if (staffUser?.role === 'super_admin') return true;
+        return permissions.some(p => staffPermissions.includes(p));
     };
 
-    const updateCartItem = (key, quantity) => {
-        let cartData = structuredClone(cartItems);
-        if (quantity <= 0) {
-            delete cartData[key];
-        } else {
-            cartData[key] = quantity;
-        }
-        setCartItems(cartData);
-        toast.success("Panier mis à jour");
-    };
-
-    const removeFromCart = (key) => {
-        let cartData = structuredClone(cartItems);
-        if (cartData[key]) {
-            cartData[key] -= 1;
-            if (cartData[key] === 0) {
-                delete cartData[key];
-            }
-        }
-        toast.success("Retiré du panier");
-        setCartItems(cartData);
-    };
-
-    const getCartCount = () => {
-        let totalCount = 0;
-        for (const item in cartItems) {
-            if (cartItems[item] > 0) {
-                totalCount += cartItems[item];
-            }
-        }
-        return totalCount;
-    };
-
-    const getCartAmount = () => {
-        let totalAmount = 0;
-        for (const key in cartItems) {
-            const productId = getProductIdFromKey(key);
-            let itemInfo = products.find((product) => product._id === productId);
-            if (itemInfo && cartItems[key] > 0) {
-                totalAmount += itemInfo.offerPrice * cartItems[key];
-            }
-        }
-        if (totalAmount % 1 !== 0) return Math.ceil(totalAmount);
-        return totalAmount;
-    };
+    // ─── Authentification ────────────────────────────────────────────────
 
     const loginUser = async (email, password) => {
         try {
@@ -415,19 +475,7 @@ export const AppContextProvider = ({ children }) => {
         navigate('/seller');
     };
 
-    // ─── [PHASE 3] Vérification des permissions staff ──────────────────
-
-    const hasPermission = (permission) => {
-        if (staffUser?.role === 'super_admin') return true;
-        return staffPermissions.includes(permission);
-    };
-
-    const hasAnyPermission = (permissions) => {
-        if (staffUser?.role === 'super_admin') return true;
-        return permissions.some(p => staffPermissions.includes(p));
-    };
-
-    // ─── Installation PWA ──────────────────────────────────────────────
+    // ─── PWA ──────────────────────────────────────────────────────────────
 
     useEffect(() => {
         const handleBeforeInstallPrompt = (e) => {
@@ -460,7 +508,7 @@ export const AppContextProvider = ({ children }) => {
         return outcome;
     };
 
-    // ─── Notifications Push ────────────────────────────────────────────
+    // ─── Notifications Push ──────────────────────────────────────────────
 
     const urlBase64ToUint8Array = (base64String) => {
         const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -518,17 +566,20 @@ export const AppContextProvider = ({ children }) => {
         }
     };
 
+    // ─── Réabonnement push silencieux ────────────────────────────────────
+
     useEffect(() => {
         if (user && 'Notification' in window && Notification.permission === 'granted') {
             subscribeToPushNotifications(true);
         }
     }, [user]);
 
-    // ─── Effets de chargement ──────────────────────────────────────────
+    // ─── Effets de chargement initiaux ──────────────────────────────────
 
     useEffect(() => {
         const isOnSellerPage = window.location.pathname.includes('/seller');
-        const isOnAdminPage = window.location.pathname.startsWith('/admin') || window.location.pathname.startsWith('/staff');
+        const isOnAdminPage = window.location.pathname.startsWith('/admin') || 
+                              window.location.pathname.startsWith('/staff');
 
         if (isOnAdminPage) {
             fetchStaffUser();
@@ -561,6 +612,8 @@ export const AppContextProvider = ({ children }) => {
         }
     }, [user]);
 
+    // ─── Synchronisation panier serveur ──────────────────────────────────
+
     useEffect(() => {
         const updateCart = async () => {
             try {
@@ -577,7 +630,7 @@ export const AppContextProvider = ({ children }) => {
         }
     }, [cartItems]);
 
-    // ─── Nettoyage du panier ───────────────────────────────────────────
+    // ─── Nettoyage panier (produits indisponibles) ──────────────────────
 
     const lastCheckedCartIdsRef = useRef('');
     useEffect(() => {
@@ -609,33 +662,42 @@ export const AppContextProvider = ({ children }) => {
                     );
                 }
             } catch {
-                // Silencieux
+                // Silencieux : une vérif ratée ne doit pas toucher au panier.
             }
         })();
     }, [cartItems]);
 
-    // ─── Valeur du contexte ────────────────────────────────────────────
+    // ─── Valeur du contexte ──────────────────────────────────────────────
 
     const value = {
+        // Client
         navigate, user, setUser,
-        staffUser, setStaffUser,          // [PHASE 3]
-        staffPermissions,                 // [PHASE 3]
-        hasPermission,                    // [PHASE 3]
-        hasAnyPermission,                 // [PHASE 3]
         setIsSeller, isSeller,
-        showUserLogin, setShowUserLogin, products, currency,
-        addToCart, addToCartWithQuantity, updateCartItem, removeFromCart, cartItems,
-        searchQuery, setSearchQuery, getCartAmount, getCartCount,
-        axios, fetchProducts, setCartItems, getCartKey, getProductIdFromKey,
+        showUserLogin, setShowUserLogin,
+        products, currency,
+        cartItems, setCartItems,
+        getCartKey, getProductIdFromKey,
+        addToCart, addToCartWithQuantity, updateCartItem, removeFromCart,
+        getCartAmount, getCartCount,
+        searchQuery, setSearchQuery,
         wishlist, addToWishlist, removeFromWishlist, isInWishlist, fetchWishlist,
-        fetchUser, loginUser, registerUser, logoutUser,
-        loginSeller, logoutSeller,
         recentlyViewed, addToRecentlyViewed,
         orders,
         colisShein, fetchColisShein, colisSheinActif, setColisSheinActif,
+        // Authentification
+        fetchUser, loginUser, registerUser, logoutUser,
+        loginSeller, logoutSeller,
+        // PWA / Push
         canInstallPWA, isPWAInstalled, installPWA,
         subscribeToPushNotifications,
-        fetchStaffUser,                  // [PHASE 3]
+        // [PHASE 3] Staff / Admin
+        staffUser, setStaffUser,
+        staffPermissions,
+        hasPermission,
+        hasAnyPermission,
+        fetchStaffUser,
+        // Utilitaires
+        axios, fetchProducts,
     };
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
