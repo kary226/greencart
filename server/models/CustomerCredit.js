@@ -67,3 +67,38 @@ export const rembourserCreditAnnulation = async ({ orderId, userId, description 
     });
     return order.creditUsed;
 };
+
+// Rembourse le client quand son colis revient en 'Returned' — jusqu'ici
+// traiterRetourColis() (walletService.js) reprenait l'argent du commerçant
+// mais ne rendait jamais rien au client : il payait un article qu'il n'a
+// finalement pas reçu.
+//
+// On rembourse la valeur des ARTICLES (montant total - frais de livraison) :
+// la livraison a réellement eu lieu (aller ET retour), elle n'est donc pas
+// remboursée. Le remboursement est toujours en RCOINS (CustomerCredit),
+// quel que soit le moyen de paiement d'origine (COD ou Jèko) : c'est déjà
+// ainsi que le reste de la plateforme gère les remboursements (voir
+// rembourserCreditAnnulation ci-dessus), faute d'intégration de
+// remboursement direct sur le moyen de paiement d'origine.
+//
+// Idempotent SANS champ verrou supplémentaire sur Order : l'ID de la
+// commande sert lui-même d'itemId. L'index unique (orderId, itemId, type)
+// de CustomerCreditTransaction empêche alors tout doublon, même si cette
+// fonction est appelée deux fois pour la même commande (retry, double
+// clic admin, etc.).
+export const rembourserClientRetour = async ({ order, description } = {}) => {
+    if (!order?._id || !order?.userId) return 0;
+
+    const montant = Math.max(0, Math.floor(Number(order.amount || 0) - Number(order.deliveryPrice || 0)));
+    if (montant <= 0) return 0;
+
+    const credite = await crediterClient({
+        userId: order.userId,
+        orderId: order._id,
+        itemId: order._id,
+        amount: montant,
+        description: description || `Remboursement RCOINS — colis retourné (commande ${order._id})`,
+    });
+
+    return credite ? montant : 0;
+};

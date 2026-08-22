@@ -162,6 +162,29 @@ export default function OrderDetail() {
                     <p className="text-ink-400 text-[12.5px] mt-1">{formatDateTime(order.createdAt)}</p>
                 </div>
 
+                {/* [NOUVEAU] Colis retourné : le client ne voyait nulle part
+                    pourquoi, ni s'il avait été remboursé — juste un badge
+                    "Retournée" sans détail. */}
+                {order.status === 'Returned' && (
+                    <div className="rs-card !bg-violet-50 !border-violet-200">
+                        <p className="font-semibold text-[13.5px] text-violet-700">Colis retourné</p>
+                        <p className="text-[12.5px] text-violet-600 mt-1">
+                            {order.retourEtat === 'endommage'
+                                ? "L'article est revenu endommagé et n'a pas pu être remis en vente."
+                                : "L'article est revenu en bon état."}
+                            {' '}Le montant des articles (hors livraison) vous a été recrédité en RCOINS.
+                        </p>
+                        {order.retourNote && (
+                            <p className="text-[12px] text-violet-500 mt-2 italic">« {order.retourNote} »</p>
+                        )}
+                        {order.retourTraiteLe && (
+                            <p className="text-[11px] text-violet-400 mt-1">
+                                Traité le {formatDateTime(order.retourTraiteLe)}
+                            </p>
+                        )}
+                    </div>
+                )}
+
                 {/* ── Articles commandés ─────────────────────────────────── */}
                 <div className="rs-card">
                     <p className="font-bold text-[14px] text-ink-900 mb-3">Articles commandés</p>

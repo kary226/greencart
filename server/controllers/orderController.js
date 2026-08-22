@@ -29,14 +29,14 @@ import {
     calculerExpirationReservation,
 } from "../services/collecteService.js";
 import { journaliser } from "../services/journalService.js";
-import { acteurDepuisStaff, acteurVendeurTechnique } from "../middlewares/authActeur.js";
+import { acteurDepuisStaff, acteurVendeurTechnique, acteurDepuisRequete } from "../middlewares/authActeur.js";
 // [FIX] Ce contrôleur importait crediterClient depuis services/customerCreditService.js,
 // un module qui importe lui-même le mauvais fichier (models/CustomerCredit.js sans
 // export par défaut) : CustomerCreditTransaction y valait `undefined`, donc tout appel
 // de crediterClient plantait avec une TypeError dès qu'une commande payée avait un
 // article indisponible. models/CustomerCredit.js contient la version qui fonctionne
 // réellement (met à jour User.creditBalance, cohérente avec GET /order/user/credit).
-import { crediterClient, rembourserCreditAnnulation } from '../models/CustomerCredit.js';
+import { crediterClient, rembourserCreditAnnulation, rembourserClientRetour } from '../models/CustomerCredit.js';
 import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
 import { sendPushToUser } from './pushController.js';
 import { syncManyProductsToAirtable } from '../services/airtableSync.js';
@@ -412,11 +412,19 @@ export const updateOrderStatus = async (req, res) => {
             // Annulation avant libération : simple reprise du crédit.
             await annulerVenteEnAttente(order);
         }
+        let montantRembourseClient = 0;
         if (order && status === 'Returned') {
             // Colis retourné : l'argent est repris où qu'il soit, y compris
             // s'il a déjà été retiré (le solde passe alors en négatif).
             // Le stock n'est réintégré que si le colis revient en bon état.
             await traiterRetourColis(order, { etat: retourEtat });
+
+            // [NOUVEAU] Le commerçant est débité, mais jusqu'ici le client
+            // ne récupérait jamais rien : il payait un article qu'il n'a
+            // finalement pas reçu. On lui rend la valeur des articles en
+            // RCOINS (hors frais de livraison, réellement engagés) — voir
+            // rembourserClientRetour() dans models/CustomerCredit.js.
+            montantRembourseClient = await rembourserClientRetour({ order });
         }
 
         const pushContent = orderStatusPushMessages[status];
@@ -431,15 +439,25 @@ export const updateOrderStatus = async (req, res) => {
         // [NOUVEAU] doc §15 : le forçage manuel d'un statut (hors circuit
         // disponibilité → collecte → Shipped) est une action Admin sensible.
         if (order) {
+            // [FIX] Journalisait systématiquement le compte technique, même
+            // quand l'action venait d'un vrai compte staff admin (2FA) —
+            // acteurDepuisRequete() restitue le VRAI acteur de la requête,
+            // quelle que soit la session utilisée pour s'authentifier.
             journaliser({
-                acteur: acteurVendeurTechnique(),
+                acteur: acteurDepuisRequete(req) || acteurVendeurTechnique(),
                 action: 'commande.forcage_statut',
                 cible: { id: order._id, libelle: `Commande ${order._id.toString().slice(-6).toUpperCase()}` },
-                note: `Statut forcé manuellement → ${status}`,
+                note: status === 'Returned'
+                    ? `Statut forcé manuellement → Returned (${retourEtat}${montantRembourseClient > 0 ? `, ${montantRembourseClient} FCFA remboursés au client` : ''})`
+                    : `Statut forcé manuellement → ${status}`,
             });
         }
 
-        res.json({ success: true, message: "Statut mis à jour" });
+        res.json({
+            success: true,
+            message: "Statut mis à jour",
+            ...(status === 'Returned' ? { montantRembourseClient } : {}),
+        });
     } catch (error) {
         console.error('Erreur updateOrderStatus:', error.message);
         res.status(500).json({ success: false, message: error.message });
@@ -447,47 +465,40 @@ export const updateOrderStatus = async (req, res) => {
 };
 
 // =============================================================
-// ✅ PHASE 4 : ASSIGNER UN LIVREUR À UNE COMMANDE (Admin)
+// [NOUVEAU] RECHERCHE DE COMMANDE (Admin) — pour l'écran de retour colis
 // =============================================================
-export const assignerLivreur = async (req, res) => {
+// Un admin moderne (compte staff, 2FA) n'avait aucun moyen de retrouver une
+// commande précise pour la marquer 'Returned' : la seule vue existante
+// (listCommandesAValider) ne montre que les commandes en attente de
+// libération de fonds, pas l'historique complet. Recherche par fin d'ID de
+// commande (les 6-8 caractères affichés partout dans l'UI, ex. #A1B2C3).
+export const rechercherCommandeAdmin = async (req, res) => {
     try {
-        const { orderId, livreurId } = req.body;
-        
-        if (!orderId || !livreurId) {
-            return res.status(400).json({ success: false, message: "orderId et livreurId requis" });
+        const terme = String(req.query.q || '').trim();
+        if (terme.length < 3) {
+            return res.status(400).json({
+                success: false,
+                message: "Indiquez au moins 3 caractères (fin du numéro de commande).",
+            });
         }
-        
-        const order = await Order.findById(orderId);
-        if (!order) {
-            return res.status(404).json({ success: false, message: "Commande non trouvée" });
-        }
-        
-        const StaffUser = await import('../models/StaffUser.js').then(m => m.default);
-        const livreur = await StaffUser.findOne({ _id: livreurId, role: 'livreur', statut: 'actif' });
-        if (!livreur) {
-            return res.status(404).json({ success: false, message: "Livreur non trouvé ou inactif" });
-        }
-        
-        // [NOUVEAU] Si l'admin change le livreur en charge (le premier a un
-        // empêchement, etc.), une éventuelle remise déjà confirmée pour
-        // l'ancien livreur ne vaut plus rien pour le nouveau — il lui faut
-        // sa propre confirmation physique avant de pouvoir partir livrer.
-        const livreurChange = String(order.livreurId || '') !== String(livreurId);
-        order.livreurId = livreurId;
-        if (livreurChange) {
-            order.remiseLivreurConfirmee = false;
-            order.remiseLivreurConfirmeeLe = null;
-        }
-        await order.save();
-        
-        return res.json({ 
-            success: true, 
-            message: "Livreur assigné avec succès",
-            order 
-        });
+
+        // ID complet valide -> recherche exacte. Sinon -> recherche sur la
+        // fin de l'ID (ce que l'admin a sous les yeux dans les autres écrans).
+        const filtre = mongoose.Types.ObjectId.isValid(terme) && terme.length === 24
+            ? { _id: terme }
+            : { $expr: { $regexMatch: { input: { $toString: '$_id' }, regex: `${terme}$`, options: 'i' } } };
+
+        const orders = await Order.find(filtre)
+            .sort({ createdAt: -1 })
+            .limit(10)
+            .select('_id userId amount deliveryPrice status retourEtat retourNote retourTraiteLe createdAt items')
+            .populate('userId', 'name email')
+            .lean();
+
+        return res.json({ success: true, orders });
     } catch (error) {
-        console.error('Erreur assignerLivreur:', error.message);
-        res.status(500).json({ success: false, message: error.message });
+        console.error('Erreur rechercherCommandeAdmin:', error.message);
+        return res.status(500).json({ success: false, message: error.message });
     }
 };
 

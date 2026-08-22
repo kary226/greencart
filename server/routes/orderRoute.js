@@ -29,9 +29,11 @@ import {
     resoudreLitige,
     listLitiges,
     confirmerRemiseLivreur,
-    listCommandesARemettre
+    listCommandesARemettre,
+    rechercherCommandeAdmin
 } from '../controllers/orderController.js';
 import authSeller from '../middlewares/authSeller.js';
+import authActeur, { requireRoleActeur } from '../middlewares/authActeur.js';
 import { initiateJeko } from '../controllers/jekoController.js';
 import Order from '../models/Order.js';
 import User from '../models/User.js';
@@ -54,8 +56,15 @@ orderRouter.post('/jeko/initiate', authUser, paymentLimiter, initiateJeko);
 
 // Routes admin (seller)
 orderRouter.get('/seller', authSeller, getAllOrders);
-orderRouter.post('/status', authSeller, updateOrderStatus);
+// [FIX] N'acceptait QUE le vieux compte technique unique (authSeller) :
+// un vrai compte staff admin (2FA, panel /staff/admin/...) ne pouvait pas
+// changer le statut d'une commande, notamment déclencher un retour colis.
+// authActeur accepte les DEUX sessions (staffToken ET sellerToken), donc
+// rien ne casse côté ancien panel /seller.
+orderRouter.post('/status', authActeur, requireRoleActeur('admin'), updateOrderStatus);
 orderRouter.get('/admin/user/:userId', authSeller, getUserOrdersByAdmin);
+// [NOUVEAU] Recherche de commande pour l'écran admin de retour colis.
+orderRouter.get('/admin/recherche', authActeur, requireRoleActeur('admin'), rechercherCommandeAdmin);
 
 // ✅ PHASE 4 : Route pour assigner un livreur (admin)
 orderRouter.post('/admin/assigner-livreur', authStaff, requireRole('admin'), assignerLivreur);
