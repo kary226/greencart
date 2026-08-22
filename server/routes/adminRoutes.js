@@ -156,17 +156,6 @@ import {
 // Clients
 import { getAllClients } from '../controllers/userController.js';
 
-// Questionnaires
-import {
-    createQuestionnaire,
-    getAllQuestionnaires,
-    toggleQuestionnaire,
-    deleteQuestionnaire,
-    getStatsQuestionnaire,
-    getQuestionnaireActif,
-    repondreQuestionnaire
-} from '../controllers/questionnaireController.js';
-
 // Boutiques
 import {
     getMaBoutique,
@@ -512,42 +501,6 @@ adminRouter.post(
     authStaff,
     requirePermission('catalog.coupons'),
     toggleCouponStatus
-);
-
-// Questionnaires
-adminRouter.get(
-    '/questionnaires',
-    authStaff,
-    requirePermission('catalog.questions'),
-    getAllQuestionnaires
-);
-
-adminRouter.post(
-    '/questionnaires/create',
-    authStaff,
-    requirePermission('catalog.questions'),
-    createQuestionnaire
-);
-
-adminRouter.post(
-    '/questionnaires/:id/toggle',
-    authStaff,
-    requirePermission('catalog.questions'),
-    toggleQuestionnaire
-);
-
-adminRouter.delete(
-    '/questionnaires/:id',
-    authStaff,
-    requirePermission('catalog.questions'),
-    deleteQuestionnaire
-);
-
-adminRouter.get(
-    '/questionnaires/:id/stats',
-    authStaff,
-    requirePermission('catalog.questions'),
-    getStatsQuestionnaire
 );
 
 // =============================================================
@@ -1002,6 +955,5 @@ adminRouter.get('/locations/cities/public', getCities);
 adminRouter.get('/locations/communes/:cityId', getCommunesByCity);
 adminRouter.get('/boutiques/:id/apercu', getBoutiqueApercu);
 adminRouter.get('/boutiques/:id', getBoutiqueById);
-adminRouter.get('/questionnaires/actif', getQuestionnaireActif);
 
 export default adminRouter;
