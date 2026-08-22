@@ -253,6 +253,9 @@ export const libererFonds = async (order) => {
  * Ne touche jamais au solde disponible : de l'argent déjà libéré, voire
  * déjà retiré, ne se reprend pas unilatéralement — cela relève d'un
  * ajustement manuel décidé par l'admin.
+ *
+ * [CORRECTION FINALE] On annule exactement le montant NET qui a été crédité,
+ * et on s'assure que la transaction est bien sur le compte 'en_attente'.
  */
 export const annulerVenteEnAttente = async (order) => {
     if (!order?.items?.length) return { annulees: 0 };
@@ -265,15 +268,30 @@ export const annulerVenteEnAttente = async (order) => {
     for (const [boutiqueId, data] of parBoutique) {
         if (data.montant <= 0) continue;
 
-        const dejaLibere = await WalletTransaction.exists({ orderId: order._id, boutiqueId, type: 'liberation' });
-        if (dejaLibere) continue; // fonds déjà disponibles : hors de portée
-
-        const creditEnAttente = await WalletTransaction.exists({
-            orderId: order._id, boutiqueId, type: 'vente', compte: 'en_attente',
+        // Vérifier si les fonds ont déjà été libérés
+        const dejaLibere = await WalletTransaction.exists({
+            orderId: order._id,
+            boutiqueId,
+            type: 'liberation',
         });
-        if (!creditEnAttente) continue;
+        if (dejaLibere) continue; // Ne pas annuler si déjà libéré
 
-        const dejaAnnule = await WalletTransaction.exists({ orderId: order._id, boutiqueId, type: 'annulation' });
+        // Récupérer le crédit en attente pour connaître le montant NET exact
+        const creditEnAttente = await WalletTransaction.findOne({
+            orderId: order._id,
+            boutiqueId,
+            type: 'vente',
+            compte: 'en_attente',
+        }).select('montant').lean();
+
+        if (!creditEnAttente) continue; // Pas de crédit en attente
+
+        // Vérifier si déjà annulé
+        const dejaAnnule = await WalletTransaction.exists({
+            orderId: order._id,
+            boutiqueId,
+            type: 'annulation',
+        });
         if (dejaAnnule) continue;
 
         const cible = await portefeuilleDeLaBoutique(boutiqueId);
@@ -283,8 +301,8 @@ export const annulerVenteEnAttente = async (order) => {
             await WalletTransaction.create({
                 walletId: cible.wallet._id,
                 type: 'annulation',
-                compte: 'en_attente',
-                montant: -data.montant,
+                compte: 'en_attente', // <-- ESSENTIEL : sur le compte en attente
+                montant: -creditEnAttente.montant, // <-- montant net exact
                 orderId: order._id,
                 boutiqueId,
                 description: 'Commande annulée — crédit repris',
@@ -448,6 +466,8 @@ export const traiterRetourColis = async (order, { boutiqueIds = null, etat = 'bo
 /**
  * Écriture manuelle sur le solde DISPONIBLE d'un commerçant.
  *
+ * [PHASE 0] Ajout de la traçabilité : acteur, idempotence et journalisation.
+ *
  * Utilisée pour la retenue créée par la résolution d'un litige (doc §15 :
  * « après libération, le litige peut créer une retenue ou une dette
  * commerçant sans modifier l'historique initial ») ou toute correction
@@ -463,16 +483,36 @@ export const traiterRetourColis = async (order, { boutiqueIds = null, etat = 'bo
  * @param {number} params.montant - signé : négatif = dette/retenue, positif = recrédit
  * @param {string} params.description
  * @param {string} [params.orderId]
+ * @param {object} [params.acteur] - { id, nom, role } (pour journaliser)
+ * @param {string} [params.idempotencyKey] - clé d'idempotence
+ * @param {string} [params.motif] - motif (≥10 caractères)
  * @returns {Promise<object|null>} la transaction créée, ou null si rien à faire
  */
-export const ajusterPortefeuille = async ({ boutiqueId, montant, description, orderId = null }) => {
+export const ajusterPortefeuille = async ({
+    boutiqueId,
+    montant,
+    description,
+    orderId = null,
+    acteur = null,
+    idempotencyKey = null,
+    motif = null,
+}) => {
     const montantEntier = Math.round(Number(montant) || 0);
     if (!boutiqueId || montantEntier === 0) return null;
 
     const cible = await portefeuilleDeLaBoutique(boutiqueId);
     if (!cible) return null;
 
-    const transaction = await WalletTransaction.create({
+    // Vérification d'idempotence si une clé est fournie
+    if (idempotencyKey) {
+        const existing = await WalletTransaction.findOne({
+            walletId: cible.wallet._id,
+            idempotencyKey,
+        });
+        if (existing) return existing; // rejeu
+    }
+
+    const transactionData = {
         walletId: cible.wallet._id,
         type: 'ajustement',
         compte: 'disponible',
@@ -480,9 +520,47 @@ export const ajusterPortefeuille = async ({ boutiqueId, montant, description, or
         orderId,
         boutiqueId,
         description: description || 'Ajustement manuel',
-    });
+        creePar: acteur?.id || null,
+        idempotencyKey: idempotencyKey || null,
+        motif: motif || description || null,
+    };
+
+    let transaction;
+    try {
+        transaction = await WalletTransaction.create(transactionData);
+    } catch (error) {
+        if (error.code === 11000 && idempotencyKey) {
+            // Réécriture concurrente : on renvoie l'existante
+            const existing = await WalletTransaction.findOne({
+                walletId: cible.wallet._id,
+                idempotencyKey,
+            });
+            return existing;
+        }
+        throw error;
+    }
 
     await cible.wallet.recalculerSoldes();
+
+    // Journalisation si un acteur est fourni
+    if (acteur) {
+        try {
+            const { journaliser } = await import('../services/journalService.js');
+            await journaliser({
+                acteur,
+                action: 'wallet.ajustement',
+                cible: {
+                    id: boutiqueId,
+                    libelle: `Boutique ${boutiqueId}`,
+                },
+                boutiqueId,
+                note: `Montant: ${montantEntier}, motif: ${motif || description}`,
+            });
+        } catch (journalError) {
+            console.error('[walletService] Échec journalisation:', journalError.message);
+        }
+    }
+
     return transaction;
 };
 

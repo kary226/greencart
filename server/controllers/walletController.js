@@ -1,5 +1,6 @@
 import Wallet from '../models/Wallet.js';
 import WalletTransaction from '../models/WalletTransaction.js';
+import { journaliser } from '../services/journalService.js';
 
 // GET /api/wallet/moi — Consulter son portefeuille
 export const getMyWallet = async (req, res) => {
@@ -79,7 +80,7 @@ export const getWalletByCommercial = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Portefeuille non trouvé' });
         }
 
-        await wallet.recalculerSolde();
+        await wallet.recalculerSoldes();
 
         return res.status(200).json({
             success: true,
@@ -92,12 +93,33 @@ export const getWalletByCommercial = async (req, res) => {
 };
 
 // POST /api/wallet/admin/ajustement — Admin : ajuster manuellement
+// [PHASE 0] Idempotence, motif obligatoire, creePar, journalisation
 export const adminAjustement = async (req, res) => {
     try {
-        const { commercialId, montant, description } = req.body;
+        // Lire la clé d'idempotence depuis l'en-tête
+        const idempotencyKey = req.headers['idempotency-key'];
+        if (!idempotencyKey) {
+            return res.status(400).json({
+                success: false,
+                message: 'En-tête Idempotency-Key requis pour cette opération'
+            });
+        }
+
+        const { commercialId, montant, description, motif } = req.body;
+
+        // Motif obligatoire (≥10 caractères)
+        if (!motif || motif.trim().length < 10) {
+            return res.status(400).json({
+                success: false,
+                message: 'Un motif d’au moins 10 caractères est requis pour justifier l’ajustement.'
+            });
+        }
 
         if (!commercialId || !montant || !description) {
-            return res.status(400).json({ success: false, message: 'Données manquantes' });
+            return res.status(400).json({
+                success: false,
+                message: 'Données manquantes (commercialId, montant, description)'
+            });
         }
 
         const wallet = await Wallet.findOne({ ownerId: commercialId });
@@ -105,14 +127,53 @@ export const adminAjustement = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Portefeuille non trouvé' });
         }
 
-        const transaction = await WalletTransaction.create({
-            walletId: wallet._id,
-            type: 'ajustement',
-            montant: montant,
-            description: `Ajustement admin : ${description}`,
-        });
+        // Vérification de l'idempotence : tenter de créer, l'index unique
+        // échouera si la même clé a déjà été utilisée pour ce wallet.
+        let transaction;
+        try {
+            transaction = await WalletTransaction.create({
+                walletId: wallet._id,
+                type: 'ajustement',
+                montant: montant,
+                description: `Ajustement admin : ${description}`,
+                motif: motif.trim(),
+                creePar: req.staffUser._id,
+                idempotencyKey: idempotencyKey,
+            });
+        } catch (error) {
+            if (error.code === 11000) {
+                // La même clé a déjà été utilisée : on renvoie la transaction existante
+                const existing = await WalletTransaction.findOne({
+                    walletId: wallet._id,
+                    idempotencyKey: idempotencyKey,
+                });
+                return res.status(200).json({
+                    success: true,
+                    message: 'Ajustement déjà effectué (requête dupliquée)',
+                    wallet: await wallet.recalculerSoldes(),
+                    transaction: existing,
+                    rejeu: true,
+                });
+            }
+            throw error;
+        }
 
-        await wallet.recalculerSolde();
+        await wallet.recalculerSoldes();
+
+        // Journalisation de l'action
+        await journaliser({
+            acteur: {
+                id: req.staffUser._id,
+                nom: req.staffUser.nom,
+                role: req.staffUser.role,
+            },
+            action: 'wallet.ajustement',
+            cible: {
+                id: commercialId,
+                libelle: `Commerçant ${commercialId}`,
+            },
+            note: `Montant: ${montant}, motif: ${motif.trim()}`,
+        });
 
         return res.status(200).json({
             success: true,

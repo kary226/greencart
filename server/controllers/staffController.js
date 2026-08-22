@@ -16,6 +16,7 @@ import {
 } from '../services/boutiqueService.js';
 import { sendStaffInvitationEmail } from '../configs/email.js';
 import { TYPE_STAFF } from '../utils/jwtTypes.js';
+import { journaliser } from '../services/journalService.js';
 
 const ROLES_VALIDES = ['admin', 'commercant', 'livreur', 'assistant_shein'];
 const INVITATION_VALIDITE_MS = 48 * 60 * 60 * 1000; // 48 heures
@@ -63,6 +64,7 @@ const toPublicStaff = (staffUser) => ({
 
 // ------------------------------------------------------------------ //
 // POST /api/staff/invitations — Admin uniquement
+// [PHASE 0] Journalisation ajoutée
 // ------------------------------------------------------------------ //
 export const createInvitation = async (req, res) => {
     try {
@@ -106,6 +108,21 @@ export const createInvitation = async (req, res) => {
         });
 
         await sendStaffInvitationEmail(emailNormalise, token, role);
+
+        // [PHASE 0] Journalisation
+        await journaliser({
+            acteur: {
+                id: req.staffUser._id,
+                nom: req.staffUser.nom,
+                role: req.staffUser.role,
+            },
+            action: 'staff.invitation',
+            cible: {
+                id: invitation._id,
+                libelle: emailNormalise,
+            },
+            note: `Rôle invité: ${role}`,
+        });
 
         return res.status(201).json({
             success: true,
@@ -345,6 +362,7 @@ export const listStaffAccounts = async (req, res) => {
 
 // ------------------------------------------------------------------ //
 // PATCH /api/staff/comptes/:id/statut — Admin uniquement
+// [PHASE 0] Journalisation ajoutée
 // ------------------------------------------------------------------ //
 export const updateStaffStatus = async (req, res) => {
     try {
@@ -374,6 +392,21 @@ export const updateStaffStatus = async (req, res) => {
             await invaliderCacheBoutiquesSuspendues();
         }
 
+        // [PHASE 0] Journalisation
+        await journaliser({
+            acteur: {
+                id: req.staffUser._id,
+                nom: req.staffUser.nom,
+                role: req.staffUser.role,
+            },
+            action: 'staff.statut',
+            cible: {
+                id: staffUser._id,
+                libelle: staffUser.email,
+            },
+            note: `Nouveau statut: ${statut}`,
+        });
+
         return res.status(200).json({
             success: true,
             message: 'Statut mis à jour',
@@ -387,6 +420,7 @@ export const updateStaffStatus = async (req, res) => {
 
 // ------------------------------------------------------------------ //
 // PATCH /api/staff/comptes/:id/role — Admin uniquement
+// [PHASE 0] Journalisation ajoutée
 // ------------------------------------------------------------------ //
 export const updateStaffRole = async (req, res) => {
     try {
@@ -420,6 +454,21 @@ export const updateStaffRole = async (req, res) => {
         // actif : un changement de rôle peut faire entrer ou sortir une
         // boutique de cette liste.
         await invaliderCacheBoutiquesSuspendues();
+
+        // [PHASE 0] Journalisation
+        await journaliser({
+            acteur: {
+                id: req.staffUser._id,
+                nom: req.staffUser.nom,
+                role: req.staffUser.role,
+            },
+            action: 'staff.role',
+            cible: {
+                id: staffUser._id,
+                libelle: staffUser.email,
+            },
+            note: `Nouveau rôle: ${role}`,
+        });
 
         return res.status(200).json({
             success: true,
@@ -495,6 +544,7 @@ const construireApercuSuppression = async (staffUser) => {
 
 // ------------------------------------------------------------------ //
 // DELETE /api/staff/comptes/:id — Admin uniquement
+// [PHASE 0] Journalisation ajoutée
 // ------------------------------------------------------------------ //
 export const deleteStaffAccount = async (req, res) => {
     try {
@@ -534,6 +584,21 @@ export const deleteStaffAccount = async (req, res) => {
                 bloquants,
             });
         }
+
+        // [PHASE 0] Journalisation avant la suppression
+        await journaliser({
+            acteur: {
+                id: req.staffUser._id,
+                nom: req.staffUser.nom,
+                role: req.staffUser.role,
+            },
+            action: 'staff.suppression',
+            cible: {
+                id: staffUser._id,
+                libelle: staffUser.email,
+            },
+            note: `Compte supprimé (rôle: ${staffUser.role})`,
+        });
 
         if (boutique) {
             // Les articles ne sont PAS effacés : ils sont référencés par des

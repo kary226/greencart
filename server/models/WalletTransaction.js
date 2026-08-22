@@ -70,6 +70,26 @@ const walletTransactionSchema = new mongoose.Schema({
         required: true,
         trim: true,
     },
+    // [PHASE 0] Motif obligatoire pour les ajustements (min 10 caractères)
+    // La validation est faite au niveau contrôleur, mais on stocke ici.
+    motif: {
+        type: String,
+        trim: true,
+        default: null,
+    },
+    // [PHASE 0] Auteur de l'écriture (staffuser)
+    creePar: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'staffuser',
+        default: null,
+        index: true,
+    },
+    // [PHASE 0] Clé d'idempotence pour les écritures manuelles
+    idempotencyKey: {
+        type: String,
+        trim: true,
+        default: null,
+    },
     demandeRetraitId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'demanderetrait',
@@ -87,6 +107,18 @@ walletTransactionSchema.index({ demandeRetraitId: 1 });
 // Sert au garde-fou anti-double-crédit : « cette commande a-t-elle déjà été
 // créditée pour cette boutique ? »
 walletTransactionSchema.index({ orderId: 1, boutiqueId: 1, type: 1 });
+
+// [PHASE 0] Index d'idempotence pour les ajustements manuels
+walletTransactionSchema.index(
+    { walletId: 1, idempotencyKey: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            idempotencyKey: { $type: 'string' },
+        },
+        name: 'uniq_walletId_idempotencyKey',
+    }
+);
 
 // [DURCISSEMENT IDEMPOTENCE — doc §19] Les gardes « exists() puis create() »
 // de services/walletService.js empêchent un doublon en usage normal, mais ne

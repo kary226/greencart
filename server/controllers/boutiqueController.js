@@ -10,6 +10,7 @@ import {
     assurerBoutiqueCommercant,
     invaliderCacheBoutiquesSuspendues,
 } from '../services/boutiqueService.js';
+import { journaliser } from '../services/journalService.js';
 
 // GET /api/boutiques/moi — Récupérer sa propre boutique
 //
@@ -282,6 +283,7 @@ export const listBoutiqueOptions = async (req, res) => {
 // Pour l'instant une seule autorisation : le droit de créer des articles.
 // Le champ est nommé au pluriel et l'endpoint conçu pour en accueillir
 // d'autres, plutôt que d'ajouter une route par droit.
+// [PHASE 0] Journalisation ajoutée
 export const updateAutorisationsBoutique = async (req, res) => {
     try {
         const { peutCreerProduits } = req.body;
@@ -295,6 +297,21 @@ export const updateAutorisationsBoutique = async (req, res) => {
             boutique.peutCreerProduits = peutCreerProduits;
         }
         await boutique.save();
+
+        // [PHASE 0] Journalisation
+        await journaliser({
+            acteur: {
+                id: req.staffUser._id,
+                nom: req.staffUser.nom,
+                role: req.staffUser.role,
+            },
+            action: 'boutique.autorisations',
+            cible: {
+                id: boutique._id,
+                libelle: boutique.nom,
+            },
+            note: `peutCreerProduits: ${boutique.peutCreerProduits}`,
+        });
 
         return res.status(200).json({
             success: true,
@@ -316,6 +333,7 @@ export const updateAutorisationsBoutique = async (req, res) => {
 // reste utilisable (il voit ses ventes passées, son portefeuille, et peut
 // corriger sa fiche boutique) — pour couper l'accès complet, c'est le
 // statut du COMPTE qu'il faut suspendre depuis la gestion des comptes.
+// [PHASE 0] Journalisation ajoutée
 export const updateBoutiqueStatut = async (req, res) => {
     try {
         const { id } = req.params;
@@ -338,6 +356,21 @@ export const updateBoutiqueStatut = async (req, res) => {
         // sans invalidation, la suspension mettrait jusqu'à une minute à
         // se voir côté client.
         await invaliderCacheBoutiquesSuspendues();
+
+        // [PHASE 0] Journalisation
+        await journaliser({
+            acteur: {
+                id: req.staffUser._id,
+                nom: req.staffUser.nom,
+                role: req.staffUser.role,
+            },
+            action: 'boutique.statut',
+            cible: {
+                id: boutique._id,
+                libelle: boutique.nom,
+            },
+            note: `Nouveau statut: ${statut}${motif ? ' - motif: ' + motif : ''}`,
+        });
 
         return res.status(200).json({
             success: true,

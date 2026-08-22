@@ -2,6 +2,7 @@ import DemandeRetrait, { OPERATEURS_RETRAIT } from '../models/DemandeRetrait.js'
 import Wallet from '../models/Wallet.js';
 import WalletTransaction from '../models/WalletTransaction.js';
 import StaffUser from '../models/StaffUser.js';
+import { journaliser } from '../services/journalService.js';
 
 // Retraits des commerçants.
 //
@@ -184,6 +185,7 @@ export const listAllRetraits = async (req, res) => {
 // PATCH /api/retraits/:id — Admin : faire avancer une demande
 //
 // en_attente -> en_cours -> payee, ou -> rejetee (recrédite les fonds).
+// [PHASE 0] Journalisation ajoutée pour approbation et rejet.
 export const traiterRetrait = async (req, res) => {
     try {
         const { id } = req.params;
@@ -243,6 +245,27 @@ export const traiterRetrait = async (req, res) => {
         if (reference !== undefined) demande.reference = String(reference).trim();
         if (preuvePaiement) demande.preuvePaiement = preuvePaiement;
         await demande.save();
+
+        // [PHASE 0] Journalisation
+        let actionJournal = null;
+        if (statut === 'payee') actionJournal = 'retrait.approbation';
+        else if (statut === 'rejetee') actionJournal = 'retrait.rejet';
+
+        if (actionJournal) {
+            await journaliser({
+                acteur: {
+                    id: req.staffUser._id,
+                    nom: req.staffUser.nom,
+                    role: req.staffUser.role,
+                },
+                action: actionJournal,
+                cible: {
+                    id: demande._id,
+                    libelle: `Demande retrait ${demande._id}`,
+                },
+                note: `Montant: ${demande.montant}, opérateur: ${demande.operateur}, référence: ${reference || ''}`,
+            });
+        }
 
         const messages = {
             en_cours: 'Virement marqué en cours',
