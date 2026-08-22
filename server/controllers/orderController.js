@@ -1356,7 +1356,7 @@ export const declarerLitige = async (req, res) => {
 // resolution:
 //   'classe'                — sans suite, aucun mouvement d'argent
 //   'dette_commercant'      — retenue sur le portefeuille (boutiqueId + montant requis)
-//   'remboursement_client'  — crédit GreenCart exceptionnel (montant requis)
+//   'remboursement_client'  — RCOINS exceptionnels (montant requis)
 export const resoudreLitige = async (req, res) => {
     try {
         const { orderId, resolution, boutiqueId, montant, note } = req.body;
@@ -1396,8 +1396,9 @@ export const resoudreLitige = async (req, res) => {
             }
             // Remboursement exceptionnel hors circuit article par article
             // (doc §6 : « l'Admin peut aussi traiter un remboursement
-            // externe exceptionnel si le client le demande »). itemId
-            // généré : ce crédit n'est rattaché à aucune ligne précise.
+            // externe exceptionnel si le client le demande »), crédité en
+            // RCOINS. itemId généré : ce crédit n'est rattaché à aucune
+            // ligne précise.
             await CustomerCreditTransaction.create({
                 userId: order.userId,
                 orderId: order._id,

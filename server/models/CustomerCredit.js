@@ -6,7 +6,7 @@ export const crediterClient = async ({ userId, orderId, itemId, amount, descript
     try {
         await CustomerCreditTransaction.create({
             userId, orderId, itemId, type: 'credit',
-            amount: Number(amount), description: description || 'Crédit GreenCart'
+            amount: Number(amount), description: description || 'RCOINS'
         });
     } catch (e) {
         if (e?.code === 11000) return false;
