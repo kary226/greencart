@@ -219,6 +219,7 @@ adminRouter.get(
             const Wallet = await import('../models/Wallet.js').then(m => m.default);
             const DemandeRetrait = await import('../models/DemandeRetrait.js').then(m => m.default);
             const ApprovalRequest = await import('../models/ApprovalRequest.js').then(m => m.default);
+            const CustomerCreditTransaction = await import('../models/CustomerCreditTransaction.js').then(m => m.default);
 
             const today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -231,6 +232,12 @@ adminRouter.get(
             const ordersReturned = orders.filter(o => o.status === 'Returned');
             const ordersCancelled = orders.filter(o => o.status === 'Cancelled');
             const ordersDisputed = orders.filter(o => o.status === 'Disputed');
+
+            // Livraisons — dérivées du statut de la commande : "en attente"
+            // (prête à partir mais pas encore prise en charge par un livreur)
+            // vs "en cours" (effectivement en route chez le client).
+            const deliveriesPending = orders.filter(o => ['Ready for Shipment', 'Shipped'].includes(o.status));
+            const deliveriesInProgress = orders.filter(o => o.status === 'Out for Delivery');
 
             // Produits
             const products = await Product.find({ isArchived: { $ne: true } });
@@ -252,6 +259,19 @@ adminRouter.get(
             const totalBalance = wallets.reduce((sum, w) => sum + (w.solde || 0), 0);
             const pendingBalance = wallets.reduce((sum, w) => sum + (w.soldeEnAttente || 0), 0);
             const pendingWithdrawals = await DemandeRetrait.countDocuments({ statut: 'en_attente' });
+            const revenue = ordersDelivered.reduce((sum, o) => sum + (o.amount || 0), 0);
+            const totalWithdrawalsAgg = await DemandeRetrait.aggregate([
+                { $match: { statut: 'payee' } },
+                { $group: { _id: null, total: { $sum: '$montant' } } },
+            ]);
+            const totalWithdrawals = totalWithdrawalsAgg[0]?.total || 0;
+
+            // RCOINS (solde crédité aux clients + volume de transactions)
+            const rcoinsBalanceAgg = await User.aggregate([
+                { $group: { _id: null, total: { $sum: { $ifNull: ['$creditBalance', 0] } } } },
+            ]);
+            const rcoinsTotalBalance = rcoinsBalanceAgg[0]?.total || 0;
+            const rcoinsTransactions = await CustomerCreditTransaction.countDocuments();
 
             // Approbations
             const pendingApprovals = await ApprovalRequest.countDocuments({ statut: 'en_attente' });
@@ -277,10 +297,20 @@ adminRouter.get(
                         total: totalUsers,
                         newToday: newUsersToday,
                     },
+                    deliveries: {
+                        pending: deliveriesPending.length,
+                        inProgress: deliveriesInProgress.length,
+                    },
                     finance: {
                         totalBalance,
                         pendingBalance,
                         pendingWithdrawals,
+                        revenue,
+                        totalWithdrawals,
+                    },
+                    rcoins: {
+                        totalBalance: rcoinsTotalBalance,
+                        transactions: rcoinsTransactions,
                     },
                     approvals: {
                         pending: pendingApprovals,

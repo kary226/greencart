@@ -23,33 +23,22 @@ const Dashboard = () => {
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const [
-                    ordersRes,
-                    productsRes,
-                    usersRes,
-                    deliveriesRes,
-                    financeRes,
-                    rcoinsRes,
-                    approvalsRes,
-                ] = await Promise.all([
-                    axios.get('/api/order/admin/stats'),
-                    axios.get('/api/product/admin/stats'),
-                    axios.get('/api/user/admin/stats'),
-                    axios.get('/api/delivery/admin/stats'),
-                    axios.get('/api/wallet/admin/stats'),
-                    axios.get('/api/order/admin/rcoins-stats'),
+                const [dashboardRes, approvalsRes] = await Promise.all([
+                    axios.get('/api/admin/dashboard/stats'),
                     axios.get('/api/admin/approvals?statut=en_attente'),
                 ]);
 
+                const s = dashboardRes.data.stats || {};
+
                 setStats({
-                    orders: ordersRes.data.stats || { total: 0, today: 0, pending: 0, delivered: 0 },
-                    products: productsRes.data.stats || { total: 0, outOfStock: 0, lowStock: 0 },
-                    users: usersRes.data.stats || { total: 0, newToday: 0 },
-                    deliveries: deliveriesRes.data.stats || { pending: 0, inProgress: 0 },
-                    finance: financeRes.data.stats || { revenue: 0, pendingWithdrawals: 0, totalWithdrawals: 0 },
-                    rcoins: rcoinsRes.data.stats || { totalBalance: 0, transactions: 0 },
+                    orders: s.orders || { total: 0, today: 0, pending: 0, delivered: 0 },
+                    products: s.products || { total: 0, outOfStock: 0, lowStock: 0 },
+                    users: s.users || { total: 0, newToday: 0 },
+                    deliveries: s.deliveries || { pending: 0, inProgress: 0 },
+                    finance: s.finance || { revenue: 0, pendingWithdrawals: 0, totalWithdrawals: 0 },
+                    rcoins: s.rcoins || { totalBalance: 0, transactions: 0 },
                     approvals: { pending: approvalsRes.data.approvals?.length || 0 },
-                    alerts: buildAlerts(ordersRes.data, productsRes.data, approvalsRes.data),
+                    alerts: buildAlerts(s, approvalsRes.data),
                 });
             } catch (error) {
                 console.error('Erreur chargement stats:', error);
@@ -61,24 +50,24 @@ const Dashboard = () => {
         fetchStats();
     }, []);
 
-    const buildAlerts = (ordersData, productsData, approvalsData) => {
+    const buildAlerts = (dashboardStats, approvalsData) => {
         const alerts = [];
 
         // Commandes en attente
-        if (ordersData.stats?.pending > 0) {
+        if (dashboardStats.orders?.pending > 0) {
             alerts.push({
                 type: 'warn',
-                message: `${ordersData.stats.pending} commande(s) en attente de traitement`,
+                message: `${dashboardStats.orders.pending} commande(s) en attente de traitement`,
                 link: '/admin/orders',
                 icon: Clock,
             });
         }
 
         // Stock épuisé
-        if (productsData.stats?.outOfStock > 0) {
+        if (dashboardStats.products?.outOfStock > 0) {
             alerts.push({
                 type: 'error',
-                message: `${productsData.stats.outOfStock} produit(s) en rupture de stock`,
+                message: `${dashboardStats.products.outOfStock} produit(s) en rupture de stock`,
                 link: '/admin/products?filter=outOfStock',
                 icon: XCircle,
             });
