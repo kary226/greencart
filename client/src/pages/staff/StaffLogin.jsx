@@ -30,13 +30,23 @@ const StaffLogin = () => {
                 toast.success("Connexion réussie");
                 
                 // ✅ Redirection selon le rôle
-                if (data.staffUser?.role === 'admin') {
+                const role = data.staffUser?.role;
+                const ROLES_ADMIN_UNIFIE = [
+                    'super_admin', 'finance_admin', 'warehouse_admin',
+                    'logistics_admin', 'catalog_admin', 'support_admin',
+                    'read_only_auditor',
+                ];
+
+                if (ROLES_ADMIN_UNIFIE.includes(role)) {
+                    navigate('/admin/dashboard');
+                } else if (role === 'admin') {
+                    // Ancien rôle plat, pré-RBAC, conservé pour compatibilité
                     navigate('/staff/admin/comptes');
-                } else if (data.staffUser?.role === 'commercant') {
+                } else if (role === 'commercant') {
                     navigate('/commercant/dashboard');
-                } else if (data.staffUser?.role === 'livreur') {
+                } else if (role === 'livreur') {
                     navigate('/livreur/mes-livraisons');
-                } else if (data.staffUser?.role === 'assistant_shein') {
+                } else if (role === 'assistant_shein') {
                     // Phase 5 à venir
                     navigate('/assistant/conversations');
                 } else {
