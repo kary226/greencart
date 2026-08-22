@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import toast from 'react-hot-toast';
-import { User, Mail, Phone, MapPin, Home, Building2, LogOut, Edit2, Save, X } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Home, Building2, LogOut, Edit2, Save, X, Coins } from 'lucide-react';
 // Selecteur partage et accessible — remplace la copie locale inaccessible.
 import SelectSearch from '../components/SelectSearch';
 
@@ -14,6 +14,7 @@ const Account = () => {
     const [communes, setCommunes] = useState([]);
     const [loadingCities, setLoadingCities] = useState(true);
     const [loadingCommunes, setLoadingCommunes] = useState(false);
+    const [creditBalance, setCreditBalance] = useState(null);
     const [formData, setFormData] = useState({
         firstName: '',
         lastName: '',
@@ -54,6 +55,13 @@ const Account = () => {
     useEffect(() => {
         fetchCities();
     }, []);
+
+    useEffect(() => {
+        if (!user) return;
+        axios.get('/api/order/user/credit')
+            .then(({ data }) => { if (data.success) setCreditBalance(data.creditBalance) })
+            .catch(() => {})
+    }, [user]);
 
     useEffect(() => {
         if (formData.cityId) {
@@ -176,6 +184,24 @@ const Account = () => {
                         )}
                     </div>
                 </div>
+
+                {/* ── Solde RCoins ───────────────────────────────────────── */}
+                {creditBalance !== null && creditBalance > 0 && (
+                    <div className="rs-card mb-3 flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-full bg-ramses-50 flex items-center justify-center shrink-0">
+                            <Coins size={20} className="text-ramses-600" />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-[12px] text-ink-400">Mes RCoins</p>
+                            <p className="text-[16px] font-bold text-ink-900 tabular-nums">
+                                {creditBalance.toLocaleString()} FCFA
+                            </p>
+                        </div>
+                        <p className="text-[11px] text-ink-300 ml-auto text-right max-w-[110px]">
+                            Utilisables au paiement de votre prochaine commande
+                        </p>
+                    </div>
+                )}
 
                 {!isEditing ? (
                     <>

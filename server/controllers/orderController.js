@@ -36,7 +36,7 @@ import { acteurDepuisStaff, acteurVendeurTechnique } from "../middlewares/authAc
 // de crediterClient plantait avec une TypeError dès qu'une commande payée avait un
 // article indisponible. models/CustomerCredit.js contient la version qui fonctionne
 // réellement (met à jour User.creditBalance, cohérente avec GET /order/user/credit).
-import { crediterClient } from '../models/CustomerCredit.js';
+import { crediterClient, rembourserCreditAnnulation } from '../models/CustomerCredit.js';
 import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
 import { sendPushToUser } from './pushController.js';
 import { syncManyProductsToAirtable } from '../services/airtableSync.js';
@@ -319,6 +319,51 @@ export const placeOrderCOD = async (req, res) => {
         return res.status(201).json({ success: true, message: "Order Placed Successfully" });
     } catch (error) {
         console.error('Erreur placeOrderCOD:', error.message);
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// =============================================================
+// ANNULER UNE COMMANDE NON PAYÉE (client) — utilisée notamment quand le
+// client abandonne la page de paiement Jèko ou revient sur une erreur
+// (voir Cart.jsx, useEffect de vérification des commandes abandonnées).
+// Ne touche jamais une commande déjà payée : le filtre isPaid: {$ne:true}
+// dans le findOneAndUpdate est la seule protection nécessaire, appliquée
+// atomiquement pour éviter une course avec une confirmation de paiement en
+// cours (webhook Jèko). Si des RCOINS avaient été débités pour cette
+// commande, ils sont remboursés.
+// =============================================================
+export const cancelOrder = async (req, res) => {
+    try {
+        const { orderId, userId } = req.body;
+        if (!orderId) {
+            return res.status(400).json({ success: false, message: "orderId requis" });
+        }
+
+        const order = await Order.findOneAndUpdate(
+            { _id: orderId, userId, isPaid: { $ne: true }, status: 'pending_payment' },
+            { $set: { status: 'Cancelled' } },
+            { new: true }
+        );
+
+        // Idempotent par design : si la commande est introuvable, déjà payée,
+        // déjà annulée, ou déjà passée à un autre statut, il n'y a
+        // simplement rien à faire — pas une erreur pour l'appelant.
+        if (!order) {
+            return res.json({ success: true, message: "Rien à annuler" });
+        }
+
+        if (order.creditUsed > 0) {
+            await rembourserCreditAnnulation({
+                orderId: order._id,
+                userId: order.userId,
+                description: `Remboursement RCOINS — commande ${order._id} annulée par le client`
+            });
+        }
+
+        return res.json({ success: true, message: "Commande annulée" });
+    } catch (error) {
+        console.error('Erreur cancelOrder:', error.message);
         return res.status(500).json({ success: false, message: error.message });
     }
 };

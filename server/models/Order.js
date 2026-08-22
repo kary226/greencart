@@ -43,6 +43,18 @@ const orderSchema = new mongoose.Schema({
     amount: { type: Number, required: true },
     deliveryPrice: { type: Number, default: 0 },
     discountAmount: { type: Number, default: 0 },
+    // Montant en RCOINS (crédit interne client) déduit du total de cette
+    // commande. Débité de User.creditBalance à la création de la commande —
+    // voir server/models/CustomerCredit.js (debiterClient).
+    creditUsed: { type: Number, default: 0 },
+    // Horodatage du remboursement de `creditUsed`, posé une seule fois si la
+    // commande n'aboutit jamais (annulation client ou échec de paiement).
+    // Sert de verrou atomique : deux chemins peuvent tenter le remboursement
+    // pour la même commande (POST /order/cancel côté client ET le webhook
+    // Jèko en cas de statut d'échec) — seul le premier à passer ce filtre
+    // (creditRefundedAt: null) déclenche réellement le crédit. Voir
+    // rembourserCreditAnnulation() dans models/CustomerCredit.js.
+    creditRefundedAt: { type: Date, default: null },
     couponApplied: { type: String, default: null },
     address: { type: String, required: true, ref: 'address' },
     status: { 

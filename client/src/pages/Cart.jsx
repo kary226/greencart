@@ -4,7 +4,7 @@ import toast from "react-hot-toast";
 import CouponInput from "../components/CouponInput";
 import {
     ShoppingBag, Trash2, ArrowRight, MapPin, Truck, CreditCard, Plus,
-    Minus, MoreVertical, Heart, Tag, X, Check, Home, Zap, PackageCheck, Edit2, Loader2
+    Minus, MoreVertical, Heart, Tag, X, Check, Home, Zap, PackageCheck, Edit2, Loader2, Coins
 } from "lucide-react";
 import { getPresetImageUrl } from "../utils/cloudinaryImage";
 
@@ -24,6 +24,19 @@ const Cart = () => {
     const [placingOrder, setPlacingOrder] = useState(false)
     const [appliedCoupon, setAppliedCoupon] = useState(null)
     const [discountedAmount, setDiscountedAmount] = useState(null)
+
+    // RCoins — crédit interne du client (remboursements d'articles
+    // indisponibles). Applicable uniquement en paiement à la livraison :
+    // Stripe/Jèko encaissent en ligne avant que la commande n'existe côté
+    // serveur, donc rien à débiter côté panier pour ces flux pour l'instant.
+    const [creditBalance, setCreditBalance] = useState(0)
+    const [useCredit, setUseCredit] = useState(false)
+    useEffect(() => {
+        if (!user) return
+        axios.get('/api/order/user/credit')
+            .then(({ data }) => { if (data.success) setCreditBalance(data.creditBalance || 0) })
+            .catch(() => {})
+    }, [user])
 
     // Interrupteur de sécurité — pas pour choisir entre GeniusPay et Jèko
     // (GeniusPay est retiré), juste pour pouvoir couper les paiements en
@@ -214,6 +227,9 @@ const Cart = () => {
 
     const originalAmount = selectedArray.reduce((sum, p) => sum + p.offerPrice * p.quantity, 0);
     const finalAmount = (discountedAmount !== null ? discountedAmount : originalAmount) + deliveryPrice;
+    const creditApplicable = paymentOption === "Jeko"
+    const creditApplied = (useCredit && creditApplicable) ? Math.min(creditBalance, finalAmount) : 0
+    const totalAvecCredit = finalAmount - creditApplied
 
     useEffect(() => {
         const pendingOrderId = sessionStorage.getItem('pendingOrderId');
@@ -385,6 +401,7 @@ const Cart = () => {
                         couponApplied: appliedCoupon ? appliedCoupon.code : null,
                         discountAmount: appliedCoupon ? (originalAmount - discountedAmount) : 0,
                         jekoPaymentMethod: jekoPaymentMethod,
+                        useCredit: creditApplied
                     });
 
                     if (data.success && data.checkout_url) {
@@ -790,6 +807,33 @@ const Cart = () => {
                             </div>
                             <CouponInput amount={originalAmount} items={selectedArray.map(p => ({ product: p._id, quantity: p.quantity }))} onCouponApplied={handleCouponApplied} />
 
+                            {/* RCoins */}
+                            {creditBalance > 0 && (
+                                <label
+                                    className={`mt-3 flex items-center gap-3 rounded-xl border px-3 py-2.5 cursor-pointer transition-colors ${
+                                        useCredit && creditApplicable ? 'border-ramses-600 bg-ramses-50' : 'border-ink-100'
+                                    } ${!creditApplicable ? 'opacity-60' : ''}`}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={useCredit}
+                                        onChange={(e) => setUseCredit(e.target.checked)}
+                                        className="w-4 h-4 accent-ramses-600 shrink-0"
+                                    />
+                                    <Coins size={17} className="text-ramses-600 shrink-0" />
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-[13px] font-semibold text-ink-900">
+                                            Utiliser mes RCoins ({creditBalance.toLocaleString()} {currency})
+                                        </p>
+                                        {!creditApplicable && (
+                                            <p className="text-[11px] text-ink-400">
+                                                Disponible uniquement en paiement en ligne (Jèko)
+                                            </p>
+                                        )}
+                                    </div>
+                                </label>
+                            )}
+
                             {/* Totaux */}
                             <div className="mt-4 pt-3 border-t border-ink-100 grid gap-1.5">
                                 <div className="flex justify-between text-[13px] text-ink-500">
@@ -808,9 +852,15 @@ const Cart = () => {
                                         {loadingDelivery ? 'Calcul…' : deliveryPrice === 0 ? 'Gratuite' : `${deliveryPrice.toLocaleString()} ${currency}`}
                                     </span>
                                 </div>
+                                {creditApplied > 0 && (
+                                    <div className="flex justify-between text-[13px] text-ok-500 font-semibold">
+                                        <span>RCoins appliqués</span>
+                                        <span className="tabular-nums">− {creditApplied.toLocaleString()} {currency}</span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between items-baseline pt-2.5 mt-1 border-t border-ink-100">
                                     <span className="text-[14px] font-bold text-ink-900">Total</span>
-                                    <span className="rs-money text-[20px]">{finalAmount.toLocaleString()} {currency}</span>
+                                    <span className="rs-money text-[20px]">{totalAvecCredit.toLocaleString()} {currency}</span>
                                 </div>
                             </div>
 
@@ -837,7 +887,7 @@ const Cart = () => {
             >
                 <div className="min-w-0">
                     <p className="text-[11.5px] text-ink-400">Total ({selectedArray.length})</p>
-                    <p className="rs-money text-[17px]">{finalAmount.toLocaleString()} {currency}</p>
+                    <p className="rs-money text-[17px]">{totalAvecCredit.toLocaleString()} {currency}</p>
                 </div>
                 <button
                     onClick={placeOrder}

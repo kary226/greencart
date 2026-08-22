@@ -6,6 +6,7 @@ import {
     getAllOrders, 
     getUserOrders, 
     placeOrderCOD, 
+    cancelOrder,
     updateOrderStatus, 
     getUserOrdersByAdmin,
     assignerLivreur,
@@ -39,6 +40,7 @@ const orderRouter = express.Router();
 
 // Routes client
 orderRouter.post('/cod', authUser, orderCreationLimiter, placeOrderCOD);
+orderRouter.post('/cancel', authUser, cancelOrder);
 orderRouter.get('/user', authUser, getUserOrders);
 orderRouter.get('/user/credit', authUser, async (req, res) => {
     try {

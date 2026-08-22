@@ -11,6 +11,7 @@ import Commune from '../models/Commune.js';
 import ColisShein from '../models/ColisShein.js';
 import MessageColis from '../models/MessageColis.js';
 import { posterMessageStatutAuto } from './colisSheinAdminController.js';
+import { crediterClient, debiterClient, rembourserCreditAnnulation } from '../models/CustomerCredit.js';
 import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
 
 // Même fenêtre que côté GeniusPay historiquement — 5 minutes.
@@ -197,8 +198,15 @@ export const initiateJeko = async (req, res) => {
     const __t0 = Date.now();
     const __lap = (label) => console.log(`⏱️ [Jeko init] ${label}: ${Date.now() - __t0}ms`);
 
+    // Déclarés ici (et non avec `const` dans le try) pour rester accessibles
+    // dans le catch : si l'appel à l'API Jèko lève une exception après que
+    // la commande a été créée et les RCOINS débités, on doit pouvoir
+    // rembourser ce crédit plutôt que le perdre silencieusement.
+    let order = null;
+    let creditUtilise = 0;
+
     try {
-        let { userId, items, address, deliveryType, couponApplied, jekoPaymentMethod } = req.body;
+        let { userId, items, address, deliveryType, couponApplied, jekoPaymentMethod, useCredit } = req.body;
 
         if (!OPERATEURS_VALIDES.includes(jekoPaymentMethod)) {
             return res.json({ success: false, message: "Opérateur de paiement invalide" });
@@ -419,7 +427,7 @@ export const initiateJeko = async (req, res) => {
         }
 
         // Créer la commande en base
-        const order = await Order.create({
+        order = await Order.create({
             userId,
             items: formattedItems,
             amount: finalAmount,
@@ -437,6 +445,30 @@ export const initiateJeko = async (req, res) => {
 
         __lap("commande créée en base (Order.create)");
 
+        // RCOINS — le client peut demander à utiliser tout ou partie de son
+        // solde pour réduire le montant réellement facturé en ligne via Jèko.
+        // Débité maintenant (plafonné au solde réel en base par
+        // debiterClient) pour que amountFactureJeko reflète le vrai montant
+        // à encaisser. Si l'appel Jèko échoue juste après (pas d'URL de
+        // paiement), on rembourse ce crédit — voir plus bas.
+        creditUtilise = 0;
+        const creditDemande = Math.max(0, Math.min(Math.floor(Number(useCredit) || 0), finalAmount - 200));
+        if (creditDemande > 0) {
+            creditUtilise = await debiterClient({
+                userId,
+                orderId: order._id,
+                itemId: new mongoose.Types.ObjectId(),
+                amount: creditDemande,
+                description: `Utilisation RCOINS — commande ${order._id}`
+            });
+            if (creditUtilise > 0) {
+                order.amount = finalAmount - creditUtilise;
+                order.creditUsed = creditUtilise;
+                await order.save();
+            }
+        }
+        const amountFactureJeko = finalAmount - creditUtilise;
+
         // Formater le téléphone au format international. [À CONFIRMER] Format
         // [VÉRIFIÉ] Le téléphone n'est pas requis par le schéma
         // "paymentDetails.data" de POST /partner_api/payment_requests —
@@ -446,7 +478,7 @@ export const initiateJeko = async (req, res) => {
         // l'ID Mongo complet plutôt qu'un extrait, pour ne jamais avoir
         // d'ambiguïté entre deux commandes lors de la recherche par référence.
         const jekoPayload = {
-            amountCents: Math.round(finalAmount * 100),
+            amountCents: Math.round(amountFactureJeko * 100),
             currency: "XOF",
             reference: order._id.toString(),
             storeId: process.env.JEKO_STORE_ID,
@@ -477,6 +509,17 @@ export const initiateJeko = async (req, res) => {
 
         if (!checkoutUrl) {
             await Order.findByIdAndDelete(order._id);
+            if (creditUtilise > 0) {
+                // La commande n'ira jamais au paiement — on rend les RCOINS
+                // débités plus haut, sinon ils seraient perdus pour le client.
+                await crediterClient({
+                    userId,
+                    orderId: order._id,
+                    itemId: new mongoose.Types.ObjectId(),
+                    amount: creditUtilise,
+                    description: `Remboursement RCOINS — échec initiation paiement (commande ${order._id})`
+                });
+            }
             console.error("Réponse Jèko sans redirectUrl:", JSON.stringify(response.data));
             return res.json({ success: false, message: "Réponse Jèko invalide — pas d'URL de paiement" });
         }
@@ -490,6 +533,19 @@ export const initiateJeko = async (req, res) => {
         if (error.response) {
             console.error("Status:", error.response.status);
             console.error("Data:", JSON.stringify(error.response.data));
+        }
+        if (order && creditUtilise > 0) {
+            try {
+                await crediterClient({
+                    userId: order.userId,
+                    orderId: order._id,
+                    itemId: new mongoose.Types.ObjectId(),
+                    amount: creditUtilise,
+                    description: `Remboursement RCOINS — erreur initiation paiement (commande ${order._id})`
+                });
+            } catch (refundError) {
+                console.error("❌ Échec remboursement RCOINS après erreur Jèko:", refundError);
+            }
         }
         res.json({ success: false, message: error.response?.data?.message || "Erreur lors de l'initialisation du paiement" });
     }
@@ -746,6 +802,22 @@ export const handleJekoWebhook = async (req, res) => {
 
         if (STATUTS_ECHEC.includes(status)) {
             console.log(`❌ Paiement Jèko échoué pour la commande ${refId} (statut: ${status})`);
+            // La commande n'ira pas plus loin : on la marque annulée et on
+            // rembourse les RCOINS éventuellement débités à l'initiation
+            // (voir initiateJeko). rembourserCreditAnnulation est protégée
+            // par creditRefundedAt contre un double remboursement si le
+            // client avait aussi appelé POST /order/cancel entre-temps.
+            await Order.findOneAndUpdate(
+                { _id: order._id, status: 'pending_payment' },
+                { $set: { status: 'Cancelled' } }
+            );
+            if (order.creditUsed > 0) {
+                await rembourserCreditAnnulation({
+                    orderId: order._id,
+                    userId: order.userId,
+                    description: `Remboursement RCOINS — paiement Jèko échoué (commande ${order._id})`
+                });
+            }
             return res.status(200).json({ received: true });
         }
 
