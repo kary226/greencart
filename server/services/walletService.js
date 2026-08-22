@@ -302,9 +302,61 @@ export const annulerVenteEnAttente = async (order) => {
 };
 
 /**
- * COLIS RETOURNÉ — reprend l'argent d'une vente, où qu'il se trouve.
+ * Réintègre au stock les articles d'une boutique pour une commande donnée.
+ * Même logique de correspondance variante (couleur/taille) que
+ * confirmerCommandeCommercant, pour rester cohérent avec le seul autre
+ * endroit du code qui réincrémente déjà du stock.
  *
- * Trois situations, traitées dans cet ordre :
+ * Les lignes 'unavailable' sont exclues : un article jamais réellement
+ * vendu (le commerçant l'avait déjà signalé indisponible) n'a rien à
+ * réintégrer, son stock n'a jamais bougé.
+ *
+ * PURE côté logique, mais fait des I/O (lecture + sauvegarde Produit) —
+ * volontairement séparée de traiterRetourColis pour rester lisible et
+ * réutilisable si un futur flux de retour partiel en a besoin.
+ */
+const restockerArticlesBoutique = async (order, boutiqueId) => {
+    const items = (order.items || []).filter((item) => {
+        if (item?.availabilityStatus === 'unavailable') return false;
+        const itemBoutiqueId = item?.boutiqueId?.toString?.() ?? String(item?.boutiqueId ?? '');
+        return itemBoutiqueId === String(boutiqueId);
+    });
+    if (!items.length) return 0;
+
+    const products = await Product.find({ _id: { $in: items.map((i) => i.product) } });
+    let restockes = 0;
+
+    for (const item of items) {
+        const product = products.find((p) => p._id.toString() === item.product.toString());
+        if (!product) continue;
+
+        if (product.variants?.length) {
+            const variant = product.variants.find((v) =>
+                (item.color == null ? v.color == null : v.color === item.color) &&
+                (item.size == null ? v.size == null : v.size === item.size)
+            );
+            if (!variant) continue;
+            variant.stock = Number(variant.stock || 0) + Number(item.quantity || 0);
+            product.inStock = product.variants.some((v) => Number(v.stock || 0) > 0);
+        } else if (product.stock !== null && product.stock !== undefined) {
+            product.stock = Number(product.stock || 0) + Number(item.quantity || 0);
+            product.inStock = product.stock > 0;
+        } else {
+            continue;
+        }
+
+        await product.save();
+        restockes += 1;
+    }
+
+    return restockes;
+};
+
+/**
+ * COLIS RETOURNÉ — reprend l'argent d'une vente, où qu'il se trouve, et
+ * réintègre le stock si l'article revient en état revendable.
+ *
+ * Trois situations pour l'argent, traitées dans cet ordre :
  *   1. les fonds sont encore EN ATTENTE  -> on les reprend là ;
  *   2. ils ont été LIBÉRÉS mais pas retirés -> on les reprend au disponible ;
  *   3. ils ont déjà été RETIRÉS -> le solde disponible passe en NÉGATIF.
@@ -314,16 +366,29 @@ export const annulerVenteEnAttente = async (order) => {
  * zéro au prochain retrait. Un solde négatif se résorbe naturellement avec
  * les ventes suivantes, et reste visible de tous en attendant.
  *
- * Idempotent : un retour déjà traité ne l'est pas deux fois.
+ * @param {object} order
+ * @param {object} [options]
+ * @param {string[]|null} [options.boutiqueIds] - limite le retour à ces boutiques
+ * @param {'bon_etat'|'endommage'} [options.etat] - état constaté du colis.
+ *   'bon_etat' (par défaut) réintègre le stock ; 'endommage' reprend
+ *   l'argent SANS toucher au stock (article mis au rebut).
+ *
+ * Idempotent : un retour déjà traité (argent ET stock) ne l'est pas deux
+ * fois — le restockage est fait dans le MÊME bloc que la création de la
+ * transaction 'retour', protégée par l'index unique en base. Si la
+ * transaction existe déjà (dejaRepris) ou heurte le doublon (code 11000),
+ * on ne restocke pas non plus : sinon un retry créditerait le stock deux
+ * fois sans reprendre l'argent une seconde fois.
  */
-export const traiterRetourColis = async (order, { boutiqueIds = null } = {}) => {
-    if (!order?.items?.length) return { boutiques: 0, montantRepris: 0 };
+export const traiterRetourColis = async (order, { boutiqueIds = null, etat = 'bon_etat' } = {}) => {
+    if (!order?.items?.length) return { boutiques: 0, montantRepris: 0, articlesRestockes: 0 };
 
     const boutiqueParProduit = await chargerBoutiquesDesProduits(order.items);
     const parBoutique = repartirParBoutique(order.items, boutiqueParProduit);
 
     let boutiques = 0;
     let montantRepris = 0;
+    let articlesRestockes = 0;
 
     for (const [boutiqueId, data] of parBoutique) {
         // Retour partiel possible : une seule boutique du panier peut être
@@ -361,7 +426,7 @@ export const traiterRetourColis = async (order, { boutiqueIds = null } = {}) => 
                 montant: -credit.montant,
                 orderId: order._id,
                 boutiqueId,
-                description: 'Colis retour',
+                description: etat === 'endommage' ? 'Colis retour — article endommagé' : 'Colis retour — remis en stock',
             });
         } catch (erreur) {
             if (!estDoublonIgnorable(erreur)) throw erreur;
@@ -371,9 +436,13 @@ export const traiterRetourColis = async (order, { boutiqueIds = null } = {}) => 
         await cible.wallet.recalculerSoldes();
         boutiques += 1;
         montantRepris += credit.montant;
+
+        if (etat !== 'endommage') {
+            articlesRestockes += await restockerArticlesBoutique(order, boutiqueId);
+        }
     }
 
-    return { boutiques, montantRepris };
+    return { boutiques, montantRepris, articlesRestockes };
 };
 
 /**

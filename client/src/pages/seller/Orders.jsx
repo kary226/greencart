@@ -27,6 +27,12 @@ const Orders = () => {
     const [sortBy, setSortBy] = useState('date')
     const [sortOrder, setSortOrder] = useState('desc')
     const [deliveryFilter, setDeliveryFilter] = useState('all')
+    // ✅ Retour colis : demande explicite de l'état avant de reprendre
+    // l'argent et (éventuellement) réintégrer le stock — voir
+    // updateOrderStatus() côté serveur qui refuse désormais un retour sans
+    // cette précision.
+    const [retourModal, setRetourModal] = useState(null) // { orderId, etat: 'bon_etat'|'endommage', note }
+    const [selectResetKey, setSelectResetKey] = useState(0) // force le <select> à revenir sur l'ancien statut si la modale de retour est annulée
 
     const fetchOrders = async () => {
         try {
@@ -85,12 +91,20 @@ const Orders = () => {
         finally { setUpdatingStatus(null); }
     };
 
-    const updateOrderStatus = async (orderId, newStatus) => {
+    const updateOrderStatus = async (orderId, newStatus, extra = {}) => {
+        // Un retour a besoin d'un état explicite (bon état / endommagé) :
+        // on ouvre la modale au lieu d'appeler l'API directement.
+        if (newStatus === 'Returned' && !extra.retourEtat) {
+            setRetourModal({ orderId, etat: 'bon_etat', note: '' });
+            return;
+        }
+
         setUpdatingStatus(orderId)
         try {
             const { data } = await axios.post('/api/order/status', {
                 orderId,
-                status: newStatus
+                status: newStatus,
+                ...extra
             });
             if (data.success) {
                 toast.success(`Statut mis à jour : ${newStatus}`);
@@ -100,10 +114,22 @@ const Orders = () => {
                 toast.error(data.message)
             }
         } catch (error) {
-            toast.error(error.message)
+            toast.error(error.response?.data?.message || error.message)
         } finally {
             setUpdatingStatus(null)
         }
+    };
+
+    const confirmerRetour = async () => {
+        if (!retourModal) return;
+        const { orderId, etat, note } = retourModal;
+        setRetourModal(null);
+        await updateOrderStatus(orderId, 'Returned', { retourEtat: etat, retourNote: note });
+    };
+
+    const annulerRetour = () => {
+        setRetourModal(null);
+        setSelectResetKey((k) => k + 1); // le <select> revient sur le statut réel, pas "Retournée"
     };
 
     const getStatusLabel = (status) => {
@@ -725,9 +751,16 @@ const Orders = () => {
                                         <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-gray-100">
                                             <div className="flex items-center gap-2">
                                                 {getStatusIcon(order.status)}
-                                                <span className={`text-xs px-2 py-1 rounded-full font-medium ${getStatusColor(order.status)}`}>
-                                                    {getStatusLabel(order.status)}
-                                                </span>
+                                                <div>
+                                                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${getStatusColor(order.status)}`}>
+                                                        {getStatusLabel(order.status)}
+                                                    </span>
+                                                    {order.status === 'Returned' && order.retourEtat && (
+                                                        <p className="text-[11px] text-gray-500 mt-0.5">
+                                                            {order.retourEtat === 'endommage' ? '⚠️ Endommagé — stock non réintégré' : '✅ Remis en stock'}
+                                                        </p>
+                                                    )}
+                                                </div>
                                             </div>
                                             
                                             <div className="flex items-center gap-2">
@@ -737,6 +770,7 @@ const Orders = () => {
                                                     </button>
                                                 )}
                                                 <select 
+                                                    key={`${order._id}-${order.status}-${selectResetKey}`}
                                                     defaultValue={order.status}
                                                     onChange={(e) => updateOrderStatus(order._id, e.target.value)}
                                                     disabled={updatingStatus === order._id}
@@ -846,6 +880,80 @@ const Orders = () => {
                         >
                             <XCircle size={18} />
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {retourModal && (
+                <div
+                    className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center px-4"
+                    onClick={annulerRetour}
+                >
+                    <div
+                        className="bg-white rounded-2xl shadow-lg max-w-sm w-full p-5"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center gap-2 mb-1">
+                            <RotateCw size={18} className="text-purple-600" />
+                            <h3 className="font-semibold text-gray-800">Colis retourné</h3>
+                        </div>
+                        <p className="text-xs text-gray-500 mb-4">
+                            L'argent est repris au(x) commerçant(s) dans tous les cas. Précisez si le
+                            colis peut être remis en vente.
+                        </p>
+
+                        <div className="space-y-2 mb-4">
+                            <label className={`flex items-start gap-2 p-3 rounded-xl border cursor-pointer transition ${retourModal.etat === 'bon_etat' ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}>
+                                <input
+                                    type="radio"
+                                    name="retourEtat"
+                                    checked={retourModal.etat === 'bon_etat'}
+                                    onChange={() => setRetourModal((m) => ({ ...m, etat: 'bon_etat' }))}
+                                    className="mt-0.5"
+                                />
+                                <span>
+                                    <span className="block text-sm font-medium text-gray-800">Bon état — remettre en stock</span>
+                                    <span className="block text-xs text-gray-500">Le produit redevient disponible à la vente.</span>
+                                </span>
+                            </label>
+                            <label className={`flex items-start gap-2 p-3 rounded-xl border cursor-pointer transition ${retourModal.etat === 'endommage' ? 'border-red-500 bg-red-50' : 'border-gray-200'}`}>
+                                <input
+                                    type="radio"
+                                    name="retourEtat"
+                                    checked={retourModal.etat === 'endommage'}
+                                    onChange={() => setRetourModal((m) => ({ ...m, etat: 'endommage' }))}
+                                    className="mt-0.5"
+                                />
+                                <span>
+                                    <span className="block text-sm font-medium text-gray-800">Endommagé — ne pas remettre en stock</span>
+                                    <span className="block text-xs text-gray-500">Le stock n'est pas modifié, l'argent reste repris.</span>
+                                </span>
+                            </label>
+                        </div>
+
+                        <textarea
+                            value={retourModal.note}
+                            onChange={(e) => setRetourModal((m) => ({ ...m, note: e.target.value }))}
+                            placeholder="Note (optionnel) — visible en interne uniquement"
+                            rows={2}
+                            maxLength={300}
+                            className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 outline-none focus:border-red-500 mb-4 resize-none"
+                        />
+
+                        <div className="flex gap-2">
+                            <button
+                                onClick={annulerRetour}
+                                className="flex-1 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition"
+                            >
+                                Annuler
+                            </button>
+                            <button
+                                onClick={confirmerRetour}
+                                className="flex-1 py-2 rounded-xl bg-purple-600 text-white text-sm font-medium hover:bg-purple-700 transition"
+                            >
+                                Confirmer le retour
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

@@ -119,6 +119,14 @@ const CommandeCard = ({ order, onConfirmer, confirmationEnCours }) => {
                     {order.statut?.cle === 'confirmee' && (
                         <p className="text-xs text-warn-500">Confirmée de ton côté — en attente de validation par l'équipe RAMCI.</p>
                     )}
+                    {order.statut?.cle === 'retournee' && (
+                        <p className={`text-xs ${order.retourEtat === 'endommage' ? 'text-red-500' : 'text-ok-500'}`}>
+                            {order.retourEtat === 'endommage'
+                                ? "Colis revenu endommagé — le stock n'a pas été réintégré."
+                                : 'Colis revenu en bon état — le stock a été réintégré automatiquement.'}
+                            {order.retourNote && <span className="block text-ink-400 mt-0.5">« {order.retourNote} »</span>}
+                        </p>
+                    )}
                 </div>
             )}
         </div>

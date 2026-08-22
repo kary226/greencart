@@ -373,16 +373,33 @@ export const cancelOrder = async (req, res) => {
 // =============================================================
 export const updateOrderStatus = async (req, res) => {
     try {
-        const { orderId, status } = req.body;
+        const { orderId, status, retourEtat, retourNote } = req.body;
         const validStatuses = ['Order Placed', 'Confirmed', 'Shipped', 'Out for Delivery', 'Delivered', 'Returned', 'Cancelled'];
         
         if (!validStatuses.includes(status)) {
             return res.status(400).json({ success: false, message: "Statut invalide" });
         }
+
+        // [NOUVEAU] Un retour engage deux décisions distinctes : reprendre
+        // l'argent du commerçant (toujours) et réintégrer le stock (sauf
+        // colis endommagé/invendable). On force donc un choix explicite
+        // plutôt qu'un restock silencieux par défaut — voir
+        // traiterRetourColis() dans walletService.js.
+        if (status === 'Returned' && !['bon_etat', 'endommage'].includes(retourEtat)) {
+            return res.status(400).json({
+                success: false,
+                message: "Précisez l'état du retour : bon état (remis en stock) ou endommagé.",
+            });
+        }
         
         const updateData = { status };
         if (status === 'Delivered') {
             updateData.deliveredAt = new Date();
+        }
+        if (status === 'Returned') {
+            updateData.retourEtat = retourEtat;
+            updateData.retourNote = String(retourNote || '').slice(0, 300) || null;
+            updateData.retourTraiteLe = new Date();
         }
         
         const order = await Order.findByIdAndUpdate(orderId, updateData);
@@ -398,7 +415,8 @@ export const updateOrderStatus = async (req, res) => {
         if (order && status === 'Returned') {
             // Colis retourné : l'argent est repris où qu'il soit, y compris
             // s'il a déjà été retiré (le solde passe alors en négatif).
-            await traiterRetourColis(order);
+            // Le stock n'est réintégré que si le colis revient en bon état.
+            await traiterRetourColis(order, { etat: retourEtat });
         }
 
         const pushContent = orderStatusPushMessages[status];
@@ -943,7 +961,10 @@ const statutCommercant = (order, aConfirme) => {
         return { cle: 'annulee', libelle: 'Annulée', ton: 'neutre' };
     }
     if (order.status === 'Returned') {
-        return { cle: 'retournee', libelle: 'Retournée', ton: 'neutre' };
+        if (order.retourEtat === 'endommage') {
+            return { cle: 'retournee', libelle: 'Retournée — article endommagé', ton: 'neutre' };
+        }
+        return { cle: 'retournee', libelle: 'Retournée — remise en stock', ton: 'neutre' };
     }
     if (!aConfirme) {
         return { cle: 'a_confirmer', libelle: 'À confirmer', ton: 'action' };
@@ -1020,6 +1041,8 @@ export const getMesVentesCommercant = async (req, res) => {
                 aConfirme,
                 statut: statutCommercant(order, aConfirme),
                 fondsLiberes: Boolean(order.confirmeParAdminLe),
+                retourEtat: order.retourEtat || null,
+                retourNote: order.retourNote || null,
             };
         });
 

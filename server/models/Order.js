@@ -68,6 +68,18 @@ const orderSchema = new mongoose.Schema({
         // livreur, collecte) sans message clair côté client.
         enum: ['pending_payment', 'Order Placed', 'Checking Availability', 'Confirmed', 'Collecting', 'Ready for Shipment', 'Shipped', 'Out for Delivery', 'Delivered', 'Returned', 'Cancelled', 'Disputed']
     },
+    // ✅ RETOUR COLIS — précise, au moment où le statut passe à 'Returned',
+    // si les articles reviennent en état revendable (réintégrés au stock)
+    // ou sont endommagés/invendables (argent repris au commerçant, mais
+    // stock NON réincrémenté). Posé une seule fois par celui qui constate
+    // le retour (admin) — voir traiterRetourColis() dans walletService.js.
+    retourEtat: {
+        type: String,
+        enum: ['bon_etat', 'endommage'],
+        default: null,
+    },
+    retourNote: { type: String, default: null, trim: true },
+    retourTraiteLe: { type: Date, default: null },
     paymentType: { type: String, required: true },
     isPaid: { type: Boolean, required: true, default: false },
     // Référence de transaction Jèko.
