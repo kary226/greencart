@@ -72,7 +72,13 @@ const AdminDeliveries = lazy(() => import('./pages/admin/Deliveries'));
 const AdminSettings = lazy(() => import('./pages/admin/Settings'));
 const AdminApprovals = lazy(() => import('./pages/admin/Approvals'));
 
-// Commerçant
+// ─── [PHASE 4] Entrepôt & Retours ─────────────────────────────────────
+
+const AdminWarehouse = lazy(() => import('./pages/admin/Warehouse'));
+const AdminReturns = lazy(() => import('./pages/admin/Returns'));
+
+// ─── Commerçant ────────────────────────────────────────────────────────
+
 const CommercantLayout = lazy(() => import('./pages/commercant/CommercantLayout'));
 const DashboardCommercant = lazy(() => import('./pages/commercant/Dashboard'));
 const Boutique = lazy(() => import('./pages/commercant/Boutique'));
@@ -83,22 +89,26 @@ const CodesPromo = lazy(() => import('./pages/commercant/CodesPromo'));
 const Portefeuille = lazy(() => import('./pages/commercant/Portefeuille'));
 const DemandeRetrait = lazy(() => import('./pages/commercant/DemandeRetrait'));
 
-// Livreur
+// ─── Livreur ──────────────────────────────────────────────────────────
+
 const MesLivraisons = lazy(() => import('./pages/livreur/MesLivraisons'));
 const LivraisonDetail = lazy(() => import('./pages/livreur/LivraisonDetail'));
 const Collectes = lazy(() => import('./pages/livreur/Collectes'));
 
-// Assistant Shein
+// ─── Assistant Shein ──────────────────────────────────────────────────
+
 const Conversations = lazy(() => import('./pages/assistant/Conversations'));
 const ChatDetail = lazy(() => import('./pages/assistant/ChatDetail'));
 
-// Colis Shein (client)
+// ─── Colis Shein (client) ─────────────────────────────────────────────
+
 const ValiderPanierShein = lazy(() => import('./pages/ValiderPanierShein'));
 const ColisSheinConversation = lazy(() => import('./pages/ColisSheinConversation'));
 const ColisSheinDetailPage = lazy(() => import('./pages/ColisSheinDetailPage'));
 const MesColisShein = lazy(() => import('./pages/MesColisShein'));
 
-// Boutique vitrine publique
+// ─── Boutique vitrine publique ────────────────────────────────────────
+
 const BoutiqueVitrine = lazy(() => import('./pages/BoutiqueVitrine'));
 
 // ─── ScrollToTop intelligent ──────────────────────────────────────────
@@ -221,8 +231,9 @@ const App = () => {
             <Route path='/colis-shein/:id' element={<ColisSheinConversation />} />
             <Route path='/colis-shein/:id/detail' element={<ColisSheinDetailPage />} />
 
-            {/* ─── [PHASE 3] NOUVEAU SUPER ADMIN ──────────────────────── */}
+            {/* ─── [PHASE 3 + 4] SUPER ADMIN ──────────────────────────── */}
             <Route path='/admin' element={<SuperAdminLayout />}>
+              {/* Phase 3 */}
               <Route index element={<AdminDashboard />} />
               <Route path='dashboard' element={<AdminDashboard />} />
               <Route path='products' element={<AdminProducts />} />
@@ -243,6 +254,12 @@ const App = () => {
               <Route path='audit' element={<AdminJournal />} />
               <Route path='withdrawals' element={<AdminRetraits />} />
               <Route path='returns' element={<AdminRetours />} />
+
+              {/* Phase 4 – Entrepôt & Retours */}
+              <Route path='warehouse' element={<AdminWarehouse />} />
+              <Route path='warehouse/scans' element={<AdminWarehouse />} />
+              <Route path='returns' element={<AdminReturns />} />
+              <Route path='returns/:id' element={<AdminReturns />} />
             </Route>
 
             {/* ─── Ancien Staff / Admin (transition) ──────────────────── */}

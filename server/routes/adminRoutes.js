@@ -9,7 +9,7 @@ import { valider } from '../middlewares/valider.js';
 import { schemaStock, schemaAffectationBoutique, schemaStatutBoutique, schemaAutorisationsBoutique } from '../schemas/index.js';
 import { publicCatalogLimiter } from '../middlewares/rateLimiters.js';
 
-// ─── Contrôleurs ──────────────────────────────────────────────────────────
+// ─── Contrôleurs Phase 3 ──────────────────────────────────────────────────
 
 // Produits
 import {
@@ -195,6 +195,22 @@ import {
 // Journal
 import { listJournal, listBoutiquesJournal } from '../controllers/journalController.js';
 
+// ─── Contrôleurs Phase 4 (Entrepôt & Retours) ──────────────────────────
+
+import {
+    createWarehouseScan,
+    getWarehouseScans,
+    listWarehouseScans,
+} from '../controllers/warehouseController.js';
+
+import {
+    listReturns,
+    getReturnById,
+    inspectReturn,
+    resolveReturn,
+    rejectReturn,
+} from '../controllers/returnController.js';
+
 // =============================================================
 // ROUTEUR ADMIN UNIFIÉ
 // =============================================================
@@ -233,9 +249,7 @@ adminRouter.get(
             const ordersCancelled = orders.filter(o => o.status === 'Cancelled');
             const ordersDisputed = orders.filter(o => o.status === 'Disputed');
 
-            // Livraisons — dérivées du statut de la commande : "en attente"
-            // (prête à partir mais pas encore prise en charge par un livreur)
-            // vs "en cours" (effectivement en route chez le client).
+            // Livraisons
             const deliveriesPending = orders.filter(o => ['Ready for Shipment', 'Shipped'].includes(o.status));
             const deliveriesInProgress = orders.filter(o => o.status === 'Out for Delivery');
 
@@ -266,7 +280,7 @@ adminRouter.get(
             ]);
             const totalWithdrawals = totalWithdrawalsAgg[0]?.total || 0;
 
-            // RCOINS (solde crédité aux clients + volume de transactions)
+            // RCOINS
             const rcoinsBalanceAgg = await User.aggregate([
                 { $group: { _id: null, total: { $sum: { $ifNull: ['$creditBalance', 0] } } } },
             ]);
@@ -985,5 +999,70 @@ adminRouter.get('/locations/cities/public', getCities);
 adminRouter.get('/locations/communes/:cityId', getCommunesByCity);
 adminRouter.get('/boutiques/:id/apercu', getBoutiqueApercu);
 adminRouter.get('/boutiques/:id', getBoutiqueById);
+
+// =============================================================
+// 9. ENTREPÔT & RETOURS (PHASE 4)
+// =============================================================
+
+// ─── Warehouse (Entrepôt) ──────────────────────────────────────────────
+
+adminRouter.post(
+    '/warehouse/scan',
+    authStaff,
+    requirePermission('warehouse.scan'),
+    upload.array('photos', 5),
+    createWarehouseScan
+);
+
+adminRouter.get(
+    '/warehouse/scans/:orderId',
+    authStaff,
+    requirePermission('warehouse.scan'),
+    getWarehouseScans
+);
+
+adminRouter.get(
+    '/warehouse/scans',
+    authStaff,
+    requirePermission('warehouse.scan'),
+    listWarehouseScans
+);
+
+// ─── Returns (Retours) ──────────────────────────────────────────────────
+
+adminRouter.get(
+    '/returns',
+    authStaff,
+    requirePermission('returns.view'),
+    listReturns
+);
+
+adminRouter.get(
+    '/returns/:id',
+    authStaff,
+    requirePermission('returns.view'),
+    getReturnById
+);
+
+adminRouter.post(
+    '/returns/:id/inspect',
+    authStaff,
+    requirePermission('returns.inspect'),
+    inspectReturn
+);
+
+adminRouter.post(
+    '/returns/:id/resolve',
+    authStaff,
+    requirePermission('returns.decide'),
+    resolveReturn
+);
+
+adminRouter.post(
+    '/returns/:id/reject',
+    authStaff,
+    requirePermission('returns.decide'),
+    rejectReturn
+);
 
 export default adminRouter;
