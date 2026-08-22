@@ -13,16 +13,19 @@ const FILTERS = [
     { key: 'cancelled', label: 'Annulées' },
 ]
 
-// Couleurs alignées sur la réf fournie : "En cours" en rouge plein
-// (regroupe tous les statuts actifs), "Livrée" vert clair, "Annulée" gris clair.
+// Un client qui voit "En cours" du début à la fin ne sait jamais où en est
+// réellement son colis — on distingue maintenant chaque étape du pipeline
+// (§4 du modèle de statuts) avec un libellé et une couleur propres, en
+// gardant les tokens de couleur déjà utilisés ailleurs dans l'app
+// (info/ramses/ok/violet/gris) plutôt que d'en inventer de nouveaux.
 const STATUS_MAP = {
-    'Order Placed': { text: 'En cours', color: '#fff', bg: 'var(--color-ramses-600)' },
-    'Checking Availability': { text: 'En cours', color: '#fff', bg: 'var(--color-ramses-600)' },
-    'Confirmed': { text: 'En cours', color: '#fff', bg: 'var(--color-ramses-600)' },
-    'Collecting': { text: 'En cours', color: '#fff', bg: 'var(--color-ramses-600)' },
-    'Ready for Shipment': { text: 'En cours', color: '#fff', bg: 'var(--color-ramses-600)' },
-    'Shipped': { text: 'En cours', color: '#fff', bg: 'var(--color-ramses-600)' },
-    'Out for Delivery': { text: 'En cours', color: '#fff', bg: 'var(--color-ramses-600)' },
+    'Order Placed': { text: 'Commande reçue', color: '#fff', bg: 'var(--color-info-500)' },
+    'Checking Availability': { text: 'Vérification des articles', color: '#fff', bg: 'var(--color-info-500)' },
+    'Confirmed': { text: 'Confirmée', color: '#fff', bg: 'var(--color-ramses-500)' },
+    'Collecting': { text: 'Collecte en cours', color: '#fff', bg: 'var(--color-ramses-500)' },
+    'Ready for Shipment': { text: 'Prête à expédier', color: '#fff', bg: 'var(--color-ramses-600)' },
+    'Shipped': { text: 'Expédiée', color: '#fff', bg: 'var(--color-ramses-600)' },
+    'Out for Delivery': { text: 'En livraison', color: '#fff', bg: 'var(--color-ramses-700)' },
     'Disputed': { text: 'En litige', color: '#B91C1C', bg: '#FEE2E2' },
     'Delivered': { text: 'Livrée', color: '#16A34A', bg: '#DCFCE7' },
     'Returned': { text: 'Retournée', color: '#7C3AED', bg: '#EDE9FE' },
@@ -88,6 +91,28 @@ export default function MyOrders() {
         // chargement, sans jamais lui dire qu'il devait se connecter.
         else setLoading(false)
     }, [user, location.pathname])
+
+    // [FIX] Le statut d'une commande change côté serveur (commerçant,
+    // livreur, seller, admin) sans que rien ne prévienne cet onglet déjà
+    // ouvert — /api/order/user n'était appelé qu'une fois au montage. Le
+    // client voyait donc un statut périmé tant qu'il ne rechargeait pas la
+    // page à la main. Même principe que ColisSheinManager.jsx (polling
+    // silencieux, sans indicateur de chargement) : on rafraîchit en fond
+    // toutes les 15s, et immédiatement quand l'onglet redevient visible
+    // (retour d'arrière-plan / déverrouillage du téléphone, le cas le plus
+    // fréquent sur mobile) plutôt que d'attendre le prochain tick.
+    useEffect(() => {
+        if (!user) return
+        const interval = setInterval(fetchMyOrders, 15000)
+        const onVisible = () => {
+            if (document.visibilityState === 'visible') fetchMyOrders()
+        }
+        document.addEventListener('visibilitychange', onVisible)
+        return () => {
+            clearInterval(interval)
+            document.removeEventListener('visibilitychange', onVisible)
+        }
+    }, [user])
 
     const openFilterSheet = () => {
         setDraftFilter(filter)

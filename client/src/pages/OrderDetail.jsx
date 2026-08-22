@@ -6,16 +6,17 @@ import ReceiptDownloadButton from '../components/ReceiptDownloadButton'
 import toast from 'react-hot-toast'
 import { ArrowLeft, Package, CreditCard, MapPin, Phone, Headset } from 'lucide-react'
 
-// Mêmes libellés/couleurs que la liste (MyOrders.jsx) — dupliqués ici
-// volontairement pour ne pas toucher à ce fichier qui fonctionne déjà.
+// Mêmes libellés/couleurs que la liste (MyOrders.jsx) — chaque étape du
+// pipeline a désormais son propre libellé plutôt que d'être regroupée sous
+// "En cours", pour que le client sache réellement où en est sa commande.
 const STATUS_MAP = {
-    'Order Placed': { text: 'En cours', color: '#fff', bg: 'var(--color-ramses-600)' },
-    'Checking Availability': { text: 'En cours', color: '#fff', bg: 'var(--color-ramses-600)' },
-    'Confirmed': { text: 'En cours', color: '#fff', bg: 'var(--color-ramses-600)' },
-    'Collecting': { text: 'En cours', color: '#fff', bg: 'var(--color-ramses-600)' },
-    'Ready for Shipment': { text: 'En cours', color: '#fff', bg: 'var(--color-ramses-600)' },
-    'Shipped': { text: 'En cours', color: '#fff', bg: 'var(--color-ramses-600)' },
-    'Out for Delivery': { text: 'En cours', color: '#fff', bg: 'var(--color-ramses-600)' },
+    'Order Placed': { text: 'Commande reçue', color: '#fff', bg: 'var(--color-info-500)' },
+    'Checking Availability': { text: 'Vérification des articles', color: '#fff', bg: 'var(--color-info-500)' },
+    'Confirmed': { text: 'Confirmée', color: '#fff', bg: 'var(--color-ramses-500)' },
+    'Collecting': { text: 'Collecte en cours', color: '#fff', bg: 'var(--color-ramses-500)' },
+    'Ready for Shipment': { text: 'Prête à expédier', color: '#fff', bg: 'var(--color-ramses-600)' },
+    'Shipped': { text: 'Expédiée', color: '#fff', bg: 'var(--color-ramses-600)' },
+    'Out for Delivery': { text: 'En livraison', color: '#fff', bg: 'var(--color-ramses-700)' },
     'Disputed': { text: 'En litige', color: '#B91C1C', bg: '#FEE2E2' },
     'Delivered': { text: 'Livrée', color: '#16A34A', bg: '#DCFCE7' },
     'Returned': { text: 'Retournée', color: '#7C3AED', bg: '#EDE9FE' },
@@ -66,6 +67,24 @@ export default function OrderDetail() {
         }
         if (user) fetchOrder()
         else setLoading(false)
+
+        // [FIX] Même défaut que MyOrders.jsx : sans ceci, un changement de
+        // statut fait par le commerçant/livreur/seller/admin pendant que le
+        // client a cette page ouverte n'apparaissait jamais tant qu'il ne
+        // rechargeait pas la page à la main. Rafraîchissement silencieux
+        // toutes les 15s, et immédiatement quand l'onglet redevient visible
+        // (retour d'arrière-plan/déverrouillage du téléphone — le cas le
+        // plus fréquent), sans repasser par l'état `loading`.
+        if (!user) return
+        const interval = setInterval(fetchOrder, 15000)
+        const onVisible = () => {
+            if (document.visibilityState === 'visible') fetchOrder()
+        }
+        document.addEventListener('visibilitychange', onVisible)
+        return () => {
+            clearInterval(interval)
+            document.removeEventListener('visibilitychange', onVisible)
+        }
     }, [user, orderId])
 
     const requestCancel = () => {
