@@ -3,11 +3,6 @@ import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import axios from "axios";
 
-// [MIGRATION cookie httpOnly] withCredentials: true = le navigateur envoie
-// automatiquement le cookie httpOnly (posé par le serveur) sur chaque
-// requête vers l'API, sans que le JS ait jamais besoin de le lire ou de
-// le manipuler lui-même. Fonctionne maintenant que client (www.ramci.ci)
-// et API (api.ramci.ci) partagent le même domaine racine ramci.ci.
 axios.defaults.withCredentials = true;
 axios.defaults.baseURL = import.meta.env.VITE_BACKEND_URL;
 
@@ -41,6 +36,8 @@ export const AppContextProvider = ({ children }) => {
     const navigate = useNavigate();
 
     const [user, setUser] = useState(null);
+    const [staffUser, setStaffUser] = useState(null); // [PHASE 3] Utilisateur staff
+    const [staffPermissions, setStaffPermissions] = useState([]); // [PHASE 3] Permissions staff
     const [isSeller, setIsSeller] = useState(getIsSeller);
     const [showUserLogin, setShowUserLogin] = useState(false);
     const [products, setProducts] = useState([]);
@@ -50,16 +47,30 @@ export const AppContextProvider = ({ children }) => {
     const [recentlyViewed, setRecentlyViewed] = useState([]);
     const [orders, setOrders] = useState([]);
     const [colisShein, setColisShein] = useState([]);
-    // Section « Colis SHEIN » activée ou non par l'admin. Par défaut MASQUÉE :
-    // tant que le réglage n'a pas été explicitement activé, la section
-    // n'apparaît pas côté client (onglet du bas, lien du menu). C'est ce
-    // qu'attend une fonctionnalité pas encore prête à être utilisée.
     const [colisSheinActif, setColisSheinActif] = useState(false);
     const [installPromptEvent, setInstallPromptEvent] = useState(null);
     const [canInstallPWA, setCanInstallPWA] = useState(false);
     const [isPWAInstalled, setIsPWAInstalled] = useState(
         window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
     );
+
+    // ─── [PHASE 3] Récupération du staffUser ──────────────────────────
+
+    const fetchStaffUser = async () => {
+        try {
+            const { data } = await axios.get('/api/staff/is-auth');
+            if (data.success && data.staffUser) {
+                setStaffUser(data.staffUser);
+                setStaffPermissions(data.staffUser.permissions || []);
+                return data.staffUser;
+            }
+        } catch (error) {
+            // Pas de session staff – on laisse staffUser à null
+        }
+        return null;
+    };
+
+    // ─── Fonctions existantes (inchangées) ────────────────────────────
 
     const setCartItems = (newCart) => {
         setCartItemsState(newCart);
@@ -76,7 +87,6 @@ export const AppContextProvider = ({ children }) => {
 
     const addToRecentlyViewed = (product) => {
         if (!product || !product._id) return;
-        
         setRecentlyViewed(prev => {
             const filtered = prev.filter(item => item._id !== product._id);
             const updated = [product, ...filtered];
@@ -111,8 +121,6 @@ export const AppContextProvider = ({ children }) => {
         }
     };
 
-    // Même logique que fetchWishlist/fetchOrders — sert à alimenter le badge
-    // "Colis" du BottomNav (nombre de colis SHEIN encore actifs).
     const fetchColisShein = async () => {
         if (!user) return;
         if (window.location.pathname.includes('/seller')) return;
@@ -151,7 +159,6 @@ export const AppContextProvider = ({ children }) => {
         if (window.location.pathname.includes('/seller')) {
             return;
         }
-
         try {
             const { data } = await axios.get('/api/user/is-auth');
             if (data.success) {
@@ -165,11 +172,6 @@ export const AppContextProvider = ({ children }) => {
                 setUser(null);
             }
         } catch (error) {
-            // silent = true lors du chargement initial de la page : un 401
-            // à ce moment-là signifie simplement "visiteur non connecté",
-            // ce n'est pas une session expirée à signaler. On ne montre la
-            // popup de reconnexion que pour les appels explicites (après une
-            // action utilisateur), pas au chargement silencieux de la page.
             if (!silent && !window.location.pathname.includes('/seller')) {
                 if (error.response?.data?.redirectToLogin) {
                     setShowUserLogin(true);
@@ -179,14 +181,6 @@ export const AppContextProvider = ({ children }) => {
         }
     };
 
-    // ✅ fetchProducts CORRIGÉ - Plus de dummyProducts
-    // [CORRECTIF ARCHITECTURE] Anciennement /api/product/list SANS paramètre,
-    // donc les 12 articles les plus récents seulement. Or cet état alimente
-    // le panier (y compris le CALCUL DU TOTAL), la fiche produit, les pages
-    // catégorie et la recherche : au-delà de 12 articles, une fiche s'ouvrait
-    // vide et une ligne de panier inconnue était comptée pour zéro.
-    // /api/product/catalogue renvoie tout le catalogue, sans les champs
-    // lourds (description, vidéo) ni les champs internes.
     const fetchProducts = async () => {
         try {
             const { data } = await axios.get('/api/product/catalogue');
@@ -204,7 +198,6 @@ export const AppContextProvider = ({ children }) => {
     const fetchWishlist = async () => {
         if (!user) return;
         if (window.location.pathname.includes('/seller')) return;
-        
         try {
             const { data } = await axios.get('/api/wishlist/list');
             if (data.success) setWishlist(data.wishlist);
@@ -341,7 +334,6 @@ export const AppContextProvider = ({ children }) => {
                 const serverCart = data.user.cartItems || {};
                 const mergedCart = { ...serverCart, ...localCart };
                 setCartItems(mergedCart);
-                
                 await fetchOrders();
                 toast.success("Connexion réussie");
                 navigate('/');
@@ -365,7 +357,6 @@ export const AppContextProvider = ({ children }) => {
                 const localCart = loadCartFromLocalStorage();
                 setUser(data.user);
                 setCartItems(localCart);
-                
                 toast.success("Inscription réussie");
                 navigate('/');
             } else {
@@ -381,16 +372,13 @@ export const AppContextProvider = ({ children }) => {
             if (cartItems && Object.keys(cartItems).length > 0) {
                 localStorage.setItem(CART_KEY, JSON.stringify(cartItems));
             }
-            
             await axios.post('/api/user/logout');
             localStorage.removeItem('isSeller');
             localStorage.removeItem('sellerData');
             setUser(null);
             setIsSeller(false);
-            
             setCartItems(loadCartFromLocalStorage());
             setOrders([]);
-            
             toast.success("Déconnexion réussie");
             navigate('/');
         } catch (error) {
@@ -427,10 +415,20 @@ export const AppContextProvider = ({ children }) => {
         navigate('/seller');
     };
 
-    // 📲 Installation PWA (Android / Chrome / Edge)
-    // Le navigateur envoie cet événement s'il juge le site installable.
-    // On l'intercepte et on le stocke pour pouvoir l'appeler plus tard,
-    // au clic sur notre propre bouton "Installer l'application".
+    // ─── [PHASE 3] Vérification des permissions staff ──────────────────
+
+    const hasPermission = (permission) => {
+        if (staffUser?.role === 'super_admin') return true;
+        return staffPermissions.includes(permission);
+    };
+
+    const hasAnyPermission = (permissions) => {
+        if (staffUser?.role === 'super_admin') return true;
+        return permissions.some(p => staffPermissions.includes(p));
+    };
+
+    // ─── Installation PWA ──────────────────────────────────────────────
+
     useEffect(() => {
         const handleBeforeInstallPrompt = (e) => {
             e.preventDefault();
@@ -453,9 +451,6 @@ export const AppContextProvider = ({ children }) => {
         };
     }, []);
 
-    // Déclenche la popup native d'installation.
-    // Retourne 'accepted', 'dismissed', ou null si aucun prompt natif n'est disponible
-    // (cas iOS/Safari notamment, où il faut alors rediriger vers le guide manuel).
     const installPWA = async () => {
         if (!installPromptEvent) return null;
         installPromptEvent.prompt();
@@ -465,9 +460,8 @@ export const AppContextProvider = ({ children }) => {
         return outcome;
     };
 
-    // 🔔 Notifications push
-    // Convertit la clé publique VAPID (format base64url) en Uint8Array,
-    // format attendu par l'API PushManager du navigateur.
+    // ─── Notifications Push ────────────────────────────────────────────
+
     const urlBase64ToUint8Array = (base64String) => {
         const padding = '='.repeat((4 - base64String.length % 4) % 4);
         const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -479,15 +473,6 @@ export const AppContextProvider = ({ children }) => {
         return outputArray;
     };
 
-    // Demande la permission (si pas déjà accordée/refusée), crée l'abonnement push
-    // auprès du navigateur, puis l'enregistre côté serveur pour cet utilisateur.
-    // À appeler depuis un clic explicite (bouton "Activer les notifications"),
-    // jamais automatiquement au chargement de la page.
-    //
-    // [FIX] Paramètre `silent` : utilisé par la resynchronisation automatique
-    // (voir useEffect ci-dessous) pour réabonner l'utilisateur sans spammer
-    // de toast à chaque refresh de la page. Un clic explicite sur un bouton
-    // continue lui d'afficher les toasts normalement (silent = false par défaut).
     const subscribeToPushNotifications = async (silent = false) => {
         if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
             if (!silent) toast.error("Les notifications ne sont pas supportées sur cet appareil/navigateur");
@@ -501,7 +486,7 @@ export const AppContextProvider = ({ children }) => {
         try {
             const permission = await Notification.requestPermission();
             if (permission !== 'granted') {
-                if (!silent) toast.error("Notifications refusées. Vous pouvez les activer depuis les réglages du navigateur.");
+                if (!silent) toast.error("Notifications refusées.");
                 return { success: false, reason: 'denied' };
             }
 
@@ -533,34 +518,31 @@ export const AppContextProvider = ({ children }) => {
         }
     };
 
-    // Si la permission a déjà été accordée lors d'une session précédente,
-    // on refait silencieusement l'abonnement (il peut expirer côté navigateur),
-    // sans re-demander la permission à l'utilisateur.
-    // [FIX] `silent = true` : avant, cet effet appelait subscribeToPushNotifications()
-    // sans argument, donc le toast "Notifications activées 🔔" s'affichait à
-    // CHAQUE refresh de page (le useEffect se redéclenche dès que `user` reprend
-    // une nouvelle référence, ex: fetchUser() au chargement). On garde le
-    // réabonnement silencieux, mais sans le toast qui n'a de sens que lors
-    // d'une activation explicite par l'utilisateur.
     useEffect(() => {
         if (user && 'Notification' in window && Notification.permission === 'granted') {
             subscribeToPushNotifications(true);
         }
     }, [user]);
 
+    // ─── Effets de chargement ──────────────────────────────────────────
+
     useEffect(() => {
         const isOnSellerPage = window.location.pathname.includes('/seller');
+        const isOnAdminPage = window.location.pathname.startsWith('/admin') || window.location.pathname.startsWith('/staff');
+
+        if (isOnAdminPage) {
+            fetchStaffUser();
+        }
 
         if (isOnSellerPage) {
             fetchSeller();
         } else {
-            fetchUser(true); // silent = true : pas de popup de connexion si visiteur anonyme
+            fetchUser(true);
             fetchSeller();
         }
         fetchProducts();
         loadRecentlyViewed();
 
-        // Visibilité de la section Colis SHEIN. Réglage absent = masqué.
         (async () => {
             try {
                 const { data } = await axios.get('/api/setting/colisSheinActif');
@@ -595,13 +577,8 @@ export const AppContextProvider = ({ children }) => {
         }
     }, [cartItems]);
 
-    // ✅ Nettoyage panier : un produit du panier peut avoir été archivé ou
-    // supprimé depuis. On ne peut pas se fier à `products` (liste publique
-    // paginée, 12 articles par défaut) pour ça — un produit valide hors de
-    // cette page serait faussement considéré comme indisponible. On
-    // interroge donc /check-availability avec les IDs réellement présents
-    // dans le panier. `lastCheckedCartIdsRef` évite de re-vérifier en boucle
-    // le même ensemble d'IDs à chaque re-render.
+    // ─── Nettoyage du panier ───────────────────────────────────────────
+
     const lastCheckedCartIdsRef = useRef('');
     useEffect(() => {
         const ids = [...new Set(Object.keys(cartItems).map(getProductIdFromKey))];
@@ -632,13 +609,19 @@ export const AppContextProvider = ({ children }) => {
                     );
                 }
             } catch {
-                // Silencieux : une vérif ratée ne doit pas toucher au panier.
+                // Silencieux
             }
         })();
     }, [cartItems]);
 
+    // ─── Valeur du contexte ────────────────────────────────────────────
+
     const value = {
         navigate, user, setUser,
+        staffUser, setStaffUser,          // [PHASE 3]
+        staffPermissions,                 // [PHASE 3]
+        hasPermission,                    // [PHASE 3]
+        hasAnyPermission,                 // [PHASE 3]
         setIsSeller, isSeller,
         showUserLogin, setShowUserLogin, products, currency,
         addToCart, addToCartWithQuantity, updateCartItem, removeFromCart, cartItems,
@@ -651,7 +634,8 @@ export const AppContextProvider = ({ children }) => {
         orders,
         colisShein, fetchColisShein, colisSheinActif, setColisSheinActif,
         canInstallPWA, isPWAInstalled, installPWA,
-        subscribeToPushNotifications
+        subscribeToPushNotifications,
+        fetchStaffUser,                  // [PHASE 3]
     };
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

@@ -27,66 +27,32 @@ import staffRouter from './routes/staffRoute.js';
 import { handleJekoWebhook } from './controllers/jekoController.js';
 import dns from 'dns';
 
-// [PHASE 3 - OBSERVABILITÉ] Mesure des temps de réponse
-import requestMetrics from './middlewares/requestMetrics.js';
-import { estOperationnelle } from './utils/AppError.js';
-import metricsRouter from './routes/metricsRoute.js';
-
-// PHASE 3 - Routes Commerçant
+// [PHASE 3] Routes unifiées
+import adminRouter from './routes/adminRoutes.js';
+import approvalRouter from './routes/approvalRoute.js';
 import boutiqueRouter from './routes/boutiqueRoute.js';
 import journalRouter from './routes/journalRoute.js';
 import walletRouter from './routes/walletRoute.js';
 import retraitRouter from './routes/retraitRoute.js';
-
-// PHASE 5 - Routes Assistant Shein
 import colisSheinAdminRouter from './routes/colisSheinAdminRoute.js';
 import messageColisRouter from './routes/messageColisRoute.js';
 
-// [PHASE 2] Routes d'approbation (double approbation)
-import approvalRouter from './routes/approvalRoute.js';
-
-// [SÉCURITÉ] Refus de démarrer si un secret critique manque.
-//
-// Sans ce garde, l'absence de JWT_SECRET ne se voyait qu'au premier appel
-// authentifié, sous la forme d'une erreur 500 opaque. Pire : un secret vide
-// ou absent laisse la porte ouverte à des erreurs de configuration
-// silencieuses en production. Mieux vaut un serveur qui refuse de démarrer
-// qu'un serveur qui démarre à moitié sécurisé.
-const SECRETS_REQUIS = ['JWT_SECRET', 'MONGODB_URI'];
-const secretsManquants = SECRETS_REQUIS.filter(
-    (cle) => !process.env[cle] || String(process.env[cle]).trim() === ''
-);
-if (secretsManquants.length > 0) {
-    console.error(
-        `❌ Démarrage refusé — variables d'environnement manquantes : ${secretsManquants.join(', ')}`
-    );
-    process.exit(1);
-}
-
-// JWT_SECRET court = brute-forçable hors ligne sur un token capté. On alerte
-// sans bloquer, pour ne pas mettre un site en production à l'arrêt.
-if (process.env.JWT_SECRET.length < 32) {
-    console.warn(
-        `⚠️ JWT_SECRET fait ${process.env.JWT_SECRET.length} caractères — 32 minimum recommandés (openssl rand -hex 32).`
-    );
-}
+import requestMetrics from './middlewares/requestMetrics.js';
+import { estOperationnelle } from './utils/AppError.js';
+import metricsRouter from './routes/metricsRoute.js';
 
 const app = express();
 const port = process.env.PORT || 4000;
 
 dns.setServers(['1.1.1.1', '8.8.8.8']);
 
-await connectDB()
-await connectCloudinary()
+await connectDB();
+await connectCloudinary();
 
-// [PHASE 3 - OBSERVABILITÉ] Monté en tout premier pour que la durée mesurée
-// couvre réellement l'intégralité du traitement (CORS, compression, parsing
-// du body, contrôleur), et pas seulement la partie métier. Le middleware
-// n'ajoute rien au chemin critique : il ne fait qu'enregistrer un timestamp
-// et pose un listener exécuté après l'envoi de la réponse.
+// ─── Middlewares ──────────────────────────────────────────────────────
+
 app.use(requestMetrics());
 
-// Configuration CORS complète
 const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:5174',
@@ -120,45 +86,20 @@ app.use(helmet({
     crossOriginResourcePolicy: false,
 }));
 
-// [PHASE 0 - PERF] Compression gzip/brotli des réponses (JSON, HTML, etc.)
-// Coût CPU négligeable comparé au gain réseau, surtout utile pour les
-// grosses réponses (listings produits paginés, etc.). Placé tôt dans la
-// chaîne pour compresser toutes les routes API en dessous.
 app.use(compression());
-
-// [PHASE 2 - PERF] Limite de payload resserrée pour les routes JSON/urlencoded.
-// Les 150MB historiques n'ont jamais servi qu'aux uploads d'images/vidéos,
-// qui passent par Multer (multipart/form-data, limite dédiée dans
-// configs/multer.js) et ne transitent donc jamais par ces middlewares.
-// Appliquer 150MB ici exposait toutes les routes JSON (login, panier,
-// commande, etc.) à des requêtes anormalement volumineuses pour rien.
-// 2MB reste très large pour n'importe quel payload JSON légitime du site.
-app.use(express.json({ 
-    limit: '2mb'
-}));
-app.use(express.urlencoded({ 
-    limit: '2mb', 
-    extended: true 
-}));
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ limit: '2mb', extended: true }));
 app.use(cookieParser());
-
-// [FIX défense en profondeur] Nettoie automatiquement req.body/req.query/
 app.use(mongoSanitize());
 
-// Route de test
-app.get('/', (req, res) => res.send("API is Working"));
+// ─── Routes ──────────────────────────────────────────────────────────
 
-// Routes API
-//
-// [FIX ROUTAGE ColisShein] colisSheinAdminRouter (routes assistant/admin,
-// ex. /conversations, /stats, /assigner, /assistants-disponibles) DOIT être
-// monté AVANT sheinCartRouter. Les deux routeurs partagent le préfixe
-// /api/shein-cart/admin, et sheinCartRouter définit un joker /admin/:id qui,
-// monté en premier, interceptait toute requête vers ces chemins avant que
-// colisSheinAdminRouter ne soit jamais consulté — rendant les routes prévues
-// pour le rôle assistant_shein inatteignables (vérifié empiriquement).
-// Express résout les routeurs strictement dans l'ordre d'enregistrement,
-// donc l'ordre ci-dessous est significatif : ne pas le changer sans retester.
+app.get('/', (req, res) => res.send('API is Working'));
+
+// [PHASE 3] Routes admin unifiées (nouvelle console)
+app.use('/api/admin', adminRouter);
+
+// Routes existantes (conservées pour compatibilité pendant la transition)
 app.use('/api/shein-cart/admin', colisSheinAdminRouter);
 app.use('/api/shein-cart', sheinCartRouter);
 app.use('/api/user', userRouter);
@@ -177,57 +118,33 @@ app.use('/api/delivery', deliveryRouter);
 app.use('/api/setting', settingRouter);
 app.use('/api/push', pushRouter);
 app.use('/api/staff', staffRouter);
-
-// PHASE 3 - Routes Commerçant
 app.use('/api/boutiques', boutiqueRouter);
 app.use('/api/journal', journalRouter);
 app.use('/api/wallet', walletRouter);
 app.use('/api/retraits', retraitRouter);
-
-// PHASE 5 - Routes Assistant Shein
 app.use('/api/message-colis', messageColisRouter);
-
-// [PHASE 2] Routes d'approbation (double approbation)
 app.use('/api/admin/approvals', approvalRouter);
-
-// [PHASE 3 - OBSERVABILITÉ] Lecture des métriques (protégée, voir le routeur)
 app.use('/api/metrics', metricsRouter);
 
-// Route d'API inconnue : renvoyer du JSON, pas la page HTML par défaut
-// d'Express — un client qui attend du JSON recevait jusqu'ici du HTML et
-// échouait au parsing, avec un message incompréhensible.
+// ─── Gestion des erreurs ─────────────────────────────────────────────
+
 app.use('/api', (req, res) => {
     res.status(404).json({ success: false, message: 'Endpoint inexistant' });
 });
 
-// ✅ Gestionnaire d'erreurs CENTRAL (pratique 2.4 de nodebestpractices) :
-// un seul endroit décide quoi répondre, quoi journaliser et à quel niveau.
 app.use((err, req, res, next) => {
-    // Erreur CORS
     if (err && err.message === 'Origine non autorisée par CORS') {
         return res.status(403).json({ success: false, message: 'Origine non autorisée' });
     }
-    
-    // Erreur de taille de payload (JSON/urlencoded — voir limite resserrée plus haut)
     if (err.type === 'entity.too.large') {
-        return res.status(413).json({ 
-            success: false, 
-            message: 'Les données envoyées sont trop volumineuses.' 
+        return res.status(413).json({
+            success: false,
+            message: 'Les données envoyées sont trop volumineuses.'
         });
     }
-    
-    // Erreur Multer déjà gérée dans productRoute.js
     if (err.code === 'LIMIT_FILE_SIZE' || err.code === 'LIMIT_FILE_COUNT') {
-        return res.status(400).json({ 
-            success: false, 
-            message: err.message 
-        });
+        return res.status(400).json({ success: false, message: err.message });
     }
-    
-    // Erreur MÉTIER volontairement levée (AppError) : le serveur va bien,
-    // c'est une règle qui s'applique. On répond le statut prévu et le
-    // message tel quel — il a été écrit pour être lu par l'utilisateur.
-    // Journalisée en `warn`, pas en `error` : ce n'est pas un incident.
     if (estOperationnelle(err)) {
         console.warn(JSON.stringify({
             type: 'warn',
@@ -243,14 +160,6 @@ app.use((err, req, res, next) => {
             ...(err.details ? { details: err.details } : {}),
         });
     }
-
-    // Erreur inattendue = BUG (pratique 2.3). Le message interne ne doit
-    // jamais atteindre le client : il révèle la structure du code et des
-    // données. Trace complète côté serveur, message générique côté client.
-    // [PHASE 3 - OBSERVABILITÉ] Log structuré en plus du message lisible :
-    // même format `type`/`ts`/`route` que les logs de requêtes, pour pouvoir
-    // filtrer `type=error` dans les logs Vercel et corréler un pic d'erreurs
-    // avec un pic de latence sur la même route.
     console.error(JSON.stringify({
         type: 'error',
         ts: new Date().toISOString(),
@@ -266,10 +175,11 @@ app.use((err, req, res, next) => {
     });
 });
 
-// Démarrage du serveur
-app.listen(port, ()=>{
-    console.log(`Server is running on http://localhost:${port}`);
+// ─── Démarrage ────────────────────────────────────────────────────────
+
+app.listen(port, () => {
+    console.log(`🚀 Server is running on http://localhost:${port}`);
+    console.log(`📊 Admin routes mounted on /api/admin`);
 });
 
-// EXPORT POUR VERCEL (SERVERLESS FUNCTIONS)
 export default app;
