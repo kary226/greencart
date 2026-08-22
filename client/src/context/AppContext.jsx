@@ -11,11 +11,12 @@ import axios from "axios";
 // le manipuler lui-même.
 axios.defaults.withCredentials = true;
 
-// [PHASE 3 - CORS] En production, on utilise une URL relative pour éviter
-// les problèmes CORS (Vercel Rewrites proxyfie /api/* vers api.ramci.ci).
-// En développement, on utilise le serveur local.
-// Si VITE_API_URL est défini, on l'utilise (pour les environnements spécifiques).
-const API_BASE_URL = import.meta.env.VITE_API_URL || 
+// [PHASE 3 - CORS] VITE_BACKEND_URL doit pointer vers l'API (ex: https://api.ramci.ci),
+// aussi bien en développement qu'en production. Il n'y a pas de rewrite Vercel
+// /api/* vers l'API : l'URL absolue est donc obligatoire.
+// VITE_API_URL reste supporté en repli pour compatibilité si jamais utilisé ailleurs.
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL ||
+                     import.meta.env.VITE_API_URL ||
                      (import.meta.env.PROD ? '' : 'http://localhost:4000');
 axios.defaults.baseURL = API_BASE_URL;
 
