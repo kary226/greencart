@@ -15,6 +15,7 @@ import CustomerCreditTransaction from "../models/CustomerCreditTransaction.js";
 // était re-résolu (et son cache re-consulté) pour chaque boutique du
 // panier, un coût inutile sur le chemin de la commande.
 import Boutique from "../models/Boutique.js";
+import StaffUser from "../models/StaffUser.js";
 import { getIdsBoutiquesSuspendues } from "../services/boutiqueService.js";
 import {
     crediterVenteEnAttente,
@@ -814,6 +815,68 @@ export const listCommandesARemettre = async (req, res) => {
         return res.json({ success: true, orders });
     } catch (error) {
         console.error('Erreur listCommandesARemettre:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// =============================================================
+// ✅ PHASE 4 : ASSIGNER UN LIVREUR À UNE COMMANDE (admin)
+// =============================================================
+// [FIX] Cette fonction était importée et déjà branchée sur la route
+// POST /admin/assigner-livreur dans routes/orderRoute.js, mais n'existait
+// nulle part dans ce contrôleur : l'import échouait au démarrage
+// ("does not provide an export named 'assignerLivreur'"), ce qui empêchait
+// le serveur de démarrer, en local comme en production, indépendamment de
+// toute base de données. confirmerRemiseLivreur et getLivraisonsLivreur
+// supposent déjà Order.livreurId rempli : cette fonction est le seul point
+// du code qui est censé le renseigner.
+export const assignerLivreur = async (req, res) => {
+    try {
+        const { orderId, livreurId } = req.body;
+        if (!orderId || !livreurId) {
+            return res.status(400).json({ success: false, message: "orderId et livreurId sont requis." });
+        }
+
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return res.status(404).json({ success: false, message: "Commande introuvable." });
+        }
+
+        // Pas de sens à assigner un livreur à une commande déjà terminée
+        // (livrée, retournée, annulée) ou encore non confirmée par l'admin.
+        const statutsInterdits = ['Delivered', 'Returned', 'Cancelled', 'pending_payment', 'Order Placed'];
+        if (statutsInterdits.includes(order.status)) {
+            return res.status(409).json({
+                success: false,
+                message: `Impossible d'assigner un livreur : la commande est au statut "${order.status}".`,
+            });
+        }
+
+        const livreur = await StaffUser.findById(livreurId);
+        if (!livreur || livreur.role !== 'livreur') {
+            return res.status(400).json({ success: false, message: "Ce compte n'est pas un livreur valide." });
+        }
+        if (livreur.statut !== 'actif') {
+            return res.status(409).json({ success: false, message: "Ce livreur n'est pas actif." });
+        }
+
+        order.livreurId = livreur._id;
+        // Une réassignation annule toute remise déjà confirmée au précédent
+        // livreur : le nouveau livreur n'a pas encore le colis en main.
+        order.remiseLivreurConfirmee = false;
+        order.remiseLivreurConfirmeeLe = null;
+        await order.save();
+
+        journaliser({
+            acteur: acteurDepuisRequete(req),
+            action: 'commande.assignation_livreur',
+            cible: { id: order._id, libelle: `Commande ${order._id.toString().slice(-6).toUpperCase()}` },
+            note: `Livreur assigné : ${livreur.nom} (${livreur.email})`,
+        });
+
+        return res.json({ success: true, message: "Livreur assigné avec succès.", order });
+    } catch (error) {
+        console.error('Erreur assignerLivreur:', error.message);
         res.status(500).json({ success: false, message: error.message });
     }
 };

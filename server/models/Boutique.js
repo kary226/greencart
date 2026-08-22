@@ -62,7 +62,8 @@ const boutiqueSchema = new mongoose.Schema({
     }],
 }, { timestamps: true });
 
-boutiqueSchema.index({ ownerId: 1 });
+// ownerId est déjà indexé via `unique: true` ci-dessus — un second
+// boutiqueSchema.index({ ownerId: 1 }) créait un index Mongoose dupliqué.
 boutiqueSchema.index({ nom: 1 });
 
 const Boutique = mongoose.models.boutique || mongoose.model('boutique', boutiqueSchema);

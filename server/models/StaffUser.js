@@ -64,7 +64,8 @@ const staffUserSchema = new mongoose.Schema({
 }, { timestamps: true, minimize: false });
 
 // Index pour accélérer les requêtes courantes
-staffUserSchema.index({ email: 1 });
+// (email est déjà indexé via `unique: true` ci-dessus — un second
+// staffUserSchema.index({ email: 1 }) créait un index Mongoose dupliqué)
 staffUserSchema.index({ role: 1 });
 staffUserSchema.index({ statut: 1 });
 

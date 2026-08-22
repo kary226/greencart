@@ -42,6 +42,10 @@ const journalActionSchema = new mongoose.Schema({
             'commande.remboursement_manuel',
             'commande.forcage_statut',
             'commande.remise_livreur',
+            // [FIX] assignerLivreur journalisait sous 'commande.forcage_statut',
+            // une étiquette trompeuse pour un changement de livreur assigné
+            // plutôt qu'un forçage de statut. Valeur dédiée ajoutée.
+            'commande.assignation_livreur',
         ],
         index: true,
     },

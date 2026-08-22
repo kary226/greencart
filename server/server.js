@@ -146,6 +146,17 @@ app.use(mongoSanitize());
 app.get('/', (req, res) => res.send("API is Working"));
 
 // Routes API
+//
+// [FIX ROUTAGE ColisShein] colisSheinAdminRouter (routes assistant/admin,
+// ex. /conversations, /stats, /assigner, /assistants-disponibles) DOIT être
+// monté AVANT sheinCartRouter. Les deux routeurs partagent le préfixe
+// /api/shein-cart/admin, et sheinCartRouter définit un joker /admin/:id qui,
+// monté en premier, interceptait toute requête vers ces chemins avant que
+// colisSheinAdminRouter ne soit jamais consulté — rendant les routes prévues
+// pour le rôle assistant_shein inatteignables (vérifié empiriquement).
+// Express résout les routeurs strictement dans l'ordre d'enregistrement,
+// donc l'ordre ci-dessous est significatif : ne pas le changer sans retester.
+app.use('/api/shein-cart/admin', colisSheinAdminRouter);
 app.use('/api/shein-cart', sheinCartRouter);
 app.use('/api/user', userRouter);
 app.use('/api/seller', sellerRouter);
@@ -171,7 +182,8 @@ app.use('/api/wallet', walletRouter);
 app.use('/api/retraits', retraitRouter);
 
 // PHASE 5 - Routes Assistant Shein
-app.use('/api/shein-cart/admin', colisSheinAdminRouter);
+// (colisSheinAdminRouter est désormais monté plus haut, avec sheinCartRouter —
+// voir le commentaire [FIX ROUTAGE ColisShein] à l'endroit du montage réel)
 app.use('/api/message-colis', messageColisRouter);
 
 // [PHASE 3 - OBSERVABILITÉ] Lecture des métriques (protégée, voir le routeur)

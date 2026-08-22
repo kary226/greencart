@@ -28,7 +28,7 @@ const messageColisSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 messageColisSchema.index({ colisId: 1, createdAt: 1 });
-messageColisSchema.index({ agentStaffId: 1 });
+// agentStaffId a déjà `index: true` sur le champ — .index() redondant supprimé.
 
 const MessageColis = mongoose.models.messagecolis || mongoose.model("messagecolis", messageColisSchema);
 

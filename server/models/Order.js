@@ -178,7 +178,7 @@ const orderSchema = new mongoose.Schema({
 // Index pour accélérer les requêtes
 orderSchema.index({ userId: 1, createdAt: -1 });
 orderSchema.index({ status: 1 });
-orderSchema.index({ livreurId: 1 });
+// livreurId a déjà `index: true` sur le champ — .index() redondant supprimé.
 orderSchema.index({ 'litige.enCours': 1 });
 orderSchema.index({ collecteExpireLe: 1 });
 

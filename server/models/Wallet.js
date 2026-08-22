@@ -83,7 +83,8 @@ walletSchema.methods.recalculerSolde = async function () {
     return solde;
 };
 
-walletSchema.index({ ownerId: 1 });
+// ownerId est déjà indexé via `unique: true` ci-dessus — un second
+// walletSchema.index({ ownerId: 1 }) créait un index Mongoose dupliqué.
 
 const Wallet = mongoose.models.wallet || mongoose.model('wallet', walletSchema);
 

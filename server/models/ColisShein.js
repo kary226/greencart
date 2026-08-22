@@ -114,9 +114,9 @@ const colisSheinSchema = new mongoose.Schema({
 }, { timestamps: true, minimize: false });
 
 // Index pour accélérer les requêtes
+// (agentAssigneld a déjà `index: true` sur le champ, numeroSuivi a déjà
+// `unique: true` sur le champ — deux .index() redondants supprimés ici)
 colisSheinSchema.index({ statut: 1 });
-colisSheinSchema.index({ agentAssigneld: 1 });
-colisSheinSchema.index({ numeroSuivi: 1 });
 colisSheinSchema.index({ userId: 1 });
 
 // Génère un numéro lisible du type SHEIN-2607-014
