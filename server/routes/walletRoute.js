@@ -1,5 +1,6 @@
 import express from 'express';
 import authStaff, { requireRole } from '../middlewares/authStaff.js';
+import { requirePermission } from '../middlewares/permission.js';
 import {
     getMyWallet,
     getMyTransactions,
@@ -13,8 +14,18 @@ const walletRouter = express.Router();
 walletRouter.get('/moi', authStaff, requireRole('commercant'), getMyWallet);
 walletRouter.get('/moi/transactions', authStaff, requireRole('commercant'), getMyTransactions);
 
-// Routes admin
-walletRouter.get('/admin/:commercialId', authStaff, requireRole('admin'), getWalletByCommercial);
-walletRouter.post('/admin/ajustement', authStaff, requireRole('admin'), adminAjustement);
+// Routes admin / finance
+walletRouter.get(
+    '/admin/:commercialId',
+    authStaff,
+    requirePermission('wallet.view'),
+    getWalletByCommercial
+);
+walletRouter.post(
+    '/admin/ajustement',
+    authStaff,
+    requirePermission('wallet.adjust'),
+    adminAjustement
+);
 
 export default walletRouter;

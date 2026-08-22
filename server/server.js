@@ -42,6 +42,9 @@ import retraitRouter from './routes/retraitRoute.js';
 import colisSheinAdminRouter from './routes/colisSheinAdminRoute.js';
 import messageColisRouter from './routes/messageColisRoute.js';
 
+// [PHASE 2] Routes d'approbation (double approbation)
+import approvalRouter from './routes/approvalRoute.js';
+
 // [SÉCURITÉ] Refus de démarrer si un secret critique manque.
 //
 // Sans ce garde, l'absence de JWT_SECRET ne se voyait qu'au premier appel
@@ -182,9 +185,10 @@ app.use('/api/wallet', walletRouter);
 app.use('/api/retraits', retraitRouter);
 
 // PHASE 5 - Routes Assistant Shein
-// (colisSheinAdminRouter est désormais monté plus haut, avec sheinCartRouter —
-// voir le commentaire [FIX ROUTAGE ColisShein] à l'endroit du montage réel)
 app.use('/api/message-colis', messageColisRouter);
+
+// [PHASE 2] Routes d'approbation (double approbation)
+app.use('/api/admin/approvals', approvalRouter);
 
 // [PHASE 3 - OBSERVABILITÉ] Lecture des métriques (protégée, voir le routeur)
 app.use('/api/metrics', metricsRouter);

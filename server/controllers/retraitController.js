@@ -2,30 +2,69 @@ import DemandeRetrait, { OPERATEURS_RETRAIT } from '../models/DemandeRetrait.js'
 import Wallet from '../models/Wallet.js';
 import WalletTransaction from '../models/WalletTransaction.js';
 import StaffUser from '../models/StaffUser.js';
+import PushSubscription from '../models/PushSubscription.js';
+import Setting from '../models/Setting.js';
+import ApprovalRequest from '../models/ApprovalRequest.js';
 import { journaliser } from '../services/journalService.js';
-
-// Retraits des commerçants.
-//
-// Modèle SEMI-AUTOMATIQUE assumé : Jèko, le prestataire de paiement du site,
-// ne fait que de l'ENCAISSEMENT — il n'expose aucune API de versement. Un
-// retrait 100 % automatique est donc impossible aujourd'hui sans changer de
-// prestataire. Plutôt que de simuler une automatisation qui n'existe pas, le
-// circuit est : demande instantanée et fonds réservés côté commerçant,
-// exécution du virement côté admin, preuve enregistrée.
-//
-// Toute la sécurité tient en trois points :
-//   1. les fonds sont RÉSERVÉS dès la demande (débit immédiat) ;
-//   2. une CLÉ D'IDEMPOTENCE empêche qu'un rejeu réseau crée deux retraits ;
-//   3. un rejet RECRÉDITE le portefeuille, jamais un ajustement à la main.
+import { sendEmail } from '../configs/email.js';
+import webpush from '../configs/webpush.js';
 
 const MONTANT_MINIMUM = 1000;
 
-// GET /api/retraits/operateurs — Liste fermée proposée au commerçant.
+// ─── Fonction interne de notification des approbateurs (retrait) ────
+const notifierApprobateursRetrait = async (approval) => {
+    try {
+        const approbateurs = await StaffUser.find({
+            role: { $in: ['super_admin', 'finance_admin'] },
+            statut: 'actif',
+        }).select('email nom _id');
+
+        const sujet = `🟡 Demande d'approbation de retrait (${approval.montant.toLocaleString('fr-FR')} FCFA)`;
+        const message = `Une demande de retrait de ${approval.montant.toLocaleString('fr-FR')} FCFA a été créée par ${approval.demandePar?.nom || 'un commerçant'}. Connectez-vous pour approuver ou rejeter.`;
+
+        for (const admin of approbateurs) {
+            await sendEmail(admin.email, sujet, `
+                <h2>${sujet}</h2>
+                <p>Bonjour ${admin.nom},</p>
+                <p>${message}</p>
+                <p><a href="${process.env.FRONTEND_URL}/admin/approvals/${approval._id}">Voir la demande</a></p>
+            `);
+
+            const subscriptions = await PushSubscription.find({ userId: admin._id });
+            for (const sub of subscriptions) {
+                try {
+                    await webpush.sendNotification(
+                        {
+                            endpoint: sub.endpoint,
+                            keys: {
+                                p256dh: sub.keys.p256dh,
+                                auth: sub.keys.auth,
+                            },
+                        },
+                        JSON.stringify({
+                            title: sujet,
+                            body: message,
+                            icon: '/logo.png',
+                            data: { approvalId: approval._id },
+                        })
+                    );
+                } catch (err) {
+                    console.error('Erreur push:', err.message);
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Erreur notification approbateurs retrait:', error.message);
+    }
+};
+
+// ─── GET /api/retraits/operateurs ──────────────────────────────────
 export const listOperateurs = async (req, res) => {
     res.json({ success: true, operateurs: OPERATEURS_RETRAIT });
 };
 
-// POST /api/retraits — Commerçant : demander un retrait
+// ─── POST /api/retraits ─────────────────────────────────────────────
+// [PHASE 2] Double approbation si montant > seuil
 export const createRetrait = async (req, res) => {
     try {
         const { montant, operateur, numero, titulaire, cleIdempotence } = req.body;
@@ -34,9 +73,7 @@ export const createRetrait = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Requête invalide' });
         }
 
-        // Rejeu réseau : la demande existe déjà, on la renvoie telle quelle
-        // au lieu d'en créer une seconde. C'est le cas normal quand le
-        // commerçant perd la connexion juste après avoir validé.
+        // Rejeu réseau
         const dejaCreee = await DemandeRetrait.findOne({ cleIdempotence });
         if (dejaCreee) {
             return res.status(200).json({
@@ -59,7 +96,6 @@ export const createRetrait = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Opérateur invalide' });
         }
 
-        // Numéro ivoirien : 10 chiffres, espaces tolérés à la saisie.
         const numeroPropre = String(numero || '').replace(/\s/g, '');
         if (!/^\d{10}$/.test(numeroPropre)) {
             return res.status(400).json({
@@ -95,6 +131,37 @@ export const createRetrait = async (req, res) => {
             });
         }
 
+        // Lire le seuil de retrait
+        const thresholdSetting = await Setting.findOne({ key: 'finance.approval.withdrawal_threshold' });
+        const threshold = thresholdSetting?.value || 100000;
+
+        // Si montant > seuil → demande d'approbation (sans réservation)
+        if (montantDemande > threshold) {
+            const approval = await ApprovalRequest.create({
+                type: 'withdrawal',
+                payload: {
+                    commercialId: req.staffUser._id,
+                    montant: montantDemande,
+                    operateur,
+                    numero: numeroPropre,
+                    titulaire: titulaire || '',
+                    cleIdempotence,
+                },
+                montant: montantDemande,
+                demandePar: req.staffUser._id,
+            });
+
+            await notifierApprobateursRetrait(approval);
+
+            return res.status(202).json({
+                success: true,
+                message: `Demande de retrait soumise à approbation (montant > ${threshold.toLocaleString('fr-FR')} FCFA)`,
+                approvalRequestId: approval._id,
+                approval,
+            });
+        }
+
+        // Sinon, exécution immédiate
         let demande;
         try {
             demande = await DemandeRetrait.create({
@@ -107,8 +174,6 @@ export const createRetrait = async (req, res) => {
                 statut: 'en_attente',
             });
         } catch (error) {
-            // Deux requêtes simultanées avec la même clé : l'index unique en
-            // laisse passer une seule. La perdante récupère la gagnante.
             if (error.code === 11000) {
                 const existante = await DemandeRetrait.findOne({ cleIdempotence });
                 return res.status(200).json({
@@ -118,8 +183,7 @@ export const createRetrait = async (req, res) => {
             throw error;
         }
 
-        // RÉSERVATION : le portefeuille est débité tout de suite. La somme
-        // cesse d'être disponible, donc redemandable.
+        // Réservation immédiate
         await WalletTransaction.create({
             walletId: wallet._id,
             type: 'retrait',
@@ -142,7 +206,7 @@ export const createRetrait = async (req, res) => {
     }
 };
 
-// GET /api/retraits/moi — Commerçant : ses demandes
+// ─── GET /api/retraits/moi ──────────────────────────────────────────
 export const getMesRetraits = async (req, res) => {
     try {
         const demandes = await DemandeRetrait.find({ commercialId: req.staffUser._id })
@@ -157,7 +221,7 @@ export const getMesRetraits = async (req, res) => {
     }
 };
 
-// GET /api/retraits — Admin : toutes les demandes
+// ─── GET /api/retraits ──────────────────────────────────────────────
 export const listAllRetraits = async (req, res) => {
     try {
         const filtre = {};
@@ -182,10 +246,8 @@ export const listAllRetraits = async (req, res) => {
     }
 };
 
-// PATCH /api/retraits/:id — Admin : faire avancer une demande
-//
-// en_attente -> en_cours -> payee, ou -> rejetee (recrédite les fonds).
-// [PHASE 0] Journalisation ajoutée pour approbation et rejet.
+// ─── PATCH /api/retraits/:id ────────────────────────────────────────
+// [PHASE 0] Journalisation ajoutée
 export const traiterRetrait = async (req, res) => {
     try {
         const { id } = req.params;
@@ -200,8 +262,6 @@ export const traiterRetrait = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Demande introuvable' });
         }
 
-        // Un état terminal ne se rejoue pas : sans ce garde-fou, repasser
-        // une demande payée en « rejetée » recréditerait un argent déjà versé.
         if (['payee', 'rejetee'].includes(demande.statut)) {
             return res.status(409).json({
                 success: false,
@@ -217,7 +277,6 @@ export const traiterRetrait = async (req, res) => {
         }
 
         if (statut === 'rejetee') {
-            // Les fonds avaient été réservés à la demande : on les rend.
             const wallet = await Wallet.findOne({ ownerId: demande.commercialId });
             if (wallet) {
                 const dejaRembourse = await WalletTransaction.exists({
@@ -246,7 +305,7 @@ export const traiterRetrait = async (req, res) => {
         if (preuvePaiement) demande.preuvePaiement = preuvePaiement;
         await demande.save();
 
-        // [PHASE 0] Journalisation
+        // Journalisation
         let actionJournal = null;
         if (statut === 'payee') actionJournal = 'retrait.approbation';
         else if (statut === 'rejetee') actionJournal = 'retrait.rejet';
