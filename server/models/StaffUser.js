@@ -1,12 +1,14 @@
 import mongoose from "mongoose";
 
-// StaffUser = le compte unique pour toute personne travaillant pour
-// GreenCart, quel que soit son rôle. Remplace à terme le compte "seller"
-// unique codé en dur dans les variables d'environnement.
-//
-// Un seul rôle par compte (pas de multi-rôle pour l'instant, ça reste
-// simple à raisonner et à sécuriser). Le champ boutiqueId n'est renseigné
-// que pour les comptes de rôle "commercant".
+/**
+ * StaffUser = le compte unique pour toute personne travaillant pour GreenCart.
+ * 
+ * Un seul rôle par compte (pour simplifier la sécurité et la gestion).
+ * Le champ boutiqueId n'est renseigné que pour les comptes de rôle "commercant".
+ * 
+ * [PHASE 1] Ajout du champ 'permissions' pour permettre des permissions sur mesure,
+ * ainsi que de nouveaux rôles (super_admin, finance_admin, etc.)
+ */
 const staffUserSchema = new mongoose.Schema({
     email: {
         type: String,
@@ -29,9 +31,24 @@ const staffUserSchema = new mongoose.Schema({
         default: '',
         trim: true,
     },
+    // [PHASE 1] Rôles étendus
     role: {
         type: String,
-        enum: ['admin', 'commercant', 'livreur', 'assistant_shein'],
+        enum: [
+            // Nouveaux rôles granulaires
+            'super_admin',
+            'finance_admin',
+            'warehouse_admin',
+            'logistics_admin',
+            'catalog_admin',
+            'support_admin',
+            'read_only_auditor',
+            // Rôles existants (conservés pour compatibilité)
+            'admin',
+            'commercant',
+            'livreur',
+            'assistant_shein',
+        ],
         required: true,
     },
     statut: {
@@ -39,10 +56,7 @@ const staffUserSchema = new mongoose.Schema({
         enum: ['actif', 'suspendu', 'en_attente'],
         default: 'en_attente',
     },
-    // Secret TOTP propre à CE compte (contrairement au compte seller qui
-    // partage un seul secret global via l'environnement). Généré à
-    // l'activation du compte, jamais renvoyé au client après la mise en
-    // place initiale.
+    // Secret TOTP propre à CE compte
     totpSecret: {
         type: String,
         default: null,
@@ -61,11 +75,16 @@ const staffUserSchema = new mongoose.Schema({
         type: Date,
         default: null,
     },
+    // [PHASE 1] Permissions sur mesure (optionnel)
+    // Si ce champ est rempli, il écrase les permissions du rôle.
+    // Sinon, elles sont chargées depuis RolePermission.
+    permissions: {
+        type: [String],
+        default: [],
+    },
 }, { timestamps: true, minimize: false });
 
 // Index pour accélérer les requêtes courantes
-// (email est déjà indexé via `unique: true` ci-dessus — un second
-// staffUserSchema.index({ email: 1 }) créait un index Mongoose dupliqué)
 staffUserSchema.index({ role: 1 });
 staffUserSchema.index({ statut: 1 });
 

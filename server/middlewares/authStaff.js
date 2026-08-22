@@ -1,15 +1,22 @@
 import jwt from 'jsonwebtoken';
 import StaffUser from '../models/StaffUser.js';
 import { TYPE_STAFF, verifierType } from '../utils/jwtTypes.js';
+import { loadPermissions } from './permission.js';
 
-// authStaff vérifie qu'une personne est bien connectée en tant que
-// compte staff (admin / commercant / livreur / assistant_shein), quel
-// que soit son rôle précis, et attache le compte trouvé à req.staffUser.
-// Utiliser ensuite requireRole(...) pour restreindre une route à des
-// rôles précis.
+/**
+ * Middleware d'authentification pour les comptes staff.
+ * 
+ * Vérifie la présence d'un token staff (cookie 'staffToken' ou header Authorization)
+ * et charge l'utilisateur correspondant depuis la base de données.
+ * 
+ * Ajoute à la requête :
+ *   - req.staffUser : l'utilisateur staff (sans password ni totpSecret)
+ *   - req.staffUser.permissions : les permissions chargées (via loadPermissions)
+ * 
+ * Utiliser ensuite requirePermission() ou requireAnyPermission() pour restreindre l'accès.
+ */
 const authStaff = async (req, res, next) => {
-    // Cookie séparé de 'token' (client) et de 'sellerToken' (ancien compte
-    // vendeur unique), pour ne jamais mélanger les sessions.
+    // Récupération du token depuis le cookie ou le header Authorization
     const token = req.cookies?.staffToken
         || (req.headers.authorization?.startsWith('Bearer ')
             ? req.headers.authorization.split(' ')[1]
@@ -32,10 +39,7 @@ const authStaff = async (req, res, next) => {
             });
         }
 
-        // [SÉCURITÉ] Jusqu'ici, seule la recherche dans la collection
-        // StaffUser empêchait un jeton client d'ouvrir l'espace staff — une
-        // protection de fait, pas de conception. Le type est maintenant
-        // vérifié explicitement (voir utils/jwtTypes.js).
+        // Vérification du type de token (TYPE_STAFF vs TYPE_CLIENT)
         if (!verifierType(tokenDecode, TYPE_STAFF)) {
             return res.status(401).json({
                 success: false,
@@ -43,6 +47,7 @@ const authStaff = async (req, res, next) => {
             });
         }
 
+        // Chargement de l'utilisateur depuis la base
         const staffUser = await StaffUser.findById(tokenDecode.id).select('-password -totpSecret');
 
         if (!staffUser) {
@@ -52,6 +57,7 @@ const authStaff = async (req, res, next) => {
             });
         }
 
+        // Vérification du statut du compte
         if (staffUser.statut !== 'actif') {
             return res.status(403).json({
                 success: false,
@@ -59,6 +65,10 @@ const authStaff = async (req, res, next) => {
             });
         }
 
+        // [PHASE 1] Charger les permissions de l'utilisateur
+        staffUser.permissions = await loadPermissions(staffUser);
+
+        // Attacher l'utilisateur à la requête
         req.staffUser = staffUser;
         next();
     } catch (error) {
@@ -79,9 +89,13 @@ const authStaff = async (req, res, next) => {
     }
 };
 
-// Middleware factory : restreint l'accès à une liste de rôles précis.
-// À utiliser APRÈS authStaff sur une route.
-// Exemple : staffRouter.get('/comptes', authStaff, requireRole('admin'), listStaffAccounts)
+/**
+ * Middleware de compatibilité : vérifie le rôle de l'utilisateur.
+ * Déprécié progressivement au profit de requirePermission().
+ * 
+ * Exemple (à remplacer) :
+ *   router.get('/admin', authStaff, requireRole('admin'), ...)
+ */
 export const requireRole = (...rolesAutorises) => {
     return (req, res, next) => {
         if (!req.staffUser) {
