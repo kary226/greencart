@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
 import User from "../models/User.js";
@@ -8,6 +9,7 @@ import DeliveryType from "../models/DeliveryType.js";
 import Commune from "../models/Commune.js";
 import Wallet from "../models/Wallet.js";
 import WalletTransaction from "../models/WalletTransaction.js";
+import CustomerCreditTransaction from "../models/CustomerCreditTransaction.js";
 // [PHASE 0 - PERF] Import statique au lieu de l'import dynamique répété à
 // chaque itération de boucle dans crediterWallets — l'import dynamique
 // était re-résolu (et son cache re-consulté) pour chaque boutique du
@@ -20,7 +22,14 @@ import {
     annulerVenteEnAttente,
     traiterRetourColis,
     etatConfirmations,
+    ajusterPortefeuille,
 } from "../services/walletService.js";
+import {
+    libererReservationsExpirees,
+    calculerExpirationReservation,
+} from "../services/collecteService.js";
+import { journaliser } from "../services/journalService.js";
+import { acteurDepuisStaff, acteurVendeurTechnique } from "../middlewares/authActeur.js";
 // [FIX] Ce contrôleur importait crediterClient depuis services/customerCreditService.js,
 // un module qui importe lui-même le mauvais fichier (models/CustomerCredit.js sans
 // export par défaut) : CustomerCreditTransaction y valait `undefined`, donc tout appel
@@ -356,6 +365,17 @@ export const updateOrderStatus = async (req, res) => {
             });
         }
 
+        // [NOUVEAU] doc §15 : le forçage manuel d'un statut (hors circuit
+        // disponibilité → collecte → Shipped) est une action Admin sensible.
+        if (order) {
+            journaliser({
+                acteur: acteurVendeurTechnique(),
+                action: 'commande.forcage_statut',
+                cible: { id: order._id, libelle: `Commande ${order._id.toString().slice(-6).toUpperCase()}` },
+                note: `Statut forcé manuellement → ${status}`,
+            });
+        }
+
         res.json({ success: true, message: "Statut mis à jour" });
     } catch (error) {
         console.error('Erreur updateOrderStatus:', error.message);
@@ -405,6 +425,10 @@ export const assignerLivreur = async (req, res) => {
 // =============================================================
 export const getCollectesLivreur = async (req, res) => {
     try {
+        // Une réservation morte (livreur qui a abandonné) ne doit jamais
+        // rester invisible aux autres — on la libère avant de lister.
+        await libererReservationsExpirees();
+
         const livreurId = req.staffUser._id;
         const orders = await Order.find({
             status: { $in: ['Confirmed', 'Collecting', 'Ready for Shipment'] },
@@ -423,6 +447,8 @@ export const getCollectesLivreur = async (req, res) => {
 
 export const reserverCollecte = async (req, res) => {
     try {
+        await libererReservationsExpirees();
+
         const livreurId = req.staffUser._id;
         const { orderId } = req.body;
         const updated = await Order.findOneAndUpdate(
@@ -435,7 +461,8 @@ export const reserverCollecte = async (req, res) => {
                 $set: {
                     status: 'Collecting',
                     collecteLivreurId: livreurId,
-                    collecteReserveeLe: new Date()
+                    collecteReserveeLe: new Date(),
+                    collecteExpireLe: calculerExpirationReservation(),
                 }
             },
             { new: true }
@@ -481,6 +508,9 @@ export const collecterArticle = async (req, res) => {
         item.availabilityStatus = 'collected';
         item.collectedAt = new Date();
         item.collectedBy = livreurId;
+        // Une collecte réelle a commencé : plus question de la laisser
+        // expirer sous ce livreur.
+        order.collecteExpireLe = null;
 
         const actifs = order.items.filter(i => i.availabilityStatus !== 'unavailable');
         const tousCollectes = actifs.length > 0 && actifs.every(i => i.availabilityStatus === 'collected');
@@ -526,11 +556,20 @@ export const terminerCollecte = async (req, res) => {
 // nouveau champ non déclaré dans Order.js.
 export const reserverCollecteLivreur = async (req, res) => {
     try {
+        await libererReservationsExpirees();
+
         const livreurId = req.staffUser._id;
         const { orderId } = req.params;
         const updated = await Order.findOneAndUpdate(
             { _id: orderId, status: 'Confirmed', collecteLivreurId: null },
-            { $set: { status: 'Collecting', collecteLivreurId: livreurId, collecteReserveeLe: new Date() } },
+            {
+                $set: {
+                    status: 'Collecting',
+                    collecteLivreurId: livreurId,
+                    collecteReserveeLe: new Date(),
+                    collecteExpireLe: calculerExpirationReservation(),
+                }
+            },
             { new: true }
         ).populate('items.product address');
 
@@ -566,6 +605,7 @@ export const collecterArticleLivreur = async (req, res) => {
             item.availabilityStatus = 'collected';
             item.collectedAt = new Date();
             item.collectedBy = livreurId;
+            order.collecteExpireLe = null;
             const actifs = order.items.filter(i => i.availabilityStatus !== 'unavailable');
             const tousCollectes = actifs.length > 0 && actifs.every(i => i.availabilityStatus === 'collected');
             order.status = tousCollectes ? 'Ready for Shipment' : 'Collecting';
@@ -1203,11 +1243,29 @@ export const confirmerCommandeAdmin = async (req, res) => {
             });
         }
 
+        // [NOUVEAU] doc §15 : « un litige bloque la libération s'il est
+        // déclaré avant Shipped ». Verrou financier de dernier recours,
+        // indépendant du statut logistique.
+        if (order.litige?.enCours) {
+            return res.status(409).json({
+                success: false,
+                message: 'Un litige est en cours sur cette commande — libération bloquée jusqu’à sa résolution.',
+            });
+        }
+
         order.confirmeParAdminLe = new Date();
         order.confirmeParAdmin = req.staffUser._id;
         await order.save();
 
         const resultat = await libererFonds(order);
+
+        // [NOUVEAU] doc §15 : action Admin sensible — journalisée.
+        journaliser({
+            acteur: acteurDepuisStaff(req.staffUser),
+            action: 'commande.liberation',
+            cible: { id: order._id, libelle: `Commande ${order._id.toString().slice(-6).toUpperCase()}` },
+            note: `${resultat.liberees} boutique(s) créditée(s), ${resultat.montantTotal} FCFA libérés`,
+        });
 
         return res.json({
             success: true,
@@ -1219,6 +1277,183 @@ export const confirmerCommandeAdmin = async (req, res) => {
         });
     } catch (error) {
         console.error('Erreur confirmerCommandeAdmin:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// ══════════════════════════════════════════════════════════════════════
+//  LITIGES (doc §15)
+// ══════════════════════════════════════════════════════════════════════
+//
+// Un litige déclaré AVANT la libération financière bloque explicitement
+// cette libération (voir confirmerCommandeAdmin) et interrompt le statut
+// logistique affiché ('Disputed'), restauré tel quel à la résolution. Un
+// litige déclaré APRÈS libération ne peut plus rien bloquer — il ne peut
+// que créer une retenue (dette commerçant) ou un remboursement client
+// exceptionnel, sans jamais réécrire l'historique déjà écrit.
+
+const STATUTS_TERMINAUX = ['Delivered', 'Cancelled', 'Returned', 'Disputed'];
+
+// POST /api/order/admin/litige/declarer — Admin
+export const declarerLitige = async (req, res) => {
+    try {
+        const { orderId, raison } = req.body;
+        if (!String(raison || '').trim()) {
+            return res.status(400).json({ success: false, message: 'La raison du litige est obligatoire' });
+        }
+
+        const order = await Order.findById(orderId);
+        if (!order) return res.status(404).json({ success: false, message: 'Commande introuvable' });
+
+        if (order.litige?.enCours) {
+            return res.status(409).json({ success: false, message: 'Un litige est déjà en cours sur cette commande' });
+        }
+
+        const dejaLiberee = Boolean(order.confirmeParAdminLe);
+        // On n'interrompt le statut logistique que s'il y a réellement
+        // quelque chose à interrompre : une commande déjà livrée/annulée/
+        // retournée garde son statut final, le litige reste une annotation.
+        const doitInterrompreStatut = !dejaLiberee && !STATUTS_TERMINAUX.includes(order.status);
+
+        order.litige = {
+            enCours: true,
+            raison: String(raison).trim().slice(0, 500),
+            declarePar: req.staffUser._id,
+            declareParNom: req.staffUser.nom || req.staffUser.email || 'Admin',
+            declareLe: new Date(),
+            statutAvant: doitInterrompreStatut ? order.status : null,
+            resoluLe: null,
+            resoluPar: null,
+            resolution: null,
+            note: null,
+        };
+        if (doitInterrompreStatut) {
+            order.status = 'Disputed';
+        }
+        await order.save();
+
+        journaliser({
+            acteur: acteurDepuisStaff(req.staffUser),
+            action: 'commande.litige_declare',
+            cible: { id: order._id, libelle: `Commande ${order._id.toString().slice(-6).toUpperCase()}` },
+            note: `${dejaLiberee ? 'Litige après libération' : 'Litige avant libération (bloque)'} — ${raison}`,
+        });
+
+        return res.json({
+            success: true,
+            message: 'Litige déclaré',
+            bloqueLiberation: !dejaLiberee,
+            order,
+        });
+    } catch (error) {
+        console.error('Erreur declarerLitige:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// POST /api/order/admin/litige/resoudre — Admin
+//
+// resolution:
+//   'classe'                — sans suite, aucun mouvement d'argent
+//   'dette_commercant'      — retenue sur le portefeuille (boutiqueId + montant requis)
+//   'remboursement_client'  — crédit GreenCart exceptionnel (montant requis)
+export const resoudreLitige = async (req, res) => {
+    try {
+        const { orderId, resolution, boutiqueId, montant, note } = req.body;
+        const RESOLUTIONS_VALIDES = ['classe', 'dette_commercant', 'remboursement_client'];
+        if (!RESOLUTIONS_VALIDES.includes(resolution)) {
+            return res.status(400).json({ success: false, message: 'Résolution invalide' });
+        }
+
+        const order = await Order.findById(orderId);
+        if (!order) return res.status(404).json({ success: false, message: 'Commande introuvable' });
+        if (!order.litige?.enCours) {
+            return res.status(409).json({ success: false, message: 'Aucun litige en cours sur cette commande' });
+        }
+
+        if (resolution === 'dette_commercant') {
+            if (!boutiqueId || !(Number(montant) > 0)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'boutiqueId et montant sont requis pour créer une dette commerçant',
+                });
+            }
+            await ajusterPortefeuille({
+                boutiqueId,
+                montant: -Math.abs(Math.round(Number(montant))),
+                description: `Litige — retenue (commande ${order._id})`,
+                orderId: order._id,
+            });
+        }
+
+        if (resolution === 'remboursement_client') {
+            const montantRembourse = Math.round(Number(montant) || 0);
+            if (montantRembourse <= 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Un montant positif est requis pour un remboursement client',
+                });
+            }
+            // Remboursement exceptionnel hors circuit article par article
+            // (doc §6 : « l'Admin peut aussi traiter un remboursement
+            // externe exceptionnel si le client le demande »). itemId
+            // généré : ce crédit n'est rattaché à aucune ligne précise.
+            await CustomerCreditTransaction.create({
+                userId: order.userId,
+                orderId: order._id,
+                itemId: new mongoose.Types.ObjectId(),
+                type: 'credit',
+                amount: montantRembourse,
+                description: `Remboursement exceptionnel — litige (commande ${order._id})`,
+            });
+            await User.findByIdAndUpdate(order.userId, { $inc: { creditBalance: montantRembourse } });
+        }
+
+        order.litige.enCours = false;
+        order.litige.resoluLe = new Date();
+        order.litige.resoluPar = req.staffUser._id;
+        order.litige.resolution = resolution;
+        if (note) order.litige.note = String(note).trim().slice(0, 500);
+
+        // Restaure le statut logistique interrompu par le litige, s'il y en
+        // avait un. Sans quoi la commande resterait bloquée sur 'Disputed'
+        // même une fois le litige réglé.
+        if (order.status === 'Disputed' && order.litige.statutAvant) {
+            order.status = order.litige.statutAvant;
+        }
+        await order.save();
+
+        journaliser({
+            acteur: acteurDepuisStaff(req.staffUser),
+            action: 'commande.litige_resolu',
+            cible: { id: order._id, libelle: `Commande ${order._id.toString().slice(-6).toUpperCase()}` },
+            note: `Résolution : ${resolution}${montant ? ` — ${montant} FCFA` : ''}${note ? ` — ${note}` : ''}`,
+        });
+
+        return res.json({ success: true, message: 'Litige résolu', order });
+    } catch (error) {
+        console.error('Erreur resoudreLitige:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// GET /api/order/admin/litiges — Admin
+// ?enCours=false pour l'historique des litiges déjà résolus.
+export const listLitiges = async (req, res) => {
+    try {
+        const filtre = req.query.enCours === 'false'
+            ? { 'litige.declareLe': { $ne: null }, 'litige.enCours': false }
+            : { 'litige.enCours': true };
+
+        const orders = await Order.find(filtre)
+            .sort({ 'litige.declareLe': -1 })
+            .limit(100)
+            .select('items amount status litige createdAt')
+            .lean();
+
+        return res.json({ success: true, litiges: orders });
+    } catch (error) {
+        console.error('Erreur listLitiges:', error.message);
         res.status(500).json({ success: false, message: error.message });
     }
 };

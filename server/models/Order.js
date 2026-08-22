@@ -107,14 +107,47 @@ const orderSchema = new mongoose.Schema({
         index: true,
     },
     collecteReserveeLe: { type: Date, default: null },
+    // [NOUVEAU] Expiration de la réservation de collecte (doc §9-10) : une
+    // commande réservée par un livreur qui abandonne son téléphone ne doit
+    // pas rester bloquée indéfiniment. Voir services/collecteService.js —
+    // libérée automatiquement si aucun article n'a encore été collecté.
+    collecteExpireLe: { type: Date, default: null },
     shippedAt: { type: Date, default: null },
     shippedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'staffuser', default: null },
+
+    // ── Litiges (doc §15) ─────────────────────────────────────────────────
+    //
+    // Un litige déclaré AVANT Shipped/libération bloque explicitement la
+    // libération financière (voir services/walletService + orderController
+    // confirmerCommandeAdmin). Après libération, il ne modifie jamais
+    // l'historique déjà écrit : il ne peut que créer une retenue (dette
+    // commerçant) ou un remboursement client exceptionnel, en plus.
+    litige: {
+        enCours: { type: Boolean, default: false },
+        raison: { type: String, default: null, trim: true },
+        declarePar: { type: mongoose.Schema.Types.ObjectId, ref: 'staffuser', default: null },
+        declareParNom: { type: String, default: null },
+        declareLe: { type: Date, default: null },
+        // Statut logistique interrompu par le passage à 'Disputed', pour le
+        // restaurer tel quel une fois le litige résolu.
+        statutAvant: { type: String, default: null },
+        resoluLe: { type: Date, default: null },
+        resoluPar: { type: mongoose.Schema.Types.ObjectId, ref: 'staffuser', default: null },
+        resolution: {
+            type: String,
+            enum: ['classe', 'dette_commercant', 'remboursement_client', null],
+            default: null,
+        },
+        note: { type: String, default: null, trim: true },
+    },
 }, { timestamps: true });
 
 // Index pour accélérer les requêtes
 orderSchema.index({ userId: 1, createdAt: -1 });
 orderSchema.index({ status: 1 });
 orderSchema.index({ livreurId: 1 });
+orderSchema.index({ 'litige.enCours': 1 });
+orderSchema.index({ collecteExpireLe: 1 });
 
 const Order = mongoose.models.order || mongoose.model('order', orderSchema);
 

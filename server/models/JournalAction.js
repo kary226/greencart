@@ -31,6 +31,16 @@ const journalActionSchema = new mongoose.Schema({
             'produit.archivage',
             'produit.suppression',
             'produit.restauration',
+            // [NOUVEAU] Actions financières/logistiques sensibles sur une
+            // commande (doc §15 : « les actions Admin sensibles doivent être
+            // journalisées : blocage, libération, remboursement, ajustement
+            // et forçage »).
+            'commande.liberation',
+            'commande.litige_declare',
+            'commande.litige_resolu',
+            'commande.ajustement',
+            'commande.remboursement_manuel',
+            'commande.forcage_statut',
         ],
         index: true,
     },

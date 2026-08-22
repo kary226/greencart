@@ -23,7 +23,10 @@ import {
     confirmerCommandeCommercant,
     confirmerDisponibiliteCommercant,
     listCommandesAValider,
-    confirmerCommandeAdmin
+    confirmerCommandeAdmin,
+    declarerLitige,
+    resoudreLitige,
+    listLitiges
 } from '../controllers/orderController.js';
 import authSeller from '../middlewares/authSeller.js';
 import { initiateJeko } from '../controllers/jekoController.js';
@@ -78,6 +81,13 @@ orderRouter.post('/commercant/disponibilite', authStaff, requireRole('commercant
 // Validation finale par l'admin : c'est elle qui libère les fonds.
 orderRouter.get('/admin/a-valider', authStaff, requireRole('admin'), listCommandesAValider);
 orderRouter.post('/admin/confirmer', authStaff, requireRole('admin'), confirmerCommandeAdmin);
+
+// [NOUVEAU] Litiges (doc §15) : un litige déclaré avant libération bloque
+// confirmerCommandeAdmin ; la résolution peut créer une retenue commerçant
+// ou un remboursement client exceptionnel.
+orderRouter.get('/admin/litiges', authStaff, requireRole('admin'), listLitiges);
+orderRouter.post('/admin/litige/declarer', authStaff, requireRole('admin'), declarerLitige);
+orderRouter.post('/admin/litige/resoudre', authStaff, requireRole('admin'), resoudreLitige);
 
 // Récupérer une commande par son ID (client)
 orderRouter.get('/:orderId', authUser, async (req, res) => {

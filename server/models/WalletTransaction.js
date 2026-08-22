@@ -88,6 +88,33 @@ walletTransactionSchema.index({ demandeRetraitId: 1 });
 // créditée pour cette boutique ? »
 walletTransactionSchema.index({ orderId: 1, boutiqueId: 1, type: 1 });
 
+// [DURCISSEMENT IDEMPOTENCE — doc §19] Les gardes « exists() puis create() »
+// de services/walletService.js empêchent un doublon en usage normal, mais ne
+// sont pas atomiques : deux requêtes concurrentes (double clic, retry
+// réseau, webhook rejoué) peuvent toutes deux passer le exists() avant que
+// l'une ait écrit. Ces index font respecter la règle par MongoDB lui-même —
+// la seconde écriture échoue avec le code 11000 au lieu de créditer deux
+// fois. Un index par type (plutôt qu'un `$in` dans partialFilterExpression,
+// que MongoDB n'accepte pas dans un filtre d'index partiel) : ce sont les
+// seuls types dont on attend AU PLUS une écriture par
+// (commande, boutique, compte) — 'ajustement' et 'retrait' peuvent
+// légitimement se répéter (litiges multiples, retraits successifs) et
+// restent donc hors de cette contrainte.
+for (const typeUnique of ['vente', 'liberation', 'annulation', 'retour']) {
+    walletTransactionSchema.index(
+        { orderId: 1, boutiqueId: 1, type: 1, compte: 1 },
+        {
+            unique: true,
+            partialFilterExpression: {
+                orderId: { $exists: true },
+                boutiqueId: { $exists: true },
+                type: typeUnique,
+            },
+            name: `uniq_orderId_boutiqueId_${typeUnique}_compte`,
+        }
+    );
+}
+
 const WalletTransaction = mongoose.models.wallettransaction ||
     mongoose.model('wallettransaction', walletTransactionSchema);
 

@@ -4,6 +4,15 @@ import Boutique from '../models/Boutique.js';
 import Product from '../models/Product.js';
 import { repartirCommission } from './commissionService.js';
 
+// [DURCISSEMENT IDEMPOTENCE] Un index unique en base (voir
+// models/WalletTransaction.js) rend un doublon impossible pour
+// vente/liberation/annulation/retour, même en cas de course entre deux
+// requêtes concurrentes. Si on le heurte malgré le exists() préalable, ce
+// n'est pas une erreur métier : une autre requête a gagné la course et a
+// déjà fait le travail — on l'ignore silencieusement plutôt que de renvoyer
+// une 500 au client.
+const estDoublonIgnorable = (erreur) => erreur?.code === 11000;
+
 // Mouvements d'argent des portefeuilles commerçants.
 //
 // Tout est concentré ici parce que c'est le seul endroit du projet où une
@@ -117,19 +126,25 @@ export const crediterVenteEnAttente = async (order) => {
         const { net, commission } = repartirCommission(data.montant);
         if (net <= 0) continue;
 
-        await WalletTransaction.create({
-            walletId: cible.wallet._id,
-            type: 'vente',
-            compte: 'en_attente',
-            montant: net,
-            orderId: order._id,
-            boutiqueId,
-            description: `Vente — ${data.nombreArticles} article(s)`,
-            // Trace de la commission : permet de justifier l'écart entre le
-            // prix payé par le client et le montant crédité, sans recalcul.
-            montantBrut: data.montant,
-            commission,
-        });
+        try {
+            await WalletTransaction.create({
+                walletId: cible.wallet._id,
+                type: 'vente',
+                compte: 'en_attente',
+                montant: net,
+                orderId: order._id,
+                boutiqueId,
+                description: `Vente — ${data.nombreArticles} article(s)`,
+                // Trace de la commission : permet de justifier l'écart entre
+                // le prix payé par le client et le montant crédité, sans
+                // recalcul.
+                montantBrut: data.montant,
+                commission,
+            });
+        } catch (erreur) {
+            if (!estDoublonIgnorable(erreur)) throw erreur;
+            continue;
+        }
 
         await cible.wallet.recalculerSoldes();
         creditees += 1;
@@ -197,27 +212,33 @@ export const libererFonds = async (order) => {
         const montantNet = credit?.montant ?? repartirCommission(data.montant).net;
         if (montantNet <= 0) continue;
 
-        // Sortie du compte en attente
-        await WalletTransaction.create({
-            walletId: cible.wallet._id,
-            type: 'liberation',
-            compte: 'en_attente',
-            montant: -montantNet,
-            orderId: order._id,
-            boutiqueId,
-            description: 'Libération — sortie du solde en attente',
-        });
+        try {
+            // Sortie du compte en attente
+            await WalletTransaction.create({
+                walletId: cible.wallet._id,
+                type: 'liberation',
+                compte: 'en_attente',
+                montant: -montantNet,
+                orderId: order._id,
+                boutiqueId,
+                description: 'Libération — sortie du solde en attente',
+            });
 
-        // Entrée sur le compte disponible
-        await WalletTransaction.create({
-            walletId: cible.wallet._id,
-            type: 'liberation',
-            compte: 'disponible',
-            montant: montantNet,
-            orderId: order._id,
-            boutiqueId,
-            description: 'Libération — fonds retirables',
-        });
+            // Entrée sur le compte disponible
+            await WalletTransaction.create({
+                walletId: cible.wallet._id,
+                type: 'liberation',
+                compte: 'disponible',
+                montant: montantNet,
+                orderId: order._id,
+                boutiqueId,
+                description: 'Libération — fonds retirables',
+            });
+        } catch (erreur) {
+            if (!estDoublonIgnorable(erreur)) throw erreur;
+            await cible.wallet.recalculerSoldes();
+            continue;
+        }
 
         await cible.wallet.recalculerSoldes();
         liberees += 1;
@@ -258,15 +279,20 @@ export const annulerVenteEnAttente = async (order) => {
         const cible = await portefeuilleDeLaBoutique(boutiqueId);
         if (!cible) continue;
 
-        await WalletTransaction.create({
-            walletId: cible.wallet._id,
-            type: 'annulation',
-            compte: 'en_attente',
-            montant: -data.montant,
-            orderId: order._id,
-            boutiqueId,
-            description: 'Commande annulée — crédit repris',
-        });
+        try {
+            await WalletTransaction.create({
+                walletId: cible.wallet._id,
+                type: 'annulation',
+                compte: 'en_attente',
+                montant: -data.montant,
+                orderId: order._id,
+                boutiqueId,
+                description: 'Commande annulée — crédit repris',
+            });
+        } catch (erreur) {
+            if (!estDoublonIgnorable(erreur)) throw erreur;
+            continue;
+        }
 
         await cible.wallet.recalculerSoldes();
         annulees += 1;
@@ -327,15 +353,20 @@ export const traiterRetourColis = async (order, { boutiqueIds = null } = {}) => 
         // disponible, quitte à le rendre négatif.
         const compte = libere ? 'disponible' : 'en_attente';
 
-        await WalletTransaction.create({
-            walletId: cible.wallet._id,
-            type: 'retour',
-            compte,
-            montant: -credit.montant,
-            orderId: order._id,
-            boutiqueId,
-            description: 'Colis retour',
-        });
+        try {
+            await WalletTransaction.create({
+                walletId: cible.wallet._id,
+                type: 'retour',
+                compte,
+                montant: -credit.montant,
+                orderId: order._id,
+                boutiqueId,
+                description: 'Colis retour',
+            });
+        } catch (erreur) {
+            if (!estDoublonIgnorable(erreur)) throw erreur;
+            continue;
+        }
 
         await cible.wallet.recalculerSoldes();
         boutiques += 1;
@@ -343,6 +374,47 @@ export const traiterRetourColis = async (order, { boutiqueIds = null } = {}) => 
     }
 
     return { boutiques, montantRepris };
+};
+
+/**
+ * Écriture manuelle sur le solde DISPONIBLE d'un commerçant.
+ *
+ * Utilisée pour la retenue créée par la résolution d'un litige (doc §15 :
+ * « après libération, le litige peut créer une retenue ou une dette
+ * commerçant sans modifier l'historique initial ») ou toute correction
+ * ponctuelle décidée par l'admin. Ce module ne connaît que l'argent — le
+ * "pourquoi" métier est journalisé séparément par l'appelant
+ * (orderController.resoudreLitige).
+ *
+ * Un solde négatif est autorisé (doc §1, principe 8) : plafonner à zéro
+ * effacerait la dette silencieusement.
+ *
+ * @param {object} params
+ * @param {string} params.boutiqueId
+ * @param {number} params.montant - signé : négatif = dette/retenue, positif = recrédit
+ * @param {string} params.description
+ * @param {string} [params.orderId]
+ * @returns {Promise<object|null>} la transaction créée, ou null si rien à faire
+ */
+export const ajusterPortefeuille = async ({ boutiqueId, montant, description, orderId = null }) => {
+    const montantEntier = Math.round(Number(montant) || 0);
+    if (!boutiqueId || montantEntier === 0) return null;
+
+    const cible = await portefeuilleDeLaBoutique(boutiqueId);
+    if (!cible) return null;
+
+    const transaction = await WalletTransaction.create({
+        walletId: cible.wallet._id,
+        type: 'ajustement',
+        compte: 'disponible',
+        montant: montantEntier,
+        orderId,
+        boutiqueId,
+        description: description || 'Ajustement manuel',
+    });
+
+    await cible.wallet.recalculerSoldes();
+    return transaction;
 };
 
 /**
