@@ -41,6 +41,7 @@ const journalActionSchema = new mongoose.Schema({
             'commande.ajustement',
             'commande.remboursement_manuel',
             'commande.forcage_statut',
+            'commande.remise_livreur',
         ],
         index: true,
     },

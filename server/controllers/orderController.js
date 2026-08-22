@@ -405,7 +405,16 @@ export const assignerLivreur = async (req, res) => {
             return res.status(404).json({ success: false, message: "Livreur non trouvé ou inactif" });
         }
         
+        // [NOUVEAU] Si l'admin change le livreur en charge (le premier a un
+        // empêchement, etc.), une éventuelle remise déjà confirmée pour
+        // l'ancien livreur ne vaut plus rien pour le nouveau — il lui faut
+        // sa propre confirmation physique avant de pouvoir partir livrer.
+        const livreurChange = String(order.livreurId || '') !== String(livreurId);
         order.livreurId = livreurId;
+        if (livreurChange) {
+            order.remiseLivreurConfirmee = false;
+            order.remiseLivreurConfirmeeLe = null;
+        }
         await order.save();
         
         return res.json({ 
@@ -670,6 +679,71 @@ export const sellerMarkShipped = async (req, res) => {
     }
 };
 
+// [NOUVEAU] Seller : confirme avoir physiquement remis le colis au livreur
+// assigné, juste avant que celui-ci ne parte livrer. Sans cette étape, un
+// livreur pouvait déclarer "En livraison" (updateLivraisonStatus) sur sa
+// seule parole, sans qu'aucune confirmation ne prouve qu'il avait
+// réellement le colis en main — c'est cette confirmation qui manquait.
+export const confirmerRemiseLivreur = async (req, res) => {
+    try {
+        const { orderId } = req.body;
+        const order = await Order.findById(orderId);
+        if (!order) return res.status(404).json({ success: false, message: 'Commande introuvable.' });
+
+        if (order.status !== 'Shipped') {
+            return res.status(409).json({
+                success: false,
+                message: 'La commande doit être au statut Expédiée (reçue à l’entrepôt) avant toute remise au livreur.',
+            });
+        }
+        if (!order.livreurId) {
+            return res.status(409).json({
+                success: false,
+                message: 'Aucun livreur n’est encore assigné à cette commande.',
+            });
+        }
+        if (order.remiseLivreurConfirmee) {
+            return res.status(409).json({ success: false, message: 'La remise a déjà été confirmée pour ce livreur.' });
+        }
+
+        order.remiseLivreurConfirmee = true;
+        order.remiseLivreurConfirmeeLe = new Date();
+        await order.save();
+
+        journaliser({
+            acteur: acteurVendeurTechnique(),
+            action: 'commande.remise_livreur',
+            cible: { id: order._id, libelle: `Commande ${order._id.toString().slice(-6).toUpperCase()}` },
+            note: `Colis remis physiquement au livreur ${order.livreurId}`,
+        });
+
+        return res.json({ success: true, message: 'Remise au livreur confirmée — il peut maintenant partir livrer.', order });
+    } catch (error) {
+        console.error('Erreur confirmerRemiseLivreur:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// [NOUVEAU] Seller : file des colis Expédiés en attente d'être remis à leur
+// livreur — pour construire l'écran "à remettre" côté Seller.
+export const listCommandesARemettre = async (req, res) => {
+    try {
+        const orders = await Order.find({
+            status: 'Shipped',
+            remiseLivreurConfirmee: false,
+            livreurId: { $ne: null },
+        })
+            .populate('livreurId', 'nom email')
+            .select('items amount livreurId shippedAt createdAt')
+            .sort({ shippedAt: 1 });
+
+        return res.json({ success: true, orders });
+    } catch (error) {
+        console.error('Erreur listCommandesARemettre:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 // =============================================================
 // ✅ PHASE 4 : RÉCUPÉRER LES COMMANDES D'UN LIVREUR
 // =============================================================
@@ -715,7 +789,37 @@ export const updateLivraisonStatus = async (req, res) => {
         if (!order) {
             return res.status(404).json({ success: false, message: "Commande non trouvée ou non assignée à ce livreur" });
         }
-        
+
+        // [NOUVEAU] Le livreur ne peut plus déclarer "En livraison" sur sa
+        // seule parole : il faut que le Seller ait explicitement confirmé
+        // la remise physique du colis (voir confirmerRemiseLivreur). Avant
+        // cet ajout, rien ne garantissait qu'il avait vraiment le colis en
+        // main au moment de passer ce statut.
+        if (status === 'Out for Delivery') {
+            if (order.status !== 'Shipped') {
+                return res.status(409).json({
+                    success: false,
+                    message: "La commande n'est pas (ou plus) au statut Expédiée.",
+                });
+            }
+            if (!order.remiseLivreurConfirmee) {
+                return res.status(409).json({
+                    success: false,
+                    message: "Le Seller n'a pas encore confirmé vous avoir remis ce colis.",
+                });
+            }
+        }
+
+        // [NOUVEAU] Impossible de sauter directement à "Livrée" sans être
+        // passé par "En livraison" — même logique de progression forcée que
+        // pour la collecte (pas d'étape escamotée).
+        if (status === 'Delivered' && order.status !== 'Out for Delivery') {
+            return res.status(409).json({
+                success: false,
+                message: "La commande doit d'abord être passée à 'En livraison'.",
+            });
+        }
+
         const updateData = { status };
         if (status === 'Delivered') {
             updateData.deliveredAt = new Date();

@@ -115,6 +115,15 @@ const orderSchema = new mongoose.Schema({
     shippedAt: { type: Date, default: null },
     shippedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'staffuser', default: null },
 
+    // [NOUVEAU] Remise physique du colis par le Seller au livreur en charge
+    // de la livraison finale — distincte de la collecte (commerçant →
+    // entrepôt) et distincte de Shipped (entrepôt → prêt à partir). Tant
+    // que ce n'est pas confirmé, le livreur ne peut pas passer la commande
+    // à 'Out for Delivery' : sans ce verrou, rien ne garantissait qu'il
+    // avait vraiment le colis en main avant de partir livrer.
+    remiseLivreurConfirmee: { type: Boolean, default: false },
+    remiseLivreurConfirmeeLe: { type: Date, default: null },
+
     // ── Litiges (doc §15) ─────────────────────────────────────────────────
     //
     // Un litige déclaré AVANT Shipped/libération bloque explicitement la

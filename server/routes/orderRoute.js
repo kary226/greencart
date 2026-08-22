@@ -26,7 +26,9 @@ import {
     confirmerCommandeAdmin,
     declarerLitige,
     resoudreLitige,
-    listLitiges
+    listLitiges,
+    confirmerRemiseLivreur,
+    listCommandesARemettre
 } from '../controllers/orderController.js';
 import authSeller from '../middlewares/authSeller.js';
 import { initiateJeko } from '../controllers/jekoController.js';
@@ -70,6 +72,10 @@ orderRouter.post('/livreur/collectes/:orderId/items/:itemId/collecter', authStaf
 orderRouter.post('/livreur/collectes/:orderId/terminer', authStaff, requireRole('livreur'), terminerCollecteLivreur);
 
 orderRouter.post('/seller/mark-shipped', authSeller, sellerMarkShipped);
+
+// [NOUVEAU] Remise physique du colis au livreur — verrou avant "En livraison".
+orderRouter.get('/seller/a-remettre', authSeller, listCommandesARemettre);
+orderRouter.post('/seller/remettre-livreur', authSeller, confirmerRemiseLivreur);
 
 // ✅ Commerçant : ses ventes uniquement (scopées à sa boutique)
 orderRouter.get('/commercant/mes-ventes', authStaff, requireRole('commercant'), getMesVentesCommercant);
