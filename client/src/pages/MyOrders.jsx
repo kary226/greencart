@@ -17,9 +17,13 @@ const FILTERS = [
 // (regroupe tous les statuts actifs), "Livrée" vert clair, "Annulée" gris clair.
 const STATUS_MAP = {
     'Order Placed': { text: 'En cours', color: '#fff', bg: 'var(--color-ramses-600)' },
+    'Checking Availability': { text: 'En cours', color: '#fff', bg: 'var(--color-ramses-600)' },
     'Confirmed': { text: 'En cours', color: '#fff', bg: 'var(--color-ramses-600)' },
+    'Collecting': { text: 'En cours', color: '#fff', bg: 'var(--color-ramses-600)' },
+    'Ready for Shipment': { text: 'En cours', color: '#fff', bg: 'var(--color-ramses-600)' },
     'Shipped': { text: 'En cours', color: '#fff', bg: 'var(--color-ramses-600)' },
     'Out for Delivery': { text: 'En cours', color: '#fff', bg: 'var(--color-ramses-600)' },
+    'Disputed': { text: 'En litige', color: '#B91C1C', bg: '#FEE2E2' },
     'Delivered': { text: 'Livrée', color: '#16A34A', bg: '#DCFCE7' },
     'Returned': { text: 'Retournée', color: '#7C3AED', bg: '#EDE9FE' },
     'Cancelled': { text: 'Annulée', color: '#6B7280', bg: '#F3F4F6' },

@@ -48,7 +48,13 @@ const orderSchema = new mongoose.Schema({
     status: { 
         type: String, 
         default: 'pending_payment',
-        enum: ['pending_payment', 'Order Placed', 'Confirmed', 'Shipped', 'Out for Delivery', 'Delivered', 'Returned', 'Cancelled']
+        // [FIX] 'Checking Availability', 'Collecting' et 'Ready for Shipment'
+        // sont posés par confirmerCommandeCommercant / reserverCollecte /
+        // collecterArticle, mais manquaient de cet enum : chaque order.save()
+        // qui tentait ces statuts échouait avec une ValidationError Mongoose,
+        // ce qui bloquait tout le circuit (confirmation commerçant, réservation
+        // livreur, collecte) sans message clair côté client.
+        enum: ['pending_payment', 'Order Placed', 'Checking Availability', 'Confirmed', 'Collecting', 'Ready for Shipment', 'Shipped', 'Out for Delivery', 'Delivered', 'Returned', 'Cancelled', 'Disputed']
     },
     paymentType: { type: String, required: true },
     isPaid: { type: Boolean, required: true, default: false },

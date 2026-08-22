@@ -10,9 +10,13 @@ import { ArrowLeft, Package, CreditCard, MapPin, Phone, Headset } from 'lucide-r
 // volontairement pour ne pas toucher à ce fichier qui fonctionne déjà.
 const STATUS_MAP = {
     'Order Placed': { text: 'En cours', color: '#fff', bg: 'var(--color-ramses-600)' },
+    'Checking Availability': { text: 'En cours', color: '#fff', bg: 'var(--color-ramses-600)' },
     'Confirmed': { text: 'En cours', color: '#fff', bg: 'var(--color-ramses-600)' },
+    'Collecting': { text: 'En cours', color: '#fff', bg: 'var(--color-ramses-600)' },
+    'Ready for Shipment': { text: 'En cours', color: '#fff', bg: 'var(--color-ramses-600)' },
     'Shipped': { text: 'En cours', color: '#fff', bg: 'var(--color-ramses-600)' },
     'Out for Delivery': { text: 'En cours', color: '#fff', bg: 'var(--color-ramses-600)' },
+    'Disputed': { text: 'En litige', color: '#B91C1C', bg: '#FEE2E2' },
     'Delivered': { text: 'Livrée', color: '#16A34A', bg: '#DCFCE7' },
     'Returned': { text: 'Retournée', color: '#7C3AED', bg: '#EDE9FE' },
     'Cancelled': { text: 'Annulée', color: '#6B7280', bg: '#F3F4F6' },
@@ -105,7 +109,11 @@ export default function OrderDetail() {
     const st = STATUS_MAP[order.status] || { text: order.status, color: '#888', bg: '#f5f5f5' }
     const itemsSubtotal = getItemsSubtotal(order)
     const deliveryPrice = order.deliveryPrice || 0
-    const isCancellable = ['Order Placed', 'Confirmed'].includes(order.status)
+    // [FIX] Toute nouvelle commande démarre désormais directement au statut
+    // 'Checking Availability' (voir placeOrderCOD / confirmerCommandePayee
+    // côté serveur), plus jamais 'Order Placed'. Sans cet ajout, le bouton
+    // Annuler disparaissait pour toutes les commandes fraîchement passées.
+    const isCancellable = ['Order Placed', 'Checking Availability', 'Confirmed'].includes(order.status)
     const isDelivered = order.status === 'Delivered'
 
     return (

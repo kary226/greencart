@@ -15,9 +15,13 @@ import {
     reserverCollecte,
     collecterArticle,
     terminerCollecte,
+    reserverCollecteLivreur,
+    collecterArticleLivreur,
+    terminerCollecteLivreur,
     sellerMarkShipped,
     getMesVentesCommercant,
     confirmerCommandeCommercant,
+    confirmerDisponibiliteCommercant,
     listCommandesAValider,
     confirmerCommandeAdmin
 } from '../controllers/orderController.js';
@@ -56,6 +60,11 @@ orderRouter.get('/livreur/collectes', authStaff, requireRole('livreur'), getColl
 orderRouter.post('/livreur/collectes/reserver', authStaff, requireRole('livreur'), reserverCollecte);
 orderRouter.post('/livreur/collectes/collecter', authStaff, requireRole('livreur'), collecterArticle);
 orderRouter.post('/livreur/collectes/terminer', authStaff, requireRole('livreur'), terminerCollecte);
+// [FIX] Variantes REST à paramètres attendues par la page Collectes.jsx et
+// par la doc (section 18) — voir commentaire au-dessus des contrôleurs.
+orderRouter.post('/livreur/collectes/:orderId/reserver', authStaff, requireRole('livreur'), reserverCollecteLivreur);
+orderRouter.post('/livreur/collectes/:orderId/items/:itemId/collecter', authStaff, requireRole('livreur'), collecterArticleLivreur);
+orderRouter.post('/livreur/collectes/:orderId/terminer', authStaff, requireRole('livreur'), terminerCollecteLivreur);
 
 orderRouter.post('/seller/mark-shipped', authSeller, sellerMarkShipped);
 
@@ -63,6 +72,8 @@ orderRouter.post('/seller/mark-shipped', authSeller, sellerMarkShipped);
 orderRouter.get('/commercant/mes-ventes', authStaff, requireRole('commercant'), getMesVentesCommercant);
 // Le commerçant confirme avoir vu la commande et mis son colis de côté.
 orderRouter.post('/commercant/confirmer', authStaff, requireRole('commercant'), confirmerCommandeCommercant);
+// [FIX] Route manquante appelée par Commandes.jsx (voir commentaire du contrôleur).
+orderRouter.post('/commercant/disponibilite', authStaff, requireRole('commercant'), confirmerDisponibiliteCommercant);
 
 // Validation finale par l'admin : c'est elle qui libère les fonds.
 orderRouter.get('/admin/a-valider', authStaff, requireRole('admin'), listCommandesAValider);

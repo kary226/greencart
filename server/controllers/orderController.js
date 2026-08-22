@@ -21,7 +21,13 @@ import {
     traiterRetourColis,
     etatConfirmations,
 } from "../services/walletService.js";
-import { crediterClient } from '../services/customerCreditService.js';
+// [FIX] Ce contrôleur importait crediterClient depuis services/customerCreditService.js,
+// un module qui importe lui-même le mauvais fichier (models/CustomerCredit.js sans
+// export par défaut) : CustomerCreditTransaction y valait `undefined`, donc tout appel
+// de crediterClient plantait avec une TypeError dès qu'une commande payée avait un
+// article indisponible. models/CustomerCredit.js contient la version qui fonctionne
+// réellement (met à jour User.creditBalance, cohérente avec GET /order/user/credit).
+import { crediterClient } from '../models/CustomerCredit.js';
 import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
 import { sendPushToUser } from './pushController.js';
 import { syncManyProductsToAirtable } from '../services/airtableSync.js';
@@ -509,6 +515,82 @@ export const terminerCollecte = async (req, res) => {
     }
 };
 
+// [FIX] La page Collectes.jsx (nouvelle, liée à /livreur/collectes) appelle
+// des routes REST à paramètres (POST /livreur/collectes/:orderId/reserver,
+// /:orderId/items/:itemId/collecter, /:orderId/terminer) conformément à la
+// doc (section 18, API cible). Ces routes n'existaient pas — seules les
+// versions à plat (reserverCollecte/collecterArticle/terminerCollecte,
+// orderId/itemId dans req.body) étaient branchées, ce que Collectes.jsx
+// n'utilise pas. On réutilise ici exactement la même logique/les mêmes
+// champs de schéma (collecteLivreurId, collecteReserveeLe) pour éviter tout
+// nouveau champ non déclaré dans Order.js.
+export const reserverCollecteLivreur = async (req, res) => {
+    try {
+        const livreurId = req.staffUser._id;
+        const { orderId } = req.params;
+        const updated = await Order.findOneAndUpdate(
+            { _id: orderId, status: 'Confirmed', collecteLivreurId: null },
+            { $set: { status: 'Collecting', collecteLivreurId: livreurId, collecteReserveeLe: new Date() } },
+            { new: true }
+        ).populate('items.product address');
+
+        if (!updated) {
+            return res.status(409).json({ success: false, message: 'Cette collecte a déjà été réservée ou n’est plus disponible.' });
+        }
+        return res.json({ success: true, order: updated });
+    } catch (error) {
+        console.error('Erreur reserverCollecteLivreur:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const collecterArticleLivreur = async (req, res) => {
+    try {
+        const { orderId, itemId } = req.params;
+        const livreurId = req.staffUser._id;
+        const order = await Order.findOne({
+            _id: orderId,
+            collecteLivreurId: livreurId,
+            status: { $in: ['Collecting', 'Ready for Shipment'] }
+        }).populate('items.product address');
+
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Collecte introuvable ou non réservée à ce livreur.' });
+        }
+        const item = order.items.id(itemId);
+        if (!item) return res.status(404).json({ success: false, message: 'Article introuvable.' });
+        if (item.availabilityStatus === 'unavailable') {
+            return res.status(409).json({ success: false, message: 'Cet article est indisponible.' });
+        }
+        if (item.availabilityStatus !== 'collected') {
+            item.availabilityStatus = 'collected';
+            item.collectedAt = new Date();
+            item.collectedBy = livreurId;
+            const actifs = order.items.filter(i => i.availabilityStatus !== 'unavailable');
+            const tousCollectes = actifs.length > 0 && actifs.every(i => i.availabilityStatus === 'collected');
+            order.status = tousCollectes ? 'Ready for Shipment' : 'Collecting';
+            await order.save();
+        }
+
+        return res.json({ success: true, order });
+    } catch (error) {
+        console.error('Erreur collecterArticleLivreur:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const terminerCollecteLivreur = async (req, res) => {
+    try {
+        const livreurId = req.staffUser._id;
+        const { orderId } = req.params;
+        const order = await Order.findOne({ _id: orderId, collecteLivreurId: livreurId, status: 'Ready for Shipment' });
+        if (!order) return res.status(409).json({ success: false, message: 'Tous les articles disponibles ne sont pas encore collectés.' });
+        return res.json({ success: true, message: 'Collecte terminée. Le Seller peut réceptionner le colis.', order });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 // Seller : réception de l'entrepôt et passage à Shipped.
 // C'est cette étape qui rend les fonds éligibles à la libération Admin.
 export const sellerMarkShipped = async (req, res) => {
@@ -526,9 +608,19 @@ export const sellerMarkShipped = async (req, res) => {
             return res.status(409).json({ success: false, message: 'Tous les articles disponibles doivent être collectés.' });
         }
 
+        // [FIX] Sans ceci, la commande devient invisible pour le livreur qui
+        // vient de la collecter : getLivraisonsLivreur (onglet "Livraisons")
+        // filtre sur `livreurId`, un champ historiquement renseigné par
+        // l'assignation manuelle admin (assignerLivreur), jamais par le
+        // circuit de collecte qui ne renseigne que `collecteLivreurId`. Sans
+        // cette ligne, le colis passe Shipped puis disparaît de tous les
+        // écrans livreur — plus personne ne peut le livrer.
         order.status = 'Shipped';
         order.shippedAt = new Date();
         order.shippedBy = req.staffUser?._id || null;
+        if (!order.livreurId && order.collecteLivreurId) {
+            order.livreurId = order.collecteLivreurId;
+        }
         await order.save();
 
         return res.json({ success: true, message: 'Commande reçue en entrepôt et marquée Expédiée.' });
@@ -718,7 +810,14 @@ export const getMesVentesCommercant = async (req, res) => {
                 // commande à l'admin sans manipuler un identifiant complet.
                 reference: order._id.toString().slice(-6).toUpperCase(),
                 dateCommande: order.createdAt,
+                // [FIX] itemId et availabilityStatus manquaient ici : sans eux,
+                // Commandes.jsx (côté client) ne peut pas construire la liste
+                // availableItemIds/unavailableItemIds attendue par
+                // /commercant/disponibilite (chaque itemId valait "undefined"),
+                // et le badge de disponibilité restait bloqué sur "À vérifier".
                 articles: mesArticles.map((item) => ({
+                    itemId: item._id,
+                    availabilityStatus: item.availabilityStatus,
                     nom: item.name,
                     sku: item.sku,
                     image: item.image,
@@ -904,6 +1003,135 @@ export const confirmerCommandeCommercant = async (req, res) => {
         });
     } catch (error) {
         console.error('Erreur confirmerCommandeCommercant:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// POST /api/order/commercant/disponibilite — Commerçant
+//
+// [FIX] Le frontend (Commandes.jsx) a été mis à jour pour envoyer la
+// disponibilité article par article (availableItemIds / unavailableItemIds),
+// conformément à la nouvelle doc, mais aucune route/contrôleur ne
+// répondait à '/commercant/disponibilite' : chaque clic renvoyait un 404 et
+// aucune commande ne pouvait plus jamais passer 'Checking Availability' →
+// 'Confirmed'. Reprend exactement la logique déjà éprouvée de
+// confirmerCommandeCommercant (restock, remboursement/crédit, transition
+// automatique), simplement pilotée par article plutôt que par un booléen
+// unique pour toute la boutique.
+export const confirmerDisponibiliteCommercant = async (req, res) => {
+    try {
+        const { orderId, availableItemIds = [], unavailableItemIds = [], reason = '' } = req.body;
+        const boutiqueId = req.staffUser.boutiqueId;
+
+        if (!boutiqueId) {
+            return res.status(400).json({ success: false, message: 'Aucune boutique associée à ce compte' });
+        }
+        if (!availableItemIds.length && !unavailableItemIds.length) {
+            return res.status(400).json({ success: false, message: 'Indiquez la disponibilité des articles' });
+        }
+
+        const order = await Order.findById(orderId);
+        if (!order) return res.status(404).json({ success: false, message: 'Commande introuvable' });
+
+        const itemsBoutique = (order.items || []).filter(
+            item => item.boutiqueId?.toString() === boutiqueId.toString()
+        );
+        if (!itemsBoutique.length) {
+            return res.status(403).json({ success: false, message: "Cette commande ne concerne pas votre boutique" });
+        }
+
+        const unavailableSet = new Set(unavailableItemIds.map(String));
+        const now = new Date();
+        const newlyUnavailable = [];
+        for (const item of itemsBoutique) {
+            if (item.availabilityStatus && item.availabilityStatus !== 'pending') continue;
+            const id = item._id.toString();
+            if (!unavailableSet.has(id) && !availableItemIds.map(String).includes(id)) continue;
+            item.availabilityStatus = unavailableSet.has(id) ? 'unavailable' : 'available';
+            item.unavailableReason = unavailableSet.has(id) ? String(reason || 'Article indisponible').slice(0, 300) : null;
+            if (item.availabilityStatus === 'unavailable') newlyUnavailable.push(item);
+        }
+
+        if (newlyUnavailable.length) {
+            const products = await Product.find({ _id: { $in: newlyUnavailable.map(i => i.product) } });
+            for (const item of newlyUnavailable) {
+                const product = products.find(p => p._id.toString() === item.product.toString());
+                if (!product) continue;
+                if (product.variants?.length) {
+                    const variant = product.variants.find(v =>
+                        (item.color == null ? v.color == null : v.color === item.color) &&
+                        (item.size == null ? v.size == null : v.size === item.size)
+                    );
+                    if (variant) {
+                        variant.stock = Number(variant.stock || 0) + Number(item.quantity || 0);
+                        product.inStock = product.variants.some(v => Number(v.stock || 0) > 0);
+                        await product.save();
+                    }
+                } else if (product.stock !== null && product.stock !== undefined) {
+                    product.stock = Number(product.stock || 0) + Number(item.quantity || 0);
+                    product.inStock = product.stock > 0;
+                    await product.save();
+                }
+            }
+
+            const refund = newlyUnavailable.reduce((sum, i) => sum + (Number(i.priceAtOrder) || 0) * (Number(i.quantity) || 0), 0);
+            const refundWithTax = Math.floor(refund * 1.02);
+            order.amount = Math.max(0, Number(order.amount || 0) - refundWithTax);
+            order.refundDue = Number(order.refundDue || 0) + refundWithTax;
+
+            if (order.isPaid && refundWithTax > 0) {
+                let credited = 0;
+                for (const item of newlyUnavailable) {
+                    const lineRefund = Math.floor((Number(item.priceAtOrder) || 0) * (Number(item.quantity) || 0) * 1.02);
+                    if (lineRefund <= 0) continue;
+                    const ok = await crediterClient({
+                        userId: order.userId,
+                        orderId: order._id,
+                        itemId: item._id,
+                        amount: lineRefund,
+                        description: `Article indisponible — commande ${order._id}`
+                    });
+                    if (ok) credited += lineRefund;
+                }
+                if (credited > 0) order.refundCreditedAt = now;
+            }
+        }
+
+        const allResponded = (order.items || [])
+            .filter(i => i.boutiqueId)
+            .every(i => i.availabilityStatus !== 'pending');
+
+        const dejaConfirmation = (order.confirmationsBoutiques || []).some(
+            c => c.boutiqueId?.toString() === boutiqueId.toString()
+        );
+        if (!dejaConfirmation) {
+            order.confirmationsBoutiques.push({
+                boutiqueId,
+                confirmePar: req.staffUser._id,
+                confirmeParNom: req.staffUser.nom || req.staffUser.email || 'Commerçant',
+                confirmeLe: now,
+            });
+        }
+
+        if (allResponded) {
+            order.status = 'Confirmed';
+            order.confirmedAt = now;
+            await order.save();
+            await crediterVenteEnAttente(order);
+        } else {
+            order.status = 'Checking Availability';
+            await order.save();
+        }
+
+        return res.json({
+            success: true,
+            message: allResponded ? 'Disponibilité enregistrée — commande confirmée' : 'Disponibilité enregistrée',
+            toutesConfirmees: allResponded,
+            status: order.status,
+            refundDue: order.refundDue || 0,
+        });
+    } catch (error) {
+        console.error('Erreur confirmerDisponibiliteCommercant:', error.message);
         res.status(500).json({ success: false, message: error.message });
     }
 };
