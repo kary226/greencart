@@ -2,7 +2,8 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { isAuth, login, logout, register, updateUser, forgotPassword, resetPassword, getAllClients, googleAuth } from '../controllers/userController.js';
 import authUser from '../middlewares/authUser.js';
-import authSeller from '../middlewares/authSeller.js';
+import authStaff from '../middlewares/authStaff.js';
+import { requirePermission } from '../middlewares/permission.js';
 
 const userRouter = express.Router();
 
@@ -24,6 +25,10 @@ userRouter.post('/logout', authUser, logout);
 userRouter.post('/update', authUser, updateUser);
 userRouter.post('/forgot-password', authLimiter, forgotPassword);
 userRouter.post('/reset-password', authLimiter, resetPassword);
-userRouter.get('/admin/clients', authSeller, getAllClients);
+// [PHASE 3 — migration authSeller → RBAC, 23 août 2026] Seul appelant
+// vivant : pages/admin/Clients.jsx, sous SuperAdminLayout (staffToken),
+// gaté côté menu par clients.view. pages/seller/ClientsManager.jsx (l'autre
+// appelant historique) n'est routé nulle part dans App.jsx (mort).
+userRouter.get('/admin/clients', authStaff, requirePermission('clients.view'), getAllClients);
 
 export default userRouter;
