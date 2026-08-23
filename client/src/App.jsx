@@ -29,6 +29,7 @@ import PageLoader from './components/PageLoader';
 // ─── [PHASE 3] Super Admin Layout ────────────────────────────────────
 
 const SuperAdminLayout = lazy(() => import('./components/SuperAdminLayout'));
+const StaffLogin = lazy(() => import('./pages/staff/StaffLogin'));
 
 // Pages admin unifiées (Phase 3)
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
@@ -206,6 +207,7 @@ const App = () => {
             <Route path='/colis-shein/:id/detail' element={<ColisSheinDetailPage />} />
 
             {/* ─── [PHASE 3 + 4 + 5 + 6] SUPER ADMIN ──────────────────── */}
+            <Route path='/staff/login' element={<StaffLogin />} />
             <Route path='/admin' element={<SuperAdminLayout />}>
               {/* Phase 3 */}
               <Route index element={<AdminDashboard />} />
