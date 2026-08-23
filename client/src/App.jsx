@@ -30,7 +30,7 @@ import PageLoader from './components/PageLoader';
 
 const SuperAdminLayout = lazy(() => import('./components/SuperAdminLayout'));
 
-// Pages admin unifiées
+// Pages admin unifiées (Phase 3)
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
 const AdminProducts = lazy(() => import('./pages/admin/Products'));
 const AdminOrders = lazy(() => import('./pages/admin/Orders'));
@@ -54,6 +54,9 @@ const AdminReturns = lazy(() => import('./pages/admin/Returns'));
 
 // Phase 5
 const AdminRefunds = lazy(() => import('./pages/admin/Refunds'));
+
+// Phase 6
+const AdminReconciliation = lazy(() => import('./pages/admin/Reconciliation'));
 
 // ─── Espaces Commerçant / Livreur / Assistant (conservés) ────────────
 
@@ -201,8 +204,9 @@ const App = () => {
             <Route path='/colis-shein/:id' element={<ColisSheinConversation />} />
             <Route path='/colis-shein/:id/detail' element={<ColisSheinDetailPage />} />
 
-            {/* ─── [PHASE 3 + 4 + 5] SUPER ADMIN ──────────────────────── */}
+            {/* ─── [PHASE 3 + 4 + 5 + 6] SUPER ADMIN ──────────────────── */}
             <Route path='/admin' element={<SuperAdminLayout />}>
+              {/* Phase 3 */}
               <Route index element={<AdminDashboard />} />
               <Route path='dashboard' element={<AdminDashboard />} />
               <Route path='products' element={<AdminProducts />} />
@@ -223,10 +227,18 @@ const App = () => {
               <Route path='audit' element={<AdminJournal />} />
               <Route path='withdrawals' element={<AdminRetraits />} />
               <Route path='returns' element={<AdminRetours />} />
+
+              {/* Phase 4 */}
               <Route path='warehouse' element={<AdminWarehouse />} />
               <Route path='warehouse/scans' element={<AdminWarehouse />} />
               <Route path='returns' element={<AdminReturns />} />
+              <Route path='returns/:id' element={<AdminReturns />} />
+
+              {/* Phase 5 */}
               <Route path='refunds' element={<AdminRefunds />} />
+
+              {/* Phase 6 */}
+              <Route path='reconciliation' element={<AdminReconciliation />} />
             </Route>
 
             {/* ─── Commerçant ──────────────────────────────────────────── */}

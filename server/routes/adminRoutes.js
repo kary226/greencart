@@ -222,6 +222,20 @@ import {
     completeRefund,
 } from '../controllers/refundController.js';
 
+// ─── Contrôleurs Phase 6 (Rapprochement & KPIs) ─────────────────────────
+
+import {
+    runReconciliation,
+    listEcards,
+    resolveEcart,
+    getReconciliationStatsController,
+} from '../controllers/reconciliationController.js';
+
+import {
+    getAdvancedKPIs,
+    getFinanceKPIs,
+} from '../controllers/dashboardController.js';
+
 // =============================================================
 // ROUTEUR ADMIN UNIFIÉ
 // =============================================================
@@ -347,6 +361,22 @@ adminRouter.get(
             res.status(500).json({ success: false, message: error.message });
         }
     }
+);
+
+// ─── KPIs avancés (Phase 6) ─────────────────────────────────────────────
+
+adminRouter.get(
+    '/dashboard/kpis',
+    authStaff,
+    requirePermission('admin.dashboard'),
+    getAdvancedKPIs
+);
+
+adminRouter.get(
+    '/dashboard/finance',
+    authStaff,
+    requirePermission('admin.dashboard'),
+    getFinanceKPIs
 );
 
 // =============================================================
@@ -1122,6 +1152,40 @@ adminRouter.post(
     authStaff,
     requirePermission('refunds.approve'),
     completeRefund
+);
+
+// =============================================================
+// 11. RAPPROCHEMENT & KPI (PHASE 6)
+// =============================================================
+
+// ─── Rapprochement Jèko ────────────────────────────────────────────────
+
+adminRouter.post(
+    '/reconciliation/run',
+    authStaff,
+    requirePermission('finance.reconcile'),
+    runReconciliation
+);
+
+adminRouter.get(
+    '/reconciliation/ecarts',
+    authStaff,
+    requirePermission('finance.reconcile'),
+    listEcards
+);
+
+adminRouter.post(
+    '/reconciliation/ecarts/:id/resoudre',
+    authStaff,
+    requirePermission('finance.reconcile'),
+    resolveEcart
+);
+
+adminRouter.get(
+    '/reconciliation/stats',
+    authStaff,
+    requirePermission('finance.reconcile'),
+    getReconciliationStatsController
 );
 
 export default adminRouter;
