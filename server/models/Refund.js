@@ -62,7 +62,6 @@ const refundSchema = new mongoose.Schema({
     refundId: {
         type: String,
         required: true,
-        unique: true,
         trim: true,
     },
 

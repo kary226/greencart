@@ -40,6 +40,7 @@ import bannerRouter from './routes/bannerRoute.js';
 import locationRouter from './routes/locationRoute.js';
 import deliveryRouter from './routes/deliveryRoute.js';
 import boutiqueRouter from './routes/boutiqueRoute.js';
+import metricsRouter from './routes/metricsRoute.js';
 
 // 🔵 ROUTE ADMIN UNIFIÉE (TOUT LE RESTE)
 import adminRouter from './routes/adminRoutes.js';
@@ -134,6 +135,7 @@ app.use('/api/banner', bannerRouter);
 app.use('/api/location', locationRouter);
 app.use('/api/delivery', deliveryRouter);
 app.use('/api/boutiques', boutiqueRouter);
+app.use('/api/metrics', metricsRouter);
 
 // 🔵 ROUTE ADMIN UNIFIÉE (TOUT EST ICI)
 app.use('/api/admin', adminRouter);
