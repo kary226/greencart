@@ -23,16 +23,32 @@ const safeEqual = (a, b) => {
 // client, pour ne jamais mélanger une session vendeur et une session
 // client dans le même navigateur (même logique que l'ancien
 // localStorage.setItem('sellerToken', ...), juste transposée en cookie).
-const SELLER_COOKIE_OPTIONS = {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'lax',
-    domain: '.ramci.ci',
-    maxAge: 7 * 24 * 60 * 60 * 1000
+//
+// [CORRECTIF AUDIT — 23 août 2026] secure/domain étaient figés à leurs
+// valeurs de production (secure: true, domain: '.ramci.ci'), contrairement
+// à getStaffCookieOptions() dans staffController.js, qui s'adapte déjà à
+// l'environnement. Conséquence concrète : en local (localhost, HTTP) ou
+// sur une URL de preview Vercel, le navigateur refuse silencieusement de
+// stocker ce cookie — `secure: true` exige HTTPS, et `domain: '.ramci.ci'`
+// ne correspond à aucun de ces hôtes. Le login répondait "Logged In" (le
+// serveur ne voit aucune erreur), mais la requête suivante n'avait plus de
+// cookie à envoyer → "Not Authorized" quelques secondes plus tard. Même
+// correctif que celui déjà appliqué à staffController.js, jamais reporté
+// ici.
+const getSellerCookieOptions = () => {
+    const isProduction = process.env.NODE_ENV === 'production';
+    return {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: isProduction ? 'lax' : 'lax',
+        domain: isProduction ? '.ramci.ci' : undefined,
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        path: '/',
+    };
 };
 
 const setSellerTokenCookie = (res, token) => {
-    res.cookie('sellerToken', token, SELLER_COOKIE_OPTIONS);
+    res.cookie('sellerToken', token, getSellerCookieOptions());
 };
 
 // Login Seller : /api/seller/login
@@ -87,7 +103,7 @@ export const isSellerAuth = async (req, res) => {
 // Logout Seller : /api/seller/logout
 export const sellerLogout = async (req, res) => {
     try {
-        res.clearCookie('sellerToken', SELLER_COOKIE_OPTIONS);
+        res.clearCookie('sellerToken', getSellerCookieOptions());
         return res.json({ success: true, message: "Logged Out" });
     } catch (error) {
         console.log(error.message);
