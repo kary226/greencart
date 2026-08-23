@@ -152,18 +152,38 @@ export const getReconciliationEcards = async () => {
  * Résout un écart manuellement.
  */
 export const resoudreEcart = async (logId, staffUser, note) => {
-    const log = await ReconciliationLog.findById(logId);
-    if (!log) {
+    const logAvant = await ReconciliationLog.findById(logId);
+    if (!logAvant) {
         throw new Error('Log de rapprochement introuvable');
     }
-    if (log.resolu) {
+    // [CORRECTIF — même race condition que refundController.approveRefund(),
+    // voir Phase 2.1] Sans verrou atomique, un findById() + save() séparés
+    // laissaient une fenêtre où deux résolutions concurrentes du même écart
+    // (double-clic, deux agents finance agissant en même temps) passaient
+    // toutes deux la vérification `resolu === false` avant qu'aucune
+    // n'écrive : les deux réussissaient (200/200) et produisaient deux
+    // entrées de journal (JournalAction) pour un seul événement — un défaut
+    // d'intégrité de l'audit trail, confirmé par
+    // tests/reconciliationController.test.js.
+    //
+    // findOneAndUpdate({_id, resolu: false}, ...) verrouille côté MongoDB :
+    // seule la première requête peut matcher le filtre ; la seconde reçoit
+    // `null` et ne journalise donc jamais une deuxième fois.
+    const log = await ReconciliationLog.findOneAndUpdate(
+        { _id: logId, resolu: false },
+        {
+            $set: {
+                resolu: true,
+                resoluPar: staffUser._id,
+                resoluLe: new Date(),
+                noteResolution: note || 'Résolution manuelle',
+            },
+        },
+        { new: true }
+    );
+    if (!log) {
         throw new Error('Cet écart est déjà résolu');
     }
-    log.resolu = true;
-    log.resoluPar = staffUser._id;
-    log.resoluLe = new Date();
-    log.noteResolution = note || 'Résolution manuelle';
-    await log.save();
     await journaliser({
         acteur: {
             id: staffUser._id,
