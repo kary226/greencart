@@ -133,7 +133,7 @@ app.use('/api/coupon', couponRouter);
 app.use('/api/banner', bannerRouter);
 app.use('/api/location', locationRouter);
 app.use('/api/delivery', deliveryRouter);
-app.use('/api/boutique', boutiqueRouter);
+app.use('/api/boutiques', boutiqueRouter);
 
 // 🔵 ROUTE ADMIN UNIFIÉE (TOUT EST ICI)
 app.use('/api/admin', adminRouter);
