@@ -42,8 +42,18 @@ export const requirePermission = (permission) => {
             req.staffUser.permissions = await loadPermissions(req.staffUser);
         }
 
-        // Le super_admin a tous les droits (permission spéciale 'admin.all')
-        if (req.staffUser.role === 'super_admin') {
+        // [FIX] 'admin.all' est un passe-droit total, pas seulement pour le
+        // rôle super_admin : seedRolePermissions.js et assignPermissions.js
+        // attribuent aussi 'admin.all' au rôle legacy 'admin' (avant la
+        // Phase 1, seul rôle admin existant, conservé pour compatibilité),
+        // mais seul le bypass sur le rôle littéral 'super_admin' était
+        // implémenté ici. Un compte 'admin' — ou même 'super_admin' passé
+        // par une route qui vérifiait le rôle plutôt que la permission
+        // (ex. authActeur/requireRoleActeur('admin'), qui n'acceptait QUE
+        // le rôle littéral 'admin', pas 'super_admin') — pouvait donc se
+        // retrouver bloqué par requirePermission malgré 'admin.all'. Voir
+        // routes/orderRoute.js (migration du 23 août 2026).
+        if (req.staffUser.role === 'super_admin' || req.staffUser.permissions.includes('admin.all')) {
             return next();
         }
 
@@ -83,7 +93,8 @@ export const requireAnyPermission = (permissions) => {
             req.staffUser.permissions = await loadPermissions(req.staffUser);
         }
 
-        if (req.staffUser.role === 'super_admin') {
+        // [FIX] Voir le commentaire équivalent dans requirePermission ci-dessus.
+        if (req.staffUser.role === 'super_admin' || req.staffUser.permissions.includes('admin.all')) {
             return next();
         }
 

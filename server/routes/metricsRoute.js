@@ -1,8 +1,13 @@
 import express from 'express';
-import jwt from 'jsonwebtoken';
 import { getMetricsSnapshot, resetMetrics } from '../middlewares/requestMetrics.js';
-import { TYPE_VENDEUR, verifierType } from '../utils/jwtTypes.js';
+import authStaff from '../middlewares/authStaff.js';
+import { requirePermission } from '../middlewares/permission.js';
 
+// [PHASE 3 — migration authSeller → RBAC, 23 août 2026] Dernier des 12
+// fichiers du périmètre à basculer (voir RAMCI_Plan_Actions_Phases_MAJ8,
+// section 3.0 — proposé comme galop d'essai, le plus petit : 1 route
+// authentifiée sur 2).
+//
 // [PHASE 3 - OBSERVABILITÉ] Endpoint de lecture des métriques de latence.
 //
 // Volontairement non public : les temps de réponse par route renseignent sur
@@ -10,28 +15,22 @@ import { TYPE_VENDEUR, verifierType } from '../utils/jwtTypes.js';
 // bonnes cibles d'un déni de service). Deux façons d'y accéder :
 //
 //   - en-tête `x-metrics-token` correspondant à la variable d'environnement
-//     METRICS_TOKEN → pour les scripts (k6, CI, cron de collecte) ;
-//   - cookie/Bearer `sellerToken` valide → pour une consultation manuelle
-//     depuis un navigateur déjà connecté à l'espace admin.
+//     METRICS_TOKEN → pour les scripts (k6, CI, cron de collecte). Seul
+//     appelant vivant : loadtest/lib/config.js. Chemin inchangé par cette
+//     migration ;
+//   - session staff authentifiée (cookie/Bearer `staffToken`) avec la
+//     permission `admin.dashboard` → pour une consultation manuelle depuis
+//     le panel admin. Remplace l'ancien chemin `sellerToken` (compte
+//     technique unique) : aucun appelant frontend vivant ne s'authentifiait
+//     ainsi (le panel admin utilise déjà staffToken partout ailleurs), et
+//     `admin.dashboard` est la permission déjà utilisée pour les endpoints
+//     d'observabilité voisins (voir routes/adminRoutes.js, /dashboard/*).
 //
 // Si METRICS_TOKEN n'est pas défini, seule la seconde voie fonctionne.
 
 const metricsRouter = express.Router();
 
-const isValidSellerToken = (token) => {
-    if (!token) return false;
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        // [SÉCURITÉ] Même contrôle de type que authSeller — voir
-        // utils/jwtTypes.js.
-        if (!verifierType(decoded, TYPE_VENDEUR)) return false;
-        return decoded.email === process.env.SELLER_EMAIL;
-    } catch {
-        return false;
-    }
-};
-
-const authMetrics = (req, res, next) => {
+export const authMetrics = (req, res, next) => {
     const configuredToken = process.env.METRICS_TOKEN;
     const providedToken = req.get('x-metrics-token');
 
@@ -43,14 +42,14 @@ const authMetrics = (req, res, next) => {
         return next();
     }
 
-    const sellerToken = req.cookies?.sellerToken
-        || (req.headers.authorization?.startsWith('Bearer ')
-            ? req.headers.authorization.split(' ')[1]
-            : null);
-
-    if (isValidSellerToken(sellerToken)) return next();
-
-    return res.status(401).json({ success: false, message: 'Accès non autorisé aux métriques' });
+    // Pas de token machine valide : on retombe sur une session staff RBAC.
+    // authStaff n'appelle son callback (`next`) qu'en cas de succès — en
+    // cas d'échec il répond directement (401/403), donc rien d'autre à
+    // gérer ici pour ce cas.
+    return authStaff(req, res, (err) => {
+        if (err) return next(err);
+        return requirePermission('admin.dashboard')(req, res, next);
+    });
 };
 
 // `no-store` explicite : ces chiffres changent à chaque requête, il ne faut

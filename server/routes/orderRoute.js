@@ -1,6 +1,7 @@
 import express from 'express';
 import authUser from '../middlewares/authUser.js';
 import authStaff, { requireRole } from '../middlewares/authStaff.js';
+import { requirePermission, requireAnyPermission } from '../middlewares/permission.js';
 import { orderCreationLimiter, paymentLimiter } from '../middlewares/rateLimiters.js';
 import { 
     getAllOrders, 
@@ -32,7 +33,6 @@ import {
     listCommandesARemettre,
     rechercherCommandeAdmin
 } from '../controllers/orderController.js';
-import authActeur, { requireRoleActeur } from '../middlewares/authActeur.js';
 import { initiateJeko } from '../controllers/jekoController.js';
 import Order from '../models/Order.js';
 import User from '../models/User.js';
@@ -54,27 +54,35 @@ orderRouter.get('/user/credit', authUser, async (req, res) => {
 orderRouter.post('/jeko/initiate', authUser, paymentLimiter, initiateJeko);
 
 // Routes admin (seller)
-// [PHASE 3 — migration authSeller → RBAC, 23 août 2026] /seller et
-// /admin/user/:userId sont appelées par pages/admin/Orders.jsx et
-// pages/admin/Clients.jsx (staffToken, SuperAdminLayout).
-// pages/seller/Orders.jsx, pages/seller/ClientsManager.jsx et
-// pages/seller/DeliveryManager.jsx (appelants historiques de /seller) ne
-// sont routés nulle part dans App.jsx (morts). Migrées vers authActeur,
-// pas vers authStaff+requirePermission : c'est le pont déjà posé sur ce
-// fichier pour /status (voir note ci-dessous, conservée) et
-// /admin/recherche — mieux vaut réutiliser la convention déjà en place
-// ici que d'en introduire une troisième dans le même fichier.
+// [PHASE 3 — migration authSeller → RBAC, 23 août 2026] Complète la
+// migration : /seller et /admin/user/:userId sont appelées par
+// pages/admin/Orders.jsx et pages/admin/Clients.jsx (staffToken,
+// SuperAdminLayout). pages/seller/Orders.jsx, pages/seller/ClientsManager.jsx
+// et pages/seller/DeliveryManager.jsx (appelants historiques de /seller) ne
+// sont routés nulle part dans App.jsx (morts).
 //
-// [FIX] N'acceptait QUE le vieux compte technique unique (authSeller) :
-// un vrai compte staff admin (2FA, panel /staff/admin/...) ne pouvait pas
-// changer le statut d'une commande, notamment déclencher un retour colis.
-// authActeur accepte les DEUX sessions (staffToken ET sellerToken), donc
-// rien ne casse côté ancien panel /seller.
-orderRouter.get('/seller', authActeur, requireRoleActeur('admin'), getAllOrders);
-orderRouter.post('/status', authActeur, requireRoleActeur('admin'), updateOrderStatus);
-orderRouter.get('/admin/user/:userId', authActeur, requireRoleActeur('admin'), getUserOrdersByAdmin);
+// Migrées vers authStaff + requirePermission, comme les 9 autres fichiers
+// du périmètre — pas vers le pont authActeur (staffToken OU sellerToken)
+// utilisé temporairement ici. Ce pont avait été introduit en [FIX] pour
+// qu'un vrai compte staff (2FA) puisse changer le statut d'une commande,
+// jusque-là réservé au compte technique unique (authSeller/sellerToken).
+// Le sujet initial de ce FIX (staff bloqué) est réglé par ce commit lui-même
+// (authStaff est maintenant le SEUL chemin) ; quant au compte technique,
+// sellerRoute.js (/is-auth) reste son unique usage légitime — il n'est plus
+// étendu à de nouvelles capacités, conformément à la décision prise sur ce
+// fichier.
+//
+// Permissions : 'orders.view' et 'orders.edit' sont déjà accordées à
+// support_admin (voir seedRolePermissions.js) ; 'orders.view' est aussi
+// accordée à warehouse_admin, qui a besoin de /admin/recherche pour
+// l'écran de retour colis. 'clients.view' est ajouté en option sur
+// /admin/user/:userId car c'est aussi un usage " fiche client ", pas
+// seulement " historique commandes ".
+orderRouter.get('/seller', authStaff, requirePermission('orders.view'), getAllOrders);
+orderRouter.post('/status', authStaff, requirePermission('orders.edit'), updateOrderStatus);
+orderRouter.get('/admin/user/:userId', authStaff, requireAnyPermission(['orders.view', 'clients.view']), getUserOrdersByAdmin);
 // [NOUVEAU] Recherche de commande pour l'écran admin de retour colis.
-orderRouter.get('/admin/recherche', authActeur, requireRoleActeur('admin'), rechercherCommandeAdmin);
+orderRouter.get('/admin/recherche', authStaff, requirePermission('orders.view'), rechercherCommandeAdmin);
 
 // ✅ PHASE 4 : Route pour assigner un livreur (admin)
 orderRouter.post('/admin/assigner-livreur', authStaff, requireRole('admin', 'super_admin'), assignerLivreur);
@@ -96,11 +104,15 @@ orderRouter.post('/livreur/collectes/:orderId/terminer', authStaff, requireRole(
 // pages/admin/*, ni pages/seller/* qui ne sont de toute façon pas routés).
 // Migrées par cohérence avec le reste du fichier plutôt que laissées sur
 // authSeller, mais candidates à un nettoyage séparé si confirmé mortes.
-orderRouter.post('/seller/mark-shipped', authActeur, requireRoleActeur('admin'), sellerMarkShipped);
+// 'orders.ship' (logistics_admin) plutôt que 'orders.edit' : ces 3 routes
+// relèvent du même geste métier que le reste des routes /livreur/* de ce
+// fichier (remise physique avant "En livraison"), pas d'une édition
+// générale de commande.
+orderRouter.post('/seller/mark-shipped', authStaff, requirePermission('orders.ship'), sellerMarkShipped);
 
 // [NOUVEAU] Remise physique du colis au livreur — verrou avant "En livraison".
-orderRouter.get('/seller/a-remettre', authActeur, requireRoleActeur('admin'), listCommandesARemettre);
-orderRouter.post('/seller/remettre-livreur', authActeur, requireRoleActeur('admin'), confirmerRemiseLivreur);
+orderRouter.get('/seller/a-remettre', authStaff, requirePermission('orders.ship'), listCommandesARemettre);
+orderRouter.post('/seller/remettre-livreur', authStaff, requirePermission('orders.ship'), confirmerRemiseLivreur);
 
 // ✅ Commerçant : ses ventes uniquement (scopées à sa boutique)
 orderRouter.get('/commercant/mes-ventes', authStaff, requireRole('commercant'), getMesVentesCommercant);
