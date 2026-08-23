@@ -8,12 +8,12 @@ import { Users, Store, ScrollText, LogOut, Banknote, PackageCheck, PackageX } fr
 // valider une commande pour qu'un retrait devienne possible ailleurs — il
 // fallait pouvoir passer de l'une à l'autre sans repasser par l'URL.
 const ONGLETS = [
-    { to: '/staff/admin/comptes', label: 'Comptes', icon: Users },
-    { to: '/staff/admin/boutiques', label: 'Boutiques', icon: Store },
-    { to: '/staff/admin/commandes', label: 'Commandes', icon: PackageCheck },
-    { to: '/staff/admin/retours', label: 'Retours', icon: PackageX },
-    { to: '/staff/admin/retraits', label: 'Retraits', icon: Banknote },
-    { to: '/staff/admin/journal', label: 'Journal', icon: ScrollText },
+    { to: '/admin/staff', label: 'Comptes', icon: Users },
+    { to: '/admin/boutiques', label: 'Boutiques', icon: Store },
+    { to: '/admin/commandes', label: 'Commandes', icon: PackageCheck },
+    { to: '/admin/returns', label: 'Retours', icon: PackageX },
+    { to: '/admin/withdrawals', label: 'Retraits', icon: Banknote },
+    { to: '/admin/audit', label: 'Journal', icon: ScrollText },
 ];
 
 const AdminNav = ({ titre, sousTitre }) => {

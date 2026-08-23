@@ -45,6 +45,7 @@ const AdminDeliveries = lazy(() => import('./pages/admin/Deliveries'));
 const AdminSettings = lazy(() => import('./pages/admin/Settings'));
 const AdminApprovals = lazy(() => import('./pages/admin/Approvals'));
 const AdminComptes = lazy(() => import('./pages/admin/AdminComptes'));
+const AdminCommandes = lazy(() => import('./pages/admin/AdminCommandes'));
 const AdminBoutiques = lazy(() => import('./pages/admin/AdminBoutiques'));
 const AdminJournal = lazy(() => import('./pages/admin/AdminJournal'));
 const AdminRetraits = lazy(() => import('./pages/admin/AdminRetraits'));
@@ -229,6 +230,7 @@ const App = () => {
               <Route path='settings/thresholds' element={<AdminSettings />} />
               <Route path='approvals' element={<AdminApprovals />} />
               <Route path='staff' element={<AdminComptes />} />
+              <Route path='commandes' element={<AdminCommandes />} />
               <Route path='boutiques' element={<AdminBoutiques />} />
               <Route path='audit' element={<AdminJournal />} />
               <Route path='withdrawals' element={<AdminRetraits />} />
