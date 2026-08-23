@@ -13,6 +13,23 @@ import {
 
 const COLORS = ['#E31E24', '#FA5A5F', '#FF9497', '#9C1116', '#8A8A93'];
 
+/**
+ * Dashboard – Page d'accueil de la console Super Admin.
+ *
+ * Affiche :
+ *   - Les KPIs principaux (commandes, produits, clients, CA)
+ *   - Les KPIs secondaires (livraisons, approbations, RCOINS, remboursements)
+ *   - Des graphiques (CA par mois, répartition des commandes)
+ *   - Des KPIs avancés (couverture d'audit, délai d'approbation, etc.)
+ *   - Des alertes (commandes en attente, stock épuisé, approbations, remboursements)
+ *
+ * Les données proviennent de plusieurs endpoints :
+ *   - /api/admin/dashboard/stats (statistiques générales)
+ *   - /api/admin/dashboard/kpis (KPIs avancés)
+ *   - /api/admin/dashboard/finance (KPIs finance)
+ *   - /api/admin/approvals (approbations en attente)
+ *   - /api/admin/refunds (remboursements en attente)
+ */
 const Dashboard = () => {
     const { axios } = useAppContext();
     const [stats, setStats] = useState({

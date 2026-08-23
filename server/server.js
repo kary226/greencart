@@ -36,6 +36,9 @@ import { estOperationnelle } from './utils/AppError.js';
 const app = express();
 const port = process.env.PORT || 4000;
 
+// [SÉCURITÉ] Vercel place l'app derrière un seul proxy inverse qui pose
+// X-Forwarded-For. Sans ce réglage, Express ignore cet en-tête (défaut :
+// false) et express-rate-limit ne peut pas isoler l'IP réelle du client.
 app.set('trust proxy', 1);
 dns.setServers(['1.1.1.1', '8.8.8.8']);
 

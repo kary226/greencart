@@ -4,6 +4,23 @@ import { useAppContext } from "../context/AppContext";
 import toast from "react-hot-toast";
 import { Menu, X as CloseIcon, LogOut } from "lucide-react";
 
+/**
+ * SuperAdminLayout – Layout unifié de la console d'administration.
+ *
+ * Fusion des anciens espaces seller et staff/admin.
+ * Les permissions sont chargées depuis le serveur (authStaff + loadPermissions)
+ * et le menu s'adapte dynamiquement.
+ *
+ * Le menu est structuré en 8 rubriques principales :
+ *   - Tableau de bord
+ *   - Opérations (commandes, retours, litiges)
+ *   - Catalogue (produits, catégories, bannières, coupons)
+ *   - Réseau (clients, commerçants, boutiques)
+ *   - Logistique (livraisons, zones, entrepôt)
+ *   - Finance (portefeuilles, retraits, remboursements, approbations)
+ *   - RCOINS
+ *   - Administration (paramètres, seuils, comptes staff, journal)
+ */
 const SuperAdminLayout = () => {
     const { axios, navigate } = useAppContext();
     const location = useLocation();
@@ -11,15 +28,18 @@ const SuperAdminLayout = () => {
     const [staffUser, setStaffUser] = useState(null);
     const [permissions, setPermissions] = useState([]);
 
+    // Fermer le tiroir automatiquement dès qu'on navigue
     useEffect(() => {
         setSidebarOpen(false);
     }, [location.pathname]);
 
+    // Empêcher le scroll derrière le tiroir
     useEffect(() => {
         document.body.style.overflow = sidebarOpen ? "hidden" : "";
         return () => { document.body.style.overflow = ""; };
     }, [sidebarOpen]);
 
+    // Charger les informations du staff connecté et ses permissions
     useEffect(() => {
         const fetchStaff = async () => {
             try {
@@ -35,11 +55,13 @@ const SuperAdminLayout = () => {
         fetchStaff();
     }, []);
 
+    // Vérifier si l'utilisateur a une permission donnée
     const hasAccess = (permission) => {
         if (staffUser?.role === 'super_admin') return true;
         return permissions.includes(permission);
     };
 
+    // Structure du menu avec permissions
     const menuSections = [
         {
             title: "Tableau de bord",
@@ -143,7 +165,7 @@ const SuperAdminLayout = () => {
 
     return (
         <div className="min-h-screen bg-gray-50">
-            {/* Header */}
+            {/* Header collant */}
             <div className="flex items-center justify-between gap-2 px-3 sm:px-6 border-b border-gray-200 py-3 sm:py-4 bg-white sticky top-0 z-30">
                 <div className="flex items-center gap-2 min-w-0">
                     <button
@@ -181,6 +203,7 @@ const SuperAdminLayout = () => {
 
             {/* Sidebar + Content */}
             <div className="flex">
+                {/* Overlay mobile */}
                 {sidebarOpen && (
                     <div
                         className="fixed inset-0 bg-black/40 z-30 lg:hidden"
@@ -188,6 +211,7 @@ const SuperAdminLayout = () => {
                     />
                 )}
 
+                {/* Sidebar : tiroir mobile / colonne fixe dès lg */}
                 <div
                     className={`
                         fixed lg:sticky inset-y-0 lg:top-[65px] left-0 z-40 lg:z-0
@@ -269,10 +293,11 @@ const SuperAdminLayout = () => {
                         })}
                     </nav>
                     <div className="px-4 py-3 border-t border-gray-100 text-xs text-gray-400">
-                        Version 5.0 • {staffUser?.role || 'Admin'}
+                        Version 6.0 • {staffUser?.role || 'Admin'}
                     </div>
                 </div>
 
+                {/* Main Content */}
                 <div className="flex-1 min-w-0 overflow-auto">
                     <Outlet />
                 </div>

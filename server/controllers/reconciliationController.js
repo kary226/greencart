@@ -12,13 +12,11 @@ import {
 export const runReconciliation = async (req, res) => {
     try {
         const { dateDebut, dateFin, autoResoudre } = req.body;
-
         const result = await reconcilierJeko({
             dateDebut,
             dateFin,
             autoResoudre: autoResoudre || false,
         });
-
         return res.status(200).json({
             success: true,
             message: 'Rapprochement terminé',
@@ -55,9 +53,7 @@ export const resolveEcart = async (req, res) => {
     try {
         const { id } = req.params;
         const { note } = req.body;
-
         const log = await resoudreEcart(id, req.staffUser, note);
-
         return res.status(200).json({
             success: true,
             message: 'Écart résolu',

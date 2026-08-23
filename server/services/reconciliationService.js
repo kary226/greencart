@@ -14,15 +14,9 @@ import { journaliser } from './journalService.js';
  * il existe une transaction wallet correspondante.
  */
 export const reconcilierJeko = async (options = {}) => {
-    const {
-        dateDebut = null,
-        dateFin = null,
-        autoResoudre = false,
-    } = options;
-
+    const { dateDebut = null, dateFin = null, autoResoudre = false } = options;
     const filterJeko = {};
     const filterWallet = {};
-
     if (dateDebut) {
         const d = new Date(dateDebut);
         filterJeko.createdAt = { $gte: d };
@@ -33,7 +27,6 @@ export const reconcilierJeko = async (options = {}) => {
         filterJeko.createdAt = { $lte: d };
         filterWallet.createdAt = { $lte: d };
     }
-
     // 1. Récupérer toutes les commandes payées par Jèko
     const orders = await Order.find({
         paymentType: 'Jeko',
@@ -41,16 +34,13 @@ export const reconcilierJeko = async (options = {}) => {
         jeko_reference: { $ne: null },
         ...filterJeko,
     }).lean();
-
     console.log(`🔍 Rapprochement Jèko: ${orders.length} commandes trouvées`);
-
     // 2. Récupérer les transactions wallet correspondantes
     const walletTxns = await WalletTransaction.find({
         type: { $in: ['vente', 'ajustement'] },
         orderId: { $ne: null },
         ...filterWallet,
     }).lean();
-
     const walletByOrder = new Map();
     for (const txn of walletTxns) {
         if (txn.orderId) {
@@ -61,24 +51,18 @@ export const reconcilierJeko = async (options = {}) => {
             walletByOrder.get(key).push(txn);
         }
     }
-
     // 3. Comparer chaque commande avec les transactions wallet
     const results = [];
     const logs = [];
-
     for (const order of orders) {
         const walletEntries = walletByOrder.get(order._id.toString()) || [];
         const totalWallet = walletEntries.reduce((sum, t) => sum + t.montant, 0);
-
-        // Vérifier s'il y a déjà un log pour cette commande
         const existingLog = await ReconciliationLog.findOne({
             orderId: order._id,
             resolu: false,
         });
-
         const ecart = Math.abs(order.amount - totalWallet);
         const estEcart = ecart > 0;
-
         const log = {
             jekoReference: order.jeko_reference,
             jekoAmount: order.amount,
@@ -91,26 +75,20 @@ export const reconcilierJeko = async (options = {}) => {
             resolu: false,
             runDate: new Date(),
         };
-
-        // Si autoResoudre est true et qu'il n'y a pas d'écart, marquer comme résolu
         if (autoResoudre && !estEcart) {
             log.resolu = true;
             log.noteResolution = 'Auto-résolu : aucun écart';
         }
-
         if (existingLog) {
-            // Mettre à jour le log existant
             await ReconciliationLog.updateOne(
                 { _id: existingLog._id },
                 { $set: { ...log, updatedAt: new Date() } }
             );
             logs.push({ ...log, _id: existingLog._id });
         } else {
-            // Créer un nouveau log
             const created = await ReconciliationLog.create(log);
             logs.push(created);
         }
-
         results.push({
             orderId: order._id,
             jekoAmount: order.amount,
@@ -119,7 +97,6 @@ export const reconcilierJeko = async (options = {}) => {
             ok: !estEcart,
         });
     }
-
     // 4. Détecter les transactions wallet sans commande Jèko (doublons ?)
     const walletWithoutOrder = [];
     for (const [orderId, txns] of walletByOrder) {
@@ -128,7 +105,6 @@ export const reconcilierJeko = async (options = {}) => {
             walletWithoutOrder.push({ orderId, txns });
         }
     }
-
     // 5. Journaliser le rapprochement
     await journaliser({
         acteur: {
@@ -143,7 +119,6 @@ export const reconcilierJeko = async (options = {}) => {
         },
         note: `${orders.length} commandes analysées, ${logs.filter(l => l.typeEcart !== 'aucun').length} écarts détectés`,
     });
-
     return {
         totalOrders: orders.length,
         totalEcards: logs.filter(l => l.typeEcart !== 'aucun').length,
@@ -170,7 +145,6 @@ export const getReconciliationEcards = async () => {
         .sort({ createdAt: -1 })
         .populate('orderId', 'amount status userId')
         .populate('resoluPar', 'nom email');
-
     return logs;
 };
 
@@ -182,18 +156,14 @@ export const resoudreEcart = async (logId, staffUser, note) => {
     if (!log) {
         throw new Error('Log de rapprochement introuvable');
     }
-
     if (log.resolu) {
         throw new Error('Cet écart est déjà résolu');
     }
-
     log.resolu = true;
     log.resoluPar = staffUser._id;
     log.resoluLe = new Date();
     log.noteResolution = note || 'Résolution manuelle';
-
     await log.save();
-
     await journaliser({
         acteur: {
             id: staffUser._id,
@@ -207,7 +177,6 @@ export const resoudreEcart = async (logId, staffUser, note) => {
         },
         note: note || 'Résolution manuelle',
     });
-
     return log;
 };
 
@@ -225,7 +194,6 @@ export const getReconciliationStats = async () => {
         .sort({ createdAt: -1 })
         .limit(10)
         .populate('orderId', 'amount status');
-
     return {
         total,
         ecarts,

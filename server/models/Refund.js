@@ -113,7 +113,7 @@ const refundSchema = new mongoose.Schema({
         default: null,
     },
 
-    // Note interne
+    // Note interne (visible uniquement par le staff)
     noteInterne: {
         type: String,
         trim: true,
