@@ -78,7 +78,7 @@ const AdminJournal = () => {
         (async () => {
             try {
                 const { data } = await axios.get('/api/staff/is-auth');
-                if (data.success && data.staffUser?.role === 'admin') {
+                if (data.success && ['admin', 'super_admin'].includes(data.staffUser?.role)) {
                     setMoi(data.staffUser);
                     setAuthorized(true);
                 } else {
