@@ -284,17 +284,17 @@ export const rejectRefund = async (req, res) => {
     try {
         const { id } = req.params;
         const { motif } = req.body;
-        const refund = await Refund.findById(id);
-        if (!refund) {
+        const refundAvant = await Refund.findById(id);
+        if (!refundAvant) {
             return res.status(404).json({ success: false, message: 'Remboursement non trouvé' });
         }
-        if (refund.statut !== 'requested') {
+        if (refundAvant.statut !== 'requested') {
             return res.status(409).json({
                 success: false,
-                message: `Ce remboursement est déjà ${refund.statut}`,
+                message: `Ce remboursement est déjà ${refundAvant.statut}`,
             });
         }
-        if (refund.demandePar.toString() === req.staffUser._id.toString()) {
+        if (refundAvant.demandePar.toString() === req.staffUser._id.toString()) {
             return res.status(403).json({
                 success: false,
                 message: 'Vous ne pouvez pas rejeter votre propre demande',
@@ -309,11 +309,30 @@ export const rejectRefund = async (req, res) => {
                 message: 'Vous n\'avez pas les droits pour rejeter ce remboursement',
             });
         }
-        refund.statut = 'rejected';
-        refund.approuvePar = req.staffUser._id;
-        refund.approuveLe = new Date();
-        refund.noteInterne = motif || 'Demande rejetée';
-        await refund.save();
+        // [CORRECTIF — même race condition que approveRefund] Sans ce verrou
+        // atomique, un approve et un reject lancés au même instant sur le
+        // même remboursement pouvaient tous deux passer leur vérification
+        // de statut avant qu'aucun n'écrive, laissant le document dans un
+        // état incohérent (RCOINS crédités MAIS refund marqué "rejected",
+        // ou l'inverse selon l'ordre d'écriture final).
+        const refund = await Refund.findOneAndUpdate(
+            { _id: id, statut: 'requested' },
+            {
+                $set: {
+                    statut: 'rejected',
+                    approuvePar: req.staffUser._id,
+                    approuveLe: new Date(),
+                    noteInterne: motif || 'Demande rejetée',
+                },
+            },
+            { new: true }
+        );
+        if (!refund) {
+            return res.status(409).json({
+                success: false,
+                message: 'Ce remboursement vient d\'être traité par ailleurs (déjà approuvé, rejeté, ou en cours)',
+            });
+        }
         // Journaliser le rejet
         await journaliser({
             acteur: {
@@ -346,27 +365,44 @@ export const completeRefund = async (req, res) => {
     try {
         const { id } = req.params;
         const { providerReference, note } = req.body;
-        const refund = await Refund.findById(id);
-        if (!refund) {
+        const refundAvant = await Refund.findById(id);
+        if (!refundAvant) {
             return res.status(404).json({ success: false, message: 'Remboursement non trouvé' });
         }
-        if (refund.statut === 'completed') {
+        if (refundAvant.statut === 'completed') {
             return res.status(409).json({
                 success: false,
                 message: 'Ce remboursement est déjà terminé',
             });
         }
-        if (refund.statut !== 'processing' && refund.statut !== 'approved') {
+        if (refundAvant.statut !== 'processing' && refundAvant.statut !== 'approved') {
             return res.status(409).json({
                 success: false,
-                message: `Ce remboursement est au statut ${refund.statut} - impossible de le marquer comme terminé`,
+                message: `Ce remboursement est au statut ${refundAvant.statut} - impossible de le marquer comme terminé`,
             });
         }
-        refund.statut = 'completed';
-        refund.providerReference = providerReference || refund.providerReference;
-        refund.completeLe = new Date();
-        refund.noteInterne = note ? `${refund.noteInterne}\n${note}` : refund.noteInterne;
-        await refund.save();
+        // [CORRECTIF — cohérence] Même principe que approveRefund/rejectRefund :
+        // pas de double-crédit possible ici (déjà effectué à l'approbation),
+        // mais deux appels concurrents pouvaient produire deux entrées de
+        // journal et deux notifications pour la même complétion.
+        const refund = await Refund.findOneAndUpdate(
+            { _id: id, statut: { $in: ['processing', 'approved'] } },
+            {
+                $set: {
+                    statut: 'completed',
+                    providerReference: providerReference || refundAvant.providerReference,
+                    completeLe: new Date(),
+                    noteInterne: note ? `${refundAvant.noteInterne}\n${note}` : refundAvant.noteInterne,
+                },
+            },
+            { new: true }
+        );
+        if (!refund) {
+            return res.status(409).json({
+                success: false,
+                message: 'Ce remboursement vient d\'être traité par ailleurs',
+            });
+        }
         // Journaliser la completion
         await journaliser({
             acteur: {
