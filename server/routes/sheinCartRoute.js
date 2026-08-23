@@ -1,21 +1,17 @@
 import express from "express";
 import multer from "multer";
 import authUser from "../middlewares/authUser.js";
-import authSeller from "../middlewares/authSeller.js";
 import { analyzeCart, submitCart, getUserColis, getColisById } from "../controllers/sheinCartController.js";
 import { initiateJekoAcompte, initiateJekoSolde } from "../controllers/jekoController.js";
 import { getMessages, sendMessageClient, setClientTyping } from "../controllers/messageColisController.js";
-import { demanderAvis, soumettreAvis, getStatsAvis } from "../controllers/avisController.js";
-import {
-    getAllColisAdmin,
-    getColisAdminById,
-    validateColis,
-    updateStatutColis,
-    getMessagesAdmin,
-    sendMessageAgent,
-    setAgentTyping,
-    definirEstimationArrivee,
-} from "../controllers/colisSheinAdminController.js";
+import { soumettreAvis } from "../controllers/avisController.js";
+// [CORRECTIF AUDIT — 23 août 2026] Les 8 routes /admin/* qui vivaient ici
+// (authSeller) sont retirées : colisSheinAdminRouter est monté AVANT ce
+// routeur dans server.js et couvre désormais l'intégralité de ces chemins
+// (y compris demander-avis et avis/stats, ajoutées à cette occasion) via
+// authStaff + RBAC. Les garder ici constituait du code mort — jamais
+// atteint en pratique, mais entretenant une fausse impression de
+// couverture. Voir Rapport d'audit d'implémentation, section 5.
 
 const sheinCartRouter = express.Router();
 
@@ -44,22 +40,6 @@ const uploadChatImage = multer({
 sheinCartRouter.post("/analyze", authUser, upload.array("captures", 10), analyzeCart);
 sheinCartRouter.post("/submit", authUser, submitCart);
 sheinCartRouter.get("/user", authUser, getUserColis);
-
-// --- Routes admin (littérales — DOIVENT être déclarées avant /:id, sinon "/admin/all"
-// serait interprété comme /:id avec id="admin" et n'atteindrait jamais ce bloc) ---
-sheinCartRouter.get("/admin/all", authSeller, getAllColisAdmin);
-sheinCartRouter.get("/admin/avis/stats", authSeller, getStatsAvis); // avant /admin/:id, sinon "avis" est lu comme un id
-sheinCartRouter.get("/admin/:id", authSeller, getColisAdminById);
-sheinCartRouter.post("/admin/:id/validate", authSeller, validateColis);
-sheinCartRouter.post("/admin/:id/statut", authSeller, updateStatutColis);
-sheinCartRouter.post("/admin/:id/estimation-arrivee", authSeller, definirEstimationArrivee);
-sheinCartRouter.post("/admin/:id/demander-avis", authSeller, demanderAvis);
-sheinCartRouter.get("/admin/:id/messages", authSeller, getMessagesAdmin);
-// [SÉCURITÉ] L'authentification passe AVANT Multer. Dans l'autre ordre, le
-// fichier était intégralement lu et mis en mémoire avant même de savoir qui
-// appelait : un anonyme pouvait faire consommer 8 Mo de RAM par requête.
-sheinCartRouter.post("/admin/:id/messages", authSeller, uploadChatImage.single("image"), sendMessageAgent);
-sheinCartRouter.post("/admin/:id/typing", authSeller, setAgentTyping);
 
 // --- Routes client génériques (en dernier, elles absorbent tout le reste) ---
 sheinCartRouter.get("/:id", authUser, getColisById);

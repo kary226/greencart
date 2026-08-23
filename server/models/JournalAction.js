@@ -49,6 +49,27 @@ const journalActionSchema = new mongoose.Schema({
             'staff.invitation',
             'boutique.statut',
             'boutique.autorisations',
+            // [CORRECTIF AUDIT — 23 août 2026] Actions des Phases 2, 4, 5 et 6
+            // (approbations, entrepôt, retours, remboursements, rapprochement) :
+            // utilisées par journaliser() dans le code depuis leur écriture,
+            // mais jamais ajoutées ici. Résultat avant ce correctif : chaque
+            // appel échouait la validation Mongoose et était avalé
+            // silencieusement par le catch de journalService.js — journal
+            // muet sur cinq modules entiers sans qu'aucune erreur ne
+            // remonte. Voir Rapport d'audit d'implémentation, section 3.
+            'approval.approuvee',
+            'approval.rejetee',
+            'refund.requested',
+            'refund.approved',
+            'refund.executed',
+            'refund.completed',
+            'refund.rejected',
+            'returns.inspect',
+            'returns.resolve',
+            'returns.reject',
+            'warehouse.scan',
+            'reconciliation.run',
+            'reconciliation.resolve',
         ],
         index: true,
     },

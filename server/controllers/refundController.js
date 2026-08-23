@@ -5,6 +5,9 @@ import ApprovalRequest from '../models/ApprovalRequest.js';
 import Setting from '../models/Setting.js';
 import { journaliser } from '../services/journalService.js';
 import { crediterClient } from '../models/CustomerCredit.js';
+// [CORRECTIF AUDIT — 23 août 2026] nécessaire pour le garde-fou
+// d'exclusivité RCOINS / remboursement monétaire ci-dessous.
+import CustomerCreditTransaction from '../models/CustomerCreditTransaction.js';
 import { sendEmail } from '../configs/email.js';
 import webpush from '../configs/webpush.js';
 import PushSubscription from '../models/PushSubscription.js';
@@ -91,6 +94,28 @@ export const createRefund = async (req, res) => {
                 message: `Le montant demandé (${montant} FCFA) dépasse le montant de la commande (${order.amount} FCFA)`,
             });
         }
+
+        // [CORRECTIF AUDIT — 23 août 2026] Garde-fou d'exclusivité RCOINS /
+        // remboursement monétaire — critère d'acceptation explicite du §24
+        // du cahier des charges, absent avant ce correctif. Portée : au
+        // niveau de la commande entière plutôt qu'article par article, car
+        // le crédit RCOINS exceptionnel émis depuis resoudreLitige()
+        // (résolution "remboursement_client") n'est rattaché à aucun
+        // itemId réel — un contrôle par article donnerait une fausse
+        // sécurité. Un remboursement monétaire ne peut donc pas être créé
+        // sur une commande qui a déjà reçu un crédit RCOINS, et
+        // réciproquement (voir orderController.resoudreLitige).
+        const creditRcoinsExistant = await CustomerCreditTransaction.findOne({
+            orderId,
+            type: 'credit',
+        });
+        if (creditRcoinsExistant) {
+            return res.status(409).json({
+                success: false,
+                message: "Cette commande a déjà reçu un crédit RCOINS. Un remboursement monétaire sur la même commande est exclu — les deux voies ne peuvent pas coexister.",
+            });
+        }
+
         // Générer un refundId unique
         const refundId = uuidv4();
         const refund = await Refund.create({

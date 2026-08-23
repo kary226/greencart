@@ -217,7 +217,7 @@ export const resolveReturn = async (req, res) => {
                     nom: req.staffUser.nom,
                     role: req.staffUser.role,
                 },
-                action: 'refund.approve',
+                action: 'refund.approved',
                 cible: { id: refund._id, libelle: `Remboursement ${refundUuid}` },
                 note: `Montant: ${montant} FCFA, méthode: ${remboursementMethode}`,
             });

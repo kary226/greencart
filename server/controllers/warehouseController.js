@@ -20,6 +20,18 @@ export const createWarehouseScan = async (req, res) => {
             });
         }
 
+        // [CORRECTIF AUDIT — 23 août 2026] Critère d'acceptation explicite
+        // du cahier des charges (§24) : « Un retour sans photo ne peut pas
+        // passer l'état RETURN_RECEIVED. » Rien ne vérifiait ce point avant
+        // ce correctif — un scan retour_reception sans fichier joint était
+        // accepté et faisait tout de même avancer le ReturnCase.
+        if (type === 'retour_reception' && photos.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Au moins une photo est obligatoire pour un scan de réception de retour.',
+            });
+        }
+
         // Vérifier que la commande existe
         const order = await Order.findById(orderId);
         if (!order) {

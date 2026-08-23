@@ -10,6 +10,10 @@ import Commune from "../models/Commune.js";
 import Wallet from "../models/Wallet.js";
 import WalletTransaction from "../models/WalletTransaction.js";
 import CustomerCreditTransaction from "../models/CustomerCreditTransaction.js";
+// [CORRECTIF AUDIT — 23 août 2026] nécessaire pour le garde-fou
+// d'exclusivité RCOINS / remboursement monétaire, symétrique à celui
+// ajouté dans refundController.createRefund.
+import Refund from "../models/Refund.js";
 // [PHASE 0 - PERF] Import statique au lieu de l'import dynamique répété à
 // chaque itération de boucle dans crediterWallets — l'import dynamique
 // était re-résolu (et son cache re-consulté) pour chaque boutique du
@@ -1624,11 +1628,19 @@ export const resoudreLitige = async (req, res) => {
                     message: 'boutiqueId et montant sont requis pour créer une dette commerçant',
                 });
             }
+            // [CORRECTIF AUDIT — 23 août 2026] acteur n'était pas transmis :
+            // la WalletTransaction créée par ajusterPortefeuille gardait un
+            // creePar à null, alors que la fonction accepte ce paramètre
+            // (voir walletService.js) — contraire à la précision v3.1 du
+            // §3.3, qui exige un auteur sur les DEUX voies d'ajustement
+            // manuel (adminAjustement ET ajusterPortefeuille via litige).
             await ajusterPortefeuille({
                 boutiqueId,
                 montant: -Math.abs(Math.round(Number(montant))),
                 description: `Litige — retenue (commande ${order._id})`,
                 orderId: order._id,
+                acteur: acteurDepuisStaff(req.staffUser),
+                motif: `Litige commande ${order._id} — ${note || 'retenue décidée par un administrateur'}`,
             });
         }
 
@@ -1640,6 +1652,22 @@ export const resoudreLitige = async (req, res) => {
                     message: 'Un montant positif est requis pour un remboursement client',
                 });
             }
+
+            // [CORRECTIF AUDIT — 23 août 2026] Garde-fou d'exclusivité
+            // symétrique à celui de refundController.createRefund — voir
+            // ce fichier pour la justification complète (§24 du cahier des
+            // charges).
+            const refundMonetaireExistant = await Refund.findOne({
+                orderId: order._id,
+                statut: { $nin: ['rejected', 'failed'] },
+            });
+            if (refundMonetaireExistant) {
+                return res.status(409).json({
+                    success: false,
+                    message: "Cette commande a déjà un remboursement monétaire en cours ou terminé. Un crédit RCOINS sur la même commande est exclu.",
+                });
+            }
+
             // Remboursement exceptionnel hors circuit article par article
             // (doc §6 : « l'Admin peut aussi traiter un remboursement
             // externe exceptionnel si le client le demande »), crédité en
