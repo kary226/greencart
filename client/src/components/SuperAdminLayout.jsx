@@ -2,75 +2,66 @@ import { useState, useEffect } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
 import toast from "react-hot-toast";
-import { Menu, X as CloseIcon, Home, Package, ShoppingCart, Users, Truck, Wallet, Coins, Settings, Shield, LogOut } from "lucide-react";
+import { Menu, X as CloseIcon, LogOut } from "lucide-react";
 
 const SuperAdminLayout = () => {
-    const { axios, navigate, logoutUser, user, staffUser } = useAppContext();
+    const { axios, navigate } = useAppContext();
     const location = useLocation();
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    const [isStaff, setIsStaff] = useState(false);
-    const [staffRole, setStaffRole] = useState(null);
+    const [staffUser, setStaffUser] = useState(null);
     const [permissions, setPermissions] = useState([]);
 
-    // Fermer le tiroir automatiquement dès qu'on navigue
     useEffect(() => {
         setSidebarOpen(false);
     }, [location.pathname]);
 
-    // Empêcher le scroll derrière le tiroir
     useEffect(() => {
         document.body.style.overflow = sidebarOpen ? "hidden" : "";
         return () => { document.body.style.overflow = ""; };
     }, [sidebarOpen]);
 
-    // Vérifier si l'utilisateur est un staff (admin/super_admin)
     useEffect(() => {
-        const checkStaff = async () => {
+        const fetchStaff = async () => {
             try {
                 const { data } = await axios.get('/api/staff/is-auth');
                 if (data.success) {
-                    setIsStaff(true);
-                    setStaffRole(data.staffUser?.role || 'admin');
+                    setStaffUser(data.staffUser);
                     setPermissions(data.staffUser?.permissions || []);
                 }
             } catch (error) {
-                setIsStaff(false);
+                console.error('Erreur chargement staff:', error);
             }
         };
-        checkStaff();
+        fetchStaff();
     }, []);
 
-    // Déterminer si l'utilisateur a accès à une section
     const hasAccess = (permission) => {
-        if (staffRole === 'super_admin') return true;
+        if (staffUser?.role === 'super_admin') return true;
         return permissions.includes(permission);
     };
 
     const menuSections = [
         {
             title: "Tableau de bord",
-            icon: Home,
+            icon: "📊",
             path: "/admin/dashboard",
-            permission: "admin.dashboard",
             visible: true,
         },
         {
             title: "Opérations",
-            icon: ShoppingCart,
+            icon: "📦",
             path: "/admin/orders",
-            permission: "orders.view",
             visible: hasAccess("orders.view"),
             subItems: [
                 { label: "Commandes", path: "/admin/orders" },
                 { label: "Retours", path: "/admin/returns" },
-                { label: "Litiges", path: "/admin/disputes" },
+                { label: "Litiges", path: "/admin/orders?tab=disputes" },
             ],
         },
         {
             title: "Catalogue",
-            icon: Package,
+            icon: "🏷️",
             path: "/admin/products",
-            permission: "catalog.view",
             visible: hasAccess("catalog.view"),
             subItems: [
                 { label: "Produits", path: "/admin/products" },
@@ -82,46 +73,42 @@ const SuperAdminLayout = () => {
         },
         {
             title: "Réseau",
-            icon: Users,
+            icon: "👥",
             path: "/admin/clients",
-            permission: "clients.view",
             visible: hasAccess("clients.view"),
             subItems: [
                 { label: "Clients", path: "/admin/clients" },
-                { label: "Commerçants", path: "/admin/sellers" },
+                { label: "Commerçants", path: "/admin/staff" },
                 { label: "Boutiques", path: "/admin/boutiques" },
             ],
         },
         {
             title: "Logistique",
-            icon: Truck,
+            icon: "🚚",
             path: "/admin/deliveries",
-            permission: "deliveries.view",
             visible: hasAccess("deliveries.view"),
             subItems: [
                 { label: "Livraisons", path: "/admin/deliveries" },
-                { label: "Livreurs", path: "/admin/delivery-drivers" },
-                { label: "Zones & tarifs", path: "/admin/delivery-zones" },
+                { label: "Zones & tarifs", path: "/admin/deliveries" },
+                { label: "Entrepôt", path: "/admin/warehouse" },
             ],
         },
         {
             title: "Finance",
-            icon: Wallet,
-            path: "/admin/finance",
-            permission: "wallet.view",
+            icon: "💰",
+            path: "/admin/withdrawals",
             visible: hasAccess("wallet.view"),
             subItems: [
-                { label: "Portefeuilles", path: "/admin/wallets" },
-                { label: "Transactions", path: "/admin/transactions" },
+                { label: "Portefeuilles", path: "/admin/withdrawals" },
                 { label: "Retraits", path: "/admin/withdrawals" },
                 { label: "Remboursements", path: "/admin/refunds" },
+                { label: "Approbations", path: "/admin/approvals" },
             ],
         },
         {
             title: "RCOINS",
-            icon: Coins,
+            icon: "🪙",
             path: "/admin/rcoins",
-            permission: "rcoins.view",
             visible: hasAccess("rcoins.view"),
             subItems: [
                 { label: "Solde clients", path: "/admin/rcoins" },
@@ -130,12 +117,11 @@ const SuperAdminLayout = () => {
         },
         {
             title: "Administration",
-            icon: Settings,
+            icon: "⚙️",
             path: "/admin/settings",
-            permission: "admin.configure",
             visible: hasAccess("admin.configure"),
             subItems: [
-                { label: "Paramètres généraux", path: "/admin/settings" },
+                { label: "Paramètres", path: "/admin/settings" },
                 { label: "Seuils d'approbation", path: "/admin/settings/thresholds" },
                 { label: "Comptes staff", path: "/admin/staff" },
                 { label: "Journal d'audit", path: "/admin/audit" },
@@ -148,17 +134,12 @@ const SuperAdminLayout = () => {
     const logout = async () => {
         try {
             await axios.get('/api/staff/logout');
-            setIsStaff(false);
             toast.success('Déconnexion réussie');
             navigate('/staff/login');
         } catch (error) {
             toast.error(error.message);
         }
     };
-
-    const getIcon = (IconComponent) => (
-        <IconComponent size={20} strokeWidth={1.8} />
-    );
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -182,10 +163,10 @@ const SuperAdminLayout = () => {
                 <div className="flex items-center gap-2 sm:gap-4 shrink-0">
                     <div className="hidden sm:flex items-center gap-2">
                         <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                            {staffRole === 'super_admin' ? 'SA' : 'A'}
+                            {staffUser?.role === 'super_admin' ? 'SA' : 'A'}
                         </div>
                         <span className="text-sm font-medium text-gray-700">
-                            {staffRole === 'super_admin' ? 'Super Admin' : 'Admin'}
+                            {staffUser?.role === 'super_admin' ? 'Super Admin' : 'Admin'}
                         </span>
                     </div>
                     <button
@@ -200,7 +181,6 @@ const SuperAdminLayout = () => {
 
             {/* Sidebar + Content */}
             <div className="flex">
-                {/* Overlay mobile */}
                 {sidebarOpen && (
                     <div
                         className="fixed inset-0 bg-black/40 z-30 lg:hidden"
@@ -208,7 +188,6 @@ const SuperAdminLayout = () => {
                     />
                 )}
 
-                {/* Sidebar */}
                 <div
                     className={`
                         fixed lg:sticky inset-y-0 lg:top-[65px] left-0 z-40 lg:z-0
@@ -244,8 +223,8 @@ const SuperAdminLayout = () => {
                                                     ${isActive ? "bg-red-50 text-red-500" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"}
                                                 `}
                                             >
-                                                <span className="w-5 h-5 flex items-center justify-center shrink-0">
-                                                    {getIcon(section.icon)}
+                                                <span className="w-5 h-5 flex items-center justify-center shrink-0 text-base">
+                                                    {section.icon}
                                                 </span>
                                                 <span>{section.title}</span>
                                             </div>
@@ -279,8 +258,8 @@ const SuperAdminLayout = () => {
                                                 }
                                             `}
                                         >
-                                            <span className="w-5 h-5 flex items-center justify-center shrink-0">
-                                                {getIcon(section.icon)}
+                                            <span className="w-5 h-5 flex items-center justify-center shrink-0 text-base">
+                                                {section.icon}
                                             </span>
                                             <span>{section.title}</span>
                                         </NavLink>
@@ -290,11 +269,10 @@ const SuperAdminLayout = () => {
                         })}
                     </nav>
                     <div className="px-4 py-3 border-t border-gray-100 text-xs text-gray-400">
-                        Version 3.0 • {staffRole}
+                        Version 5.0 • {staffUser?.role || 'Admin'}
                     </div>
                 </div>
 
-                {/* Main Content */}
                 <div className="flex-1 min-w-0 overflow-auto">
                     <Outlet />
                 </div>

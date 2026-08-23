@@ -120,6 +120,14 @@ const refundSchema = new mongoose.Schema({
         default: '',
         maxlength: 500,
     },
+
+    // Note visible par le client
+    noteClient: {
+        type: String,
+        trim: true,
+        default: '',
+        maxlength: 500,
+    },
 }, { timestamps: true });
 
 // Index pour les requêtes fréquentes

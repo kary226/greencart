@@ -3,7 +3,7 @@ import { useAppContext } from '../../context/AppContext';
 import { Link } from 'react-router-dom';
 import {
     ShoppingBag, Package, Users, Truck, Wallet, Coins, AlertTriangle,
-    TrendingUp, TrendingDown, CheckCircle, XCircle, Clock, Eye
+    TrendingUp, TrendingDown, CheckCircle, XCircle, Clock, Eye, DollarSign
 } from 'lucide-react';
 
 const Dashboard = () => {
@@ -16,6 +16,7 @@ const Dashboard = () => {
         finance: { revenue: 0, pendingWithdrawals: 0, totalWithdrawals: 0 },
         rcoins: { totalBalance: 0, transactions: 0 },
         approvals: { pending: 0 },
+        refunds: { pending: 0, totalAmount: 0, completed: 0 },
         alerts: [],
     });
     const [loading, setLoading] = useState(true);
@@ -23,12 +24,17 @@ const Dashboard = () => {
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const [dashboardRes, approvalsRes] = await Promise.all([
+                const [dashboardRes, approvalsRes, refundsRes] = await Promise.all([
                     axios.get('/api/admin/dashboard/stats'),
                     axios.get('/api/admin/approvals?statut=en_attente'),
+                    axios.get('/api/admin/refunds?statut=requested'),
+                    axios.get('/api/admin/refunds?statut=completed'),
                 ]);
 
                 const s = dashboardRes.data.stats || {};
+                const pendingRefunds = refundsRes.data.refunds || [];
+                const completedRefunds = refundsRes.data.refunds || [];
+                const totalRefundAmount = [...pendingRefunds, ...completedRefunds].reduce((sum, r) => sum + (r.montantApprouve || 0), 0);
 
                 setStats({
                     orders: s.orders || { total: 0, today: 0, pending: 0, delivered: 0 },
@@ -38,7 +44,12 @@ const Dashboard = () => {
                     finance: s.finance || { revenue: 0, pendingWithdrawals: 0, totalWithdrawals: 0 },
                     rcoins: s.rcoins || { totalBalance: 0, transactions: 0 },
                     approvals: { pending: approvalsRes.data.approvals?.length || 0 },
-                    alerts: buildAlerts(s, approvalsRes.data),
+                    refunds: {
+                        pending: pendingRefunds.length,
+                        completed: completedRefunds.length,
+                        totalAmount: totalRefundAmount,
+                    },
+                    alerts: buildAlerts(s, approvalsRes.data, pendingRefunds),
                 });
             } catch (error) {
                 console.error('Erreur chargement stats:', error);
@@ -50,10 +61,9 @@ const Dashboard = () => {
         fetchStats();
     }, []);
 
-    const buildAlerts = (dashboardStats, approvalsData) => {
+    const buildAlerts = (dashboardStats, approvalsData, pendingRefunds) => {
         const alerts = [];
 
-        // Commandes en attente
         if (dashboardStats.orders?.pending > 0) {
             alerts.push({
                 type: 'warn',
@@ -63,7 +73,6 @@ const Dashboard = () => {
             });
         }
 
-        // Stock épuisé
         if (dashboardStats.products?.outOfStock > 0) {
             alerts.push({
                 type: 'error',
@@ -73,13 +82,21 @@ const Dashboard = () => {
             });
         }
 
-        // Approbations en attente
         if (approvalsData.approvals?.length > 0) {
             alerts.push({
                 type: 'warn',
                 message: `${approvalsData.approvals.length} demande(s) d'approbation en attente`,
                 link: '/admin/approvals',
                 icon: Clock,
+            });
+        }
+
+        if (pendingRefunds?.length > 0) {
+            alerts.push({
+                type: 'warn',
+                message: `${pendingRefunds.length} remboursement(s) en attente d'approbation`,
+                link: '/admin/refunds',
+                icon: DollarSign,
             });
         }
 
@@ -104,9 +121,7 @@ const Dashboard = () => {
                     <div className={`w-11 h-11 rounded-xl bg-${color}-50 flex items-center justify-center group-hover:scale-105 transition`}>
                         <Icon size={20} className={`text-${color}-500`} />
                     </div>
-                    {sub && (
-                        <span className="text-xs font-medium text-gray-400">{sub}</span>
-                    )}
+                    {sub && <span className="text-xs font-medium text-gray-400">{sub}</span>}
                 </div>
                 <p className="text-2xl font-bold text-gray-900 mt-3">{value}</p>
                 <p className="text-sm text-gray-500">{label}</p>
@@ -146,7 +161,7 @@ const Dashboard = () => {
                 </div>
             )}
 
-            {/* KPI */}
+            {/* KPI - Première ligne */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
                     icon={ShoppingBag}
@@ -181,7 +196,7 @@ const Dashboard = () => {
                 />
             </div>
 
-            {/* Deuxième ligne */}
+            {/* KPI - Deuxième ligne */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
                     icon={Truck}
@@ -206,16 +221,17 @@ const Dashboard = () => {
                     color="indigo"
                 />
                 <StatCard
-                    icon={AlertTriangle}
-                    label="Retraits en attente"
-                    value={stats.finance.pendingWithdrawals}
-                    link="/admin/withdrawals"
+                    icon={DollarSign}
+                    label="Remboursements en attente"
+                    value={stats.refunds.pending}
+                    sub={`${stats.refunds.totalAmount.toLocaleString('fr-FR')} FCFA`}
+                    link="/admin/refunds"
                     color="red"
                 />
             </div>
 
             {/* Liens rapides */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 <Link to="/admin/orders" className="bg-white rounded-xl border border-gray-100 p-4 text-center hover:border-gray-300 transition">
                     <span className="text-sm font-medium text-gray-700">Commandes</span>
                 </Link>
@@ -227,6 +243,9 @@ const Dashboard = () => {
                 </Link>
                 <Link to="/admin/settings/thresholds" className="bg-white rounded-xl border border-gray-100 p-4 text-center hover:border-gray-300 transition">
                     <span className="text-sm font-medium text-gray-700">Seuils d'approbation</span>
+                </Link>
+                <Link to="/admin/refunds" className="bg-white rounded-xl border border-gray-100 p-4 text-center hover:border-gray-300 transition">
+                    <span className="text-sm font-medium text-gray-700">Remboursements</span>
                 </Link>
             </div>
         </div>

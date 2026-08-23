@@ -6,56 +6,40 @@ import compression from 'compression';
 import mongoSanitize from 'express-mongo-sanitize';
 import connectDB from './configs/db.js';
 import 'dotenv/config';
-import userRouter from './routes/userRoute.js';
-import sellerRouter from './routes/sellerRoute.js';
-import connectCloudinary from './configs/cloudinary.js';
-import sheinCartRouter from './routes/sheinCartRoute.js';
-import productRouter from './routes/productRoute.js';
-import cartRouter from './routes/cartRoute.js';
-import addressRouter from './routes/addressRoute.js';
-import orderRouter from './routes/orderRoute.js';
-import bannerRouter from './routes/bannerRoute.js';
-import categoryRouter from './routes/categoryRoute.js';
-import reviewRouter from './routes/reviewRoute.js';
-import wishlistRouter from './routes/wishlistRoute.js';
-import couponRouter from './routes/couponRoute.js';
-import locationRouter from './routes/locationRoute.js';
-import deliveryRouter from './routes/deliveryRoute.js';
-import settingRouter from './routes/settingRoute.js';
-import pushRouter from './routes/pushRoute.js';
-import staffRouter from './routes/staffRoute.js';
 import { handleJekoWebhook } from './controllers/jekoController.js';
 import dns from 'dns';
 
-// [PHASE 3] Routes unifiées
-import adminRouter from './routes/adminRoutes.js';
-import approvalRouter from './routes/approvalRoute.js';
-import boutiqueRouter from './routes/boutiqueRoute.js';
-import journalRouter from './routes/journalRoute.js';
-import walletRouter from './routes/walletRoute.js';
-import retraitRouter from './routes/retraitRoute.js';
+// ─── Routes conservées ────────────────────────────────────────────────
+
+// Routes spécifiques (Shein, client, webhook)
+import sheinCartRouter from './routes/sheinCartRoute.js';
 import colisSheinAdminRouter from './routes/colisSheinAdminRoute.js';
+import cartRouter from './routes/cartRoute.js';
+import addressRouter from './routes/addressRoute.js';
+import reviewRouter from './routes/reviewRoute.js';
+import wishlistRouter from './routes/wishlistRoute.js';
+import pushRouter from './routes/pushRoute.js';
+import journalRouter from './routes/journalRoute.js';
 import messageColisRouter from './routes/messageColisRoute.js';
 
+// Routes commerçant / livreur / assistant (hors console admin)
+import walletRouter from './routes/walletRoute.js';
+import retraitRouter from './routes/retraitRoute.js';
+
+// 🔵 ROUTE ADMIN UNIFIÉE (TOUT LE RESTE)
+import adminRouter from './routes/adminRoutes.js';
+
+// Middlewares
 import requestMetrics from './middlewares/requestMetrics.js';
 import { estOperationnelle } from './utils/AppError.js';
-import metricsRouter from './routes/metricsRoute.js';
 
 const app = express();
 const port = process.env.PORT || 4000;
 
-// [SÉCURITÉ] Vercel place l'app derrière un seul proxy inverse qui pose
-// X-Forwarded-For. Sans ce réglage, Express ignore cet en-tête (défaut :
-// false) et express-rate-limit ne peut pas isoler l'IP réelle du client —
-// tout le trafic peut alors être compté sous une même clé, ce qui rend le
-// rate limiting inefficace. "1" = ne faire confiance qu'au premier proxy
-// immédiatement en amont (celui de Vercel), pas à toute la chaîne.
 app.set('trust proxy', 1);
-
 dns.setServers(['1.1.1.1', '8.8.8.8']);
 
 await connectDB();
-await connectCloudinary();
 
 // ─── Middlewares ──────────────────────────────────────────────────────
 
@@ -104,35 +88,23 @@ app.use(mongoSanitize());
 
 app.get('/', (req, res) => res.send('API is Working'));
 
-// [PHASE 3] Routes admin unifiées (nouvelle console)
-app.use('/api/admin', adminRouter);
-
-// Routes existantes (conservées pour compatibilité pendant la transition)
+// 🔵 ROUTES SPÉCIFIQUES (conservées)
 app.use('/api/shein-cart/admin', colisSheinAdminRouter);
 app.use('/api/shein-cart', sheinCartRouter);
-app.use('/api/user', userRouter);
-app.use('/api/seller', sellerRouter);
-app.use('/api/product', productRouter);
 app.use('/api/cart', cartRouter);
 app.use('/api/address', addressRouter);
-app.use('/api/order', orderRouter);
-app.use('/api/banner', bannerRouter);
-app.use('/api/category', categoryRouter);
 app.use('/api/review', reviewRouter);
 app.use('/api/wishlist', wishlistRouter);
-app.use('/api/coupon', couponRouter);
-app.use('/api/location', locationRouter);
-app.use('/api/delivery', deliveryRouter);
-app.use('/api/setting', settingRouter);
 app.use('/api/push', pushRouter);
-app.use('/api/staff', staffRouter);
-app.use('/api/boutiques', boutiqueRouter);
 app.use('/api/journal', journalRouter);
+app.use('/api/message-colis', messageColisRouter);
+
+// 🔵 ROUTES COMMERCANT / LIVREUR / ASSISTANT (hors console admin)
 app.use('/api/wallet', walletRouter);
 app.use('/api/retraits', retraitRouter);
-app.use('/api/message-colis', messageColisRouter);
-app.use('/api/admin/approvals', approvalRouter);
-app.use('/api/metrics', metricsRouter);
+
+// 🔵 ROUTE ADMIN UNIFIÉE (TOUT EST ICI)
+app.use('/api/admin', adminRouter);
 
 // ─── Gestion des erreurs ─────────────────────────────────────────────
 

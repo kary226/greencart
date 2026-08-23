@@ -211,6 +211,17 @@ import {
     rejectReturn,
 } from '../controllers/returnController.js';
 
+// ─── Contrôleurs Phase 5 (Remboursements) ──────────────────────────────
+
+import {
+    listRefunds,
+    getRefundById,
+    createRefund,
+    approveRefund,
+    rejectRefund,
+    completeRefund,
+} from '../controllers/refundController.js';
+
 // =============================================================
 // ROUTEUR ADMIN UNIFIÉ
 // =============================================================
@@ -1063,6 +1074,54 @@ adminRouter.post(
     authStaff,
     requirePermission('returns.decide'),
     rejectReturn
+);
+
+// =============================================================
+// 10. REMBOURSEMENTS (PHASE 5)
+// =============================================================
+
+// ─── Refunds (Remboursements) ──────────────────────────────────────────
+
+adminRouter.get(
+    '/refunds',
+    authStaff,
+    requirePermission('refunds.view'),
+    listRefunds
+);
+
+adminRouter.get(
+    '/refunds/:id',
+    authStaff,
+    requirePermission('refunds.view'),
+    getRefundById
+);
+
+adminRouter.post(
+    '/refunds',
+    authStaff,
+    requirePermission('refunds.create'),
+    createRefund
+);
+
+adminRouter.post(
+    '/refunds/:id/approve',
+    authStaff,
+    requirePermission('refunds.approve'),
+    approveRefund
+);
+
+adminRouter.post(
+    '/refunds/:id/reject',
+    authStaff,
+    requirePermission('refunds.approve'),
+    rejectRefund
+);
+
+adminRouter.post(
+    '/refunds/:id/complete',
+    authStaff,
+    requirePermission('refunds.approve'),
+    completeRefund
 );
 
 export default adminRouter;

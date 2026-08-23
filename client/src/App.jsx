@@ -26,37 +26,8 @@ import InstallApp from './pages/InstallApp';
 import NotificationPrompt from './components/Notificationprompt';
 import PageLoader from './components/PageLoader';
 
-// ─── Lazy loading (Phase 1) ──────────────────────────────────────────
+// ─── [PHASE 3] Super Admin Layout ────────────────────────────────────
 
-// Seller (ancien espace – conservé pour transition)
-const SellerLogin = lazy(() => import('./components/seller/SellerLogin'));
-const SellerLayout = lazy(() => import('./pages/seller/SellerLayout'));
-const Dashboard = lazy(() => import('./pages/seller/Dashboard'));
-const AddProduct = lazy(() => import('./pages/seller/AddProduct'));
-const ProductList = lazy(() => import('./pages/seller/ProductList'));
-const Orders = lazy(() => import('./pages/seller/Orders'));
-const ClientsManager = lazy(() => import('./pages/seller/ClientsManager'));
-const BannerManager = lazy(() => import('./pages/seller/BannerManager'));
-const CategoryManager = lazy(() => import('./pages/seller/CategoryManager'));
-const CouponManager = lazy(() => import('./pages/seller/CouponManager'));
-const LocationManager = lazy(() => import('./pages/seller/LocationManager'));
-const DeliveryManager = lazy(() => import('./pages/seller/DeliveryManager'));
-const SettingsManager = lazy(() => import('./pages/seller/SettingsManager'));
-const ColisSheinManager = lazy(() => import('./pages/seller/ColisSheinManager'));
-
-// Staff / Admin (ancien espace – conservé pour transition)
-const StaffLogin = lazy(() => import('./pages/staff/StaffLogin'));
-const StaffActivation = lazy(() => import('./pages/staff/StaffActivation'));
-const AdminComptes = lazy(() => import('./pages/admin/AdminComptes'));
-const AdminBoutiques = lazy(() => import('./pages/admin/AdminBoutiques'));
-const AdminCommandes = lazy(() => import('./pages/admin/AdminCommandes'));
-const AdminRetours = lazy(() => import('./pages/admin/AdminRetours'));
-const AdminRetraits = lazy(() => import('./pages/admin/AdminRetraits'));
-const AdminJournal = lazy(() => import('./pages/admin/AdminJournal'));
-
-// ─── [PHASE 3] Nouveau Super Admin Layout ────────────────────────────
-
-// Layout unifié
 const SuperAdminLayout = lazy(() => import('./components/SuperAdminLayout'));
 
 // Pages admin unifiées
@@ -71,13 +42,20 @@ const AdminLocations = lazy(() => import('./pages/admin/Locations'));
 const AdminDeliveries = lazy(() => import('./pages/admin/Deliveries'));
 const AdminSettings = lazy(() => import('./pages/admin/Settings'));
 const AdminApprovals = lazy(() => import('./pages/admin/Approvals'));
+const AdminComptes = lazy(() => import('./pages/admin/AdminComptes'));
+const AdminBoutiques = lazy(() => import('./pages/admin/AdminBoutiques'));
+const AdminJournal = lazy(() => import('./pages/admin/AdminJournal'));
+const AdminRetraits = lazy(() => import('./pages/admin/AdminRetraits'));
+const AdminRetours = lazy(() => import('./pages/admin/AdminRetours'));
 
-// ─── [PHASE 4] Entrepôt & Retours ─────────────────────────────────────
-
+// Phase 4
 const AdminWarehouse = lazy(() => import('./pages/admin/Warehouse'));
 const AdminReturns = lazy(() => import('./pages/admin/Returns'));
 
-// ─── Commerçant ────────────────────────────────────────────────────────
+// Phase 5
+const AdminRefunds = lazy(() => import('./pages/admin/Refunds'));
+
+// ─── Espaces Commerçant / Livreur / Assistant (conservés) ────────────
 
 const CommercantLayout = lazy(() => import('./pages/commercant/CommercantLayout'));
 const DashboardCommercant = lazy(() => import('./pages/commercant/Dashboard'));
@@ -89,13 +67,9 @@ const CodesPromo = lazy(() => import('./pages/commercant/CodesPromo'));
 const Portefeuille = lazy(() => import('./pages/commercant/Portefeuille'));
 const DemandeRetrait = lazy(() => import('./pages/commercant/DemandeRetrait'));
 
-// ─── Livreur ──────────────────────────────────────────────────────────
-
 const MesLivraisons = lazy(() => import('./pages/livreur/MesLivraisons'));
 const LivraisonDetail = lazy(() => import('./pages/livreur/LivraisonDetail'));
 const Collectes = lazy(() => import('./pages/livreur/Collectes'));
-
-// ─── Assistant Shein ──────────────────────────────────────────────────
 
 const Conversations = lazy(() => import('./pages/assistant/Conversations'));
 const ChatDetail = lazy(() => import('./pages/assistant/ChatDetail'));
@@ -148,31 +122,27 @@ const App = () => {
   useSmartScroll();
 
   // Détection des espaces
-  const isSellerPath = location.pathname.includes("/seller");
-  const isStaffPath = location.pathname.startsWith("/staff");
-  const isLivreurPath = location.pathname.startsWith("/livreur");
-  const isCommercantPath = location.pathname.startsWith("/commercant");
   const isAdminPath = location.pathname.startsWith("/admin");
+  const isCommercantPath = location.pathname.startsWith("/commercant");
+  const isLivreurPath = location.pathname.startsWith("/livreur");
   const isAssistantPath = location.pathname.startsWith("/assistant");
-
   const isColisSheinPath =
     location.pathname === "/mes-colis-shein" ||
     location.pathname === "/valider-panier-shein" ||
     location.pathname.startsWith("/colis-shein/");
-
   const isChatFullScreenPath = location.pathname.startsWith("/colis-shein/");
 
   // Affichage des éléments
-  const showFooter = !isSellerPath && !isStaffPath && !isColisSheinPath && !isLivreurPath && !isCommercantPath && !isAdminPath && !isAssistantPath;
-  const showBottomNav = !isSellerPath && !isStaffPath && !isLivreurPath && !isCommercantPath && !isAdminPath && !isAssistantPath && !isChatFullScreenPath && !(showUserLogin && !user);
-  const showNavbar = !isSellerPath && !isStaffPath && !isChatFullScreenPath && !isLivreurPath && !isCommercantPath && !isAdminPath && !isAssistantPath && !(showUserLogin && !user);
+  const showFooter = !isAdminPath && !isColisSheinPath && !isLivreurPath && !isCommercantPath && !isAssistantPath;
+  const showBottomNav = !isAdminPath && !isLivreurPath && !isCommercantPath && !isAssistantPath && !isChatFullScreenPath && !(showUserLogin && !user);
+  const showNavbar = !isAdminPath && !isChatFullScreenPath && !isLivreurPath && !isCommercantPath && !isAssistantPath && !(showUserLogin && !user);
 
   return (
     <div className='text-default min-h-screen text-gray-700 bg-white'>
 
       {showNavbar && <Navbar />}
       {showUserLogin && !user ? <Login /> : null}
-      {!isSellerPath && !isStaffPath && !isChatFullScreenPath && !isLivreurPath && !isCommercantPath && !isAdminPath && <NotificationPrompt />}
+      {!isAdminPath && <NotificationPrompt />}
 
       <Toaster
         position="top-center"
@@ -201,7 +171,7 @@ const App = () => {
         }}
       />
 
-      <div className={`${isSellerPath || isStaffPath || isChatFullScreenPath || isLivreurPath || isCommercantPath || isAdminPath || isAssistantPath ? "" : "px-4 pb-20"}`}>
+      <div className={`${isAdminPath || isChatFullScreenPath || isLivreurPath || isCommercantPath || isAssistantPath ? "" : "px-4 pb-20"}`}>
         <Suspense fallback={<PageLoader />}>
           <Routes>
 
@@ -231,9 +201,8 @@ const App = () => {
             <Route path='/colis-shein/:id' element={<ColisSheinConversation />} />
             <Route path='/colis-shein/:id/detail' element={<ColisSheinDetailPage />} />
 
-            {/* ─── [PHASE 3 + 4] SUPER ADMIN ──────────────────────────── */}
+            {/* ─── [PHASE 3 + 4 + 5] SUPER ADMIN ──────────────────────── */}
             <Route path='/admin' element={<SuperAdminLayout />}>
-              {/* Phase 3 */}
               <Route index element={<AdminDashboard />} />
               <Route path='dashboard' element={<AdminDashboard />} />
               <Route path='products' element={<AdminProducts />} />
@@ -254,23 +223,11 @@ const App = () => {
               <Route path='audit' element={<AdminJournal />} />
               <Route path='withdrawals' element={<AdminRetraits />} />
               <Route path='returns' element={<AdminRetours />} />
-
-              {/* Phase 4 – Entrepôt & Retours */}
               <Route path='warehouse' element={<AdminWarehouse />} />
               <Route path='warehouse/scans' element={<AdminWarehouse />} />
               <Route path='returns' element={<AdminReturns />} />
-              <Route path='returns/:id' element={<AdminReturns />} />
+              <Route path='refunds' element={<AdminRefunds />} />
             </Route>
-
-            {/* ─── Ancien Staff / Admin (transition) ──────────────────── */}
-            <Route path='/staff/login' element={<StaffLogin />} />
-            <Route path='/staff/activation/:token' element={<StaffActivation />} />
-            <Route path='/staff/admin/comptes' element={<AdminComptes />} />
-            <Route path='/staff/admin/boutiques' element={<AdminBoutiques />} />
-            <Route path='/staff/admin/commandes' element={<AdminCommandes />} />
-            <Route path='/staff/admin/retours' element={<AdminRetours />} />
-            <Route path='/staff/admin/retraits' element={<AdminRetraits />} />
-            <Route path='/staff/admin/journal' element={<AdminJournal />} />
 
             {/* ─── Commerçant ──────────────────────────────────────────── */}
             <Route path='/commercant' element={<CommercantLayout />}>
@@ -293,22 +250,6 @@ const App = () => {
             {/* ─── Assistant Shein ────────────────────────────────────── */}
             <Route path='/assistant/conversations' element={<Conversations />} />
             <Route path='/assistant/conversation/:id' element={<ChatDetail />} />
-
-            {/* ─── Ancien Seller (transition) ────────────────────────── */}
-            <Route path='/seller' element={<SellerLayout />}>
-              <Route index element={<Dashboard />} />
-              <Route path='add-product' element={<AddProduct />} />
-              <Route path='product-list' element={<ProductList />} />
-              <Route path='orders' element={<Orders />} />
-              <Route path='clients' element={<ClientsManager />} />
-              <Route path='banners' element={<BannerManager />} />
-              <Route path='categories' element={<CategoryManager />} />
-              <Route path='coupons' element={<CouponManager />} />
-              <Route path='locations' element={<LocationManager />} />
-              <Route path='delivery' element={<DeliveryManager />} />
-              <Route path='settings' element={<SettingsManager />} />
-              <Route path='colis-shein' element={<ColisSheinManager />} />
-            </Route>
 
           </Routes>
         </Suspense>
