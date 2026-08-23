@@ -1,5 +1,4 @@
 import Refund from '../models/Refund.js';
-import mongoose from 'mongoose';
 import Order from '../models/Order.js';
 import User from '../models/User.js';
 import ApprovalRequest from '../models/ApprovalRequest.js';
@@ -194,18 +193,21 @@ export const approveRefund = async (req, res) => {
     try {
         const { id } = req.params;
         const { commentaire } = req.body;
-        const refund = await Refund.findById(id);
-        if (!refund) {
+        // Lecture préalable uniquement pour les contrôles qui ne modifient
+        // pas l'état (droits, auto-approbation). La transition d'état elle-
+        // même se fait plus bas via findOneAndUpdate, de façon atomique.
+        const refundAvant = await Refund.findById(id);
+        if (!refundAvant) {
             return res.status(404).json({ success: false, message: 'Remboursement non trouvé' });
         }
-        if (refund.statut !== 'requested') {
+        if (refundAvant.statut !== 'requested') {
             return res.status(409).json({
                 success: false,
-                message: `Ce remboursement est déjà ${refund.statut}`,
+                message: `Ce remboursement est déjà ${refundAvant.statut}`,
             });
         }
         // L'approbateur doit être différent du demandeur
-        if (refund.demandePar.toString() === req.staffUser._id.toString()) {
+        if (refundAvant.demandePar.toString() === req.staffUser._id.toString()) {
             return res.status(403).json({
                 success: false,
                 message: 'Vous ne pouvez pas approuver votre propre demande',
@@ -221,11 +223,33 @@ export const approveRefund = async (req, res) => {
                 message: 'Vous n\'avez pas les droits pour approuver ce remboursement',
             });
         }
-        refund.statut = 'approved';
-        refund.approuvePar = req.staffUser._id;
-        refund.approuveLe = new Date();
-        refund.noteInterne = commentaire || refund.noteInterne;
-        await refund.save();
+        // [CORRECTIF — race condition] findOneAndUpdate avec condition sur
+        // le statut = verrou atomique côté MongoDB. Si deux requêtes
+        // arrivent en même temps (double-clic, retry réseau, deux admins),
+        // une seule passe la condition { statut: 'requested' } ; l'autre
+        // reçoit refund === null et est rejetée en 409. Avant ce correctif,
+        // le findById + save() séparés laissaient une fenêtre où les deux
+        // requêtes pouvaient lire 'requested' avant qu'aucune n'écrive,
+        // menant à une double exécution de executerRefund() et donc à un
+        // double crédit RCOINS pour le même remboursement.
+        const refund = await Refund.findOneAndUpdate(
+            { _id: id, statut: 'requested' },
+            {
+                $set: {
+                    statut: 'approved',
+                    approuvePar: req.staffUser._id,
+                    approuveLe: new Date(),
+                    noteInterne: commentaire || refundAvant.noteInterne,
+                },
+            },
+            { new: true }
+        );
+        if (!refund) {
+            return res.status(409).json({
+                success: false,
+                message: 'Ce remboursement vient d\'être traité par ailleurs (déjà approuvé, rejeté, ou en cours)',
+            });
+        }
         // Journaliser l'approbation
         await journaliser({
             acteur: {
@@ -378,11 +402,25 @@ const executerRefund = async (refund, acteur) => {
         if (!order) {
             throw new Error('Commande non trouvée');
         }
-        // Créditer le client en RCOINS
+        // Créditer le client en RCOINS.
+        // [CORRECTIF — idempotence] itemId doit être STABLE pour un
+        // remboursement donné, pas généré aléatoirement à chaque appel.
+        // crediterClient() s'appuie sur l'index unique
+        // { orderId, itemId, type } de CustomerCreditTransaction comme
+        // verrou anti-doublon (même principe que rembourserCreditAnnulation
+        // plus haut dans ce fichier) : avec un ObjectId aléatoire, ce verrou
+        // ne peut jamais se déclencher, donc un deuxième appel (retry après
+        // crash, replay, ancien bug de race condition sur approveRefund)
+        // créditait le client une deuxième fois. En dérivant itemId de
+        // refund._id, un deuxième appel pour le MÊME remboursement retombe
+        // sur la même clé { orderId, itemId, type: 'credit' } et provoque
+        // une erreur E11000 que crediterClient() intercepte déjà (retourne
+        // false) — le crédit ne peut alors plus jamais être dupliqué,
+        // quelle que soit la cause du second appel.
         const credited = await crediterClient({
             userId: order.userId,
             orderId: order._id,
-            itemId: new mongoose.Types.ObjectId(),
+            itemId: refund._id,
             amount: refund.montantApprouve,
             description: `Remboursement ${refund.motif} - ${refund.refundId}`,
         });
