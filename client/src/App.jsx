@@ -60,6 +60,9 @@ const AdminRefunds = lazy(() => import('./pages/admin/Refunds'));
 // Phase 6
 const AdminReconciliation = lazy(() => import('./pages/admin/Reconciliation'));
 
+// Colis SHEIN — intégré à la console admin (au lieu de /seller)
+const AdminColisShein = lazy(() => import('./pages/seller/ColisSheinManager'));
+
 // ─── Espaces Commerçant / Livreur / Assistant (conservés) ────────────
 
 const CommercantLayout = lazy(() => import('./pages/commercant/CommercantLayout'));
@@ -242,6 +245,9 @@ const App = () => {
 
               {/* Phase 6 */}
               <Route path='reconciliation' element={<AdminReconciliation />} />
+
+              {/* Colis SHEIN */}
+              <Route path='colis-shein' element={<AdminColisShein />} />
             </Route>
 
             {/* ─── Commerçant ──────────────────────────────────────────── */}

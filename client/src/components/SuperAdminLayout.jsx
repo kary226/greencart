@@ -138,6 +138,12 @@ const SuperAdminLayout = () => {
             ],
         },
         {
+            title: "Colis SHEIN",
+            icon: "🛍️",
+            path: "/admin/colis-shein",
+            visible: hasAccess("shein.view"),
+        },
+        {
             title: "Administration",
             icon: "⚙️",
             path: "/admin/settings",
