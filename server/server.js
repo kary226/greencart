@@ -26,6 +26,20 @@ import messageColisRouter from './routes/messageColisRoute.js';
 import walletRouter from './routes/walletRoute.js';
 import retraitRouter from './routes/retraitRoute.js';
 
+// ⚠️ RÉTABLI : routes historiques encore appelées par le frontend
+// (le frontend n'a jamais été migré vers /api/admin/* lors de la Phase 7)
+import productRouter from './routes/productRoute.js';
+import sellerRouter from './routes/sellerRoute.js';
+import settingRouter from './routes/settingRoute.js';
+import staffRouter from './routes/staffRoute.js';
+import userRouter from './routes/userRoute.js';
+import categoryRouter from './routes/categoryRoute.js';
+import couponRouter from './routes/couponRoute.js';
+import bannerRouter from './routes/bannerRoute.js';
+import locationRouter from './routes/locationRoute.js';
+import deliveryRouter from './routes/deliveryRoute.js';
+import boutiqueRouter from './routes/boutiqueRoute.js';
+
 // 🔵 ROUTE ADMIN UNIFIÉE (TOUT LE RESTE)
 import adminRouter from './routes/adminRoutes.js';
 
@@ -105,6 +119,19 @@ app.use('/api/message-colis', messageColisRouter);
 // 🔵 ROUTES COMMERCANT / LIVREUR / ASSISTANT (hors console admin)
 app.use('/api/wallet', walletRouter);
 app.use('/api/retraits', retraitRouter);
+
+// ⚠️ RÉTABLI : routes historiques encore appelées par le frontend
+app.use('/api/product', productRouter);
+app.use('/api/seller', sellerRouter);
+app.use('/api/setting', settingRouter);
+app.use('/api/staff', staffRouter);
+app.use('/api/user', userRouter);
+app.use('/api/category', categoryRouter);
+app.use('/api/coupon', couponRouter);
+app.use('/api/banner', bannerRouter);
+app.use('/api/location', locationRouter);
+app.use('/api/delivery', deliveryRouter);
+app.use('/api/boutique', boutiqueRouter);
 
 // 🔵 ROUTE ADMIN UNIFIÉE (TOUT EST ICI)
 app.use('/api/admin', adminRouter);
