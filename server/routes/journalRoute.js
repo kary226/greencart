@@ -7,7 +7,7 @@ const journalRouter = express.Router();
 // Réservé à l'admin : le journal dit qui a fait quoi, y compris sur les
 // boutiques des autres. Ce n'est pas une information qu'un commerçant a à
 // consulter.
-journalRouter.get('/', authStaff, requireRole('admin'), listJournal);
-journalRouter.get('/boutiques', authStaff, requireRole('admin'), listBoutiquesJournal);
+journalRouter.get('/', authStaff, requireRole('admin', 'super_admin'), listJournal);
+journalRouter.get('/boutiques', authStaff, requireRole('admin', 'super_admin'), listBoutiquesJournal);
 
 export default journalRouter;

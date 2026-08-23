@@ -561,10 +561,10 @@ export const deleteStaffAccount = async (req, res) => {
 
         // Ne jamais se retrouver sans aucun administrateur actif : plus
         // personne ne pourrait alors inviter ni gérer qui que ce soit.
-        if (staffUser.role === 'admin') {
+        if (['admin', 'super_admin'].includes(staffUser.role)) {
             const autresAdmins = await StaffUser.countDocuments({
                 _id: { $ne: staffUser._id },
-                role: 'admin',
+                role: { $in: ['admin', 'super_admin'] },
                 statut: 'actif',
             });
             if (autresAdmins === 0) {

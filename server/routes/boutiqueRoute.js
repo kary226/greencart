@@ -29,10 +29,10 @@ boutiqueRouter.patch('/moi/zones-livraison', authStaff, requireRole('commercant'
 boutiqueRouter.get('/options', authSeller, listBoutiqueOptions);
 
 // ✅ Routes ADMIN
-boutiqueRouter.get('/', authStaff, requireRole('admin'), listAllBoutiques);
-boutiqueRouter.post('/', authStaff, requireRole('admin'), createBoutiqueForCommercial);
-boutiqueRouter.patch('/:id/statut', authStaff, requireRole('admin'), valider(schemaStatutBoutique), updateBoutiqueStatut);
-boutiqueRouter.patch('/:id/autorisations', authStaff, requireRole('admin'), valider(schemaAutorisationsBoutique), updateAutorisationsBoutique);
+boutiqueRouter.get('/', authStaff, requireRole('admin', 'super_admin'), listAllBoutiques);
+boutiqueRouter.post('/', authStaff, requireRole('admin', 'super_admin'), createBoutiqueForCommercial);
+boutiqueRouter.patch('/:id/statut', authStaff, requireRole('admin', 'super_admin'), valider(schemaStatutBoutique), updateBoutiqueStatut);
+boutiqueRouter.patch('/:id/autorisations', authStaff, requireRole('admin', 'super_admin'), valider(schemaAutorisationsBoutique), updateAutorisationsBoutique);
 
 // ✅ Routes PUBLIQUES (avec paramètre :id) — DOIVENT être EN DERNIER
 boutiqueRouter.get('/:id/apercu', getBoutiqueApercu);

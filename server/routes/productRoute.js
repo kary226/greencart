@@ -83,7 +83,7 @@ productRouter.post('/check-availability', publicCatalogLimiter, checkAvailabilit
 // des formulaires produit. Monté deux fois car les deux espaces (compte
 // technique vendeur / staff) passent par des authentifications différentes.
 productRouter.get('/generate-sku', authSeller, genererCodeArticle);
-productRouter.get('/staff/generate-sku', authStaff, requireRole('admin'), genererCodeArticle);
+productRouter.get('/staff/generate-sku', authStaff, requireRole('admin', 'super_admin'), genererCodeArticle);
 
 // ✅ Routes admin SELLER (compte technique existant)
 productRouter.post('/add', authSeller, (req, res, next) => {
@@ -113,15 +113,15 @@ productRouter.post('/sync-airtable', authSeller, syncAirtable);
 // ne supprime et ne publie plus aucun produit. Seul le Seller/Admin gère le
 // catalogue. Le Commerçant conserve uniquement la gestion de son stock et la
 // consultation de ses articles.
-productRouter.post('/staff/update', authStaff, requireRole('admin'), requireBoutiqueActive, updateProduct);
-productRouter.post('/staff/delete', authStaff, requireRole('admin'), requireBoutiqueActive, deleteProduct);
-productRouter.post('/staff/unarchive', authStaff, requireRole('admin'), requireBoutiqueActive, unarchiveProduct);
+productRouter.post('/staff/update', authStaff, requireRole('admin', 'super_admin'), requireBoutiqueActive, updateProduct);
+productRouter.post('/staff/delete', authStaff, requireRole('admin', 'super_admin'), requireBoutiqueActive, deleteProduct);
+productRouter.post('/staff/unarchive', authStaff, requireRole('admin', 'super_admin'), requireBoutiqueActive, unarchiveProduct);
 productRouter.get('/staff/admin-list', authStaff, requireRole('admin', 'commercant'), adminProductList);
-productRouter.post('/staff/add-images', authStaff, requireRole('admin'), requireBoutiqueActive, upload.array('images', 10), addProductImages);
-productRouter.post('/staff/sync-airtable', authStaff, requireRole('admin'), syncAirtable);
+productRouter.post('/staff/add-images', authStaff, requireRole('admin', 'super_admin'), requireBoutiqueActive, upload.array('images', 10), addProductImages);
+productRouter.post('/staff/sync-airtable', authStaff, requireRole('admin', 'super_admin'), syncAirtable);
 // Le Commerçant peut uniquement ajuster les quantités de produits déjà créés
 // par le Seller/Admin.
 productRouter.post('/staff/stock', authStaff, requireRole('admin', 'commercant'), requireBoutiqueActive, valider(schemaStock), changeStockCommercant);
-productRouter.post('/staff/assign-boutique', authStaff, requireRole('admin'), valider(schemaAffectationBoutique), assignerBoutique);
+productRouter.post('/staff/assign-boutique', authStaff, requireRole('admin', 'super_admin'), valider(schemaAffectationBoutique), assignerBoutique);
 
 export default productRouter;

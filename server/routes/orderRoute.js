@@ -67,7 +67,7 @@ orderRouter.get('/admin/user/:userId', authSeller, getUserOrdersByAdmin);
 orderRouter.get('/admin/recherche', authActeur, requireRoleActeur('admin'), rechercherCommandeAdmin);
 
 // ✅ PHASE 4 : Route pour assigner un livreur (admin)
-orderRouter.post('/admin/assigner-livreur', authStaff, requireRole('admin'), assignerLivreur);
+orderRouter.post('/admin/assigner-livreur', authStaff, requireRole('admin', 'super_admin'), assignerLivreur);
 
 // ✅ PHASE 4 : Routes pour livreur
 orderRouter.get('/livreur/mes-livraisons', authStaff, requireRole('livreur'), getLivraisonsLivreur);
@@ -96,15 +96,15 @@ orderRouter.post('/commercant/confirmer', authStaff, requireRole('commercant'), 
 orderRouter.post('/commercant/disponibilite', authStaff, requireRole('commercant'), confirmerDisponibiliteCommercant);
 
 // Validation finale par l'admin : c'est elle qui libère les fonds.
-orderRouter.get('/admin/a-valider', authStaff, requireRole('admin'), listCommandesAValider);
-orderRouter.post('/admin/confirmer', authStaff, requireRole('admin'), confirmerCommandeAdmin);
+orderRouter.get('/admin/a-valider', authStaff, requireRole('admin', 'super_admin'), listCommandesAValider);
+orderRouter.post('/admin/confirmer', authStaff, requireRole('admin', 'super_admin'), confirmerCommandeAdmin);
 
 // [NOUVEAU] Litiges (doc §15) : un litige déclaré avant libération bloque
 // confirmerCommandeAdmin ; la résolution peut créer une retenue commerçant
 // ou un remboursement client exceptionnel.
-orderRouter.get('/admin/litiges', authStaff, requireRole('admin'), listLitiges);
-orderRouter.post('/admin/litige/declarer', authStaff, requireRole('admin'), declarerLitige);
-orderRouter.post('/admin/litige/resoudre', authStaff, requireRole('admin'), resoudreLitige);
+orderRouter.get('/admin/litiges', authStaff, requireRole('admin', 'super_admin'), listLitiges);
+orderRouter.post('/admin/litige/declarer', authStaff, requireRole('admin', 'super_admin'), declarerLitige);
+orderRouter.post('/admin/litige/resoudre', authStaff, requireRole('admin', 'super_admin'), resoudreLitige);
 
 // Récupérer une commande par son ID (client)
 orderRouter.get('/:orderId', authUser, async (req, res) => {

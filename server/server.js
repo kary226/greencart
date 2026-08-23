@@ -29,6 +29,7 @@ import retraitRouter from './routes/retraitRoute.js';
 // ⚠️ RÉTABLI : routes historiques encore appelées par le frontend
 // (le frontend n'a jamais été migré vers /api/admin/* lors de la Phase 7)
 import productRouter from './routes/productRoute.js';
+import orderRouter from './routes/orderRoute.js';
 import sellerRouter from './routes/sellerRoute.js';
 import settingRouter from './routes/settingRoute.js';
 import staffRouter from './routes/staffRoute.js';
@@ -122,6 +123,7 @@ app.use('/api/retraits', retraitRouter);
 
 // ⚠️ RÉTABLI : routes historiques encore appelées par le frontend
 app.use('/api/product', productRouter);
+app.use('/api/order', orderRouter);
 app.use('/api/seller', sellerRouter);
 app.use('/api/setting', settingRouter);
 app.use('/api/staff', staffRouter);

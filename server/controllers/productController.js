@@ -171,7 +171,7 @@ export const addProduct = async (req, res) => {
             }
 
             boutiqueId = acteur.boutiqueId;
-        } else if (acteur.role === 'admin') {
+        } else if (acteur.role === 'admin' || acteur.role === 'super_admin') {
             // Un admin — staff ou compte vendeur technique — peut créer un
             // article POUR une boutique : il le saisit une fois, et l'article
             // appartient ensuite au commerçant (il apparaît dans son espace,
@@ -501,7 +501,7 @@ export const productList = async (req, res) => {
         // n'aurait plus aucun moyen de les corriger.
         const estSonPropreCatalogue = req.staffUser?.role === 'commercant'
             && filter.boutiqueId?.toString() === req.staffUser.boutiqueId?.toString();
-        if (!estSonPropreCatalogue && req.staffUser?.role !== 'admin') {
+        if (!estSonPropreCatalogue && !['admin', 'super_admin'].includes(req.staffUser?.role)) {
             filter = await appliquerFiltreBoutiquesActives(filter);
         }
 
