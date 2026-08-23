@@ -15,7 +15,7 @@ const retraitRouter = express.Router();
 // Routes commerçant
 retraitRouter.post('/', authStaff, requireRole('commercant'), requireBoutiqueActive, createRetrait);
 retraitRouter.get('/moi', authStaff, requireRole('commercant'), getMesRetraits);
-retraitRouter.get('/operateurs', authStaff, requireRole('commercant', 'admin'), listOperateurs);
+retraitRouter.get('/operateurs', authStaff, requireRole('commercant', 'admin', 'super_admin'), listOperateurs);
 
 // Routes admin / finance
 retraitRouter.get(
