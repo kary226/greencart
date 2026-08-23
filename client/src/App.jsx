@@ -33,6 +33,7 @@ const SuperAdminLayout = lazy(() => import('./components/SuperAdminLayout'));
 // Pages admin unifiées (Phase 3)
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
 const AdminProducts = lazy(() => import('./pages/admin/Products'));
+const AddProduct = lazy(() => import('./pages/seller/AddProduct'));
 const AdminOrders = lazy(() => import('./pages/admin/Orders'));
 const AdminClients = lazy(() => import('./pages/admin/Clients'));
 const AdminBanners = lazy(() => import('./pages/admin/Banners'));
