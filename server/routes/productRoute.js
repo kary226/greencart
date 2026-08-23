@@ -1,8 +1,9 @@
 import express from 'express';
 import { upload } from '../configs/multer.js';
-import authSeller from '../middlewares/authSeller.js';
 import authStaff, { requireRole } from '../middlewares/authStaff.js';
+import { requirePermission } from '../middlewares/permission.js';
 import requireBoutiqueActive from '../middlewares/requireBoutiqueActive.js';
+import requireDroitCreation from '../middlewares/requireDroitCreation.js';
 import attachStaffOptionnel from '../middlewares/attachStaffOptionnel.js';
 import { valider } from '../middlewares/valider.js';
 import { schemaStock, schemaAffectationBoutique } from '../schemas/index.js';
@@ -79,14 +80,31 @@ productRouter.get('/id', cacheControl(60), publicCatalogLimiter, productById);
 productRouter.post('/variant', publicCatalogLimiter, getVariantDetails);
 productRouter.post('/check-availability', publicCatalogLimiter, checkAvailability);
 
-// ✅ Code article : un code libre à la demande, pour le bouton « Générer »
-// des formulaires produit. Monté deux fois car les deux espaces (compte
-// technique vendeur / staff) passent par des authentifications différentes.
-productRouter.get('/generate-sku', authSeller, genererCodeArticle);
+// [PHASE 3 — migration authSeller → RBAC, 23 août 2026] Seuls appelants
+// vivants pour ce bloc de 10 routes : pages/admin/Products.jsx et
+// pages/seller/AddProduct.jsx (cette dernière montée sous
+// /admin/products/add et /admin/products/edit/:id dans SuperAdminLayout),
+// toutes deux authentifiées via staffToken. pages/seller/ProductList.jsx,
+// pages/seller/BannerManager.jsx et pages/seller/Dashboard.jsx (les autres
+// appelants historiques de /admin-list, /sync-airtable, /assign-boutique,
+// /update, /add-images) ne sont routés nulle part dans App.jsx (morts).
+//
+// server/routes/adminRoutes.js expose déjà un jeu de routes RBAC
+// équivalentes sous /api/admin/products/* (mêmes contrôleurs pour la
+// plupart), construites lors d'un chantier antérieur mais jamais
+// consommées par le frontend (aucun appel /api/admin/products dans
+// client/src). Les permissions ci-dessous reprennent celles déjà en usage
+// sur ce jeu de routes jumeau pour ne pas introduire une troisième
+// convention de nommage.
+//
+// scrape-import et /stock ne servent que le back-office (adminProductList,
+// non le flux commerçant) : catalog.* suffit, sans requireBoutiqueActive
+// (qui ne s'applique de toute façon qu'au rôle commercant, absent de ces
+// pages).
+productRouter.get('/generate-sku', authStaff, requirePermission('catalog.create'), genererCodeArticle);
 productRouter.get('/staff/generate-sku', authStaff, requireRole('admin', 'super_admin'), genererCodeArticle);
 
-// ✅ Routes admin SELLER (compte technique existant)
-productRouter.post('/add', authSeller, (req, res, next) => {
+productRouter.post('/add', authStaff, requirePermission('catalog.create'), requireDroitCreation, (req, res, next) => {
     upload.fields([
         { name: 'images', maxCount: 10 },
         { name: 'video', maxCount: 1 }
@@ -96,18 +114,18 @@ productRouter.post('/add', authSeller, (req, res, next) => {
     });
 }, addProduct);
 
-productRouter.post('/add-images', authSeller, upload.array("images", 10), addProductImages);
-productRouter.post('/stock', authSeller, changeStock);
-productRouter.post('/update', authSeller, updateProduct);
-productRouter.post('/delete', authSeller, deleteProduct);
-productRouter.post('/unarchive', authSeller, unarchiveProduct);
-productRouter.get('/admin-list', authSeller, adminProductList);
-productRouter.post('/scrape-import', authSeller, scrapeImport);
+productRouter.post('/add-images', authStaff, requirePermission('catalog.edit'), upload.array("images", 10), addProductImages);
+productRouter.post('/stock', authStaff, requirePermission('catalog.edit'), changeStock);
+productRouter.post('/update', authStaff, requirePermission('catalog.edit'), updateProduct);
+productRouter.post('/delete', authStaff, requirePermission('catalog.delete'), deleteProduct);
+productRouter.post('/unarchive', authStaff, requirePermission('catalog.edit'), unarchiveProduct);
+productRouter.get('/admin-list', authStaff, requirePermission('catalog.view'), adminProductList);
+productRouter.post('/scrape-import', authStaff, requirePermission('catalog.create'), scrapeImport);
 // Attribution d'un article existant à une boutique (ou retour au catalogue
-// principal). Réservé au vendeur : c'est lui qui décide de qui dépend un
+// principal). Réservé à l'admin : c'est lui qui décide de qui dépend un
 // article, pas le commerçant qui le reçoit.
-productRouter.post('/assign-boutique', authSeller, valider(schemaAffectationBoutique), assignerBoutique);
-productRouter.post('/sync-airtable', authSeller, syncAirtable);
+productRouter.post('/assign-boutique', authStaff, requirePermission('catalog.edit'), valider(schemaAffectationBoutique), assignerBoutique);
+productRouter.post('/sync-airtable', authStaff, requirePermission('catalog.edit'), syncAirtable);
 
 // Routes staff : dans le nouveau modèle, le Commerçant ne crée, ne modifie,
 // ne supprime et ne publie plus aucun produit. Seul le Seller/Admin gère le

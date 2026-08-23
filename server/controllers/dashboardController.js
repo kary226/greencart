@@ -168,20 +168,22 @@ export const getAdvancedKPIs = async (req, res) => {
                 }, 0);
                 delaiMoyen = Math.round(totalDuree / approvalsResolues.length / 1000 / 60);
             }
+            // [PHASE 3 — 23 août 2026] Liste des fichiers de routes encore
+            // sur authSeller. Contrairement à ce que son nom suggère, ce
+            // n'était PAS un calcul dynamique avant cette date : la liste
+            // était figée à 13 entrées (dont staffRoute, qui n'a jamais
+            // utilisé authSeller) et ne reflétait donc jamais la
+            // progression réelle de la migration, quoi qu'en dise le plan
+            // d'action. Elle doit être mise à jour manuellement à chaque
+            // fichier migré, jusqu'à ce qu'un comptage par introspection du
+            // code remplace cette liste.
             const routesSeller = [
-                'productRoute',
                 'orderRoute',
-                'bannerRoute',
-                'categoryRoute',
                 'couponRoute',
                 'deliveryRoute',
                 'locationRoute',
-                'userRoute',
-                'settingRoute',
-                'boutiqueRoute',
                 'metricsRoute',
                 'sellerRoute',
-                'staffRoute',
             ];
             const resteAMigrer = routesSeller.length;
             const caParMois = await Order.aggregate([
