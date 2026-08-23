@@ -21,7 +21,7 @@ const userSchema = new mongoose.Schema({
     communeName: { type: String, default: '' },
     resetPasswordToken: { type: String, default: null },
     resetPasswordExpires: { type: Date, default: null }
-}, { minimize: false })
+}, { minimize: false, timestamps: true })
 
 const User = mongoose.models.user || mongoose.model('user', userSchema)
 

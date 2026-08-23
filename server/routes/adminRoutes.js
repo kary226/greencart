@@ -232,6 +232,7 @@ import {
 } from '../controllers/reconciliationController.js';
 
 import {
+    getDashboardStats,
     getAdvancedKPIs,
     getFinanceKPIs,
 } from '../controllers/dashboardController.js';
@@ -252,115 +253,7 @@ adminRouter.get(
     '/dashboard/stats',
     authStaff,
     requirePermission('admin.dashboard'),
-    async (req, res) => {
-        try {
-            const Order = await import('../models/Order.js').then(m => m.default);
-            const Product = await import('../models/Product.js').then(m => m.default);
-            const User = await import('../models/User.js').then(m => m.default);
-            const Wallet = await import('../models/Wallet.js').then(m => m.default);
-            const DemandeRetrait = await import('../models/DemandeRetrait.js').then(m => m.default);
-            const ApprovalRequest = await import('../models/ApprovalRequest.js').then(m => m.default);
-            const CustomerCreditTransaction = await import('../models/CustomerCreditTransaction.js').then(m => m.default);
-
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
-            // Commandes
-            const orders = await Order.find({ status: { $ne: 'pending_payment' } });
-            const ordersToday = orders.filter(o => new Date(o.createdAt) >= today);
-            const ordersPending = orders.filter(o => ['Order Placed', 'Checking Availability', 'Confirmed'].includes(o.status));
-            const ordersDelivered = orders.filter(o => o.status === 'Delivered');
-            const ordersReturned = orders.filter(o => o.status === 'Returned');
-            const ordersCancelled = orders.filter(o => o.status === 'Cancelled');
-            const ordersDisputed = orders.filter(o => o.status === 'Disputed');
-
-            // Livraisons
-            const deliveriesPending = orders.filter(o => ['Ready for Shipment', 'Shipped'].includes(o.status));
-            const deliveriesInProgress = orders.filter(o => o.status === 'Out for Delivery');
-
-            // Produits
-            const products = await Product.find({ isArchived: { $ne: true } });
-            const outOfStock = products.filter(p => {
-                if (p.variants?.length > 0) return p.variants.every(v => v.stock === 0);
-                return p.stock === 0;
-            });
-            const lowStock = products.filter(p => {
-                if (p.variants?.length > 0) return p.variants.some(v => v.stock > 0 && v.stock <= 5);
-                return p.stock > 0 && p.stock <= 5;
-            });
-
-            // Utilisateurs
-            const totalUsers = await User.countDocuments();
-            const newUsersToday = await User.countDocuments({ createdAt: { $gte: today } });
-
-            // Finance
-            const wallets = await Wallet.find({});
-            const totalBalance = wallets.reduce((sum, w) => sum + (w.solde || 0), 0);
-            const pendingBalance = wallets.reduce((sum, w) => sum + (w.soldeEnAttente || 0), 0);
-            const pendingWithdrawals = await DemandeRetrait.countDocuments({ statut: 'en_attente' });
-            const revenue = ordersDelivered.reduce((sum, o) => sum + (o.amount || 0), 0);
-            const totalWithdrawalsAgg = await DemandeRetrait.aggregate([
-                { $match: { statut: 'payee' } },
-                { $group: { _id: null, total: { $sum: '$montant' } } },
-            ]);
-            const totalWithdrawals = totalWithdrawalsAgg[0]?.total || 0;
-
-            // RCOINS
-            const rcoinsBalanceAgg = await User.aggregate([
-                { $group: { _id: null, total: { $sum: { $ifNull: ['$creditBalance', 0] } } } },
-            ]);
-            const rcoinsTotalBalance = rcoinsBalanceAgg[0]?.total || 0;
-            const rcoinsTransactions = await CustomerCreditTransaction.countDocuments();
-
-            // Approbations
-            const pendingApprovals = await ApprovalRequest.countDocuments({ statut: 'en_attente' });
-
-            res.json({
-                success: true,
-                stats: {
-                    orders: {
-                        total: orders.length,
-                        today: ordersToday.length,
-                        pending: ordersPending.length,
-                        delivered: ordersDelivered.length,
-                        returned: ordersReturned.length,
-                        cancelled: ordersCancelled.length,
-                        disputed: ordersDisputed.length,
-                    },
-                    products: {
-                        total: products.length,
-                        outOfStock: outOfStock.length,
-                        lowStock: lowStock.length,
-                    },
-                    users: {
-                        total: totalUsers,
-                        newToday: newUsersToday,
-                    },
-                    deliveries: {
-                        pending: deliveriesPending.length,
-                        inProgress: deliveriesInProgress.length,
-                    },
-                    finance: {
-                        totalBalance,
-                        pendingBalance,
-                        pendingWithdrawals,
-                        revenue,
-                        totalWithdrawals,
-                    },
-                    rcoins: {
-                        totalBalance: rcoinsTotalBalance,
-                        transactions: rcoinsTransactions,
-                    },
-                    approvals: {
-                        pending: pendingApprovals,
-                    },
-                }
-            });
-        } catch (error) {
-            console.error('Erreur dashboard stats:', error.message);
-            res.status(500).json({ success: false, message: error.message });
-        }
-    }
+    getDashboardStats
 );
 
 // ─── KPIs avancés (Phase 6) ─────────────────────────────────────────────
