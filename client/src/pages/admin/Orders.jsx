@@ -12,7 +12,6 @@ import {
 
 const Orders = () => {
     const { currency, axios } = useAppContext();
-    const [activeTab, setActiveTab] = useState('orders');
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [updating, setUpdating] = useState(null);

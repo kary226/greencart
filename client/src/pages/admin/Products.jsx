@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import { getPresetImageUrl } from '../../utils/cloudinaryImage';
 import toast from 'react-hot-toast';
@@ -14,8 +14,6 @@ const Products = () => {
     const { currency, axios, fetchProducts: refreshStorefrontProducts } = useAppContext();
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [searchParams] = useSearchParams();
-    const [showFilters, setShowFilters] = useState(false);
 
     const [searchTerm, setSearchTerm] = useState('');
     const [stockFilter, setStockFilter] = useState('all');

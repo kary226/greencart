@@ -24,7 +24,6 @@ const Locations = () => {
     const [editingCommune, setEditingCommune] = useState(null);
     const [communeForm, setCommuneForm] = useState({ name: '', cityId: '' });
     const [bulkForm, setBulkForm] = useState({ names: '', cityId: '' });
-    const [communeFilter, setCommuneFilter] = useState('');
     const [communeSubmitting, setCommuneSubmitting] = useState(false);
     const [bulkSubmitting, setBulkSubmitting] = useState(false);
     const [cityFilter, setCityFilter] = useState('');

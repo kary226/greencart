@@ -186,13 +186,10 @@ const ProduitForm = () => {
         if (!isEdition) return;
         const loadProduct = async () => {
             try {
-                console.log('🔍 Chargement du produit:', id);
                 // ✅ CORRECTION : GET au lieu de POST
                 const { data } = await axios.get(`/api/product/id?id=${id}`);
-                console.log('🔍 Réponse:', data);
                 if (data.success && data.product) {
                     const p = data.product;
-                    console.log('✅ Produit chargé:', p);
                     setVerrouilleParPlateforme(p.origine === 'plateforme' && Boolean(p.boutiqueId));
                     setName(p.name || '');
                     setDescription(p.description || '');
@@ -491,16 +488,6 @@ const ProduitForm = () => {
     // Soumission
     const onSubmit = async (e) => {
         e.preventDefault();
-        console.log('🚀 === DÉBUT SOUMISSION MODIFICATION ===');
-        console.log('📝 ID du produit:', id);
-        console.log('📝 Nom:', name);
-        console.log('📝 Catégories:', selectedCategories);
-        console.log('📝 Prix:', price);
-        console.log('📝 Prix promo:', offerPrice);
-        console.log('📝 Mode produit:', productMode);
-        console.log('📝 Images existantes:', existingImages.length);
-        console.log('📝 Nouvelles images:', files.length);
-        console.log('📝 Vidéo:', videoFile ? 'Oui' : 'Non');
 
         if (!validate()) return;
         setSubmitting(true);
@@ -536,7 +523,6 @@ const ProduitForm = () => {
             productData.size = null;
         }
 
-        console.log('📦 ProductData envoyé:', JSON.stringify(productData, null, 2));
 
         try {
             if (!isEdition) {
@@ -555,14 +541,12 @@ const ProduitForm = () => {
                     toast.error(data.message);
                 }
             } else {
-                console.log('📤 Envoi de la mise à jour...');
                 const { data } = await axios.post('/api/product/staff/update', {
                     id,
                     ...productData,
                     image: existingImages,
                 });
 
-                console.log('📥 Réponse update:', data);
 
                 if (!data.success) {
                     toast.error(data.message);
@@ -571,7 +555,6 @@ const ProduitForm = () => {
                 }
 
                 if (files.length > 0) {
-                    console.log('📸 Upload de nouvelles images...');
                     const imgForm = new FormData();
                     imgForm.append('productId', id);
                     files.forEach((file) => imgForm.append('images', file));
@@ -581,7 +564,6 @@ const ProduitForm = () => {
                 }
 
                 if (videoFile && typeof videoFile !== 'string') {
-                    console.log('🎬 Upload de la vidéo...');
                     const videoForm = new FormData();
                     videoForm.append('id', id);
                     videoForm.append('video', videoFile);
@@ -601,7 +583,6 @@ const ProduitForm = () => {
         } finally {
             setSubmitting(false);
         }
-        console.log('🚀 === FIN SOUMISSION MODIFICATION ===');
     };
 
     if (loading) {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
@@ -62,8 +62,6 @@ const CodesPromo = () => {
         };
         loadProduits();
     }, [boutique, axios]);
-
-    const produitsById = useMemo(() => Object.fromEntries(produits.map((p) => [p._id, p])), [produits]);
 
     const openAddForm = () => {
         setEditingId(null);

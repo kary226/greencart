@@ -155,7 +155,7 @@ const Categories = () => {
         }
     };
 
-    const toggleStatus = async (id, currentStatus) => {
+    const toggleStatus = async (id) => {
         try {
             const { data } = await axios.post('/api/category/toggle-status', { id });
             if (data.success) {

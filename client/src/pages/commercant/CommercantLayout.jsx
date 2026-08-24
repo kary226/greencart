@@ -60,6 +60,7 @@ const CommercantLayout = () => {
                     setBoutiqueEnCours(false);
                 }
             } catch (error) {
+                console.error('Erreur vérification authentification commerçant:', error);
                 setAuthorized(false);
                 setBoutiqueEnCours(false);
             }
@@ -67,7 +68,7 @@ const CommercantLayout = () => {
     }, [axios, chargerBoutique]);
 
     const handleLogout = async () => {
-        try { await axios.get('/api/staff/logout'); } catch (_) {}
+        try { await axios.get('/api/staff/logout'); } catch { /* déconnexion best-effort, on redirige quand même */ }
         navigate('/staff/login');
     };
 

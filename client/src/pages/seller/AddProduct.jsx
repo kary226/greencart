@@ -424,15 +424,6 @@ const AddProduct = () => {
     const onSubmitHandler = async (event) => {
         event.preventDefault();
 
-        console.log('🚀 === DÉBUT SOUMISSION PRODUIT ===');
-        console.log('📝 Nom:', name);
-        console.log('📝 Catégories:', selectedCategories);
-        console.log('📝 Prix:', price);
-        console.log('📝 Prix promo:', offerPrice);
-        console.log('📝 Mode produit:', productMode);
-        console.log('📝 Nombre d\'images:', files.length);
-        console.log('📝 Vidéo:', videoFile ? 'Oui' : 'Non');
-        console.log('📝 Label type:', labelType);
 
         if (selectedCategories.length === 0) {
             toast.error('Veuillez sélectionner au moins une catégorie');
@@ -448,14 +439,12 @@ const AddProduct = () => {
 
         if (productMode === 'simple') {
             variants = [];
-            console.log('📦 Mode simple - pas de variantes');
         } else if (productMode === 'multi-sizes') {
             if (sizesList.length === 0) {
                 toast.error('Ajoutez au moins une taille');
                 return;
             }
             variants = convertSizesToVariants();
-            console.log('📦 Mode multi-sizes - variantes:', variants);
         } else if (productMode === 'variants') {
             if (variantColors.length === 0) {
                 toast.error('Ajoutez au moins une couleur');
@@ -473,7 +462,6 @@ const AddProduct = () => {
                 return;
             }
             variants = convertVariantsToApi();
-            console.log('📦 Mode variants - variantes:', variants);
         }
 
         const productData = {
@@ -502,18 +490,15 @@ const AddProduct = () => {
             }
         }
 
-        console.log('📦 ProductData complet:', JSON.stringify(productData, null, 2));
 
         const formData = new FormData();
         formData.append('productData', JSON.stringify(productData));
 
         for (let i = 0; i < files.length; i++) {
-            console.log(`📸 Ajout de l'image ${i + 1}/${files.length}`);
             formData.append('images', files[i])
         }
 
         if (videoFile) {
-            console.log(`🎬 Ajout de la vidéo: ${videoFile.name}`);
             formData.append('video', videoFile);
         }
 
@@ -533,9 +518,6 @@ const AddProduct = () => {
             return;
         }
 
-        console.log(`📤 Envoi de la requête vers /api/product/add`);
-        console.log(`📊 Taille totale: ${(totalBytes / 1024 / 1024).toFixed(2)}MB`);
-        console.log(`🔑 withCredentials: true`);
 
         try {
             const { data } = await axios.post('/api/product/add', formData, {
@@ -545,7 +527,6 @@ const AddProduct = () => {
                 },
             });
 
-            console.log('✅ Réponse reçue:', data);
 
             if (data.success) {
                 toast.success(data.message);
@@ -587,7 +568,6 @@ const AddProduct = () => {
             toast.error(error.response?.data?.message || error.message);
         }
 
-        console.log('🚀 === FIN SOUMISSION PRODUIT ===');
     };
 
     return (

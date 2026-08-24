@@ -44,18 +44,16 @@ const Dashboard = () => {
         alerts: [],
     });
     const [kpis, setKpis] = useState(null);
-    const [financeData, setFinanceData] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchAll = async () => {
             try {
-                const [dashboardRes, approvalsRes, refundsRes, kpisRes, financeRes] = await Promise.all([
+                const [dashboardRes, approvalsRes, refundsRes, kpisRes] = await Promise.all([
                     axios.get('/api/admin/dashboard/stats'),
                     axios.get('/api/admin/approvals?statut=en_attente'),
                     axios.get('/api/admin/refunds?statut=requested'),
                     axios.get('/api/admin/dashboard/kpis'),
-                    axios.get('/api/admin/dashboard/finance'),
                 ]);
 
                 const s = dashboardRes.data.stats || {};
@@ -80,7 +78,6 @@ const Dashboard = () => {
                 });
 
                 if (kpisRes.data.success) setKpis(kpisRes.data.kpis);
-                if (financeRes.data.success) setFinanceData(financeRes.data.finance);
             } catch (error) {
                 console.error('Erreur chargement stats:', error);
             } finally {

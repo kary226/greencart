@@ -78,7 +78,7 @@ export default function MyOrders() {
             const { data } = await axios.get('/api/order/user')
             if (data.success) setMyOrders(data.orders)
         } catch (err) {
-            console.log(err)
+            console.error(err)
         } finally {
             setLoading(false)
         }
