@@ -41,7 +41,7 @@ const StaffLogin = () => {
                     navigate('/admin/dashboard');
                 } else if (role === 'admin') {
                     // Ancien rôle plat, pré-RBAC, conservé pour compatibilité
-                    navigate('/staff/admin/comptes');
+                    navigate('/admin/staff');
                 } else if (role === 'commercant') {
                     navigate('/commercant/dashboard');
                 } else if (role === 'livreur') {

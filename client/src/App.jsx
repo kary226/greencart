@@ -49,7 +49,6 @@ const AdminCommandes = lazy(() => import('./pages/admin/AdminCommandes'));
 const AdminBoutiques = lazy(() => import('./pages/admin/AdminBoutiques'));
 const AdminJournal = lazy(() => import('./pages/admin/AdminJournal'));
 const AdminRetraits = lazy(() => import('./pages/admin/AdminRetraits'));
-const AdminRetours = lazy(() => import('./pages/admin/AdminRetours'));
 
 // Phase 4
 const AdminWarehouse = lazy(() => import('./pages/admin/Warehouse'));
@@ -238,7 +237,6 @@ const App = () => {
               <Route path='boutiques' element={<AdminBoutiques />} />
               <Route path='audit' element={<AdminJournal />} />
               <Route path='withdrawals' element={<AdminRetraits />} />
-              <Route path='returns' element={<AdminRetours />} />
 
               {/* Phase 4 */}
               <Route path='warehouse' element={<AdminWarehouse />} />

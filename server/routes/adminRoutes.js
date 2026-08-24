@@ -523,21 +523,21 @@ adminRouter.post(
 adminRouter.get(
     '/orders/admin/litiges',
     authStaff,
-    requirePermission('orders.disputes'),
+    requirePermission('disputes.view'),
     listLitiges
 );
 
 adminRouter.post(
     '/orders/admin/litige/declarer',
     authStaff,
-    requirePermission('orders.disputes'),
+    requirePermission('disputes.respond'),
     declarerLitige
 );
 
 adminRouter.post(
     '/orders/admin/litige/resoudre',
     authStaff,
-    requirePermission('orders.disputes'),
+    requirePermission('disputes.respond'),
     resoudreLitige
 );
 

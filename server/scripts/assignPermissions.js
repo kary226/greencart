@@ -13,33 +13,39 @@ const permissionsByRole = {
     finance_admin: [
         'wallet.view', 'wallet.adjust', 'wallet.transactions',
         'withdrawals.view', 'withdrawals.approve', 'withdrawals.reject',
-        'refunds.view', 'refunds.approve',
+        'refunds.view', 'refunds.approve', 'refunds.create',
         'rcoins.view', 'rcoins.adjust',
-        'commission.view',
+        'commission.view', 'finance.reconcile',
+        'admin.dashboard',
     ],
     warehouse_admin: [
         'warehouse.scan', 'warehouse.inspect',
         'returns.view', 'returns.inspect', 'returns.decide',
         'orders.view',
+        'admin.dashboard',
     ],
     logistics_admin: [
-        'deliveries.view', 'deliveries.assign',
+        'deliveries.view', 'deliveries.assign', 'deliveries.configure',
         'delivery_zones.view', 'delivery_zones.configure',
         'orders.ship', 'orders.mark_delivered',
+        'admin.dashboard',
     ],
     catalog_admin: [
         'catalog.view', 'catalog.create', 'catalog.edit', 'catalog.delete',
         'catalog.banners', 'catalog.categories', 'catalog.coupons',
         'catalog.questions',
+        'admin.dashboard',
     ],
     support_admin: [
-        'clients.view', 'orders.view', 'orders.edit',
+        'clients.view', 'clients.edit', 'orders.view', 'orders.edit',
         'disputes.view', 'disputes.respond',
         'refunds.view',
+        'admin.dashboard',
     ],
     read_only_auditor: [
         'audit.view', 'audit.export',
         'wallet.view', 'orders.view', 'catalog.view',
+        'admin.dashboard',
     ],
     admin: ['admin.all'],
     commercant: [
@@ -54,6 +60,7 @@ const permissionsByRole = {
     ],
     assistant_shein: [
         'shein.view', 'shein.update',
+
     ],
 };
 
