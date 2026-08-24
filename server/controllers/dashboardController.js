@@ -168,23 +168,14 @@ export const getAdvancedKPIs = async (req, res) => {
                 }, 0);
                 delaiMoyen = Math.round(totalDuree / approvalsResolues.length / 1000 / 60);
             }
-            // [PHASE 3 — 23 août 2026] Liste des fichiers de routes encore
-            // sur authSeller. Contrairement à ce que son nom suggère, ce
-            // n'était PAS un calcul dynamique avant cette date : la liste
-            // était figée à 13 entrées (dont staffRoute, qui n'a jamais
-            // utilisé authSeller) et ne reflétait donc jamais la
-            // progression réelle de la migration, quoi qu'en dise le plan
-            // d'action. Elle doit être mise à jour manuellement à chaque
-            // fichier migré, jusqu'à ce qu'un comptage par introspection du
-            // code remplace cette liste.
-            const routesSeller = [
-                'orderRoute',
-                'couponRoute',
-                'deliveryRoute',
-                'locationRoute',
-                'metricsRoute',
-                'sellerRoute',
-            ];
+            // [PHASE 3 — clôturée le 23 août 2026] Le compte technique
+            // vendeur (authSeller, sellerRoute.js, cookie sellerToken) a
+            // été entièrement supprimé — il ne reste donc plus aucune route
+            // à migrer. Liste conservée vide plutôt que le KPI retiré : la
+            // valeur figée à 13 entrées avant cette date n'avait de toute
+            // façon jamais été un calcul dynamique (voir historique Phase 3
+            // dans le plan d'action RAMCI).
+            const routesSeller = [];
             const resteAMigrer = routesSeller.length;
             const caParMois = await Order.aggregate([
                 { $match: { isPaid: true, status: { $ne: 'Cancelled' } } },

@@ -22,12 +22,6 @@ axios.defaults.baseURL = API_BASE_URL;
 
 // ─── Constantes ──────────────────────────────────────────────────────────
 
-const getIsSeller = () => localStorage.getItem('isSeller') === 'true';
-const getSellerData = () => {
-    const sellerData = localStorage.getItem('sellerData');
-    return sellerData ? JSON.parse(sellerData) : null;
-};
-
 const RECENTLY_VIEWED_KEY = 'greencart_recently_viewed';
 const CART_KEY = 'greencart_cart';
 const MAX_RECENT_ITEMS = 5;
@@ -56,7 +50,6 @@ export const AppContextProvider = ({ children }) => {
     // ─── État utilisateur (client) ──────────────────────────────────────
 
     const [user, setUser] = useState(null);
-    const [isSeller, setIsSeller] = useState(getIsSeller);
     const [showUserLogin, setShowUserLogin] = useState(false);
 
     // ─── [PHASE 3] État staff (admin) ──────────────────────────────────
@@ -221,30 +214,6 @@ export const AppContextProvider = ({ children }) => {
         } catch (error) {
             console.error("Erreur chargement colis SHEIN:", error);
             setColisShein([]);
-        }
-    };
-
-    // ─── Fetch : Seller ──────────────────────────────────────────────────
-
-    const fetchSeller = async () => {
-        try {
-            const { data } = await axios.get('/api/seller/is-auth');
-            if (data.success) {
-                setIsSeller(true);
-                localStorage.setItem('isSeller', 'true');
-                if (data.seller) {
-                    localStorage.setItem('sellerData', JSON.stringify(data.seller));
-                }
-            } else {
-                setIsSeller(false);
-                localStorage.removeItem('isSeller');
-                localStorage.removeItem('sellerData');
-            }
-        } catch (error) {
-            console.error("Erreur fetchSeller:", error);
-            setIsSeller(false);
-            localStorage.removeItem('isSeller');
-            localStorage.removeItem('sellerData');
         }
     };
 
@@ -434,10 +403,7 @@ export const AppContextProvider = ({ children }) => {
                 localStorage.setItem(CART_KEY, JSON.stringify(cartItems));
             }
             await axios.post('/api/user/logout');
-            localStorage.removeItem('isSeller');
-            localStorage.removeItem('sellerData');
             setUser(null);
-            setIsSeller(false);
             setCartItems(loadCartFromLocalStorage());
             setOrders([]);
             toast.success("Déconnexion réussie");
@@ -445,35 +411,6 @@ export const AppContextProvider = ({ children }) => {
         } catch (error) {
             toast.error(error.message);
         }
-    };
-
-    const loginSeller = async (email, password) => {
-        try {
-            const { data } = await axios.post('/api/seller/login', { email, password });
-            if (data.success) {
-                localStorage.setItem('isSeller', 'true');
-                if (data.seller) {
-                    localStorage.setItem('sellerData', JSON.stringify(data.seller));
-                }
-                setIsSeller(true);
-                setUser(data.seller);
-                toast.success("Connexion vendeur réussie");
-                navigate('/seller/dashboard');
-            } else {
-                toast.error(data.message);
-            }
-        } catch (error) {
-            toast.error(error.response?.data?.message || error.message);
-        }
-    };
-
-    const logoutSeller = () => {
-        localStorage.removeItem('isSeller');
-        localStorage.removeItem('sellerData');
-        setIsSeller(false);
-        setUser(null);
-        toast.success("Déconnexion vendeur réussie");
-        navigate('/seller');
     };
 
     // ─── PWA ──────────────────────────────────────────────────────────────
@@ -578,7 +515,6 @@ export const AppContextProvider = ({ children }) => {
     // ─── Effets de chargement initiaux ──────────────────────────────────
 
     useEffect(() => {
-        const isOnSellerPage = window.location.pathname.includes('/seller');
         const isOnAdminPage = window.location.pathname.startsWith('/admin') || 
                               window.location.pathname.startsWith('/staff');
 
@@ -586,12 +522,7 @@ export const AppContextProvider = ({ children }) => {
             fetchStaffUser();
         }
 
-        if (isOnSellerPage) {
-            fetchSeller();
-        } else {
-            fetchUser(true);
-            fetchSeller();
-        }
+        fetchUser(true);
         fetchProducts();
         loadRecentlyViewed();
 
@@ -673,7 +604,6 @@ export const AppContextProvider = ({ children }) => {
     const value = {
         // Client
         navigate, user, setUser,
-        setIsSeller, isSeller,
         showUserLogin, setShowUserLogin,
         products, currency,
         cartItems, setCartItems,
@@ -687,7 +617,6 @@ export const AppContextProvider = ({ children }) => {
         colisShein, fetchColisShein, colisSheinActif, setColisSheinActif,
         // Authentification
         fetchUser, loginUser, registerUser, logoutUser,
-        loginSeller, logoutSeller,
         // PWA / Push
         canInstallPWA, isPWAInstalled, installPWA,
         subscribeToPushNotifications,
