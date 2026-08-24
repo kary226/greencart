@@ -1108,31 +1108,6 @@ export const adminProductList = async (req, res) => {
     }
 };
 
-// Reduce stock after order : internal function
-export const reduceVariantStock = async (productId, color, size, quantity) => {
-    const product = await Product.findById(productId);
-    if (!product) return;
-
-    if (product.variants.length === 0) {
-        product.stock = Math.max(0, (product.stock || 0) - quantity);
-        product.inStock = product.stock > 0;
-        await product.save();
-        return;
-    }
-
-    const variant = product.variants.find(v =>
-        (color ? v.color === color : true) &&
-        (size ? v.size === size : true)
-    );
-
-    if (variant) {
-        variant.stock = Math.max(0, variant.stock - quantity);
-    }
-
-    product.inStock = product.variants.some(v => v.stock > 0);
-    await product.save();
-};
-
 // Get Les plus populaires : /api/product/bestsellers
 // [PHASE 2 - PERF] Ce calcul charge actuellement TOUTES les commandes payées
 // en mémoire à chaque appel pour les agréger côté Node — ça ne passera pas

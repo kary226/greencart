@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import mongoSanitize from 'express-mongo-sanitize';
 import connectDB from './configs/db.js';
+import connectCloudinary from './configs/cloudinary.js';
 import 'dotenv/config';
 import { handleJekoWebhook } from './controllers/jekoController.js';
 import dns from 'dns';
@@ -58,6 +59,7 @@ app.set('trust proxy', 1);
 dns.setServers(['1.1.1.1', '8.8.8.8']);
 
 await connectDB();
+await connectCloudinary();
 
 // ─── Middlewares ──────────────────────────────────────────────────────
 
