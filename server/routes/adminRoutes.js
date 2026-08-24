@@ -222,6 +222,13 @@ import {
     completeRefund,
 } from '../controllers/refundController.js';
 
+// ─── Contrôleurs RCOINS ─────────────────────────────────────────────────
+
+import {
+    listRcoinsBalances,
+    listRcoinsTransactions,
+} from '../controllers/rcoinsController.js';
+
 // ─── Contrôleurs Phase 6 (Rapprochement & KPIs) ─────────────────────────
 
 import {
@@ -1045,6 +1052,24 @@ adminRouter.post(
     authStaff,
     requirePermission('refunds.approve'),
     completeRefund
+);
+
+// =============================================================
+// 10bis. RCOINS
+// =============================================================
+
+adminRouter.get(
+    '/rcoins',
+    authStaff,
+    requirePermission('rcoins.view'),
+    listRcoinsBalances
+);
+
+adminRouter.get(
+    '/rcoins/transactions',
+    authStaff,
+    requirePermission('rcoins.view'),
+    listRcoinsTransactions
 );
 
 // =============================================================
