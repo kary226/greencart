@@ -22,7 +22,7 @@ const permissionsByRole = {
         'withdrawals.view', 'withdrawals.approve', 'withdrawals.reject',
         'refunds.view', 'refunds.approve', 'refunds.create',
         'rcoins.view', 'rcoins.adjust',
-        'commission.view', 'finance.reconcile',
+        'commission.view', 'finance.reconcile', 'orders.approve',
         'admin.dashboard',
     ],
     warehouse_admin: [

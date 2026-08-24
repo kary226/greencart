@@ -34,7 +34,7 @@ const run = async () => {
         const warehousePerm = await RolePermission.findOne({ role: 'warehouse_admin' });
         if (!warehousePerm) {
             console.log('❌ Le rôle warehouse_admin n\'existe pas.');
-            console.log('💡 Exécutez d\'abord : node scripts/assignPermissions.js');
+            console.log('💡 Exécutez d\'abord : node scripts/seedRolePermissions.js');
             process.exit(1);
         }
         console.log(`✅ Rôle warehouse_admin trouvé (${warehousePerm.permissions.length} permissions)`);
