@@ -56,7 +56,7 @@ const BoutiqueVitrine = () => {
                 } else {
                     setIntrouvable(true);
                 }
-            } catch (error) {
+            } catch {
                 if (!annule) setIntrouvable(true);
             } finally {
                 if (!annule) setChargement(false);

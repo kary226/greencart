@@ -110,7 +110,7 @@ const ProductDetails = () => {
         const { data } = await axios.get(`/api/product/id?id=${id}`);
         if (annule) return;
         setProduitComplet(data.success ? data.product : null);
-      } catch (error) {
+      } catch {
         if (!annule) setProduitComplet(null);
       } finally {
         if (!annule) setChargementProduit(false);
@@ -137,7 +137,7 @@ const ProductDetails = () => {
       try {
         const { data } = await axios.get(`/api/boutiques/${boutiqueId}/apercu`);
         if (!annule && data.success) setBoutiqueApercu(data.boutique);
-      } catch (error) {
+      } catch {
         // Boutique suspendue ou supprimée : la fiche reste utilisable, on
         // n'affiche simplement pas la pastille.
         if (!annule) setBoutiqueApercu(null);
@@ -374,16 +374,6 @@ const ProductDetails = () => {
     return variant ? variant.stock : 0;
   };
 
-  const isSizeAvailable = (size) => {
-    if (!selectedColor) {
-      return product.variants.some((v) => v.size === size && v.stock > 0);
-    }
-    const variant = product.variants.find(
-      (v) => v.color === selectedColor && v.size === size
-    );
-    return variant ? variant.stock > 0 : false;
-  };
-
   const getStockForSize = (size) => {
     if (selectedColor) {
       const variant = product.variants.find(
@@ -425,7 +415,7 @@ const ProductDetails = () => {
   };
 
   // Validation et actions
-  const validateAndProceed = (action) => {
+  const validateAndProceed = () => {
     let hasError = false;
     if (uniqueColors.length > 0 && !selectedColor) {
       setColorError("Choisissez une couleur");
@@ -450,14 +440,14 @@ const ProductDetails = () => {
   };
 
   const handleAddToCart = () => {
-    if (validateAndProceed("add")) {
+    if (validateAndProceed()) {
       addToCart(product._id, selectedColor, selectedSize);
       toast.success("Ajouté au panier");
     }
   };
 
   const handleBuyNow = () => {
-    if (validateAndProceed("buy")) {
+    if (validateAndProceed()) {
       addToCart(product._id, selectedColor, selectedSize);
       navigate("/cart");
     }

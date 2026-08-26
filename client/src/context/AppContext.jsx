@@ -31,7 +31,7 @@ const loadCartFromLocalStorage = () => {
     if (savedCart) {
         try {
             return JSON.parse(savedCart);
-        } catch (e) {
+        } catch {
             return {};
         }
     }
@@ -227,7 +227,7 @@ export const AppContextProvider = ({ children }) => {
                 setStaffPermissions(data.staffUser.permissions || []);
                 return data.staffUser;
             }
-        } catch (error) {
+        } catch {
             // Pas de session staff – on laisse staffUser à null
         }
         return null;

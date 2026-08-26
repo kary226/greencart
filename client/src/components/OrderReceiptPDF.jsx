@@ -291,7 +291,7 @@ const formatDate = (dateString) => {
     });
 };
 
-const OrderReceiptPDF = ({ order, currency }) => {
+const OrderReceiptPDF = ({ order }) => {
     if (!order || !order.address) {
         return (
             <Document>

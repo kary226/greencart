@@ -36,7 +36,7 @@ const PaymentSuccess = () => {
                     return true;
                 }
                 return false;
-            } catch (error) {
+            } catch {
                 return false;
             }
         };

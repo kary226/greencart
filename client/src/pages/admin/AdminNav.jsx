@@ -21,7 +21,7 @@ const AdminNav = ({ titre, sousTitre }) => {
     const navigate = useNavigate();
 
     const handleLogout = async () => {
-        try { await axios.get('/api/staff/logout'); } catch (_) { /* on quitte quand même */ }
+        try { await axios.get('/api/staff/logout'); } catch { /* on quitte quand même */ }
         navigate('/staff/login');
     };
 

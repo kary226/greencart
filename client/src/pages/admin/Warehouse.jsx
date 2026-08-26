@@ -63,7 +63,7 @@ const Warehouse = () => {
         formData.append('type', scanForm.type);
         formData.append('emplacement', scanForm.emplacement || '');
         formData.append('note', scanForm.note || '');
-        scanForm.photos.forEach((photo, i) => {
+        scanForm.photos.forEach((photo) => {
             formData.append('photos', photo);
         });
 

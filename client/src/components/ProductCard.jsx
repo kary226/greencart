@@ -10,9 +10,38 @@ const ProductCard = ({ product }) => {
   const [imgIdx, setImgIdx] = useState(0);
   const [imgLoaded, setImgLoaded] = useState(false);
 
+  // [FIX] Les Hooks doivent s'exécuter dans le même ordre à chaque rendu —
+  // le useMemo ci-dessous doit rester AVANT ce retour anticipé, sinon React
+  // plante ("Rendered fewer hooks than expected") dès qu'un rendu reçoit
+  // product=null après un rendu où product était défini.
+  const price = product?.price;
+  const offerPrice = product?.offerPrice;
+  const variants = product?.variants;
+
+  const { displayPrice, discount, totalStock, isOutOfStock, isLowStock } = useMemo(() => {
+    if (!product) {
+      return { displayPrice: 0, discount: null, totalStock: 0, isOutOfStock: true, isLowStock: false };
+    }
+    const disc = offerPrice && price ? Math.round(((price - offerPrice) / price) * 100) : null;
+    const total = variants?.length > 0
+      ? variants.reduce((acc, v) => acc + (v.stock || 0), 0)
+      : (product.inStock ? 1 : 0);
+    const outOfStock = total === 0;
+    const hasRealStock = variants?.length > 0;
+    const lowStock = hasRealStock && !outOfStock && total <= LOW_STOCK_THRESHOLD;
+
+    return {
+      displayPrice: offerPrice || price,
+      discount: disc,
+      totalStock: total,
+      isOutOfStock: outOfStock,
+      isLowStock: lowStock,
+    };
+  }, [product, price, offerPrice, variants]);
+
   if (!product) return null;
 
-  const { _id, name, price, offerPrice, image, variants, category } = product;
+  const { _id, name, image, category } = product;
   const isWishlisted = isInWishlist ? isInWishlist(_id) : false;
   const images = image || [];
   const mainImg = images[imgIdx] || images[0];
@@ -33,25 +62,6 @@ const ProductCard = ({ product }) => {
   // Limiter à 3 tailles affichées
   const displaySizes = uniqueSizes.slice(0, 3);
   const hasMoreSizes = uniqueSizes.length > 3;
-
-  // Calculs optimisés
-  const { displayPrice, discount, totalStock, isOutOfStock, isLowStock } = useMemo(() => {
-    const disc = offerPrice && price ? Math.round(((price - offerPrice) / price) * 100) : null;
-    const total = variants?.length > 0
-      ? variants.reduce((acc, v) => acc + (v.stock || 0), 0)
-      : (product.inStock ? 1 : 0);
-    const outOfStock = total === 0;
-    const hasRealStock = variants?.length > 0;
-    const lowStock = hasRealStock && !outOfStock && total <= LOW_STOCK_THRESHOLD;
-
-    return {
-      displayPrice: offerPrice || price,
-      discount: disc,
-      totalStock: total,
-      isOutOfStock: outOfStock,
-      isLowStock: lowStock,
-    };
-  }, [price, offerPrice, variants, product.inStock]);
 
   const categorySlug = category?.slug || product.categorySlug || "all";
 

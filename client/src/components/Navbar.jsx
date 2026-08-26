@@ -134,7 +134,7 @@ const Navbar = () => {
       try {
         const { data } = await axios.get('/api/category/list');
         if (data.success) setCategories(data.categories);
-      } catch (error) {}
+      } catch { /* pas de menu catégories si l'appel échoue */ }
     };
     fetchCategories();
   }, []);

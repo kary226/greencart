@@ -24,7 +24,7 @@ import "../styles/bottom-nav.css";
  * d'ajouter une entrée au tableau `tabs` ci-dessous — et d'en retirer une.
  */
 const BottomNav = () => {
-  const { wishlist, colisShein, colisSheinActif } = useAppContext();
+  const { colisShein, colisSheinActif } = useAppContext();
   const location = useLocation();
 
   const colisActifsCount = colisShein?.filter(c => c.statut !== "livre" && c.statut !== "annule").length || 0;

@@ -70,7 +70,7 @@ const ColisSheinManager = () => {
                 setTaux({ usd: data.data.usd ?? "", eur: data.data.eur ?? "" });
                 setTauxSaved({ usd: data.data.usd ?? "", eur: data.data.eur ?? "" });
             }
-        } catch (error) {
+        } catch {
             // pas encore configuré
         }
     };
@@ -87,6 +87,7 @@ const ColisSheinManager = () => {
                 toast.error(data.message);
             }
         } catch (error) {
+            console.error("Erreur enregistrement taux:", error);
             toast.error("Erreur d'enregistrement du taux");
         } finally {
             setSavingTaux(false);
@@ -110,7 +111,7 @@ const ColisSheinManager = () => {
                 setHoraires({ ouverture: data.data.ouverture || "08:00", fermeture: data.data.fermeture || "19:00" });
                 setHorairesSaved({ ouverture: data.data.ouverture || "08:00", fermeture: data.data.fermeture || "19:00" });
             }
-        } catch (error) {
+        } catch {
             // pas encore configuré — reste sur la valeur par défaut 8h-19h
         }
     };
@@ -126,6 +127,7 @@ const ColisSheinManager = () => {
                 toast.error(data.message);
             }
         } catch (error) {
+            console.error("Erreur enregistrement horaires:", error);
             toast.error("Erreur d'enregistrement des horaires");
         } finally {
             setSavingHoraires(false);
@@ -147,7 +149,7 @@ const ColisSheinManager = () => {
                 setMessageBienvenue(data.data);
                 setMessageBienvenueSaved(data.data);
             }
-        } catch (error) {
+        } catch {
             // pas encore configuré — reste sur le texte par défaut
         }
     };
@@ -163,6 +165,7 @@ const ColisSheinManager = () => {
                 toast.error(data.message);
             }
         } catch (error) {
+            console.error("Erreur enregistrement message:", error);
             toast.error("Erreur d'enregistrement du message");
         } finally {
             setSavingMessageBienvenue(false);
@@ -203,7 +206,7 @@ const ColisSheinManager = () => {
                 setMessagesStatut(fusion);
                 setMessagesStatutSaved(fusion);
             }
-        } catch (error) {
+        } catch {
             // pas encore configuré — reste sur les textes par défaut
         }
     };
@@ -219,6 +222,7 @@ const ColisSheinManager = () => {
                 toast.error(data.message);
             }
         } catch (error) {
+            console.error("Erreur enregistrement messages:", error);
             toast.error("Erreur d'enregistrement des messages");
         } finally {
             setSavingMessagesStatut(false);
@@ -239,6 +243,7 @@ const ColisSheinManager = () => {
                 setColisLivraison(tries);
             }
         } catch (error) {
+            console.error("Erreur chargement livraisons:", error);
             toast.error("Erreur de chargement des livraisons");
         } finally {
             setLoadingLivraisons(false);
@@ -261,6 +266,7 @@ const ColisSheinManager = () => {
                 setListeAvis(data.avis);
             }
         } catch (error) {
+            console.error("Erreur chargement avis:", error);
             toast.error("Erreur de chargement des avis");
         } finally {
             setLoadingAvis(false);
@@ -383,6 +389,7 @@ const ColisSheinManager = () => {
             const { data } = await axios.get(url);
             if (data.success) setColisListe(data.colis);
         } catch (error) {
+            console.error("Erreur chargement colis:", error);
             toast.error("Erreur de chargement");
         } finally {
             setLoading(false);
@@ -401,6 +408,7 @@ const ColisSheinManager = () => {
             const { data } = await axios.post("/api/setting/update", { key: "sheinReponsesRapides", value: liste });
             if (data.success) setReponsesRapides(liste);
         } catch (error) {
+            console.error("Erreur enregistrement réponses rapides:", error);
             toast.error("Erreur d'enregistrement");
         }
     };
@@ -442,6 +450,7 @@ const ColisSheinManager = () => {
             // on met juste à jour localement pour faire disparaître le badge tout de suite
             setColisListe((prev) => prev.map((c) => (c._id === id ? { ...c, nonLu: false } : c)));
         } catch (error) {
+            console.error("Erreur ouverture colis:", error);
             toast.error("Impossible d'ouvrir ce colis");
         }
     };
@@ -549,6 +558,7 @@ const ColisSheinManager = () => {
                 if (fileInputRef.current) fileInputRef.current.value = "";
             }
         } catch (error) {
+            console.error("Erreur envoi:", error);
             toast.error("Erreur d'envoi");
         } finally {
             setEnvoi(false);

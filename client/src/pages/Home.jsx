@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
 import ProductCard from "../components/ProductCard";
 import SEO from "../components/SEO";
@@ -39,7 +39,6 @@ const Home = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   
   const observerRef = useRef(null);
-  const navigate = useNavigate();
 
   // ✅ FETCH : Catégories
   useEffect(() => {
@@ -47,7 +46,7 @@ const Home = () => {
       try {
         const { data } = await axios.get('/api/category/list');
         if (data.success) setCategories(data.categories);
-      } catch (e) {}
+      } catch { /* pas de bandeau catégories si l'appel échoue */ }
     };
     fetchCategories();
   }, [axios]);

@@ -85,7 +85,7 @@ const Returns = () => {
         const formData = new FormData();
         formData.append('etat', inspectForm.etat);
         formData.append('note', inspectForm.note);
-        inspectForm.photos.forEach((photo, i) => {
+        inspectForm.photos.forEach((photo) => {
             formData.append('photos', photo);
         });
 

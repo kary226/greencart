@@ -65,7 +65,7 @@ const RecentlyViewed = () => {
                     className="carousel-container"
                 >
                     <div className="carousel-track">
-                        {recentlyViewed.map((product, index) => (
+                        {recentlyViewed.map((product) => (
                             <div key={product._id} className="carousel-item">
                                 <div className="product-wrapper">
                                     <ProductCard product={product} />

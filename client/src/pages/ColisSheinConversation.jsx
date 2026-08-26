@@ -94,6 +94,7 @@ const ColisSheinConversation = () => {
             const { data } = await axios.get(`/api/shein-cart/${id}`);
             if (data.success) setColis(data.colis);
         } catch (error) {
+            console.error("Erreur chargement colis:", error);
             toast.error("Impossible de charger ce colis");
         } finally {
             setLoading(false);
@@ -104,7 +105,7 @@ const ColisSheinConversation = () => {
         try {
             const { data } = await axios.get(`/api/shein-cart/${id}/messages`);
             if (data.success) setMessages(data.messages);
-        } catch (error) {
+        } catch {
             // le polling réessaiera
         }
     };

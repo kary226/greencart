@@ -19,12 +19,6 @@ export const getCroppedImg = (imageFile, croppedAreaPixels, rotation = 0) => {
             
             // Appliquer la rotation
             const rad = (rotation * Math.PI) / 180;
-            const sin = Math.abs(Math.sin(rad));
-            const cos = Math.abs(Math.cos(rad));
-            
-            // Calculer les nouvelles dimensions après rotation
-            const rotatedWidth = image.width * cos + image.height * sin;
-            const rotatedHeight = image.width * sin + image.height * cos;
             
             canvas.width = croppedAreaPixels.width;
             canvas.height = croppedAreaPixels.height;

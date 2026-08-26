@@ -93,6 +93,7 @@ const AdminComptes = () => {
                     setAuthorized(false);
                 }
             } catch (error) {
+                console.error('Erreur vérification authentification admin:', error);
                 setAuthorized(false);
             }
         };

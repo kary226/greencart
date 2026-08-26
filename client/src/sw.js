@@ -58,7 +58,7 @@ self.addEventListener('push', (event) => {
     if (event.data) {
       data = { ...data, ...event.data.json() };
     }
-  } catch (e) {
+  } catch {
     // Payload non-JSON : on garde le message par défaut plutôt que de planter le SW.
   }
 

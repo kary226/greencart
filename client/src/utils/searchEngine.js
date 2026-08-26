@@ -252,7 +252,7 @@ export const searchProductsAndCategories = (index, categories, rawQuery, { limit
 
     const { results: prodResults, fuzzy } = searchProducts(index, rawQuery, {});
     const prodScored = prodResults
-        .filter(p => !fuzzy) // en mode "repli flou", on ne pollue pas les suggestions rapides — l'utilisateur verra le fallback en page résultats
+        .filter(() => !fuzzy) // en mode "repli flou", on ne pollue pas les suggestions rapides — l'utilisateur verra le fallback en page résultats
         .slice(0, limit)
         .map((p) => ({ _type: 'product', text: p.name, image: p.image?.[0] }));
 
