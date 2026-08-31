@@ -64,6 +64,9 @@ const AdminRcoinsTransactions = lazy(() => import('./pages/admin/RcoinsTransacti
 // Phase 6
 const AdminReconciliation = lazy(() => import('./pages/admin/Reconciliation'));
 
+// Portefeuilles commerçants
+const AdminWallets = lazy(() => import('./pages/admin/Wallets'));
+
 // Colis SHEIN — intégré à la console admin (au lieu de /seller)
 const AdminColisShein = lazy(() => import('./pages/seller/ColisSheinManager'));
 
@@ -253,6 +256,9 @@ const App = () => {
 
               {/* Phase 6 */}
               <Route path='reconciliation' element={<AdminReconciliation />} />
+
+              {/* Portefeuilles commerçants */}
+              <Route path='wallets' element={<AdminWallets />} />
 
               {/* Colis SHEIN */}
               <Route path='colis-shein' element={<AdminColisShein />} />

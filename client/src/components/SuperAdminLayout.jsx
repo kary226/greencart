@@ -100,8 +100,7 @@ const SuperAdminLayout = () => {
             visible: hasAccess("clients.view"),
             subItems: [
                 { label: "Clients", path: "/admin/clients" },
-                { label: "Commerçants", path: "/admin/staff" },
-                { label: "Boutiques", path: "/admin/boutiques" },
+                { label: "Commerçants & boutiques", path: "/admin/boutiques" },
             ],
         },
         {
@@ -121,7 +120,7 @@ const SuperAdminLayout = () => {
             path: "/admin/withdrawals",
             visible: hasAccess("wallet.view"),
             subItems: [
-                { label: "Portefeuilles", path: "/admin/withdrawals" },
+                { label: "Portefeuilles", path: "/admin/wallets" },
                 { label: "Retraits", path: "/admin/withdrawals" },
                 { label: "Remboursements", path: "/admin/refunds" },
                 { label: "Approbations", path: "/admin/approvals" },
