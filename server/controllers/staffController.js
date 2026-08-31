@@ -18,7 +18,14 @@ import { sendStaffInvitationEmail } from '../configs/email.js';
 import { TYPE_STAFF } from '../utils/jwtTypes.js';
 import { journaliser } from '../services/journalService.js';
 
-const ROLES_VALIDES = ['admin', 'commercant', 'livreur', 'assistant_shein'];
+// [PHASE 1] Rôles historiques + rôles granulaires (voir models/RolePermission.js
+// pour le détail des permissions associées à chacun). 'super_admin' remplace
+// à terme 'admin', qui reste accepté pour compatibilité.
+const ROLES_VALIDES = [
+    'admin', 'commercant', 'livreur', 'assistant_shein',
+    'super_admin', 'finance_admin', 'warehouse_admin',
+    'logistics_admin', 'catalog_admin', 'support_admin', 'read_only_auditor',
+];
 const INVITATION_VALIDITE_MS = 48 * 60 * 60 * 1000; // 48 heures
 
 // [SÉCURITÉ] Empreinte d'un jeton d'invitation. La création et la

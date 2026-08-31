@@ -11,7 +11,14 @@ import {
 } from 'lucide-react';
 
 const ROLE_LABELS = {
+    super_admin: 'Super admin',
     admin: 'Administrateur',
+    finance_admin: 'Admin finance',
+    warehouse_admin: 'Admin entrepôt',
+    logistics_admin: 'Admin logistique',
+    catalog_admin: 'Admin catalogue',
+    support_admin: 'Admin support',
+    read_only_auditor: 'Auditeur (lecture seule)',
     commercant: 'Commerçant',
     livreur: 'Livreur',
     assistant_shein: 'Assistant Shein',

@@ -9,7 +9,11 @@ import { z, idMongo, texte, quantite } from '../middlewares/valider.js';
 // (`role`, `statut`, `boutiqueId`) ne peut donc pas se retrouver dans un
 // update par accident.
 
-const ROLES_STAFF = ['admin', 'commercant', 'livreur', 'assistant_shein'];
+const ROLES_STAFF = [
+    'admin', 'commercant', 'livreur', 'assistant_shein',
+    'super_admin', 'finance_admin', 'warehouse_admin',
+    'logistics_admin', 'catalog_admin', 'support_admin', 'read_only_auditor',
+];
 
 // ---- Staff ------------------------------------------------------------ //
 
