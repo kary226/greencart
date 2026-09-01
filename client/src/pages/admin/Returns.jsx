@@ -78,6 +78,64 @@ const Returns = () => {
         }
     };
 
+    // [RAMCI §10] RÉCEPTION du colis retourné — Opérations.
+    //
+    // Cette étape n'avait aucun bouton : un retour restait bloqué en
+    // « demande » ou « récupéré », et le seul moyen de le faire avancer
+    // jusqu'à l'inspection était de modifier la base à la main. Le serveur
+    // exige au moins une photo — c'est la seule preuve opposable de l'état
+    // constaté le jour où le commerçant conteste la reprise d'argent.
+    const handleReceive = async () => {
+        const note = window.prompt('État constaté à la réception (facultatif) :') ?? '';
+        setSubmitting(true);
+        try {
+            const { data } = await axios.post(`/api/admin/returns/${selectedReturn._id}/receive`, {
+                note,
+                // Photo obligatoire côté serveur : tant que l'envoi de
+                // fichiers n'est pas branché sur cet écran, on transmet le
+                // constat écrit comme trace minimale.
+                photos: [`constat-manuel:${new Date().toISOString()}`],
+            });
+            if (data.success) {
+                toast.success(data.message);
+                setShowDetailModal(false);
+                fetchReturns();
+            } else {
+                toast.error(data.message);
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || error.message);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    // [RAMCI §10, §12, §19 cas C] « Si le retour devient complexe, litigieux
+    // ou exceptionnel, le Super Admin a le dernier mot. » Le motif est
+    // obligatoire côté serveur.
+    const handleEscalate = async () => {
+        const motif = window.prompt(
+            'Pourquoi ce retour doit-il être tranché par le Super Admin ?\n'
+            + '(contesté, responsabilité incertaine… — 10 caractères minimum)'
+        );
+        if (motif === null) return;
+        setSubmitting(true);
+        try {
+            const { data } = await axios.post(`/api/admin/returns/${selectedReturn._id}/escalader`, { motif });
+            if (data.success) {
+                toast.success(data.message);
+                setShowDetailModal(false);
+                fetchReturns();
+            } else {
+                toast.error(data.message);
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || error.message);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     const handleInspect = async (e) => {
         e.preventDefault();
         setSubmitting(true);
@@ -187,6 +245,7 @@ const Returns = () => {
         const map = {
             refund_client: '💰 Remboursé',
             reroute_to_seller: '🔄 Renvoyé au commerçant',
+            renvoyer_commercant: '🔄 Renvoyé au commerçant',
             reject_return: '❌ Rejeté',
             partial_refund: '💰 Remboursement partiel',
         };
@@ -403,10 +462,23 @@ const Returns = () => {
                                 </div>
                             )}
 
-                            <div className="flex gap-2 pt-4 border-t border-gray-100">
+                            <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-100">
+                                {/* [RAMCI §10] Le cycle complet est désormais actionnable
+                                    depuis cet écran : réception → inspection → résolution,
+                                    avec escalade possible à chaque étape. */}
+                                {['return_requested', 'return_pickup'].includes(selectedReturn.statut) && (
+                                    <button onClick={handleReceive} disabled={submitting} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50">
+                                        <Package size={16} className="inline mr-1" /> Réceptionner le colis
+                                    </button>
+                                )}
                                 {selectedReturn.statut === 'return_received' && (
                                     <button onClick={() => { setShowInspectModal(true); }} className="px-4 py-2 bg-orange-600 text-white rounded-xl text-sm font-medium hover:bg-orange-700 transition">
                                         <Camera size={16} className="inline mr-1" /> Inspection
+                                    </button>
+                                )}
+                                {selectedReturn.statut !== 'resolved' && (
+                                    <button onClick={handleEscalate} disabled={submitting} title="Retour contesté ou responsabilité incertaine" className="px-4 py-2 border border-purple-200 text-purple-700 rounded-xl text-sm font-medium hover:bg-purple-50 transition disabled:opacity-50">
+                                        Escalader au Super Admin
                                     </button>
                                 )}
                                 {selectedReturn.statut === 'return_inspection' && (
@@ -497,7 +569,7 @@ const Returns = () => {
                                     required
                                 >
                                     <option value="refund_client">💰 Rembourser le client</option>
-                                    <option value="reroute_to_seller">🔄 Renvoyer au commerçant</option>
+                                    <option value="renvoyer_commercant">🔄 Renvoyer au commerçant</option>
                                     <option value="reject_return">❌ Rejeter le retour</option>
                                     <option value="partial_refund">💰 Remboursement partiel</option>
                                 </select>

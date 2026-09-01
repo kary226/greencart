@@ -117,7 +117,7 @@ const MesLivraisons = () => {
                                         </div>)}
                                     </div>
                                     {!mine && order.status === 'Confirmed' && <button onClick={() => reserve(order)} className="mt-3 w-full bg-burgundy-600 text-white py-2 rounded-lg">Récupérer cette commande</button>}
-                                    {mine && order.status === 'Ready for Shipment' && <div className="mt-3 text-sm bg-green-50 text-green-700 rounded-lg p-3">Tous les articles sont collectés. Le Seller doit réceptionner le colis et le marquer Expédié.</div>}
+                                    {mine && order.status === 'Ready for Shipment' && <div className="mt-3 text-sm bg-green-50 text-green-700 rounded-lg p-3">Tous les articles sont collectés. Les Opérations doivent réceptionner le colis et le marquer Expédié.</div>}
                                 </div>
                             })}</div>}
                     </>

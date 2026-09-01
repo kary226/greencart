@@ -167,10 +167,19 @@ export const crediterVenteEnAttente = async (order) => {
 export const libererFonds = async (order) => {
     if (!order?.items?.length) return { liberees: 0, montantTotal: 0 };
 
-    // Verrou métier : les fonds ne sont libérables qu'après réception
-    // complète en entrepôt et passage explicite de la commande à Shipped.
-    if (order.status !== 'Shipped') {
-        return { liberees: 0, montantTotal: 0, blocked: true, reason: 'La commande doit être Shipped avant libération.' };
+    // Verrou métier — RAMCI §8, §15. La règle d'éligibilité vit désormais
+    // dans fundsReleaseService : elle est la MÊME ici et dans le contrôleur.
+    // Avant, ce garde-fou ne vérifiait que le statut ; le blocage par litige
+    // n'existait que dans confirmerCommandeAdmin. Tout appel de libererFonds
+    // par un autre chemin libérait donc les fonds d'une commande en litige.
+    //
+    // Import dynamique : fundsReleaseService importe etatConfirmations
+    // depuis ce fichier. Le charger au moment de l'appel évite le cycle
+    // d'imports statiques, sans changer le comportement.
+    const { evaluerEligibilite } = await import('./fundsReleaseService.js');
+    const eligibilite = evaluerEligibilite({ ...order.toObject?.() ?? order, confirmeParAdminLe: null });
+    if (!eligibilite.eligible) {
+        return { liberees: 0, montantTotal: 0, blocked: true, reason: eligibilite.message };
     }
 
     const boutiqueParProduit = await chargerBoutiquesDesProduits(order.items);

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { NOMS_ROLES } from "../configs/roles.js";
 
 /**
  * StaffUser = le compte unique pour toute personne travaillant pour GreenCart.
@@ -31,24 +32,13 @@ const staffUserSchema = new mongoose.Schema({
         default: '',
         trim: true,
     },
-    // [PHASE 1] Rôles étendus
+    // Rôles — liste unique définie dans configs/roles.js (guide RAMCI §3).
+    // Recopier l'énumération ici, c'était garantir qu'elle finisse par
+    // diverger de celle de RolePermission : un rôle acceptable sur un
+    // compte mais inconnu du système de permissions.
     role: {
         type: String,
-        enum: [
-            // Nouveaux rôles granulaires
-            'super_admin',
-            'finance_admin',
-            'warehouse_admin',
-            'logistics_admin',
-            'catalog_admin',
-            'support_admin',
-            'read_only_auditor',
-            // Rôles existants (conservés pour compatibilité)
-            'admin',
-            'commercant',
-            'livreur',
-            'assistant_shein',
-        ],
+        enum: NOMS_ROLES,
         required: true,
     },
     statut: {

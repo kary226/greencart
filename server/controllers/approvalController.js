@@ -4,27 +4,45 @@ import WalletTransaction from '../models/WalletTransaction.js';
 import DemandeRetrait from '../models/DemandeRetrait.js';
 import StaffUser from '../models/StaffUser.js';
 import PushSubscription from '../models/PushSubscription.js';
+import Refund from '../models/Refund.js';
 import { journaliser } from '../services/journalService.js';
 import { sendEmail } from '../configs/email.js';
 import webpush from '../configs/webpush.js';
+import { trancher } from '../services/exceptionApprovalService.js';
+import { executerDecisionEscalade, executerRejetEscalade } from '../services/withdrawalService.js';
+
+/**
+ * EXCEPTIONS  —  Guide RAMCI §12, §13, §19 cas C et D, §20
+ * ========================================================
+ * « Le Super Admin décide ; les équipes exécutent dans leur domaine. »
+ *
+ * Cet écran ne traite plus des opérations normales en attente d'un second
+ * clic. Il ne contient que ce qu'aucune règle ne sait clore (§13). Les
+ * contrôles d'autorité (qui peut trancher, pas sa propre demande, dossier
+ * non expiré) sont dans services/exceptionApprovalService.js, pour être
+ * identiques quel que soit le chemin d'appel.
+ */
 
 // ─── GET /api/admin/approvals ─────────────────────────────────────
 export const listApprovals = async (req, res) => {
     try {
-        const { statut, type } = req.query;
+        const { statut, type, domaine } = req.query;
         const filter = {};
         if (statut) filter.statut = statut;
         if (type) filter.type = type;
+        if (domaine) filter.domaine = domaine;
 
         const approvals = await ApprovalRequest.find(filter)
-            .populate('demandePar', 'nom email')
-            .populate('approuvePar', 'nom email')
+            .populate('demandePar', 'nom email role')
+            .populate('approuvePar', 'nom email role')
             .sort({ createdAt: -1 })
             .limit(100);
 
         return res.status(200).json({
             success: true,
             approvals,
+            // §14 : le Super Admin doit voir d'abord ce qui l'attend.
+            aTrancher: await ApprovalRequest.countDocuments({ statut: 'en_attente' }),
         });
     } catch (error) {
         console.error('Erreur listApprovals:', error.message);
@@ -35,86 +53,29 @@ export const listApprovals = async (req, res) => {
 // ─── POST /api/admin/approvals/:id/approuver ──────────────────────
 export const approuverApproval = async (req, res) => {
     try {
-        const { id } = req.params;
-        const { commentaire } = req.body;
+        const { commentaire, paye = false, reference = '' } = req.body;
 
-        const approval = await ApprovalRequest.findById(id);
-        if (!approval) {
-            return res.status(404).json({ success: false, message: 'Demande introuvable' });
-        }
+        const approval = await ApprovalRequest.findById(req.params.id);
 
-        if (approval.statut !== 'en_attente') {
-            return res.status(409).json({
-                success: false,
-                message: `Cette demande est déjà ${approval.statut}`,
-            });
-        }
-
-        // L'approbateur doit être différent du demandeur
-        if (approval.demandePar.toString() === req.staffUser._id.toString()) {
-            return res.status(403).json({
-                success: false,
-                message: 'Vous ne pouvez pas approuver votre propre demande',
-            });
-        }
-
-        // Vérifier les droits
-        const hasRight = req.staffUser.role === 'super_admin' ||
-            req.staffUser.role === 'finance_admin' ||
-            (req.staffUser.permissions && req.staffUser.permissions.includes('wallet.adjust'));
-        if (!hasRight) {
-            return res.status(403).json({
-                success: false,
-                message: 'Vous n\'avez pas les droits pour approuver cette demande',
-            });
-        }
-
-        // Exécuter l'action selon le type
-        let result;
-        switch (approval.type) {
-            case 'wallet_adjust':
-                result = await executerAjustementWallet(approval.payload, req.staffUser);
-                break;
-            case 'withdrawal':
-                result = await executerApprobationRetrait(approval.payload, req.staffUser);
-                break;
-            default:
-                return res.status(400).json({
-                    success: false,
-                    message: `Type d'approbation non supporté : ${approval.type}`,
-                });
-        }
-
-        // Marquer comme approuvée
-        approval.statut = 'approuvee';
-        approval.approuvePar = req.staffUser._id;
-        approval.decideLe = new Date();
-        approval.commentaire = commentaire || '';
-        await approval.save();
-
-        // Journaliser
-        await journaliser({
-            acteur: {
-                id: req.staffUser._id,
-                nom: req.staffUser.nom,
-                role: req.staffUser.role,
-            },
-            action: 'approval.approuvee',
-            cible: {
-                id: approval._id,
-                libelle: `Demande ${approval.type}`,
-            },
-            note: `Montant: ${approval.montant}, commentaire: ${commentaire || ''}`,
+        const resultat = await trancher({
+            approval,
+            acteur: req.staffUser,
+            decision: 'approuvee',
+            commentaire,
+            executer: (dossier, arbitre) => executerSelonType(dossier, arbitre, { paye, reference }),
         });
 
-        // Notifier le demandeur
-        await notifierDemandeur(approval, 'approuvee');
+        if (!resultat.ok) {
+            return res.status(resultat.code || 400).json({ success: false, message: resultat.message });
+        }
+
+        notifierDemandeur(resultat.approval, 'approuvee').catch(() => {});
 
         return res.status(200).json({
             success: true,
-            message: 'Demande approuvée et exécutée',
-            approval,
-            result,
+            message: 'Exception tranchée — décision appliquée',
+            approval: resultat.approval,
+            result: resultat.resultat,
         });
     } catch (error) {
         console.error('Erreur approuverApproval:', error.message);
@@ -125,92 +86,34 @@ export const approuverApproval = async (req, res) => {
 // ─── POST /api/admin/approvals/:id/rejeter ────────────────────────
 export const rejeterApproval = async (req, res) => {
     try {
-        const { id } = req.params;
         const { commentaire } = req.body;
 
-        const approval = await ApprovalRequest.findById(id);
-        if (!approval) {
-            return res.status(404).json({ success: false, message: 'Demande introuvable' });
-        }
+        const approval = await ApprovalRequest.findById(req.params.id);
 
-        if (approval.statut !== 'en_attente') {
-            return res.status(409).json({
-                success: false,
-                message: `Cette demande est déjà ${approval.statut}`,
-            });
-        }
-
-        // L'approbateur doit être différent du demandeur
-        if (approval.demandePar.toString() === req.staffUser._id.toString()) {
-            return res.status(403).json({
-                success: false,
-                message: 'Vous ne pouvez pas rejeter votre propre demande',
-            });
-        }
-
-        // Vérifier les droits
-        const hasRight = req.staffUser.role === 'super_admin' ||
-            req.staffUser.role === 'finance_admin' ||
-            (req.staffUser.permissions && req.staffUser.permissions.includes('wallet.adjust'));
-        if (!hasRight) {
-            return res.status(403).json({
-                success: false,
-                message: 'Vous n\'avez pas les droits pour rejeter cette demande',
-            });
-        }
-
-        // Annuler les réservations si nécessaire
-        if (approval.type === 'withdrawal') {
-            const wallet = await Wallet.findOne({ ownerId: approval.payload.commercialId });
-            if (wallet) {
-                const demandeRetrait = await DemandeRetrait.findById(approval.payload.demandeRetraitId);
-                if (demandeRetrait && demandeRetrait.statut === 'en_attente') {
-                    // Recréditer
-                    await WalletTransaction.create({
-                        walletId: wallet._id,
-                        type: 'ajustement',
-                        compte: 'disponible',
-                        montant: demandeRetrait.montant,
-                        description: 'Retrait refusé (double approbation) — fonds restitués',
-                        demandeRetraitId: demandeRetrait._id,
-                    });
-                    await wallet.recalculerSoldes();
-                    demandeRetrait.statut = 'rejetee';
-                    demandeRetrait.traitePar = req.staffUser._id;
-                    demandeRetrait.traiteLe = new Date();
-                    await demandeRetrait.save();
-                }
-            }
-        }
-
-        approval.statut = 'rejetee';
-        approval.approuvePar = req.staffUser._id;
-        approval.decideLe = new Date();
-        approval.commentaire = commentaire || 'Demande rejetée';
-        await approval.save();
-
-        // Journaliser
-        await journaliser({
-            acteur: {
-                id: req.staffUser._id,
-                nom: req.staffUser.nom,
-                role: req.staffUser.role,
-            },
-            action: 'approval.rejetee',
-            cible: {
-                id: approval._id,
-                libelle: `Demande ${approval.type}`,
-            },
-            note: `Montant: ${approval.montant}, commentaire: ${commentaire || ''}`,
+        const resultat = await trancher({
+            approval,
+            acteur: req.staffUser,
+            decision: 'rejetee',
+            commentaire: commentaire || 'Demande rejetée',
+            // Un rejet a des conséquences concrètes : un retrait escaladé
+            // qui n'est pas payé doit rendre les fonds réservés au
+            // commerçant. Les laisser réservés, c'est de l'argent gelé sans
+            // décision — le contraire de ce que §8 demande.
+            executer: null,
         });
 
-        // Notifier le demandeur
-        await notifierDemandeur(approval, 'rejetee');
+        if (!resultat.ok) {
+            return res.status(resultat.code || 400).json({ success: false, message: resultat.message });
+        }
+
+        await annulerSelonType(resultat.approval, req.staffUser);
+
+        notifierDemandeur(resultat.approval, 'rejetee').catch(() => {});
 
         return res.status(200).json({
             success: true,
-            message: 'Demande rejetée',
-            approval,
+            message: 'Exception rejetée',
+            approval: resultat.approval,
         });
     } catch (error) {
         console.error('Erreur rejeterApproval:', error.message);
@@ -218,126 +121,140 @@ export const rejeterApproval = async (req, res) => {
     }
 };
 
-// ─── Fonctions internes ────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────
+// Exécution de la décision, par nature d'exception
+// ─────────────────────────────────────────────────────────────────────────
 
-/**
- * Exécute un ajustement de wallet (appelé après approbation)
- */
-const executerAjustementWallet = async (payload, acteur) => {
+const executerSelonType = async (approval, arbitre, options) => {
+    switch (approval.type) {
+        case 'wallet_adjust':
+            return executerAjustementWallet(approval.payload, arbitre);
+
+        case 'withdrawal_escalated':
+        case 'withdrawal':
+            return executerDecisionEscalade(approval, arbitre, options);
+
+        case 'refund_exceptionnel':
+        case 'refund':
+            return executerRemboursementExceptionnel(approval, arbitre);
+
+        // Un retour contesté et un litige se tranchent par une décision
+        // écrite, que les équipes appliquent ensuite dans leur domaine
+        // (§12 étape 8). Rien à exécuter automatiquement ici : forcer une
+        // action mécanique reviendrait à décider à leur place.
+        case 'return_conteste':
+        case 'litige':
+        case 'role_change':
+            return { applique: false, message: 'Décision enregistrée — à exécuter par le domaine concerné' };
+
+        default:
+            throw new Error(`Type d'exception non supporté : ${approval.type}`);
+    }
+};
+
+const annulerSelonType = async (approval, arbitre) => {
+    if (['withdrawal_escalated', 'withdrawal'].includes(approval.type)) {
+        await executerRejetEscalade(approval, arbitre);
+    }
+};
+
+/** Ajustement de portefeuille validé par le Super Admin (§13, §19 cas D). */
+const executerAjustementWallet = async (payload, arbitre) => {
     const { commercialId, montant, description, motif, idempotencyKey } = payload;
+
     const wallet = await Wallet.findOne({ ownerId: commercialId });
-    if (!wallet) {
-        throw new Error('Portefeuille non trouvé');
+    if (!wallet) throw new Error('Portefeuille non trouvé');
+
+    // Idempotence : une décision rejouée ne double pas l'écriture.
+    if (idempotencyKey) {
+        const existante = await WalletTransaction.findOne({ walletId: wallet._id, idempotencyKey });
+        if (existante) return { wallet, transaction: existante, rejeu: true };
     }
 
     const transaction = await WalletTransaction.create({
         walletId: wallet._id,
         type: 'ajustement',
-        montant: montant,
-        description: `Ajustement admin (double approbation) : ${description}`,
+        // Le compte manquait ici : sans lui, la transaction ne tombait dans
+        // aucun des deux soldes du modèle à deux niveaux (§8) et
+        // recalculerSoldes l'ignorait — l'ajustement était écrit mais
+        // n'apparaissait nulle part.
+        compte: 'disponible',
+        montant,
+        description: `Ajustement validé par le Super Admin : ${description}`,
         motif: motif || description,
-        creePar: acteur._id,
-        idempotencyKey: idempotencyKey,
+        creePar: arbitre._id,
+        idempotencyKey: idempotencyKey || null,
     });
 
     await wallet.recalculerSoldes();
 
     await journaliser({
-        acteur: {
-            id: acteur._id,
-            nom: acteur.nom,
-            role: acteur.role,
-        },
+        acteur: { id: arbitre._id, nom: arbitre.nom, role: arbitre.role },
         action: 'wallet.ajustement',
-        cible: {
-            id: commercialId,
-            libelle: `Commerçant ${commercialId}`,
-        },
-        note: `Montant: ${montant}, motif: ${motif} (double approbation)`,
+        cible: { id: commercialId, libelle: `Commerçant ${commercialId}` },
+        note: `Montant: ${montant}, motif: ${motif} (exception tranchée)`,
     });
 
     return { wallet, transaction };
 };
 
-/**
- * Exécute l'approbation d'un retrait (appelé après approbation)
- */
-const executerApprobationRetrait = async (payload, acteur) => {
-    const { demandeRetraitId, reference } = payload;
-    const demande = await DemandeRetrait.findById(demandeRetraitId);
-    if (!demande) {
-        throw new Error('Demande de retrait introuvable');
+/** Remboursement hors règles, autorisé par le Super Admin (§11). */
+const executerRemboursementExceptionnel = async (approval, arbitre) => {
+    const refund = await Refund.findById(approval.payload?.refundId);
+    if (!refund) throw new Error('Remboursement introuvable');
+
+    if (refund.statut !== 'requested') {
+        return { refund, message: `Ce remboursement est déjà ${refund.statut}` };
     }
 
-    if (demande.statut !== 'en_attente') {
-        throw new Error(`La demande est déjà ${demande.statut}`);
-    }
-
-    demande.statut = 'payee';
-    demande.traitePar = acteur._id;
-    demande.traiteLe = new Date();
-    demande.reference = reference || '';
-    await demande.save();
+    refund.statut = 'approved';
+    refund.approuvePar = arbitre._id;
+    refund.approuveLe = new Date();
+    await refund.save();
 
     await journaliser({
-        acteur: {
-            id: acteur._id,
-            nom: acteur.nom,
-            role: acteur.role,
-        },
-        action: 'retrait.approbation',
-        cible: {
-            id: demande._id,
-            libelle: `Demande retrait ${demande._id}`,
-        },
-        note: `Montant: ${demande.montant}, opérateur: ${demande.operateur}, référence: ${reference}`,
+        acteur: { id: arbitre._id, nom: arbitre.nom, role: arbitre.role },
+        action: 'refund.approved',
+        cible: { id: refund._id, libelle: `Remboursement ${refund.refundId}` },
+        note: `Exception tranchée — ${approval.motif}`,
     });
 
-    return { demande };
+    return { refund, message: 'Remboursement autorisé — Finance peut l’exécuter' };
 };
 
-/**
- * Notifie le demandeur par email et push
- */
+// ─────────────────────────────────────────────────────────────────────────
+// Notification du demandeur
+// ─────────────────────────────────────────────────────────────────────────
+
 const notifierDemandeur = async (approval, statut) => {
     try {
         await approval.populate('demandePar', 'email nom');
-        const email = approval.demandePar.email;
-        const nom = approval.demandePar.nom;
+        const demandeur = approval.demandePar;
+        if (!demandeur?.email) return;
 
         const sujet = statut === 'approuvee'
-            ? `✅ Votre demande a été approuvée`
-            : `❌ Votre demande a été rejetée`;
+            ? 'Votre demande d’exception a été acceptée'
+            : 'Votre demande d’exception a été refusée';
 
+        const montant = approval.montant
+            ? ` (${approval.montant.toLocaleString('fr-FR')} FCFA)`
+            : '';
         const message = statut === 'approuvee'
-            ? `Votre demande de ${approval.type} (${approval.montant} FCFA) a été approuvée.`
-            : `Votre demande de ${approval.type} (${approval.montant} FCFA) a été rejetée. Motif : ${approval.commentaire || 'non spécifié'}.`;
+            ? `Le Super Admin a tranché en faveur de votre demande « ${approval.type} »${montant}.`
+            : `Le Super Admin a refusé votre demande « ${approval.type} »${montant}. Motif : ${approval.commentaire || 'non précisé'}.`;
 
-        // Email
-        await sendEmail(email, sujet, `
+        await sendEmail(demandeur.email, sujet, `
             <h2>${sujet}</h2>
-            <p>Bonjour ${nom},</p>
+            <p>Bonjour ${demandeur.nom},</p>
             <p>${message}</p>
-            <p>Connectez-vous pour plus de détails.</p>
         `);
 
-        // Push
-        const subscriptions = await PushSubscription.find({ userId: approval.demandePar._id });
-        for (const sub of subscriptions) {
+        const abonnements = await PushSubscription.find({ userId: demandeur._id });
+        for (const sub of abonnements) {
             try {
                 await webpush.sendNotification(
-                    {
-                        endpoint: sub.endpoint,
-                        keys: {
-                            p256dh: sub.keys.p256dh,
-                            auth: sub.keys.auth,
-                        },
-                    },
-                    JSON.stringify({
-                        title: sujet,
-                        body: message,
-                        icon: '/logo.png',
-                    })
+                    { endpoint: sub.endpoint, keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth } },
+                    JSON.stringify({ title: sujet, body: message, icon: '/logo.png' })
                 );
             } catch (err) {
                 console.error('Erreur push notification:', err.message);
@@ -347,3 +264,6 @@ const notifierDemandeur = async (approval, statut) => {
         console.error('Erreur notification:', error.message);
     }
 };
+
+// Conservé pour compatibilité avec d'éventuels imports existants.
+export { StaffUser };

@@ -33,6 +33,10 @@ import {
     libererReservationsExpirees,
     calculerExpirationReservation,
 } from "../services/collecteService.js";
+// [RAMCI §8, §15] Règle unique d'éligibilité à la libération des fonds.
+import { evaluerEligibilite, etatLiberation } from "../services/fundsReleaseService.js";
+// [RAMCI §5, §15] Table unique des transitions de commande.
+import { transitionner, avancement } from "../services/orderWorkflowService.js";
 import { journaliser } from "../services/journalService.js";
 import { acteurDepuisStaff, acteurVendeurTechnique, acteurDepuisRequete } from "../middlewares/authActeur.js";
 // [FIX] Ce contrôleur importait crediterClient depuis services/customerCreditService.js,
@@ -397,17 +401,40 @@ export const updateOrderStatus = async (req, res) => {
             });
         }
         
-        const updateData = { status };
+        // [RAMCI §5, §15] Cette route écrivait le statut avec un
+        // findByIdAndUpdate direct : AUCUNE transition n'était contrôlée.
+        // Une commande pouvait sauter de « Commande passée » à « Livrée »
+        // sans collecte ni réception — donc sans qu'aucun commerçant ait
+        // confirmé, et avec des fonds réputés libérables. On passe
+        // désormais par la table unique de orderWorkflowService.
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return res.status(404).json({ success: false, message: 'Commande introuvable' });
+        }
+
+        const transition = transitionner({
+            order,
+            vers: status,
+            acteur: req.staffUser,
+            note: 'mise à jour manuelle',
+        });
+        if (!transition.ok) {
+            return res.status(transition.code || 409).json({
+                success: false,
+                message: transition.message,
+                statutActuel: transition.depuis,
+            });
+        }
+
         if (status === 'Delivered') {
-            updateData.deliveredAt = new Date();
+            order.deliveredAt = new Date();
         }
         if (status === 'Returned') {
-            updateData.retourEtat = retourEtat;
-            updateData.retourNote = String(retourNote || '').slice(0, 300) || null;
-            updateData.retourTraiteLe = new Date();
+            order.retourEtat = retourEtat;
+            order.retourNote = String(retourNote || '').slice(0, 300) || null;
+            order.retourTraiteLe = new Date();
         }
-        
-        const order = await Order.findByIdAndUpdate(orderId, updateData);
+        await order.save();
 
         // [ARGENT] Le crédit se fait désormais À LA COMMANDE (solde en
         // attente), plus à la livraison — sinon le commerçant serait payé
@@ -627,7 +654,7 @@ export const terminerCollecte = async (req, res) => {
             status: 'Ready for Shipment'
         });
         if (!order) return res.status(409).json({ success: false, message: 'Tous les articles disponibles ne sont pas encore collectés.' });
-        return res.json({ success: true, message: 'Collecte terminée. Le Seller peut réceptionner le colis.' });
+        return res.json({ success: true, message: 'Collecte terminée. Les Opérations peuvent réceptionner le colis.' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -713,27 +740,43 @@ export const terminerCollecteLivreur = async (req, res) => {
         const { orderId } = req.params;
         const order = await Order.findOne({ _id: orderId, collecteLivreurId: livreurId, status: 'Ready for Shipment' });
         if (!order) return res.status(409).json({ success: false, message: 'Tous les articles disponibles ne sont pas encore collectés.' });
-        return res.json({ success: true, message: 'Collecte terminée. Le Seller peut réceptionner le colis.', order });
+        return res.json({ success: true, message: 'Collecte terminée. Les Opérations peuvent réceptionner le colis.', order });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 };
 
-// Seller : réception de l'entrepôt et passage à Shipped.
-// C'est cette étape qui rend les fonds éligibles à la libération Admin.
-export const sellerMarkShipped = async (req, res) => {
+// RÉCEPTION À L'ENTREPÔT — étape 4 du cycle (§5, §7).
+//
+// §7 : « Opérations réceptionne ; le Super Admin peut intervenir. » C'est
+// cette étape qui rend les fonds éligibles à la libération (§8).
+//
+// Renommée depuis `sellerMarkShipped` : le §0 proscrit le terme « Seller »,
+// et « marquer expédié » décrivait mal l'acte réel, qui est une RÉCEPTION.
+// L'ancien nom reste exporté plus bas pour les imports existants.
+export const receptionnerColis = async (req, res) => {
     try {
         const { orderId } = req.body;
         const order = await Order.findById(orderId);
         if (!order) return res.status(404).json({ success: false, message: 'Commande introuvable.' });
 
-        if (order.status !== 'Ready for Shipment') {
-            return res.status(409).json({ success: false, message: 'La commande doit avoir été entièrement collectée avant expédition.' });
-        }
-
         const actifs = order.items.filter(i => i.availabilityStatus !== 'unavailable');
         if (!actifs.length || !actifs.every(i => i.availabilityStatus === 'collected')) {
             return res.status(409).json({ success: false, message: 'Tous les articles disponibles doivent être collectés.' });
+        }
+
+        const transition = transitionner({
+            order,
+            vers: 'Shipped',
+            acteur: req.staffUser,
+            note: 'réception entrepôt',
+        });
+        if (!transition.ok) {
+            return res.status(transition.code || 409).json({
+                success: false,
+                message: transition.message,
+                statutActuel: transition.depuis,
+            });
         }
 
         // [FIX] Sans ceci, la commande devient invisible pour le livreur qui
@@ -743,7 +786,6 @@ export const sellerMarkShipped = async (req, res) => {
         // circuit de collecte qui ne renseigne que `collecteLivreurId`. Sans
         // cette ligne, le colis passe Shipped puis disparaît de tous les
         // écrans livreur — plus personne ne peut le livrer.
-        order.status = 'Shipped';
         order.shippedAt = new Date();
         order.shippedBy = req.staffUser?._id || null;
         if (!order.livreurId && order.collecteLivreurId) {
@@ -753,12 +795,16 @@ export const sellerMarkShipped = async (req, res) => {
 
         return res.json({ success: true, message: 'Commande reçue en entrepôt et marquée Expédiée.' });
     } catch (error) {
-        console.error('Erreur sellerMarkShipped:', error.message);
+        console.error('Erreur receptionnerColis:', error.message);
         res.status(500).json({ success: false, message: error.message });
     }
 };
 
-// [NOUVEAU] Seller : confirme avoir physiquement remis le colis au livreur
+// Alias de compatibilité : les routes et scripts existants importent
+// encore `sellerMarkShipped`. Migration progressive demandée par le §17.2.
+export const sellerMarkShipped = receptionnerColis;
+
+// Opérations : confirme avoir physiquement remis le colis au livreur
 // assigné, juste avant que celui-ci ne parte livrer. Sans cette étape, un
 // livreur pouvait déclarer "En livraison" (updateLivraisonStatus) sur sa
 // seule parole, sans qu'aucune confirmation ne prouve qu'il avait
@@ -803,8 +849,8 @@ export const confirmerRemiseLivreur = async (req, res) => {
     }
 };
 
-// [NOUVEAU] Seller : file des colis Expédiés en attente d'être remis à leur
-// livreur — pour construire l'écran "à remettre" côté Seller.
+// Opérations : file des colis Expédiés en attente d'être remis à leur
+// livreur — pour construire l'écran "à remettre" côté Opérations.
 export const listCommandesARemettre = async (req, res) => {
     try {
         const orders = await Order.find({
@@ -932,7 +978,7 @@ export const updateLivraisonStatus = async (req, res) => {
         }
 
         // [NOUVEAU] Le livreur ne peut plus déclarer "En livraison" sur sa
-        // seule parole : il faut que le Seller ait explicitement confirmé
+        // seule parole : il faut que les Opérations aient explicitement confirmé
         // la remise physique du colis (voir confirmerRemiseLivreur). Avant
         // cet ajout, rien ne garantissait qu'il avait vraiment le colis en
         // main au moment de passer ce statut.
@@ -946,7 +992,7 @@ export const updateLivraisonStatus = async (req, res) => {
             if (!order.remiseLivreurConfirmee) {
                 return res.status(409).json({
                     success: false,
-                    message: "Le Seller n'a pas encore confirmé vous avoir remis ce colis.",
+                    message: "Les Opérations n'ont pas encore confirmé vous avoir remis ce colis.",
                 });
             }
         }
@@ -1482,24 +1528,17 @@ export const confirmerCommandeAdmin = async (req, res) => {
         const order = await Order.findById(orderId);
         if (!order) return res.status(404).json({ success: false, message: 'Commande introuvable' });
 
-        if (order.confirmeParAdminLe) {
-            return res.status(409).json({ success: false, message: 'Cette commande a déjà été validée' });
-        }
-
-        if (order.status !== 'Shipped') {
+        // [RAMCI §8, §15] Règle unique d'éligibilité — voir
+        // services/fundsReleaseService.js. Ces quatre contrôles (déjà
+        // libéré, litige, réception, confirmations manquantes) étaient
+        // recopiés ici en partie seulement : les confirmations boutique
+        // n'étaient pas vérifiées à ce niveau.
+        const eligibilite = evaluerEligibilite(order);
+        if (!eligibilite.eligible) {
             return res.status(409).json({
                 success: false,
-                message: 'Les fonds ne peuvent être libérés qu’après réception du colis et passage à Expédiée par le Seller.'
-            });
-        }
-
-        // [NOUVEAU] doc §15 : « un litige bloque la libération s'il est
-        // déclaré avant Shipped ». Verrou financier de dernier recours,
-        // indépendant du statut logistique.
-        if (order.litige?.enCours) {
-            return res.status(409).json({
-                success: false,
-                message: 'Un litige est en cours sur cette commande — libération bloquée jusqu’à sa résolution.',
+                message: eligibilite.message,
+                motif: eligibilite.motif,
             });
         }
 

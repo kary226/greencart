@@ -31,6 +31,10 @@ const OPERATEUR_COULEURS = {
 const STATUT_CONFIG = {
     en_attente: { label: 'À traiter', className: 'bg-warn-50 text-warn-500', icon: Clock },
     en_cours: { label: 'Virement en cours', className: 'bg-blue-100 text-blue-700', icon: Send },
+    // [RAMCI §9] L'escalade remplace la double validation par seuil : un
+    // dossier n'est remonté que si quelqu'un le juge suspect, incohérent ou
+    // contesté — jamais parce que le montant est élevé.
+    escalade: { label: 'Chez le Super Admin', className: 'bg-purple-100 text-purple-700', icon: ShieldAlert },
     payee: { label: 'Payée', className: 'bg-ok-50 text-ok-500', icon: CheckCircle2 },
     rejetee: { label: 'Rejetée', className: 'bg-ink-100 text-ink-500', icon: XCircle },
 };
@@ -39,6 +43,7 @@ const ONGLETS_STATUT = [
     { value: '', label: 'Toutes' },
     { value: 'en_attente', label: 'À traiter' },
     { value: 'en_cours', label: 'En cours' },
+    { value: 'escalade', label: 'Escaladées' },
     { value: 'payee', label: 'Payées' },
     { value: 'rejetee', label: 'Rejetées' },
 ];
@@ -188,9 +193,21 @@ const AdminRetraits = () => {
     useEffect(() => {
         (async () => {
             try {
-                const { data } = await axios.get('/api/staff/is-auth');
-                if (data.success && ['admin', 'super_admin'].includes(data.staffUser?.role)) {
-                    setMoi(data.staffUser);
+                // [RAMCI §16] « Le rôle décrit la personne ; la permission
+                // décrit l'action. » Cet écran testait `role in
+                // ['admin','super_admin']` : un Admin Finance — précisément
+                // le rôle chargé des retraits au §9 — se voyait refuser
+                // l'accès à sa propre page, alors que le backend le laissait
+                // passer. On demande donc les droits réels au serveur.
+                const { data } = await axios.get('/api/console/mes-droits');
+                const droits = data.permissions || [];
+                const peutVoir = data.estArbitre
+                    || droits.includes('admin.all')
+                    || droits.includes('withdrawals.view')
+                    || droits.includes('wallet.view');
+
+                if (data.success && peutVoir) {
+                    setMoi(data);
                     setAuthorized(true);
                 } else {
                     setAuthorized(false);
@@ -212,6 +229,30 @@ const AdminRetraits = () => {
             const { data } = await axios.patch(`/api/retraits/${demande._id}`, { statut: 'en_cours' });
             if (data.success) {
                 toast.success('Virement marqué en cours — tu peux maintenant l\'exécuter dans ton app Mobile Money / Jèko Business');
+                charger();
+            } else {
+                toast.error(data.message);
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || error.message);
+        }
+    };
+
+    // [RAMCI §9] Remonter un dossier au Super Admin. Le motif est
+    // obligatoire côté serveur : sans lui, l'escalade redeviendrait un
+    // réflexe de confort et le Super Admin se retrouverait à valider des
+    // retraits ordinaires — le travers que §13 supprime.
+    const escalader = async (demande) => {
+        const motif = window.prompt(
+            'Pourquoi ce dossier sort-il des règles normales ?\n'
+            + '(suspect, incohérent, contesté… — 10 caractères minimum)'
+        );
+        if (motif === null) return;
+
+        try {
+            const { data } = await axios.post(`/api/retraits/${demande._id}/escalader`, { motif });
+            if (data.success) {
+                toast.success(data.message);
                 charger();
             } else {
                 toast.error(data.message);
@@ -274,7 +315,10 @@ const AdminRetraits = () => {
 
     return (
         <div className="min-h-screen bg-ink-50">
-            <AdminNav titre="Retraits" sousTitre={`${moi?.nom} · Administrateur`} />
+            {/* [RAMCI §0] Le sous-titre affichait « Administrateur » pour tout le
+                monde. Le libellé vient maintenant du rôle réel — un Admin
+                Finance se voit comme tel, et personne ne lit « Seller ». */}
+            <AdminNav titre="Retraits" sousTitre={`${moi?.nom || ""} · ${moi?.roleLibelle || ""}`} />
 
             <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
                 {/* Chiffres clés */}
@@ -360,6 +404,9 @@ const AdminRetraits = () => {
                                                 <button onClick={() => demarrerVirement(d)} className="px-3.5 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition">
                                                     Démarrer le virement
                                                 </button>
+                                                <button onClick={() => escalader(d)} title="Dossier suspect, incohérent ou contesté" className="px-3.5 py-2 rounded-xl border border-purple-200 text-purple-700 text-sm font-medium hover:bg-purple-50 transition">
+                                                    Escalader
+                                                </button>
                                                 <button onClick={() => setModale({ demande: d, mode: 'rejetee' })} className="px-3.5 py-2 rounded-xl border border-ink-200 text-sm font-medium hover:bg-ink-50 transition">
                                                     Rejeter
                                                 </button>
@@ -370,10 +417,22 @@ const AdminRetraits = () => {
                                                 <button onClick={() => setModale({ demande: d, mode: 'payee' })} className="px-3.5 py-2 rounded-xl bg-ok-500 text-white text-sm font-medium hover:bg-ok-600 transition">
                                                     Marquer payé
                                                 </button>
+                                                <button onClick={() => escalader(d)} title="Dossier suspect, incohérent ou contesté" className="px-3.5 py-2 rounded-xl border border-purple-200 text-purple-700 text-sm font-medium hover:bg-purple-50 transition">
+                                                    Escalader
+                                                </button>
                                                 <button onClick={() => setModale({ demande: d, mode: 'rejetee' })} className="px-3.5 py-2 rounded-xl border border-ink-200 text-sm font-medium hover:bg-ink-50 transition">
                                                     Rejeter
                                                 </button>
                                             </>
+                                        )}
+                                        {/* Un dossier escaladé attend le Super Admin : le
+                                            backend refuse toute action de Finance dessus,
+                                            l'écran ne doit donc pas proposer de boutons. */}
+                                        {d.statut === 'escalade' && (
+                                            <span className="text-xs text-purple-700 text-right max-w-[12rem]">
+                                                En attente de la décision du Super Admin
+                                                {d.escalade?.motif && <span className="block text-ink-400 mt-0.5">« {d.escalade.motif} »</span>}
+                                            </span>
                                         )}
                                     </div>
                                 </div>

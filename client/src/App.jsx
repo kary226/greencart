@@ -33,6 +33,8 @@ const StaffLogin = lazy(() => import('./pages/staff/StaffLogin'));
 
 // Pages admin unifiées (Phase 3)
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
+// [RAMCI §14] Console : ce que le compte connecté doit faire maintenant.
+const AdminConsole = lazy(() => import('./pages/admin/Console'));
 const AdminProducts = lazy(() => import('./pages/admin/Products'));
 const AddProduct = lazy(() => import('./pages/seller/AddProduct'));
 const AdminOrders = lazy(() => import('./pages/admin/Orders'));
@@ -219,8 +221,11 @@ const App = () => {
             {/* ─── [PHASE 3 + 4 + 5 + 6] SUPER ADMIN ──────────────────── */}
             <Route path='/staff/login' element={<StaffLogin />} />
             <Route path='/admin' element={<SuperAdminLayout />}>
-              {/* Phase 3 */}
-              <Route index element={<AdminDashboard />} />
+              {/* [RAMCI §14] La console est la page d'accueil : on arrive sur
+                  « ce qu'il y a à faire », pas sur des chiffres. Le tableau
+                  de bord reste accessible pour le pilotage. */}
+              <Route index element={<AdminConsole />} />
+              <Route path='console' element={<AdminConsole />} />
               <Route path='dashboard' element={<AdminDashboard />} />
               <Route path='products' element={<AdminProducts />} />
               <Route path='products/add' element={<AddProduct />} />
@@ -240,6 +245,9 @@ const App = () => {
               <Route path='boutiques' element={<AdminBoutiques />} />
               <Route path='audit' element={<AdminJournal />} />
               <Route path='withdrawals' element={<AdminRetraits />} />
+              {/* Alias français : les liens de la console et du guide
+                  parlent de « retraits », pas de « withdrawals ». */}
+              <Route path='retraits' element={<AdminRetraits />} />
 
               {/* Phase 4 */}
               <Route path='warehouse' element={<AdminWarehouse />} />

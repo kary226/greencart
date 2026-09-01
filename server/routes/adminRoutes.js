@@ -1,7 +1,7 @@
 import express from 'express';
 import { upload } from '../configs/multer.js';
 import authStaff from '../middlewares/authStaff.js';
-import { requirePermission } from '../middlewares/permission.js';
+import { requirePermission, requireAnyPermission } from '../middlewares/permission.js';
 
 // ─── Contrôleurs Phase 4 (Entrepôt & Retours) ──────────────────────────
 
@@ -14,9 +14,12 @@ import {
 import {
     listReturns,
     getReturnById,
+    openReturn,
+    receiveReturn,
     inspectReturn,
     resolveReturn,
     rejectReturn,
+    escalateReturn,
 } from '../controllers/returnController.js';
 
 // ─── Contrôleurs Phase 5 (Remboursements) ──────────────────────────────
@@ -160,11 +163,39 @@ adminRouter.get(
     getReturnById
 );
 
+// [RAMCI §10] Ouverture d'un retour par Support — étape absente jusqu'ici :
+// le ReturnCase n'était créé par aucune route staff, alors que §10 place
+// Support en tête du flux.
+adminRouter.post(
+    '/returns',
+    authStaff,
+    requireAnyPermission(['disputes.open', 'returns.view', 'clients.edit']),
+    openReturn
+);
+
+// [RAMCI §10] Réception physique du colis retourné — Opérations.
+adminRouter.post(
+    '/returns/:id/receive',
+    authStaff,
+    requireAnyPermission(['returns.inspect', 'warehouse.scan']),
+    receiveReturn
+);
+
 adminRouter.post(
     '/returns/:id/inspect',
     authStaff,
     requirePermission('returns.inspect'),
     inspectReturn
+);
+
+// [RAMCI §10, §12, §19 cas C] Escalade d'un retour contesté au Super Admin.
+// Tout domaine qui voit le dossier peut le remonter ; seul le Super Admin
+// tranche (voir approvalRoute).
+adminRouter.post(
+    '/returns/:id/escalader',
+    authStaff,
+    requireAnyPermission(['exceptions.request', 'returns.view']),
+    escalateReturn
 );
 
 adminRouter.post(

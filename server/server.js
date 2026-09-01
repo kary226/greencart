@@ -44,6 +44,8 @@ import metricsRouter from './routes/metricsRoute.js';
 
 // 🔵 ROUTE ADMIN UNIFIÉE (TOUT LE RESTE)
 import adminRouter from './routes/adminRoutes.js';
+// [RAMCI 14] Console : ce que le compte connecte doit faire maintenant.
+import consoleRouter from './routes/consoleRoute.js';
 
 // Middlewares
 import requestMetrics from './middlewares/requestMetrics.js';
@@ -120,6 +122,7 @@ app.use('/api/journal', journalRouter);
 app.use('/api/message-colis', messageColisRouter);
 
 // 🔵 ROUTES COMMERCANT / LIVREUR / ASSISTANT (hors console admin)
+app.use('/api/console', consoleRouter);
 app.use('/api/wallet', walletRouter);
 app.use('/api/retraits', retraitRouter);
 

@@ -41,8 +41,25 @@ const journalActionSchema = new mongoose.Schema({
             'commande.assignation_livreur',
             // [PHASE 0] Nouvelles actions sensibles (gouvernance financière et comptes)
             'wallet.ajustement',
+            'retrait.demande',
+            'retrait.en_cours',
             'retrait.approbation',
             'retrait.rejet',
+            // [RAMCI §9] L'escalade remplace la double validation par seuil :
+            // c'est désormais un acte tracé, avec un auteur et un motif,
+            // là où un dépassement de seuil ne disait rien de personne.
+            'retrait.escalade',
+            // [RAMCI §13] Ouverture d'une exception — le pendant « demande »
+            // de approval.approuvee / approval.rejetee, qui n'existait pas :
+            // on savait qui avait tranché, jamais qui avait remonté.
+            'exception.ouverte',
+            // [RAMCI §5, §15] Transitions de commande refusées/forcées.
+            'commande.transition',
+            'commande.transition_refusee',
+            // [RAMCI §10] Cycle de retour de bout en bout.
+            'returns.ouverture',
+            'returns.reception',
+            'returns.escalade',
             'staff.statut',
             'staff.role',
             'staff.suppression',

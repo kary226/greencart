@@ -134,7 +134,7 @@ export const addProduct = async (req, res) => {
         }
 
         // NOUVEAU MODÈLE : le catalogue et les prix sont exclusivement gérés
-        // par le Seller/Admin. Le Commerçant ne crée plus aucun produit.
+        // par le Super Admin. Le Commerçant ne crée plus aucun produit.
         // Cette vérification reste volontairement dans le contrôleur en plus
         // de la restriction des routes : une ancienne route oubliée ne doit
         // jamais permettre de recréer le parcours commerçant.
@@ -142,7 +142,7 @@ export const addProduct = async (req, res) => {
             return res.status(403).json({
                 success: false,
                 creationNonAutorisee: true,
-                message: "Les produits sont créés et tarifés exclusivement par le Seller.",
+                message: "Les produits sont créés et tarifés exclusivement par le Super Admin.",
             });
         }
 
@@ -342,11 +342,11 @@ export const addProductImages = async (req, res) => {
         }
 
         // NOUVEAU MODÈLE : les médias font partie de la fiche catalogue et
-        // sont donc gérés uniquement par Seller/Admin.
+        // sont donc gérés uniquement par le Super Admin.
         if (req.staffUser?.role === 'commercant') {
             return res.status(403).json({
                 success: false,
-                message: "Les images des produits sont gérées exclusivement par le Seller.",
+                message: "Les images des produits sont gérées exclusivement par le Super Admin.",
             });
         }
 
@@ -767,7 +767,7 @@ export const updateProduct = async (req, res) => {
         if (acteurProduit?.role === 'commercant') {
             return res.status(403).json({
                 success: false,
-                message: "Le produit et son prix sont gérés exclusivement par le Seller.",
+                message: "Le produit et son prix sont gérés exclusivement par le Super Admin.",
             });
         }
 
@@ -955,7 +955,7 @@ export const deleteProduct = async (req, res) => {
         if (req.staffUser?.role === 'commercant') {
             return res.status(403).json({
                 success: false,
-                message: "La suppression des produits est réservée au Seller/Admin.",
+                message: "La suppression des produits est réservée au Super Admin.",
             });
         }
 
@@ -1064,7 +1064,7 @@ export const unarchiveProduct = async (req, res) => {
         if (req.staffUser?.role === 'commercant') {
             return res.status(403).json({
                 success: false,
-                message: "La restauration des produits est réservée au Seller/Admin.",
+                message: "La restauration des produits est réservée au Super Admin.",
             });
         }
 

@@ -7,7 +7,7 @@ import { Menu, X as CloseIcon, LogOut } from "lucide-react";
 /**
  * SuperAdminLayout – Layout unifié de la console d'administration.
  *
- * Fusion des anciens espaces seller et staff/admin.
+ * Fusion des anciens espaces commerçant central et staff/admin.
  * Les permissions sont chargées depuis le serveur (authStaff + loadPermissions)
  * et le menu s'adapte dynamiquement.
  *
@@ -55,14 +55,30 @@ const SuperAdminLayout = () => {
         fetchStaff();
     }, []);
 
-    // Vérifier si l'utilisateur a une permission donnée
+    // Vérifier si l'utilisateur a une permission donnée.
+    //
+    // [RAMCI §1, §16] Le bypass ne testait que le rôle littéral
+    // 'super_admin'. Un compte de rôle historique 'admin', pourtant porteur
+    // de 'admin.all' (donc autorisé par le backend), voyait un menu presque
+    // vide : les pages lui étaient accessibles, mais aucun lien ne s'affichait
+    // pour y aller. Même règle des deux côtés désormais — voir
+    // server/middlewares/permission.js.
     const hasAccess = (permission) => {
-        if (staffUser?.role === 'super_admin') return true;
+        if (staffUser?.role === 'super_admin' || staffUser?.role === 'admin') return true;
+        if (permissions.includes('admin.all')) return true;
         return permissions.includes(permission);
     };
 
     // Structure du menu avec permissions
     const menuSections = [
+        {
+            // [RAMCI §14] En tête du menu : « ce qu'il doit faire maintenant »
+            // passe avant les chiffres de pilotage.
+            title: "À faire",
+            icon: "✅",
+            path: "/admin/console",
+            visible: true,
+        },
         {
             title: "Tableau de bord",
             icon: "📊",

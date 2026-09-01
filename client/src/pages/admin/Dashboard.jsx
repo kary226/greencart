@@ -227,7 +227,7 @@ const Dashboard = () => {
                         <div><p className="text-xs text-gray-500">Couverture d'audit</p><p className="text-lg font-bold text-gray-900">{kpis.couvertureAudit}%</p></div>
                         <div><p className="text-xs text-gray-500">Délai moyen d'approbation</p><p className="text-lg font-bold text-gray-900">{kpis.delaiMoyen}</p></div>
                         <div><p className="text-xs text-gray-500">Taux de rétention client</p><p className="text-lg font-bold text-gray-900">{kpis.retentionRate}%</p></div>
-                        <div><p className="text-xs text-gray-500">Routes seller restantes</p><p className="text-lg font-bold text-gray-900">{kpis.resteAMigrer}</p></div>
+                        <div><p className="text-xs text-gray-500">Routes héritées restantes</p><p className="text-lg font-bold text-gray-900">{kpis.resteAMigrer}</p></div>
                     </div>
                 </div>
             )}

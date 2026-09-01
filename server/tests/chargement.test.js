@@ -40,10 +40,14 @@ for (const chemin of ROUTEURS) {
 
 test('chargement | middlewares d_authentification | exposent leurs fonctions', async () => {
     // Act
-    const [staff, acteur, vendeur, boutiqueActive] = await Promise.all([
+    // [RAMCI §2, §17.2] authSeller.js a disparu avec la migration
+    // Seller -> staff, mais ce test l'importait encore : la suite était
+    // rouge en permanence, donc plus personne ne lisait ses échecs. Un
+    // vestige de nommage qui coûtait la confiance dans les tests entiers.
+    const [staff, acteur, permission, boutiqueActive] = await Promise.all([
         import('../middlewares/authStaff.js'),
         import('../middlewares/authActeur.js'),
-        import('../middlewares/authSeller.js'),
+        import('../middlewares/permission.js'),
         import('../middlewares/requireBoutiqueActive.js'),
     ]);
 
@@ -52,7 +56,8 @@ test('chargement | middlewares d_authentification | exposent leurs fonctions', a
     assert.equal(typeof staff.requireRole, 'function');
     assert.equal(typeof acteur.default, 'function');
     assert.equal(typeof acteur.requireRoleActeur, 'function');
-    assert.equal(typeof vendeur.default, 'function');
+    assert.equal(typeof permission.requirePermission, 'function');
+    assert.equal(typeof permission.requireArbitre, 'function');
     assert.equal(typeof boutiqueActive.default, 'function');
 });
 

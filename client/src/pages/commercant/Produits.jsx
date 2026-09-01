@@ -71,18 +71,18 @@ const Produits = () => {
                 </div>
                 <span
                     className="flex items-center gap-2 bg-ink-100 text-ink-500 px-4 py-2.5 rounded-xl text-sm font-medium"
-                    title="Les produits et leurs prix sont gérés exclusivement par le Seller."
+                    title="Les produits et leurs prix sont gérés exclusivement par le Super Admin."
                 >
-                    Catalogue géré par le Seller
+                    Catalogue géré par le Super Admin
                 </span>
             </div>
 
             {boutique && boutique.statut !== 'suspendue' && (
                 <div className="mb-6 rounded-2xl border border-ink-200 bg-ink-50 px-4 py-3 text-sm">
-                    <p className="font-medium text-ink-800">Produits gérés par le Seller</p>
+                    <p className="font-medium text-ink-800">Produits gérés par le Super Admin</p>
                     <p className="text-ink-500 mt-0.5">
                         Vous pouvez consulter les articles de votre boutique et ajuster leurs quantités.
-                        La création, le prix, les images et la suppression des produits sont gérés exclusivement par le Seller/Admin.
+                        La création, le prix, les images et la suppression des produits sont gérés exclusivement par le Super Admin.
                     </p>
                 </div>
             )}
@@ -121,7 +121,7 @@ const Produits = () => {
                     <Package className="mx-auto text-ink-300 mb-3" size={40} />
                     <h3 className="text-base font-medium text-ink-800">Aucun produit</h3>
                     <p className="text-sm text-ink-400 mt-1">Aucun article n'est actuellement affecté à votre boutique.</p>
-                    <p className="text-xs text-ink-400 mt-2">Le Seller/Admin doit affecter les produits à votre boutique.</p>
+                    <p className="text-xs text-ink-400 mt-2">Le Super Admin doit affecter les produits à votre boutique.</p>
                 </div>
             ) : (
                 <>

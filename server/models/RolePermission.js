@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { NOMS_ROLES } from "../configs/roles.js";
 
 /**
  * Modèle central des permissions associées à chaque rôle.
@@ -14,22 +15,8 @@ const rolePermissionSchema = new mongoose.Schema({
         type: String,
         required: true,
         unique: true,
-        // Liste des rôles possibles (nouveaux + existants)
-        enum: [
-            // Nouveaux rôles introduits par la Phase 1
-            'super_admin',         // tous les droits, remplace le compte 'seller' à terme
-            'finance_admin',       // portefeuilles, retraits, remboursements, RCOINS
-            'warehouse_admin',     // entrepôt, scans, retours
-            'logistics_admin',     // livraisons, livreurs, zones
-            'catalog_admin',       // produits, bannières, catégories, coupons
-            'support_admin',       // clients, commandes (lecture + actions limitées), litiges
-            'read_only_auditor',   // lecture/export sur tous les modules
-            // Rôles existants (conservés pour compatibilité)
-            'admin',               // sera progressivement remplacé par les nouveaux rôles
-            'commercant',
-            'livreur',
-            'assistant_shein',
-        ],
+        // Liste unique : configs/roles.js (guide RAMCI §3, §16).
+        enum: NOMS_ROLES,
     },
     permissions: {
         type: [String],

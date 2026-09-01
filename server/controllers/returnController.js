@@ -1,10 +1,19 @@
 import ReturnCase from '../models/ReturnCase.js';
-import WarehouseScan from '../models/WarehouseScan.js';
-import Order from '../models/Order.js';
-import Refund from '../models/Refund.js';
-import { traiterRetourColis } from '../services/walletService.js';
 import { journaliser } from '../services/journalService.js';
-import { v4 as uuidv4 } from 'uuid';
+import {
+    ouvrirRetour,
+    avancerRetour,
+    resoudreRetour,
+    escaladerRetour,
+} from '../services/returnWorkflowService.js';
+
+/**
+ * RETOURS  —  Guide RAMCI §10, §12
+ * ================================
+ * Le contrôleur ne fait que traduire HTTP vers le métier : toute la règle
+ * (transitions, séparation Opérations/Finance, escalade) vit dans
+ * services/returnWorkflowService.js — §15, « retour de bout en bout ».
+ */
 
 /**
  * Récupère tous les retours (filtrés par statut).
@@ -74,61 +83,103 @@ export const getReturnById = async (req, res) => {
 };
 
 /**
- * Passe un retour à l'étape d'inspection.
- * POST /api/admin/returns/:id/inspect
+ * OUVERTURE D'UN RETOUR — Support (§10).
+ * POST /api/admin/returns
+ *
+ * Étape qui manquait : le ReturnCase n'était créé par aucune route staff.
+ * §10 place pourtant Support en tête du flux — « enregistre la demande et
+ * rassemble les informations ».
  */
-export const inspectReturn = async (req, res) => {
+export const openReturn = async (req, res) => {
     try {
-        const { id } = req.params;
-        const { etat, note, photos } = req.body;
+        const { orderId, motif, itemIds, boutiqueId } = req.body;
+        if (!orderId) {
+            return res.status(400).json({ success: false, message: 'orderId est requis' });
+        }
 
-        const returnCase = await ReturnCase.findById(id);
+        const resultat = await ouvrirRetour({
+            orderId,
+            acteur: req.staffUser,
+            motif,
+            itemIds: itemIds || [],
+            boutiqueId: boutiqueId || null,
+        });
+
+        if (!resultat.ok) {
+            return res.status(resultat.code || 400).json({
+                success: false,
+                message: resultat.message,
+                ...(resultat.retour ? { return: resultat.retour } : {}),
+            });
+        }
+
+        return res.status(201).json({ success: true, message: resultat.message, return: resultat.retour });
+    } catch (error) {
+        console.error('Erreur openReturn:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+/**
+ * RÉCEPTION DU COLIS RETOURNÉ — Opérations (§10).
+ * POST /api/admin/returns/:id/receive
+ *
+ * Photo obligatoire : c'est la seule preuve opposable de l'état constaté le
+ * jour où le commerçant conteste la reprise d'argent.
+ */
+export const receiveReturn = async (req, res) => {
+    try {
+        const { note, photos } = req.body;
+        const returnCase = await ReturnCase.findById(req.params.id);
         if (!returnCase) {
             return res.status(404).json({ success: false, message: 'Retour non trouvé' });
         }
 
-        if (returnCase.statut !== 'return_received') {
-            return res.status(409).json({
-                success: false,
-                message: `Le retour doit être au statut 'return_received' (actuel: ${returnCase.statut})`,
-            });
-        }
-
-        // Créer un scan d'inspection
-        const scan = await WarehouseScan.create({
-            orderId: returnCase.orderId,
-            boutiqueId: returnCase.boutiqueId || null,
-            type: 'retour_inspection',
-            scannePar: req.staffUser._id,
+        const resultat = await avancerRetour({
+            retour: returnCase,
+            acteur: req.staffUser,
+            vers: 'return_received',
+            note,
             photos: photos || [],
-            note: note || `Inspection: ${etat}`,
         });
 
-        // Mettre à jour le ReturnCase
-        returnCase.statut = 'return_inspection';
-        if (!returnCase.scans.includes(scan._id)) {
-            returnCase.scans.push(scan._id);
+        if (!resultat.ok) {
+            return res.status(resultat.code || 400).json({ success: false, message: resultat.message });
         }
-        returnCase.responsabilite = 'non_determinee';
-        await returnCase.save();
 
-        await journaliser({
-            acteur: {
-                id: req.staffUser._id,
-                nom: req.staffUser.nom,
-                role: req.staffUser.role,
-            },
-            action: 'returns.inspect',
-            cible: { id: returnCase._id, libelle: `Retour ${returnCase._id}` },
-            note: `Inspection : ${etat}`,
+        return res.status(200).json({ success: true, message: resultat.message, return: resultat.retour });
+    } catch (error) {
+        console.error('Erreur receiveReturn:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+/**
+ * INSPECTION — Opérations (§10).
+ * POST /api/admin/returns/:id/inspect
+ */
+export const inspectReturn = async (req, res) => {
+    try {
+        const { etat, note, photos } = req.body;
+        const returnCase = await ReturnCase.findById(req.params.id);
+        if (!returnCase) {
+            return res.status(404).json({ success: false, message: 'Retour non trouvé' });
+        }
+
+        const resultat = await avancerRetour({
+            retour: returnCase,
+            acteur: req.staffUser,
+            vers: 'return_inspection',
+            note,
+            photos: photos || [],
+            etat,
         });
 
-        return res.status(200).json({
-            success: true,
-            message: 'Retour passé en inspection',
-            return: returnCase,
-            scan,
-        });
+        if (!resultat.ok) {
+            return res.status(resultat.code || 400).json({ success: false, message: resultat.message });
+        }
+
+        return res.status(200).json({ success: true, message: resultat.message, return: resultat.retour });
     } catch (error) {
         console.error('Erreur inspectReturn:', error.message);
         res.status(500).json({ success: false, message: error.message });
@@ -136,12 +187,40 @@ export const inspectReturn = async (req, res) => {
 };
 
 /**
- * Résout un retour (décision finale).
+ * ESCALADE AU SUPER ADMIN — §10, §12, §19 cas C.
+ * POST /api/admin/returns/:id/escalader
+ */
+export const escalateReturn = async (req, res) => {
+    try {
+        const { motif } = req.body;
+        const returnCase = await ReturnCase.findById(req.params.id);
+        if (!returnCase) {
+            return res.status(404).json({ success: false, message: 'Retour non trouvé' });
+        }
+
+        const resultat = await escaladerRetour({ retour: returnCase, acteur: req.staffUser, motif });
+        if (!resultat.ok) {
+            return res.status(resultat.code || 400).json({ success: false, message: resultat.message });
+        }
+
+        return res.status(202).json({
+            success: true,
+            message: resultat.message,
+            return: resultat.retour,
+            approvalRequestId: resultat.approval._id,
+        });
+    } catch (error) {
+        console.error('Erreur escalateReturn:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+/**
+ * RÉSOLUTION — Opérations décide, Finance exécutera (§10).
  * POST /api/admin/returns/:id/resolve
  */
 export const resolveReturn = async (req, res) => {
     try {
-        const { id } = req.params;
         const {
             resolution,
             responsabilite,
@@ -152,107 +231,35 @@ export const resolveReturn = async (req, res) => {
             noteClient,
         } = req.body;
 
-        const returnCase = await ReturnCase.findById(id);
+        const returnCase = await ReturnCase.findById(req.params.id);
         if (!returnCase) {
             return res.status(404).json({ success: false, message: 'Retour non trouvé' });
         }
 
-        if (returnCase.statut === 'resolved') {
-            return res.status(409).json({
-                success: false,
-                message: 'Ce retour est déjà résolu',
-            });
-        }
-
-        const validResolutions = ['refund_client', 'reroute_to_seller', 'reject_return', 'partial_refund'];
-        if (!validResolutions.includes(resolution)) {
-            return res.status(400).json({
-                success: false,
-                message: `Résolution invalide. Options: ${validResolutions.join(', ')}`,
-            });
-        }
-
-        // Récupérer la commande
-        const order = await Order.findById(returnCase.orderId);
-        if (!order) {
-            return res.status(404).json({ success: false, message: 'Commande non trouvée' });
-        }
-
-        let refundId = null;
-
-        // Si remboursement client, créer un Refund
-        if (resolution === 'refund_client' || resolution === 'partial_refund') {
-            const montant = montantDecide || order.amount;
-
-            // Générer un refundId unique
-            const refundUuid = uuidv4();
-
-            const refund = await Refund.create({
-                orderId: order._id,
-                itemIds: returnCase.itemIds || [],
-                montantApprouve: montant,
-                methode: remboursementMethode,
-                statut: 'approved', // Approuvé directement par le warehouse_admin
-                refundId: refundUuid,
-                demandePar: req.staffUser._id,
-                approuvePar: req.staffUser._id,
-                motif: motif || `Retour résolu - ${resolution}`,
-                plafondNetAutorise: montant,
-                approuveLe: new Date(),
-                noteInterne: noteInterne || '',
-            });
-
-            refundId = refund._id;
-
-            // Exécuter le retour financier via walletService
-            const result = await traiterRetourColis(order, {
-                boutiqueIds: returnCase.boutiqueId ? [returnCase.boutiqueId] : null,
-                etat: responsabilite === 'commercant' ? 'endommage' : 'bon_etat',
-            });
-
-            // Journaliser le remboursement
-            await journaliser({
-                acteur: {
-                    id: req.staffUser._id,
-                    nom: req.staffUser.nom,
-                    role: req.staffUser.role,
-                },
-                action: 'refund.approved',
-                cible: { id: refund._id, libelle: `Remboursement ${refundUuid}` },
-                note: `Montant: ${montant} FCFA, méthode: ${remboursementMethode}`,
-            });
-        }
-
-        // Mettre à jour le ReturnCase
-        returnCase.statut = 'resolved';
-        returnCase.resolution = resolution;
-        returnCase.responsabilite = responsabilite || 'non_determinee';
-        returnCase.montantDecide = montantDecide || 0;
-        returnCase.refundId = refundId || null;
-        returnCase.noteInterne = noteInterne || returnCase.noteInterne;
-        returnCase.noteClient = noteClient || '';
-        returnCase.traitePar = req.staffUser._id;
-        returnCase.traiteLe = new Date();
-
-        await returnCase.save();
-
-        // Journaliser la résolution
-        await journaliser({
-            acteur: {
-                id: req.staffUser._id,
-                nom: req.staffUser.nom,
-                role: req.staffUser.role,
-            },
-            action: 'returns.resolve',
-            cible: { id: returnCase._id, libelle: `Retour ${returnCase._id}` },
-            note: `Résolution: ${resolution}, responsabilité: ${responsabilite || 'non_determinee'}`,
+        const resultat = await resoudreRetour({
+            retour: returnCase,
+            acteur: req.staffUser,
+            resolution,
+            responsabilite,
+            montantDecide,
+            motif,
+            methode: remboursementMethode,
+            noteInterne,
+            noteClient,
         });
+
+        if (!resultat.ok) {
+            return res.status(resultat.code || 400).json({ success: false, message: resultat.message });
+        }
 
         return res.status(200).json({
             success: true,
-            message: 'Retour résolu avec succès',
-            return: returnCase,
-            refundId,
+            message: resultat.message,
+            return: resultat.retour,
+            refundId: resultat.refund?._id || null,
+            // Le remboursement attend Finance : l'écran doit le dire, sinon
+            // Opérations croit le dossier clos (§10, §14).
+            remboursementEnAttenteDeFinance: Boolean(resultat.refund),
         });
     } catch (error) {
         console.error('Erreur resolveReturn:', error.message);

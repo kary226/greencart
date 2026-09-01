@@ -290,7 +290,7 @@ export const sendAdminNotificationEmail = async (orderId, amount, customerName, 
                                     
                                     <p style="margin: 0 0 8px; font-size: 14px; color: #555555;">Connectez-vous à l'administration pour gérer cette commande.</p>
                                     <p style="margin: 0; font-size: 14px; color: #555555;">
-                                        <a href="${process.env.FRONTEND_URL}/seller/orders" style="color: #e53935; text-decoration: none; font-weight: 500;">Gérer les commandes</a>
+                                        <a href="${process.env.FRONTEND_URL}/commercant/commandes" style="color: #e53935; text-decoration: none; font-weight: 500;">Gérer les commandes</a>
                                     </p>
                                 </td>
                             </tr>

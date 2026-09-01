@@ -13,6 +13,9 @@ import webpush from '../configs/webpush.js';
 import PushSubscription from '../models/PushSubscription.js';
 import StaffUser from '../models/StaffUser.js';
 import { v4 as uuidv4 } from 'uuid';
+// [RAMCI §1, §13] Sert à ne pas ouvrir une exception que personne ne
+// pourrait trancher — voir le commentaire dans createRefund.
+import { peutTrancher } from '../services/exceptionApprovalService.js';
 
 // =============================================================
 // LISTE DES REMBOURSEMENTS
@@ -141,10 +144,21 @@ export const createRefund = async (req, res) => {
             cible: { id: refund._id, libelle: `Remboursement ${refundId.slice(-8)}` },
             note: `Commande ${orderId.slice(-6).toUpperCase()} - ${montant} FCFA - ${motif}`,
         });
-        // Vérifier si le montant dépasse le seuil de double approbation
+        // Vérifier si le montant dépasse le seuil de double approbation.
+        //
+        // [RAMCI §11, §13] Le seuil est CONSERVÉ ici, contrairement aux
+        // retraits (§9) : le guide distingue explicitement les deux cas —
+        // « remboursement exceptionnel → préparation + validation finale »
+        // reste dans le tableau du §13, alors que le retrait normal en sort.
+        //
+        // En revanche, on n'ouvre pas de demande d'approbation quand le
+        // demandeur est LUI-MÊME l'arbitre : la demande n'aurait alors aucun
+        // approbateur possible (nul ne tranche sa propre demande), et le
+        // remboursement resterait bloqué indéfiniment. §1 et §4 : le Super
+        // Admin a l'autorité finale, il n'a personne à saisir au-dessus.
         const thresholdSetting = await Setting.findOne({ key: 'finance.approval.wallet_adjust_threshold' });
         const threshold = thresholdSetting?.value || 50000;
-        if (montant > threshold) {
+        if (montant > threshold && !peutTrancher(req.staffUser)) {
             // Créer une demande d'approbation
             const approval = await ApprovalRequest.create({
                 type: 'refund',

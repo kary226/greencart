@@ -26,7 +26,7 @@ export default function Collectes() {
   };
   const finish = async () => {
     if(!active) return;
-    try { const {data}=await axios.post(`/api/order/livreur/collectes/${active._id}/terminer`); if(data.success){toast.success('Collecte terminée, remise au Seller.'); setActive(null); await load();} }
+    try { const {data}=await axios.post(`/api/order/livreur/collectes/${active._id}/terminer`); if(data.success){toast.success('Collecte terminée, remise aux Opérations.'); setActive(null); await load();} }
     catch(e){ toast.error(e.response?.data?.message||e.message); }
   };
   const activeItems=(active?.items||[]).filter(i=>i.availabilityStatus!=='unavailable');

@@ -1,6 +1,6 @@
 // Commission de la plateforme sur les ventes des commerçants.
 //
-// NOUVEAU MODÈLE : le Seller fixe directement le PRIX FINAL CLIENT.
+// NOUVEAU MODÈLE : le Super Admin fixe directement le PRIX FINAL CLIENT.
 // La commission est déjà comprise dans ce prix et n'est jamais ajoutée
 // une seconde fois.
 //
@@ -52,7 +52,7 @@ export const partPlateforme = (montantEncaisse, taux = TAUX_COMMISSION) =>
 /**
  * LEGACY / COMPATIBILITÉ.
  *
- * Le nouveau formulaire Seller ne doit plus demander un « net souhaité ».
+ * Le formulaire Super Admin ne doit plus demander un « net souhaité ».
  * Cette fonction reste exportée pour ne pas casser d'éventuels appels ou
  * tests existants, mais elle ne doit pas être utilisée pour augmenter un
  * prix déjà saisi comme prix final client.

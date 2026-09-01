@@ -344,9 +344,11 @@ describe('warehouseController / returnController — Entrepôt & Retours', () =>
 
             assert.strictEqual(res.statusCode, 200);
             assert.strictEqual(res.body.return.statut, 'return_inspection');
-            assert.strictEqual(res.body.return.responsabilite, 'non_determinee');
 
-            const scan = await WarehouseScan.findById(res.body.scan._id);
+            // [RAMCI §10] Le scan n'est plus renvoyé à plat dans la réponse :
+            // il est rattaché au dossier de retour, qui est la seule pièce
+            // que les équipes rouvrent ensuite. On le retrouve par là.
+            const scan = await WarehouseScan.findById(res.body.return.scans.at(-1));
             assert.strictEqual(scan.type, 'retour_inspection');
 
             const log = await JournalAction.findOne({ action: 'returns.inspect' });
@@ -411,7 +413,7 @@ describe('warehouseController / returnController — Entrepôt & Retours', () =>
             assert.strictEqual(updated.resolution, 'reroute_to_seller');
         });
 
-        it('résout en refund_client : crée un Refund approuvé et lie refundId au ReturnCase', async () => {
+        it('résout en refund_client : crée un Refund EN ATTENTE DE FINANCE et lie refundId au ReturnCase', async () => {
             const returnCase = await ReturnCase.create({ orderId: order._id, statut: 'return_inspection' });
             const req = mockReq({
                 params: { id: returnCase._id.toString() },
@@ -432,16 +434,25 @@ describe('warehouseController / returnController — Entrepôt & Retours', () =>
             const refund = await Refund.findById(res.body.refundId);
             assert.ok(refund, 'le Refund doit être persisté');
             assert.strictEqual(refund.montantApprouve, 15000);
-            assert.strictEqual(refund.statut, 'approved');
+
+            // [RAMCI §10] Opérations DÉCIDE, Finance EXÉCUTE.
+            // Avant, ce même appel créait un remboursement déjà 'approved'
+            // dont l'approbateur était son propre auteur : celui qui
+            // constatait le retour signait aussi la sortie d'argent. Le §10
+            // sépare les deux rôles — « Finance exécute le remboursement
+            // autorisé ». Le dossier naît donc 'requested', sans
+            // approbateur, et attend Finance.
+            assert.strictEqual(refund.statut, 'requested');
             assert.strictEqual(refund.demandePar.toString(), staff._id.toString());
-            assert.strictEqual(refund.approuvePar.toString(), staff._id.toString());
+            assert.strictEqual(refund.approuvePar, null);
+            assert.strictEqual(res.body.remboursementEnAttenteDeFinance, true);
 
             const updated = await ReturnCase.findById(returnCase._id);
             assert.strictEqual(updated.statut, 'resolved');
             assert.strictEqual(updated.refundId.toString(), refund._id.toString());
 
-            const log = await JournalAction.findOne({ action: 'refund.approved' });
-            assert.ok(log, 'le remboursement doit être journalisé');
+            const log = await JournalAction.findOne({ action: 'refund.requested' });
+            assert.ok(log, 'la demande de remboursement doit être journalisée');
         });
 
         it("résout en partial_refund avec le montant approuvé par défaut égal au montant de la commande si non fourni", async () => {

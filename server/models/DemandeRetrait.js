@@ -66,12 +66,38 @@ const demandeRetraitSchema = new mongoose.Schema({
     statut: {
         type: String,
         enum: [
-            'en_attente',  // fonds réservés, à traiter par l'admin
+            'en_attente',  // fonds réservés, à traiter par Finance
             'en_cours',    // virement en cours d'exécution
+            'escalade',    // dossier suspect/contesté remonté au Super Admin
             'payee',       // virement effectué
             'rejetee',     // refusée, fonds recrédités
         ],
         default: 'en_attente',
+    },
+
+    // ── Escalade vers le Super Admin  (guide RAMCI §9, §20) ──────────────
+    //
+    // Le guide supprime la double validation déclenchée par un simple
+    // montant : « pas besoin d'un deuxième Admin Finance uniquement à cause
+    // du montant ». Un retrait normal, quel qu'il soit, est traité par UNE
+    // personne Finance autorisée (§13).
+    //
+    // Ce qui justifie une seconde paire d'yeux, ce n'est pas la taille du
+    // virement mais le DOUTE : « le Super Admin intervient si le dossier
+    // est suspect, incohérent, exceptionnel ou contesté ». L'escalade est
+    // donc déclenchée par un humain qui constate un problème, jamais par un
+    // seuil — et elle exige un motif, sinon elle redevient une formalité.
+    escalade: {
+        active: { type: Boolean, default: false },
+        motif: { type: String, default: null, trim: true },
+        parId: { type: mongoose.Schema.Types.ObjectId, ref: 'staffuser', default: null },
+        parNom: { type: String, default: null },
+        le: { type: Date, default: null },
+        // Lien vers l'ApprovalRequest d'exception ouverte pour ce dossier.
+        approvalId: { type: mongoose.Schema.Types.ObjectId, ref: 'approvalrequest', default: null },
+        // Statut logistique interrompu, restauré si le Super Admin renvoie
+        // le dossier au circuit normal.
+        statutAvant: { type: String, default: null },
     },
 
     // Référence du virement (transaction mobile money), saisie par l'admin

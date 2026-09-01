@@ -71,19 +71,37 @@ const Approvals = () => {
         }
     };
 
+    // [RAMCI §13] Les types décrivent des EXCEPTIONS, plus des opérations
+    // normales en attente d'un second clic.
     const getTypeLabel = (type) => {
         const map = {
-            'wallet_adjust': 'Ajustement de wallet',
+            'wallet_adjust': 'Ajustement de portefeuille',
+            'withdrawal_escalated': 'Retrait escaladé',
+            'refund_exceptionnel': 'Remboursement exceptionnel',
+            'return_conteste': 'Retour contesté',
+            'litige': 'Litige entre services',
+            'role_change': 'Changement de droits',
+            // Anciens types : des dossiers en base les portent encore.
             'withdrawal': 'Retrait',
             'refund': 'Remboursement',
-            'role_change': 'Changement de rôle',
         };
         return map[type] || type;
     };
 
+    // Le domaine qui a remonté le dossier : sert à savoir qui rappeler une
+    // fois la décision prise (§12 étape 8, « les équipes exécutent »).
+    const DOMAINES = {
+        finance: { libelle: 'Finance', classe: 'bg-emerald-50 text-emerald-700' },
+        operations: { libelle: 'Opérations', classe: 'bg-blue-50 text-blue-700' },
+        support: { libelle: 'Support', classe: 'bg-amber-50 text-amber-700' },
+        catalogue: { libelle: 'Catalogue', classe: 'bg-slate-50 text-slate-700' },
+        direction: { libelle: 'Direction', classe: 'bg-purple-50 text-purple-700' },
+        systeme: { libelle: 'Système', classe: 'bg-gray-50 text-gray-600' },
+    };
+
     const getTypeIcon = (type) => {
-        if (type === 'wallet_adjust' || type === 'refund') return <Wallet size={16} className="text-blue-500" />;
-        if (type === 'withdrawal') return <CreditCard size={16} className="text-orange-500" />;
+        if (['wallet_adjust', 'refund', 'refund_exceptionnel'].includes(type)) return <Wallet size={16} className="text-blue-500" />;
+        if (['withdrawal', 'withdrawal_escalated'].includes(type)) return <CreditCard size={16} className="text-orange-500" />;
         return <AlertCircle size={16} className="text-yellow-500" />;
     };
 
@@ -164,8 +182,25 @@ const Approvals = () => {
                                             <div className="flex items-center gap-2 flex-wrap">
                                                 <span className="font-semibold text-gray-900">{getTypeLabel(approval.type)}</span>
                                                 {getStatusBadge(approval.statut)}
-                                                <span className="text-sm font-medium text-gray-600">{approval.montant.toLocaleString('fr-FR')} FCFA</span>
+                                                {approval.montant > 0 && (
+                                                    <span className="text-sm font-medium text-gray-600">{approval.montant.toLocaleString('fr-FR')} FCFA</span>
+                                                )}
+                                                {approval.domaine && (
+                                                    <span className={`text-[11px] px-1.5 py-0.5 rounded ${(DOMAINES[approval.domaine] || DOMAINES.systeme).classe}`}>
+                                                        remonté par {(DOMAINES[approval.domaine] || DOMAINES.systeme).libelle}
+                                                    </span>
+                                                )}
                                             </div>
+
+                                            {/* [RAMCI §13] LE MOTIF. C'est la seule chose qui
+                                                permet de dire si le dossier méritait vraiment
+                                                d'être escaladé — sans lui, on tranche à
+                                                l'aveugle, et l'écran redevient un tampon. */}
+                                            {approval.motif && (
+                                                <p className="text-sm text-gray-800 mt-2 border-l-2 border-yellow-400 bg-yellow-50/60 pl-3 py-1.5 rounded-r">
+                                                    {approval.motif}
+                                                </p>
+                                            )}
                                             <div className="text-sm text-gray-500 mt-1">
                                                 <span className="flex items-center gap-1"><User size={14} /> {approval.demandePar?.nom || 'Inconnu'} · {approval.demandePar?.email || ''}</span>
                                                 <span className="flex items-center gap-1 mt-0.5"><Calendar size={14} /> {new Date(approval.createdAt).toLocaleString('fr-FR')}</span>
