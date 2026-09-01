@@ -10,25 +10,58 @@ import {
     Search, X, Trash2
 } from 'lucide-react';
 
-const ROLE_LABELS = {
-    super_admin: 'Super admin',
-    admin: 'Administrateur',
-    finance_admin: 'Admin finance',
-    warehouse_admin: 'Admin entrepôt',
-    logistics_admin: 'Admin logistique',
-    catalog_admin: 'Admin catalogue',
-    support_admin: 'Admin support',
-    read_only_auditor: 'Auditeur (lecture seule)',
+// [RAMCI §3, §16] Liste de SECOURS uniquement.
+//
+// Les rôles réels sont chargés depuis /api/console/roles, qui les sert
+// depuis configs/roles.js — la source unique. Cette copie en dur était le
+// dernier endroit où la liste vivait en double : « operations_admin » y
+// manquait, donc le rôle existait en base et dans le backend mais restait
+// impossible à attribuer depuis cet écran. Elle ne sert plus que si l'appel
+// échoue, pour ne pas afficher un menu déroulant vide.
+const ROLE_LABELS_SECOURS = {
+    super_admin: 'Super Admin',
+    admin: 'Super Admin',
+    finance_admin: 'Admin Finance',
+    operations_admin: 'Admin Opérations',
+    warehouse_admin: 'Admin Entrepôt',
+    logistics_admin: 'Admin Logistique',
+    catalog_admin: 'Admin Catalogue',
+    support_admin: 'Admin Support',
+    read_only_auditor: 'Auditeur',
     commercant: 'Commerçant',
     livreur: 'Livreur',
-    assistant_shein: 'Assistant Shein',
+    assistant_shein: 'Assistant SHEIN',
 };
-const ROLES = Object.keys(ROLE_LABELS);
 const ITEMS_PER_PAGE = 10;
 
 const AdminComptes = () => {
     const { axios } = useAppContext();
     const navigate = useNavigate();
+
+    // Rôles servis par le backend (source unique). On part de la liste de
+    // secours pour que l'écran soit utilisable avant la réponse.
+    const [roleLabels, setRoleLabels] = useState(ROLE_LABELS_SECOURS);
+    const [rolesDeprecies, setRolesDeprecies] = useState({});
+    const ROLES = Object.keys(roleLabels);
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const { data } = await axios.get('/api/console/roles');
+                if (data.success && data.roles?.length) {
+                    setRoleLabels(Object.fromEntries(data.roles.map((r) => [r.role, r.libelle])));
+                    // Un rôle déprécié reste attribuable — des comptes le
+                    // portent — mais on le signale pour ne pas en créer de
+                    // nouveaux (§17.2, migration progressive).
+                    setRolesDeprecies(Object.fromEntries(
+                        data.roles.filter((r) => r.deprecie).map((r) => [r.role, r.deprecie])
+                    ));
+                }
+            } catch {
+                // On garde la liste de secours : un menu vide serait pire.
+            }
+        })();
+    }, [axios]);
 
     // null = vérification en cours, false = refusé, true = autorisé
     const [authorized, setAuthorized] = useState(null);
@@ -165,7 +198,7 @@ const AdminComptes = () => {
 
     const handleRoleChange = async (compte, newRole) => {
         if (newRole === compte.role) return;
-        if (!window.confirm(`Confirmer : changer le rôle de ${compte.nom} en "${ROLE_LABELS[newRole]}" ?`)) {
+        if (!window.confirm(`Confirmer : changer le rôle de ${compte.nom} en "${roleLabels[newRole]}" ?`)) {
             return;
         }
         try {
@@ -258,7 +291,7 @@ const AdminComptes = () => {
                                 className="px-3 py-2.5 border border-ink-200 rounded-xl text-sm outline-none focus:border-ramses-600 focus:ring-1 focus:ring-ramses-600"
                             >
                                 {ROLES.map((r) => (
-                                    <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                                    <option key={r} value={r}>{roleLabels[r]}{rolesDeprecies[r] ? ' (ancien)' : ''}</option>
                                 ))}
                             </select>
                             <button
@@ -285,7 +318,7 @@ const AdminComptes = () => {
                                 <div key={inv._id} className="px-5 py-3 flex items-center justify-between text-sm">
                                     <div>
                                         <p className="font-medium text-ink-800">{inv.email}</p>
-                                        <p className="text-xs text-ink-400">{ROLE_LABELS[inv.role] || inv.role}</p>
+                                        <p className="text-xs text-ink-400">{roleLabels[inv.role] || inv.role}</p>
                                     </div>
                                     <div className="flex items-center gap-1.5 text-xs text-warn-500">
                                         <Clock size={13} />
@@ -323,7 +356,7 @@ const AdminComptes = () => {
                                 >
                                     <option value="">Tous les rôles</option>
                                     {ROLES.map((r) => (
-                                        <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                                        <option key={r} value={r}>{roleLabels[r]}{rolesDeprecies[r] ? ' (ancien)' : ''}</option>
                                     ))}
                                 </select>
                                 <select
@@ -390,7 +423,7 @@ const AdminComptes = () => {
                                                             className="border border-ink-200 rounded-lg text-xs px-2 py-1 outline-none disabled:opacity-50 disabled:bg-ink-50"
                                                         >
                                                             {ROLES.map((r) => (
-                                                                <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                                                                <option key={r} value={r}>{roleLabels[r]}{rolesDeprecies[r] ? ' (ancien)' : ''}</option>
                                                             ))}
                                                         </select>
                                                     </td>

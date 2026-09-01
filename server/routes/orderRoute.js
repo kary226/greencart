@@ -108,11 +108,31 @@ orderRouter.post('/livreur/collectes/:orderId/terminer', authStaff, requireRole(
 // relèvent du même geste métier que le reste des routes /livreur/* de ce
 // fichier (remise physique avant "En livraison"), pas d'une édition
 // générale de commande.
-orderRouter.post('/seller/mark-shipped', authStaff, requirePermission('orders.ship'), sellerMarkShipped);
+//
+// [RAMCI §7] « Opérations réceptionne ; le Super Admin peut intervenir. »
+// La réception n'acceptait que 'orders.ship', la permission de la
+// logistique. Un Admin Entrepôt / Opérations — dont c'est précisément le
+// métier — ne pouvait pas réceptionner un colis. On accepte donc aussi
+// 'orders.receive'. Les deux restent listées : les comptes logistiques
+// existants gardent l'accès sans dépendre du passage du seed.
+orderRouter.post(
+    '/seller/mark-shipped',
+    authStaff,
+    requireAnyPermission(['orders.receive', 'orders.ship']),
+    sellerMarkShipped
+);
+// Chemin sans « seller » (§0). L'ancien reste servi tant que le frontend
+// et les intégrations n'ont pas migré (§17.2, migration progressive).
+orderRouter.post(
+    '/reception',
+    authStaff,
+    requireAnyPermission(['orders.receive', 'orders.ship']),
+    sellerMarkShipped
+);
 
 // [NOUVEAU] Remise physique du colis au livreur — verrou avant "En livraison".
-orderRouter.get('/seller/a-remettre', authStaff, requirePermission('orders.ship'), listCommandesARemettre);
-orderRouter.post('/seller/remettre-livreur', authStaff, requirePermission('orders.ship'), confirmerRemiseLivreur);
+orderRouter.get('/seller/a-remettre', authStaff, requireAnyPermission(['orders.receive', 'orders.ship']), listCommandesARemettre);
+orderRouter.post('/seller/remettre-livreur', authStaff, requireAnyPermission(['orders.receive', 'orders.ship']), confirmerRemiseLivreur);
 
 // ✅ Commerçant : ses ventes uniquement (scopées à sa boutique)
 orderRouter.get('/commercant/mes-ventes', authStaff, requireRole('commercant'), getMesVentesCommercant);
