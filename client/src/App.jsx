@@ -15,6 +15,7 @@ import AddAddress from './pages/AddAddress';
 import MyOrders from './pages/MyOrders';
 import OrderDetail from './pages/OrderDetail';
 import Wishlist from './pages/Wishlist';
+const Confidentialite = lazy(() => import('./pages/Confidentialite'));
 import Account from './pages/Account';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
@@ -209,6 +210,9 @@ const App = () => {
             <Route path='/loader' element={<Loading />} />
             <Route path='/categories' element={<AllCategories />} />
             <Route path='/wishlist' element={<Wishlist />} />
+            {/* Page liée depuis le bandeau cookies : ce que le site dépose,
+                et le moyen de revenir sur son choix. */}
+            <Route path='/confidentialite' element={<Confidentialite />} />
             <Route path='/account' element={<Account />} />
             <Route path='/payment/success' element={<PaymentSuccess />} />
             <Route path='/payment/error' element={<PaymentError />} />
