@@ -67,6 +67,16 @@ const toPublicStaff = (staffUser) => ({
     boutiqueId: staffUser.boutiqueId,
     derniereConnexion: staffUser.derniereConnexion,
     createdAt: staffUser.createdAt,
+    // [CORRECTIF] Les permissions manquaient ici, alors que la console les
+    // lit sur cette réponse pour construire son menu. Résultat : le menu
+    // était VIDE pour tout rôle granulaire — Finance, Opérations, Auditeur
+    // ne voyaient que « À faire ». Seul le Super Admin s'en sortait, parce
+    // que le layout le laisse passer sur son rôle sans regarder ses droits.
+    //
+    // `permissions` est posé par authStaff (loadPermissions), donc toujours
+    // présent sur req.staffUser ; le repli protège les autres appelants de
+    // cette fonction, qui travaillent parfois sur un document brut.
+    permissions: staffUser.permissions || [],
 });
 
 // ------------------------------------------------------------------ //

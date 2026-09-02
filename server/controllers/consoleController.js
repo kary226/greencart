@@ -3,6 +3,7 @@ import DemandeRetrait from '../models/DemandeRetrait.js';
 import ApprovalRequest from '../models/ApprovalRequest.js';
 import ReturnCase from '../models/ReturnCase.js';
 import Refund from '../models/Refund.js';
+import JournalAction from '../models/JournalAction.js';
 import { ROLES, libelleDuRole, domaineDuRole, PERMISSIONS as P } from '../configs/roles.js';
 import { aLeDroit, aUnDesDroits } from '../middlewares/permission.js';
 
@@ -25,6 +26,15 @@ import { aLeDroit, aUnDesDroits } from '../middlewares/permission.js';
 /**
  * Une tâche = quelque chose à faire, un compteur, et où aller.
  * `urgence` sert au tri : ce qui bloque de l'argent ou un client passe devant.
+ *
+ * RÈGLE : une tâche n'apparaît que si le compte peut RÉELLEMENT l'accomplir.
+ * On teste donc une permission d'ACTION (`withdrawals.process`), jamais de
+ * lecture (`withdrawals.view`).
+ *
+ * Sans cette règle, l'Auditeur — qui a le droit de tout voir et celui de ne
+ * rien modifier — se voyait proposer « 3 retraits à traiter » et « 2
+ * exceptions à trancher ». Il cliquait, et chaque bouton lui était refusé.
+ * Ceux qui ne font que consulter reçoivent la vue de contrôle plus bas.
  */
 const tache = ({ cle, libelle, nombre, lien, urgence = 'normale', domaine }) => ({
     cle, libelle, nombre, lien, urgence, domaine,
@@ -42,7 +52,7 @@ export const maConsole = async (req, res) => {
         // trancher. Le reste — retraits, retours, commandes — est le travail
         // quotidien des domaines : §4, « il n'a pas besoin d'intervenir
         // lorsqu'un retrait normal respecte la procédure ».
-        if (aUnDesDroits(staff, [P.EXCEPTIONS_DECIDE, P.EXCEPTIONS_VIEW])) {
+        if (aLeDroit(staff, P.EXCEPTIONS_DECIDE)) {
             const exceptions = await ApprovalRequest.countDocuments({ statut: 'en_attente' });
             if (exceptions > 0) {
                 taches.push(tache({
@@ -69,7 +79,7 @@ export const maConsole = async (req, res) => {
         }
 
         // ── Finance (§8, §9, §11) ───────────────────────────────────────
-        if (aUnDesDroits(staff, [P.WITHDRAWALS_VIEW, P.WITHDRAWALS_PROCESS, P.WALLET_VIEW])) {
+        if (aUnDesDroits(staff, [P.WITHDRAWALS_PROCESS, P.WITHDRAWALS_APPROVE])) {
             const retraits = await DemandeRetrait.countDocuments({ statut: 'en_attente' });
             if (retraits > 0) {
                 taches.push(tache({
@@ -98,7 +108,7 @@ export const maConsole = async (req, res) => {
             }
         }
 
-        if (aUnDesDroits(staff, [P.REFUNDS_VIEW, P.REFUNDS_APPROVE])) {
+        if (aUnDesDroits(staff, [P.REFUNDS_APPROVE, P.REFUNDS_CREATE])) {
             // §10 : « Finance exécute le remboursement autorisé. » Ces
             // remboursements viennent d'être décidés par Opérations et
             // attendent Finance — c'est le lien qui manquait entre les deux.
@@ -181,7 +191,7 @@ export const maConsole = async (req, res) => {
         }
 
         // ── Support (§10, §12) ──────────────────────────────────────────
-        if (aUnDesDroits(staff, [P.DISPUTES_VIEW, P.RETURNS_VIEW])) {
+        if (aUnDesDroits(staff, [P.DISPUTES_OPEN, P.DISPUTES_RESPOND, P.RETURNS_DECIDE])) {
             const retoursOuverts = await ReturnCase.countDocuments({
                 statut: { $in: ['return_requested', 'return_pickup'] },
             });
@@ -216,6 +226,26 @@ export const maConsole = async (req, res) => {
             }
         }
 
+        // ── Vue de contrôle (§3 : l'Auditeur voit et contrôle) ──────────
+        //
+        // Ce ne sont pas des tâches : personne n'attend une action. C'est ce
+        // qu'un rôle de consultation doit avoir sous les yeux pour faire son
+        // travail — le journal, et les dossiers en cours qu'il peut relire.
+        const surveillance = [];
+        if (aLeDroit(staff, P.AUDIT_VIEW)) {
+            const [actions24h, exceptionsOuvertes, retraitsOuverts] = await Promise.all([
+                JournalAction.countDocuments({ createdAt: { $gte: new Date(Date.now() - 86400000) } }),
+                ApprovalRequest.countDocuments({ statut: 'en_attente' }),
+                DemandeRetrait.countDocuments({ statut: { $in: ['en_attente', 'en_cours', 'escalade'] } }),
+            ]);
+
+            surveillance.push(
+                { cle: 'journal', libelle: 'Actions enregistrées ces 24 h', nombre: actions24h, lien: '/admin/audit' },
+                { cle: 'exceptions_ouvertes', libelle: 'Exceptions ouvertes', nombre: exceptionsOuvertes, lien: '/admin/approvals' },
+                { cle: 'retraits_ouverts', libelle: 'Retraits en cours de traitement', nombre: retraitsOuverts, lien: '/admin/withdrawals' },
+            );
+        }
+
         const rangUrgence = { haute: 0, normale: 1, basse: 2 };
         taches.sort((a, b) => rangUrgence[a.urgence] - rangUrgence[b.urgence] || b.nombre - a.nombre);
 
@@ -231,11 +261,16 @@ export const maConsole = async (req, res) => {
                 description: ROLES[staff.role]?.description || '',
             },
             taches,
+            surveillance,
             // Le message quand il n'y a rien : dire « rien à faire » vaut
             // mieux qu'un écran vide, qui se lit comme un chargement raté.
-            message: taches.length === 0
-                ? 'Rien ne vous attend pour le moment.'
-                : `${taches.reduce((n, t) => n + t.nombre, 0)} élément(s) attendent votre intervention.`,
+            // Un rôle de consultation n'a jamais de tâche : lui annoncer
+            // « rien ne vous attend » serait trompeur, son travail est ailleurs.
+            message: taches.length > 0
+                ? `${taches.reduce((n, t) => n + t.nombre, 0)} élément(s) attendent votre intervention.`
+                : surveillance.length > 0
+                    ? 'Aucune action ne vous revient — voici l’état du système.'
+                    : 'Rien ne vous attend pour le moment.',
         });
     } catch (error) {
         console.error('Erreur maConsole:', error.message);

@@ -112,6 +112,43 @@ describe('RAMCI §3 — l’Auditeur ne modifie rien', () => {
         assert.strictEqual(aUnDesDroits(auditeur, ['exceptions.decide']), false);
     });
 
+    it('la console ne lui propose aucune tâche à accomplir', () => {
+        // Le second visage du même bug : le contrôleur de la console
+        // décidait d'afficher « 3 retraits à traiter » sur `withdrawals.view`.
+        // L'Auditeur se voyait donc proposer six tâches, dont aucune ne lui
+        // était permise — il cliquait, et chaque bouton le refusait.
+        const auditeur = { role: 'read_only_auditor', permissions: permissionsDuRole('read_only_auditor') };
+
+        // Les conditions réelles de consoleController.maConsole.
+        const conditionsDesTaches = [
+            ['Exceptions à trancher', [PERMISSIONS.EXCEPTIONS_DECIDE]],
+            ['Retraits à traiter', [PERMISSIONS.WITHDRAWALS_PROCESS, PERMISSIONS.WITHDRAWALS_APPROVE]],
+            ['Remboursements à exécuter', [PERMISSIONS.REFUNDS_APPROVE, PERMISSIONS.REFUNDS_CREATE]],
+            ['Fonds à libérer', [PERMISSIONS.ORDERS_APPROVE]],
+            ['Colis à réceptionner', [PERMISSIONS.ORDERS_RECEIVE, PERMISSIONS.WAREHOUSE_SCAN]],
+            ['Retours à inspecter', [PERMISSIONS.RETURNS_INSPECT, PERMISSIONS.RETURNS_DECIDE]],
+            ['Commandes sans livreur', [PERMISSIONS.DELIVERIES_ASSIGN]],
+            ['Retours à récupérer', [PERMISSIONS.DISPUTES_OPEN, PERMISSIONS.DISPUTES_RESPOND, PERMISSIONS.RETURNS_DECIDE]],
+        ];
+
+        const proposees = conditionsDesTaches
+            .filter(([, perms]) => aUnDesDroits(auditeur, perms))
+            .map(([libelle]) => libelle);
+
+        assert.deepStrictEqual(proposees, [], `L'Auditeur ne doit se voir proposer aucune tâche, or : ${proposees.join(', ')}`);
+    });
+
+    it('son écran principal — le journal — lui est accessible', () => {
+        // L'entrée de menu « Audit & contrôle » est conditionnée à audit.view.
+        // Auparavant le journal n'était listé que sous « Administration »,
+        // ouverte sur admin.configure : le rôle avait le droit de lire le
+        // journal mais aucun lien pour y accéder.
+        const auditeur = { role: 'read_only_auditor', permissions: permissionsDuRole('read_only_auditor') };
+        assert.strictEqual(aUnDesDroits(auditeur, [PERMISSIONS.AUDIT_VIEW]), true);
+        assert.strictEqual(aUnDesDroits(auditeur, [PERMISSIONS.ADMIN_CONFIGURE]), false,
+            'il ne doit pas pour autant pouvoir configurer la plateforme');
+    });
+
     it('mais il peut toujours tout consulter', () => {
         const auditeur = { role: 'read_only_auditor', permissions: permissionsDuRole('read_only_auditor') };
         for (const lecture of ['audit.view', 'wallet.view', 'orders.view', 'returns.view', 'withdrawals.view']) {

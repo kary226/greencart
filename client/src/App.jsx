@@ -270,6 +270,13 @@ const App = () => {
 
               {/* Colis SHEIN */}
               <Route path='colis-shein' element={<AdminColisShein />} />
+
+              {/* Adresse /admin inconnue. Sans cette ligne, React Router ne
+                  rendait pas le layout du tout : l'utilisateur tombait sur
+                  une page entièrement blanche, sans menu ni explication.
+                  Rattachée ici, elle passe par la garde de SuperAdminLayout,
+                  qui refuse toute route non déclarée et affiche pourquoi. */}
+              <Route path='*' element={null} />
             </Route>
 
             {/* ─── Commerçant ──────────────────────────────────────────── */}

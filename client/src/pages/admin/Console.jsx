@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
 import {
-    Loader2, RefreshCw, ArrowRight, CheckCircle2, AlertTriangle, ShieldCheck,
+    Loader2, RefreshCw, ArrowRight, CheckCircle2, AlertTriangle, ShieldCheck, Eye,
 } from 'lucide-react';
 
 /**
@@ -70,7 +70,7 @@ const Console = () => {
 
     if (!donnees) return null;
 
-    const { acteur, taches, message } = donnees;
+    const { acteur, taches, message, surveillance = [] } = donnees;
     const urgentes = taches.filter((t) => t.urgence === 'haute');
     const autres = taches.filter((t) => t.urgence !== 'haute');
 
@@ -101,8 +101,10 @@ const Console = () => {
             </div>
 
             {/* Rien à faire : le dire explicitement. Un écran vide se lit
-                comme un chargement raté, pas comme une bonne nouvelle. */}
-            {taches.length === 0 && (
+                comme un chargement raté, pas comme une bonne nouvelle.
+                On ne l'affiche pas à un rôle de consultation : son écran
+                n'est pas vide, il est plus bas. */}
+            {taches.length === 0 && surveillance.length === 0 && (
                 <div className="rounded-xl border border-gray-200 bg-white p-10 text-center">
                     <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-3" />
                     <p className="text-gray-900 font-medium">Rien ne vous attend pour le moment.</p>
@@ -141,6 +143,34 @@ const Console = () => {
                 </>
             )}
 
+            {/* Vue de contrôle — pour les rôles qui consultent sans agir.
+                Volontairement distincte des tâches : aucun de ces chiffres
+                n'attend une action de la personne qui les regarde. */}
+            {surveillance.length > 0 && (
+                <section className={taches.length > 0 ? 'mt-8' : ''}>
+                    <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                        <Eye className="w-3.5 h-3.5" />
+                        État du système
+                    </h2>
+                    <div className="grid gap-2 sm:grid-cols-3">
+                        {surveillance.map((s) => (
+                            <Link
+                                key={s.cle}
+                                to={s.lien}
+                                className="rounded-xl border border-gray-200 bg-white p-4 transition hover:border-gray-300 hover:shadow-sm"
+                            >
+                                <span className="block text-2xl font-bold text-gray-900 tabular-nums">
+                                    {s.nombre}
+                                </span>
+                                <span className="block text-xs text-gray-500 mt-0.5 leading-snug">
+                                    {s.libelle}
+                                </span>
+                            </Link>
+                        ))}
+                    </div>
+                </section>
+            )}
+
             {/* §1, §4 : rappeler la règle évite qu'on remonte tout au Super
                 Admin « par sécurité », ce qui est précisément le travers que
                 le guide cherche à supprimer. */}
@@ -148,7 +178,13 @@ const Console = () => {
                 <div className="flex gap-3">
                     <ShieldCheck className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
                     <p className="text-xs text-gray-600 leading-relaxed">
-                        {acteur.domaine === 'direction' ? (
+                        {acteur.domaine === 'audit' ? (
+                            <>
+                                Vous consultez et contrôlez. Aucune de ces pages ne vous
+                                demandera d’agir — si vous constatez une anomalie,
+                                signalez-la au Super Admin.
+                            </>
+                        ) : acteur.domaine === 'direction' ? (
                             <>
                                 Vous avez l’autorité finale, mais chaque domaine traite normalement
                                 son travail quotidien. N’intervenez que sur les exceptions, les
