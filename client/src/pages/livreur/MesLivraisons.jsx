@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
 import { notifier } from '../../utils/notifications';
-import { Package, MapPin, Clock, CheckCircle, Loader2, Truck, Eye, Calendar, Phone, User, Hand, Layers } from 'lucide-react';
+import MonActivite from './MonActivite';
+import { Package, MapPin, Clock, CheckCircle, Loader2, Truck, Eye, Calendar, Phone, User, Hand, Layers, BarChart3 } from 'lucide-react';
 
 const MesLivraisons = () => {
     const { axios } = useAppContext();
@@ -117,14 +118,21 @@ const MesLivraisons = () => {
             </div>
 
             <div className="max-w-4xl mx-auto px-4 py-6">
-                <div className="grid grid-cols-2 gap-2 mb-6">
-                    <button onClick={() => setTab('collectes')} className={`p-3 rounded-xl font-semibold flex items-center justify-center gap-2 ${tab==='collectes'?'bg-burgundy-600 text-white':'bg-white text-gray-600'}`}>
-                        <Hand size={18}/> Récupérer ({collectes.length})
+                {/* Trois onglets : ce qu'il y a à prendre, ce qu'il y a à
+                    livrer, et le bilan de ce qui est fait. */}
+                <div className="grid grid-cols-3 gap-2 mb-6">
+                    <button onClick={() => setTab('collectes')} className={`p-3 rounded-xl font-semibold flex items-center justify-center gap-1.5 text-sm ${tab==='collectes'?'bg-burgundy-600 text-white':'bg-white text-gray-600'}`}>
+                        <Hand size={17}/> <span className="hidden sm:inline">Récupérer</span><span className="sm:hidden">Prendre</span> ({collectes.length})
                     </button>
-                    <button onClick={() => setTab('livraisons')} className={`p-3 rounded-xl font-semibold flex items-center justify-center gap-2 ${tab==='livraisons'?'bg-burgundy-600 text-white':'bg-white text-gray-600'}`}>
-                        <Truck size={18}/> Livraisons ({commandes.length})
+                    <button onClick={() => setTab('livraisons')} className={`p-3 rounded-xl font-semibold flex items-center justify-center gap-1.5 text-sm ${tab==='livraisons'?'bg-burgundy-600 text-white':'bg-white text-gray-600'}`}>
+                        <Truck size={17}/> Livrer ({commandes.length})
+                    </button>
+                    <button onClick={() => setTab('activite')} className={`p-3 rounded-xl font-semibold flex items-center justify-center gap-1.5 text-sm ${tab==='activite'?'bg-burgundy-600 text-white':'bg-white text-gray-600'}`}>
+                        <BarChart3 size={17}/> Mon activité
                     </button>
                 </div>
+
+                {tab === 'activite' && <MonActivite />}
 
                 {tab === 'collectes' && (
                     <>

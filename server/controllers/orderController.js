@@ -219,8 +219,19 @@ export const placeOrderCOD = async (req, res) => {
             };
         }));
 
-        const tax = Math.floor(amount * 0.02);
-        amount += tax;
+        // [RETIRÉ] Une taxe de 2 % était ajoutée ici au total de la commande.
+        // Elle venait du code d'origine du projet et n'a jamais été voulue :
+        //   · elle n'existait que sur ce chemin — jekoController, le seul
+        //     réellement emprunté aujourd'hui, ne l'appliquait pas ;
+        //   · elle n'apparaissait nulle part côté client, dont le panier
+        //     calcule simplement prix × quantité ;
+        //   · elle n'a jamais été prélevée sur personne : rien dans
+        //     l'interface ne met paymentOption à "COD", donc cette route
+        //     n'est pas atteignable depuis le panier.
+        //
+        // On la retire plutôt que de la laisser dormir : le jour où le
+        // paiement à la livraison sera rebranché, elle s'appliquerait sans
+        // que personne ne sache d'où viennent ces 2 %.
         const itemsSubtotal = amount;
 
         let deliveryPrice = 0;
@@ -934,6 +945,125 @@ export const assignerLivreur = async (req, res) => {
 // =============================================================
 // ✅ PHASE 4 : RÉCUPÉRER LES COMMANDES D'UN LIVREUR
 // =============================================================
+// ACTIVITÉ D'UN LIVREUR SUR UNE PÉRIODE
+//
+// Le livreur n'avait qu'une liste brute des 50 dernières commandes closes :
+// aucune date, aucun total, et surtout AUCUNE trace de ses collectes — elles
+// sont rattachées à `collecteLivreurId`, jamais regardé ici. Il ne pouvait
+// donc pas répondre à « qu'est-ce que j'ai fait aujourd'hui ? ».
+//
+// Deux activités distinctes, comptées séparément parce qu'elles se passent à
+// des moments différents de la journée :
+//   · les COLLECTES  — il récupère les articles chez les commerçants ;
+//   · les LIVRAISONS — il remet le colis au client.
+//
+// Une commande apparaît dans les deux si c'est le même livreur qui l'a
+// collectée puis livrée. C'est voulu : ce sont deux déplacements.
+export const getActiviteLivreur = async (req, res) => {
+    try {
+        const livreurId = req.staffUser._id;
+
+        // Par défaut : aujourd'hui. Les dates arrivent en AAAA-MM-JJ depuis
+        // l'écran, on borne la journée entière côté serveur pour éviter les
+        // surprises de fuseau.
+        const bornerDebut = (valeur) => {
+            const d = valeur ? new Date(valeur) : new Date();
+            d.setHours(0, 0, 0, 0);
+            return d;
+        };
+        const bornerFin = (valeur) => {
+            const d = valeur ? new Date(valeur) : new Date();
+            d.setHours(23, 59, 59, 999);
+            return d;
+        };
+
+        const depuis = bornerDebut(req.query.depuis);
+        const jusqu = bornerFin(req.query.jusqu || req.query.depuis);
+
+        if (Number.isNaN(depuis.getTime()) || Number.isNaN(jusqu.getTime())) {
+            return res.status(400).json({ success: false, message: 'Dates invalides' });
+        }
+
+        // ── Collectes : on date par l'article, pas par la commande ───────
+        // `collectedAt` est posé article par article. Une commande dont il
+        // n'a récupéré qu'une partie aujourd'hui doit compter pour
+        // aujourd'hui, avec ce qu'il a réellement pris.
+        const commandesCollectees = await Order.find({
+            'items.collectedBy': livreurId,
+            'items.collectedAt': { $gte: depuis, $lte: jusqu },
+        }).select('items amount address createdAt').populate('address', 'city commune').lean();
+
+        const collectes = commandesCollectees.map((o) => {
+            const siens = (o.items || []).filter((i) =>
+                String(i.collectedBy || '') === String(livreurId)
+                && i.collectedAt >= depuis && i.collectedAt <= jusqu
+            );
+            return {
+                orderId: o._id,
+                reference: String(o._id).slice(-6).toUpperCase(),
+                articles: siens.length,
+                le: siens.reduce((plusRecent, i) => (i.collectedAt > plusRecent ? i.collectedAt : plusRecent), siens[0]?.collectedAt),
+                commune: o.address?.commune || null,
+            };
+        }).filter((c) => c.articles > 0);
+
+        // ── Livraisons : datées par `deliveredAt` ────────────────────────
+        const commandesLivrees = await Order.find({
+            livreurId,
+            status: 'Delivered',
+            deliveredAt: { $gte: depuis, $lte: jusqu },
+        }).select('amount deliveredAt address').populate('address', 'city commune').lean();
+
+        const livraisons = commandesLivrees.map((o) => ({
+            orderId: o._id,
+            reference: String(o._id).slice(-6).toUpperCase(),
+            montant: o.amount,
+            le: o.deliveredAt,
+            commune: o.address?.commune || null,
+        }));
+
+        // ── Retours constatés sur la période ─────────────────────────────
+        const retours = await Order.countDocuments({
+            livreurId,
+            status: 'Returned',
+            retourTraiteLe: { $gte: depuis, $lte: jusqu },
+        });
+
+        // ── Regroupement par jour, pour l'affichage ──────────────────────
+        // Sur une période d'une semaine, une liste à plat de 40 lignes est
+        // illisible ; par journée, il retrouve ce qu'il a fait mardi.
+        const parJour = {};
+        const ajouter = (date, champ) => {
+            if (!date) return;
+            const jour = new Date(date).toISOString().slice(0, 10);
+            parJour[jour] = parJour[jour] || { jour, collectes: 0, livraisons: 0 };
+            parJour[jour][champ] += 1;
+        };
+        collectes.forEach((c) => ajouter(c.le, 'collectes'));
+        livraisons.forEach((l) => ajouter(l.le, 'livraisons'));
+
+        return res.json({
+            success: true,
+            periode: { depuis, jusqu },
+            resume: {
+                collectes: collectes.length,
+                articlesCollectes: collectes.reduce((n, c) => n + c.articles, 0),
+                livraisons: livraisons.length,
+                // Le montant encaissé compte pour lui : c'est ce qu'il a
+                // remis, et ce qu'on peut lui demander de justifier.
+                montantLivre: livraisons.reduce((n, l) => n + (l.montant || 0), 0),
+                retours,
+            },
+            parJour: Object.values(parJour).sort((a, b) => b.jour.localeCompare(a.jour)),
+            collectes: collectes.sort((a, b) => new Date(b.le) - new Date(a.le)),
+            livraisons: livraisons.sort((a, b) => new Date(b.le) - new Date(a.le)),
+        });
+    } catch (error) {
+        console.error('Erreur getActiviteLivreur:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 export const getLivraisonsLivreur = async (req, res) => {
     try {
         const livreurId = req.staffUser._id;

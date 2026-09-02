@@ -12,6 +12,7 @@ import {
     getUserOrdersByAdmin,
     assignerLivreur,
     getLivraisonsLivreur,
+    getActiviteLivreur,
     updateLivraisonStatus,
     getCollectesLivreur,
     reserverCollecte,
@@ -126,6 +127,8 @@ orderRouter.post('/admin/assigner-livreur', authStaff, requirePermission('delive
 
 // ✅ PHASE 4 : Routes pour livreur
 orderRouter.get('/livreur/mes-livraisons', authStaff, requireRole('livreur'), getLivraisonsLivreur);
+// Bilan de ses tournées sur une période — voir getActiviteLivreur.
+orderRouter.get('/livreur/activite', authStaff, requireRole('livreur'), getActiviteLivreur);
 orderRouter.patch('/livreur/statut', authStaff, requireRole('livreur'), updateLivraisonStatus);
 orderRouter.get('/livreur/collectes', authStaff, requireRole('livreur'), getCollectesLivreur);
 orderRouter.post('/livreur/collectes/reserver', authStaff, requireRole('livreur'), reserverCollecte);
