@@ -5,6 +5,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
 import { buildSearchIndex, searchProductsAndCategories } from "../utils/searchEngine";
 import { Search, ShoppingCart, Heart, ArrowLeft, X } from "lucide-react";
+import { ouvrirChat } from '../utils/tawk';
 
 const Navbar = () => {
   const { cartItems, wishlist, user, searchQuery, setSearchQuery, axios, products, logoutUser, setShowUserLogin, canInstallPWA, isPWAInstalled, installPWA, subscribeToPushNotifications, colisSheinActif } = useAppContext();
@@ -200,25 +201,10 @@ const Navbar = () => {
     setShowUserLogin && setShowUserLogin(true);
   };
 
+  // Voir utils/tawk.js — chargement à la demande et identification du client.
   const handleHelp = () => {
     setMenuOpen(false);
-    if (window.Tawk_API) {
-      window.Tawk_API.showWidget();
-      window.Tawk_API.maximize();
-    } else {
-      const script = document.createElement('script');
-      script.async = true;
-      script.src = 'https://embed.tawk.to/6a26a25d683c831c304cb5ea/1jqjekfae';
-      script.charset = 'UTF-8';
-      script.setAttribute('crossorigin', '*');
-      document.body.appendChild(script);
-      setTimeout(() => {
-        if (window.Tawk_API) {
-          window.Tawk_API.showWidget();
-          window.Tawk_API.maximize();
-        }
-      }, 1000);
-    }
+    ouvrirChat(user);
   };
 
   const applyFilters = () => {

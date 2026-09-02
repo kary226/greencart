@@ -1,32 +1,23 @@
 import { assets, footerLinks } from "../assets/assets";
 import { Mail, MapPin, Phone } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { ouvrirChat } from '../utils/tawk';
+import { useAppContext } from '../context/AppContext';
 
 const Footer = () => {
+    // `user` sert à identifier le visiteur auprès du chat : l'agent voit son
+    // prénom au lieu de « Visiteur 1 ».
+    const { user } = useAppContext();
     const currentYear = new Date().getFullYear();
     const navigate = useNavigate();
     const location = useLocation();
 
-    // ✅ Fonction pour ouvrir Tawk.to
+    // Ouverture du chat d'assistance. Le chargement du widget et
+    // l'identification du client vivent dans utils/tawk.js : ce même bloc
+    // était recopié à l'identique ici et dans Navbar.jsx.
     const openTawkTo = (e) => {
         e.preventDefault();
-        if (window.Tawk_API) {
-            window.Tawk_API.showWidget();
-            window.Tawk_API.maximize();
-        } else {
-            const script = document.createElement('script');
-            script.async = true;
-            script.src = 'https://embed.tawk.to/6a26a25d683c831c304cb5ea/1jqjekfae';
-            script.charset = 'UTF-8';
-            script.setAttribute('crossorigin', '*');
-            document.body.appendChild(script);
-            setTimeout(() => {
-                if (window.Tawk_API) {
-                    window.Tawk_API.showWidget();
-                    window.Tawk_API.maximize();
-                }
-            }, 1000);
-        }
+        ouvrirChat(user);
     };
 
     // ✅ Gestionnaire de clic sur les liens

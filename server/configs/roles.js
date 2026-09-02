@@ -174,15 +174,36 @@ export const ROLES = {
             P.DELIVERIES_VIEW, P.DELIVERIES_ASSIGN, P.DELIVERIES_CONFIGURE,
             P.DELIVERY_ZONES_VIEW, P.DELIVERY_ZONES_CONFIGURE,
             P.RETURNS_VIEW, P.RETURNS_INSPECT, P.RETURNS_DECIDE,
+            // Reprises de l'ancien rôle Support (voir plus bas) : sans elles,
+            // plus personne hors Super Admin ne peut OUVRIR un dossier de
+            // retour ni voir à quel client il se rapporte. Opérations suit
+            // déjà le retour de la réception à la décision — lui confier
+            // l'ouverture rend le cycle cohérent d'un bout à l'autre.
+            P.DISPUTES_OPEN, P.DISPUTES_VIEW, P.CLIENTS_VIEW,
             P.EXCEPTIONS_VIEW, P.EXCEPTIONS_REQUEST,
         ],
     },
 
     // ── Support (§10, §12) ──────────────────────────────────────────────
+    //
+    // DÉPRÉCIÉ. Le service client passe par Tawk.to, qui porte la
+    // conversation avec le client. Ce rôle n'a jamais été attribué à
+    // personne, et le maintenir dans la liste de création laissait croire
+    // qu'il fallait un compte console pour faire du support.
+    //
+    // Attention à ce que Tawk.to ne fait PAS : ouvrir un dossier de retour,
+    // consulter une fiche client, annuler une commande. Ces actions restent
+    // nécessaires — elles sont reprises par Admin Opérations (qui suit déjà
+    // le retour de bout en bout) et, pour les plus sensibles, par le Super
+    // Admin. Voir le tableau de reprise dans le guide d'équipe.
+    //
+    // Le rôle reste défini : des comptes pourraient le porter dans une autre
+    // installation, et l'enum Mongoose doit continuer de l'accepter.
     support_admin: {
         libelle: 'Admin Support',
         domaine: 'support',
-        description: 'Clients, réclamations, ouverture et suivi des litiges.',
+        description: 'Clients et réclamations. Remplacé par Tawk.to + Admin Opérations.',
+        deprecie: 'operations_admin',
         permissions: [
             P.ADMIN_DASHBOARD,
             P.CLIENTS_VIEW, P.CLIENTS_EDIT,

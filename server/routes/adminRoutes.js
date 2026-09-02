@@ -169,7 +169,11 @@ adminRouter.get(
 adminRouter.post(
     '/returns',
     authStaff,
-    requireAnyPermission(['disputes.open', 'returns.view', 'clients.edit']),
+    // [CORRECTIF] 'returns.view' figurait ici : une permission de LECTURE
+    // ouvrait une action d'ÉCRITURE. L'Auditeur, dont toute la définition
+    // est « ne modifie rien », pouvait donc créer des dossiers de retour.
+    // Seuls des droits d'écriture gardent désormais cette route.
+    requireAnyPermission(['disputes.open', 'clients.edit', 'returns.decide']),
     openReturn
 );
 
