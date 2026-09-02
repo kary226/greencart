@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
+// Mêmes compteurs que la console : /api/console sert aussi le commerçant.
+import { useCompteurs } from '../../utils/useCompteurs';
 import {
     LayoutDashboard, Store, Package, Wallet, Banknote, LogOut, Loader2, ShieldAlert, Tag, AlertTriangle, ShoppingBag
 } from 'lucide-react';
@@ -15,6 +17,29 @@ const NAV_LINKS = [
     { name: 'Retraits', path: '/commercant/retraits', icon: Banknote },
 ];
 
+/**
+ * Pastille du menu commerçant.
+ *
+ * Le menu se réduit à des icônes sous `lg`. Un badge chiffré y deviendrait
+ * illisible et déborderait : on le remplace alors par un point rouge, qui
+ * dit « il y a quelque chose » sans prétendre dire combien.
+ */
+const PastilleCommercant = ({ nombre }) => {
+    if (!nombre) return null;
+    return (
+        <>
+            <span
+                className="lg:hidden absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500"
+                aria-hidden="true"
+            />
+            <span className="hidden lg:grid shrink-0 min-w-[1.25rem] h-5 px-1.5 place-items-center rounded-full bg-red-500 text-white text-[11px] font-semibold tabular-nums">
+                {nombre > 9 ? '9+' : nombre}
+            </span>
+            <span className="sr-only">{nombre} en attente</span>
+        </>
+    );
+};
+
 const CommercantLayout = () => {
     const { axios } = useAppContext();
     const navigate = useNavigate();
@@ -26,6 +51,12 @@ const CommercantLayout = () => {
     // associée », et le commerçant n'avait plus qu'à appeler l'admin.
     const [boutiqueEnCours, setBoutiqueEnCours] = useState(true);
     const [erreurBoutique, setErreurBoutique] = useState(null);
+
+    // Le commerçant ne voyait nulle part qu'une commande l'attendait : il
+    // devait ouvrir « Commandes » pour le découvrir. La pastille le lui dit
+    // depuis n'importe quel écran, et un message l'avertit si quelque chose
+    // tombe pendant qu'il travaille.
+    const { parChemin } = useCompteurs({ actif: authorized === true });
 
     // Le serveur crée la boutique à l'invitation, et la recrée ici si elle
     // manque (compte ancien, activation interrompue). Un simple rechargement
@@ -153,12 +184,16 @@ const CommercantLayout = () => {
                                 key={path}
                                 to={path}
                                 className={({ isActive }) => `
-                                    flex items-center gap-3 px-4 py-3 mx-2 rounded-xl text-sm font-medium transition-all
+                                    relative flex items-center gap-3 px-4 py-3 mx-2 rounded-xl text-sm font-medium transition-all
                                     ${isActive ? 'bg-ramses-50 text-ramses-700' : 'text-ink-500 hover:bg-ink-100 hover:text-ink-800'}
                                 `}
                             >
                                 <Icon size={19} className="shrink-0" />
-                                <span className="hidden lg:inline">{name}</span>
+                                <span className="hidden lg:inline flex-1">{name}</span>
+                                {/* Sur écran étroit le libellé est masqué : la
+                                    pastille se réduit à un point, sinon elle
+                                    déborderait de la colonne de 4 rem. */}
+                                <PastilleCommercant nombre={parChemin[path]} />
                             </NavLink>
                         ))}
                     </nav>

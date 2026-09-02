@@ -23,18 +23,35 @@ import "../styles/bottom-nav.css";
  * produit ainsi que depuis l'espace « Moi ». Pour la remettre, il suffit
  * d'ajouter une entrée au tableau `tabs` ci-dessous — et d'en retirer une.
  */
+/** Une commande encore en cours : le client peut avoir quelque chose à y voir. */
+const EN_COURS = [
+  'Order Placed', 'Checking Availability', 'Confirmed',
+  'Collecting', 'Ready for Shipment', 'Shipped', 'Out for Delivery',
+];
+
 const BottomNav = () => {
-  const { colisShein, colisSheinActif } = useAppContext();
+  const { colisShein, colisSheinActif, orders } = useAppContext();
   const location = useLocation();
 
   const colisActifsCount = colisShein?.filter(c => c.statut !== "livre" && c.statut !== "annule").length || 0;
+
+  // L'onglet Commandes ne portait aucun indicateur : le client devait
+  // l'ouvrir pour savoir si quelque chose avait bougé. On compte ses
+  // commandes encore en cours — pas les livrées ni les annulées, qui
+  // n'attendent plus rien de lui.
+  //
+  // Volontairement PAS un compteur de « non lu » : ça supposerait de
+  // mémoriser ce qu'il a déjà vu, pour une valeur faible ici. Le nombre de
+  // commandes en cours répond à la vraie question — « où en sont mes
+  // achats ? » — sans inventer un état de lecture.
+  const commandesEnCours = orders?.filter(o => EN_COURS.includes(o.status)).length || 0;
 
   // L'onglet Colis n'apparaît que si l'admin a activé la section. Filtré
   // ici plutôt que masqué en CSS : la barre reste équilibrée à 4 onglets.
   const tabs = [
     { to: "/", label: "Accueil", Icon: Home, exact: true },
     { to: "/categories", label: "Catégories", Icon: LayoutGrid },
-    { to: "/my-orders", label: "Commandes", Icon: ReceiptText },
+    { to: "/my-orders", label: "Commandes", Icon: ReceiptText, badge: commandesEnCours },
     colisSheinActif && { to: "/mes-colis-shein", label: "Colis", Icon: Package, badge: colisActifsCount },
     { to: "/account", label: "Moi", Icon: User },
   ].filter(Boolean);

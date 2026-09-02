@@ -5,6 +5,8 @@ import toast from "react-hot-toast";
 // La table des espaces sert au menu ET à la garde des routes : une seule
 // source, pour que masquer et interdire ne puissent pas diverger.
 import { menuPour, droitsPourChemin, aLeDroit as compteALeDroit } from "../utils/espaces";
+// Les pastilles du menu viennent des mêmes compteurs que la page « À faire ».
+import { useCompteurs } from "../utils/useCompteurs";
 import {
     Menu, X as CloseIcon, LogOut, ListChecks, LayoutDashboard, ShoppingBag,
     PackageCheck, Truck, Tags, Users, Wallet, ShieldAlert, ScrollText,
@@ -39,6 +41,28 @@ const ICONES = {
  * Règle désormais : chaque entrée porte le droit qui la rend UTILE, et une
  * rubrique n'apparaît que si au moins une de ses entrées est visible.
  */
+
+/**
+ * Pastille de compteur.
+ *
+ * Le chiffre plutôt qu'un simple point : « 3 retraits » et « 12 retraits »
+ * n'appellent pas la même réaction, et l'information est déjà là.
+ * Au-delà de 9, on écrit « 9+ » — le nombre exact n'aide plus, et un
+ * badge à trois chiffres déforme la ligne du menu.
+ */
+const Pastille = ({ nombre, discrete = false }) => {
+    if (!nombre) return null;
+    return (
+        <span
+            className={`shrink-0 min-w-[1.25rem] h-5 px-1.5 grid place-items-center rounded-full text-[11px] font-semibold tabular-nums ${
+                discrete ? 'bg-gray-200 text-gray-700' : 'bg-red-500 text-white'
+            }`}
+            aria-label={`${nombre} en attente`}
+        >
+            {nombre > 9 ? '9+' : nombre}
+        </span>
+    );
+};
 
 /**
  * Refus lisible plutôt qu'écran cassé. On ne renvoie pas vers l'accueil sans
@@ -77,6 +101,10 @@ const SuperAdminLayout = () => {
     const [roleLibelle, setRoleLibelle] = useState('');
     const [repliees, setRepliees] = useState({});
     const [chargement, setChargement] = useState(true);
+
+    // Les compteurs ne se chargent qu'une fois les droits connus : les
+    // demander avant, c'est un appel qui partira forcément en 401.
+    const { parChemin } = useCompteurs({ actif: !chargement });
 
     // Fermer le tiroir dès qu'on navigue
     useEffect(() => { setTiroirOuvert(false); }, [location.pathname]);
@@ -138,6 +166,10 @@ const SuperAdminLayout = () => {
         return location.pathname === base
             || (base !== '/admin/console' && location.pathname.startsWith(base + '/'));
     };
+
+    /** Somme des compteurs d'une rubrique, pour l'afficher quand elle est repliée. */
+    const totalRubrique = (rubrique) => (rubrique.entrees || [])
+        .reduce((n, e) => n + (parChemin[e.chemin.split('?')[0]] || 0), 0);
 
     const rubriqueActive = (rubrique) => rubrique.entrees
         ? rubrique.entrees.some((e) => estActive(e.chemin))
@@ -253,7 +285,8 @@ const SuperAdminLayout = () => {
                                         `}
                                     >
                                         <Icone size={18} className="shrink-0" />
-                                        <span className="truncate">{rubrique.titre}</span>
+                                        <span className="truncate flex-1">{rubrique.titre}</span>
+                                        <Pastille nombre={parChemin[rubrique.chemin]} />
                                     </NavLink>
                                 );
                             }
@@ -274,6 +307,11 @@ const SuperAdminLayout = () => {
                                     >
                                         <Icone size={18} className="shrink-0" />
                                         <span className="truncate flex-1 text-left">{rubrique.titre}</span>
+                                        {/* Repliée, la rubrique porte le total de ses
+                                            entrées — sinon le compteur disparaîtrait
+                                            avec elles. Dépliée, chaque entrée affiche
+                                            le sien et le total ferait doublon. */}
+                                        {repliee && <Pastille nombre={totalRubrique(rubrique)} />}
                                         <ChevronDown
                                             size={15}
                                             className={`shrink-0 text-gray-400 transition-transform ${repliee ? '-rotate-90' : ''}`}
@@ -287,13 +325,16 @@ const SuperAdminLayout = () => {
                                                     key={entree.chemin}
                                                     to={entree.chemin}
                                                     className={({ isActive }) => `
-                                                        block px-3 h-9 leading-9 rounded-lg text-[13px] truncate transition
+                                                        flex items-center px-3 h-9 rounded-lg text-[13px] transition
                                                         ${isActive
                                                             ? "bg-red-50 text-red-600 font-medium"
                                                             : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"}
                                                     `}
                                                 >
-                                                    {entree.label}
+                                                    <span className="flex items-center gap-2">
+                                                        <span className="truncate flex-1">{entree.label}</span>
+                                                        <Pastille nombre={parChemin[entree.chemin.split('?')[0]]} />
+                                                    </span>
                                                 </NavLink>
                                             ))}
                                         </div>

@@ -3,6 +3,7 @@ import Navbar from './components/Navbar';
 import { Route, Routes, useLocation } from 'react-router-dom';
 import Home from './pages/Home';
 import { Toaster } from "react-hot-toast";
+import SonNotifications from "./components/SonNotifications";
 import Footer from './components/Footer';
 import { useAppContext } from './context/AppContext';
 import Login from './components/Login';
@@ -160,6 +161,10 @@ const App = () => {
       {showNavbar && <Navbar />}
       {showUserLogin && !user ? <Login /> : null}
       {!isAdminPath && <NotificationPrompt />}
+
+      {/* Le son des messages, branché une fois pour toutes sur le flux de
+          toasts — voir components/SonNotifications.jsx. */}
+      <SonNotifications />
 
       <Toaster
         position="top-center"

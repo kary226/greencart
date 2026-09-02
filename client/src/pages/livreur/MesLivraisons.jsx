@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
+import { notifier } from '../../utils/notifications';
 import { Package, MapPin, Clock, CheckCircle, Loader2, Truck, Eye, Calendar, Phone, User, Hand, Layers } from 'lucide-react';
 
 const MesLivraisons = () => {
@@ -42,6 +43,35 @@ const MesLivraisons = () => {
         };
         load();
     }, [axios, navigate]);
+
+    // Une collecte se prend au premier arrivé. Sans rafraîchissement, le
+    // livreur devait recharger la page pour découvrir qu'une commande était
+    // disponible — et la manquait au profit d'un collègue qui, lui, venait
+    // de recharger. 45 s : assez court pour rester compétitif, assez long
+    // pour ne pas mitrailler le serveur depuis un téléphone.
+    const nbCollectes = React.useRef(null);
+    useEffect(() => {
+        if (!moi) return undefined;
+        const minuterie = setInterval(async () => {
+            try {
+                const { data } = await axios.get('/api/order/livreur/collectes');
+                if (!data.success) return;
+                const liste = data.orders || [];
+                setCollectes(liste);
+
+                // On n'annonce qu'une AUGMENTATION, et jamais au premier
+                // passage : sinon toute collecte déjà là passerait pour neuve.
+                if (nbCollectes.current !== null && liste.length > nbCollectes.current) {
+                    const nouvelles = liste.length - nbCollectes.current;
+                    notifier.nouveaute(
+                        nouvelles === 1 ? 'Nouvelle collecte disponible' : `${nouvelles} nouvelles collectes disponibles`
+                    );
+                }
+                nbCollectes.current = liste.length;
+            } catch { /* réseau capricieux : on retentera au prochain tour */ }
+        }, 45_000);
+        return () => clearInterval(minuterie);
+    }, [axios, moi]);
 
     const reserve = async (order) => {
         try {
@@ -92,7 +122,7 @@ const MesLivraisons = () => {
                         <Hand size={18}/> Récupérer ({collectes.length})
                     </button>
                     <button onClick={() => setTab('livraisons')} className={`p-3 rounded-xl font-semibold flex items-center justify-center gap-2 ${tab==='livraisons'?'bg-burgundy-600 text-white':'bg-white text-gray-600'}`}>
-                        <Truck size={18}/> Livraisons
+                        <Truck size={18}/> Livraisons ({commandes.length})
                     </button>
                 </div>
 

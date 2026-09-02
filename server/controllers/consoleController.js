@@ -1,5 +1,6 @@
 import Order from '../models/Order.js';
 import DemandeRetrait from '../models/DemandeRetrait.js';
+import Wallet from '../models/Wallet.js';
 import ApprovalRequest from '../models/ApprovalRequest.js';
 import ReturnCase from '../models/ReturnCase.js';
 import Refund from '../models/Refund.js';
@@ -220,6 +221,40 @@ export const maConsole = async (req, res) => {
                     libelle: 'Article(s) à confirmer',
                     nombre: aConfirmer,
                     lien: '/commercant/commandes',
+                    urgence: 'haute',
+                    domaine: 'commercant',
+                }));
+            }
+
+            // Un retrait refusé lui a été recrédité, mais rien ne le lui
+            // disait tant qu'il n'ouvrait pas l'écran des retraits. C'est
+            // pourtant la nouvelle qu'il attend le plus.
+            const retraitsRejetes = await DemandeRetrait.countDocuments({
+                commercialId: staff._id,
+                statut: 'rejetee',
+                traiteLe: { $gte: new Date(Date.now() - 7 * 86400000) },
+            });
+            if (retraitsRejetes > 0) {
+                taches.push(tache({
+                    cle: 'retrait_rejete',
+                    libelle: retraitsRejetes === 1 ? 'Retrait refusé — fonds restitués' : 'Retraits refusés — fonds restitués',
+                    nombre: retraitsRejetes,
+                    lien: '/commercant/retraits',
+                    urgence: 'haute',
+                    domaine: 'commercant',
+                }));
+            }
+
+            // Solde négatif : une dette née d'un retour arrivé après un
+            // retrait. Elle se résorbe seule, mais il doit savoir pourquoi
+            // son prochain retrait est bloqué.
+            const wallet = await Wallet.findOne({ ownerId: staff._id }).select('solde').lean();
+            if (wallet && wallet.solde < 0) {
+                taches.push(tache({
+                    cle: 'solde_negatif',
+                    libelle: 'Solde négatif — à combler par vos ventes',
+                    nombre: 1,
+                    lien: '/commercant/portefeuille',
                     urgence: 'haute',
                     domaine: 'commercant',
                 }));
