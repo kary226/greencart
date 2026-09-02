@@ -1,5 +1,5 @@
 import express from 'express';
-import authStaff, { requireRole } from '../middlewares/authStaff.js';
+import authStaff from '../middlewares/authStaff.js';
 import {
     getAllColisAdmin,
     getColisAdminById,
@@ -27,6 +27,7 @@ import {
 // ne pouvait ni demander un avis client ni consulter les statistiques
 // d'avis. Voir Rapport d'audit d'implémentation, section 5.
 import { demanderAvis, getStatsAvis } from '../controllers/avisController.js';
+import { requireAnyPermission, requirePermission } from '../middlewares/permission.js';
 
 const router = express.Router();
 
@@ -38,11 +39,11 @@ const router = express.Router();
 // (/api/shein-cart/admin/admin/all) et cassait toutes ces routes en 404 —
 // contrairement au bloc PHASE 5 plus bas, écrit après le montage actuel et
 // donc jamais affecté par ce doublon.
-router.get('/all', authStaff, requireRole('admin', 'super_admin'), getAllColisAdmin);
+router.get('/all', authStaff, requirePermission('shein.view'), getAllColisAdmin);
 // [CORRECTIF AUDIT] Doit être déclarée AVANT /:id, sinon
 // "/avis/stats" est interprétée comme /:id avec id="avis" —
 // même piège déjà documenté et évité plus bas dans sheinCartRoute.js.
-router.get('/avis/stats', authStaff, requireRole('admin', 'super_admin'), getStatsAvis);
+router.get('/avis/stats', authStaff, requirePermission('shein.view'), getStatsAvis);
 
 // =============================================================
 // ✅ PHASE 5 : NOUVELLES ROUTES (Assistant/Admin)
@@ -54,29 +55,34 @@ router.get('/avis/stats', authStaff, requireRole('admin', 'super_admin'), getSta
 // routes (ex. GET /stats interprété comme GET /:id avec id="stats").
 
 // Routes Assistant/Admin
-router.get('/conversations', authStaff, requireRole('admin', 'assistant_shein'), getConversations);
-router.get('/conversations/:id', authStaff, requireRole('admin', 'assistant_shein'), getConversationDetail);
-router.get('/stats', authStaff, requireRole('admin', 'super_admin'), getConversationStats);
+// [RAMCI §16] Ces routes listaient le rôle historique `admin` SANS
+// `super_admin`. Migrer le compte principal vers super_admin — ce que le
+// guide recommande — lui aurait donc fait perdre ces écrans du jour au
+// lendemain. Elles vérifient désormais une permission : le Super Admin
+// passe par admin.all, l'Assistant SHEIN par ses propres droits.
+router.get('/conversations', authStaff, requireAnyPermission(['shein.view', 'admin.all']), getConversations);
+router.get('/conversations/:id', authStaff, requireAnyPermission(['shein.view', 'admin.all']), getConversationDetail);
+router.get('/stats', authStaff, requirePermission('shein.view'), getConversationStats);
 
 // Routes Admin uniquement
-router.patch('/assigner', authStaff, requireRole('admin', 'super_admin'), assignerConversation);
-router.get('/assistants-disponibles', authStaff, requireRole('admin', 'super_admin'), getAssistantsDisponibles);
-router.post('/conversations', authStaff, requireRole('admin', 'super_admin'), createConversation);
-router.delete('/conversations/:id', authStaff, requireRole('admin', 'super_admin'), deleteConversation);
-router.patch('/conversations/:id/statut', authStaff, requireRole('admin', 'assistant_shein'), updateConversationStatut);
+router.patch('/assigner', authStaff, requirePermission('admin.configure'), assignerConversation);
+router.get('/assistants-disponibles', authStaff, requirePermission('admin.configure'), getAssistantsDisponibles);
+router.post('/conversations', authStaff, requirePermission('shein.update'), createConversation);
+router.delete('/conversations/:id', authStaff, requirePermission('admin.configure'), deleteConversation);
+router.patch('/conversations/:id/statut', authStaff, requireAnyPermission(['shein.update', 'admin.all']), updateConversationStatut);
 
 // =============================================================
 // Routes génériques /:id — doivent rester déclarées APRÈS toutes les
 // routes littérales ci-dessus, pour la même raison.
 // =============================================================
-router.get('/:id', authStaff, requireRole('admin', 'super_admin'), getColisAdminById);
-router.post('/:id/validate', authStaff, requireRole('admin', 'super_admin'), validateColis);
-router.post('/:id/statut', authStaff, requireRole('admin', 'super_admin'), updateStatutColis);
-router.post('/:id/estimation-arrivee', authStaff, requireRole('admin', 'super_admin'), definirEstimationArrivee);
+router.get('/:id', authStaff, requirePermission('shein.view'), getColisAdminById);
+router.post('/:id/validate', authStaff, requirePermission('shein.update'), validateColis);
+router.post('/:id/statut', authStaff, requirePermission('shein.update'), updateStatutColis);
+router.post('/:id/estimation-arrivee', authStaff, requirePermission('shein.update'), definirEstimationArrivee);
 // [CORRECTIF AUDIT] Équivalent RBAC de l'ancienne route authSeller.
-router.post('/:id/demander-avis', authStaff, requireRole('admin', 'super_admin'), demanderAvis);
-router.get('/:id/messages', authStaff, requireRole('admin', 'super_admin'), getMessagesAdmin);
-router.post('/:id/messages', authStaff, requireRole('admin', 'super_admin'), sendMessageAgent);
-router.post('/:id/typing', authStaff, requireRole('admin', 'super_admin'), setAgentTyping);
+router.post('/:id/demander-avis', authStaff, requirePermission('shein.update'), demanderAvis);
+router.get('/:id/messages', authStaff, requirePermission('shein.view'), getMessagesAdmin);
+router.post('/:id/messages', authStaff, requirePermission('shein.update'), sendMessageAgent);
+router.post('/:id/typing', authStaff, requirePermission('shein.update'), setAgentTyping);
 
 export default router;

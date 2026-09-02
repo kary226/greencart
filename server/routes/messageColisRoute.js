@@ -1,5 +1,6 @@
 import express from 'express';
-import authStaff, { requireRole } from '../middlewares/authStaff.js';
+import authStaff from '../middlewares/authStaff.js';
+import { requireAnyPermission } from '../middlewares/permission.js';
 import {
     sendMessage,
     getMessagesStaff,
@@ -32,9 +33,14 @@ const router = express.Router();
 // =============================================================
 // ✅ PHASE 5 : ROUTES STAFF (Assistant/Admin)
 // =============================================================
-router.post('/:colisId', authStaff, requireRole('admin', 'assistant_shein'), sendMessage);
-router.get('/:colisId', authStaff, requireRole('admin', 'assistant_shein'), getMessagesStaff);
-router.patch('/:colisId/statut', authStaff, requireRole('admin', 'assistant_shein'), updateColisStatut);
-router.post('/:colisId/devis', authStaff, requireRole('admin', 'assistant_shein'), sendDevis);
+// [RAMCI §16] Ces routes listaient le rôle historique `admin` SANS
+// `super_admin`. Migrer le compte principal vers super_admin — ce que le
+// guide recommande — lui aurait donc fait perdre ces écrans du jour au
+// lendemain. Elles vérifient désormais une permission : le Super Admin
+// passe par admin.all, l'Assistant SHEIN par ses propres droits.
+router.post('/:colisId', authStaff, requireAnyPermission(['shein.update', 'admin.all']), sendMessage);
+router.get('/:colisId', authStaff, requireAnyPermission(['shein.view', 'admin.all']), getMessagesStaff);
+router.patch('/:colisId/statut', authStaff, requireAnyPermission(['shein.update', 'admin.all']), updateColisStatut);
+router.post('/:colisId/devis', authStaff, requireAnyPermission(['shein.update', 'admin.all']), sendDevis);
 
 export default router;

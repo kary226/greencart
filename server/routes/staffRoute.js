@@ -1,7 +1,8 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
-import authStaff, { requireRole } from '../middlewares/authStaff.js';
+import authStaff from '../middlewares/authStaff.js';
 import { valider } from '../middlewares/valider.js';
+import { requirePermission } from '../middlewares/permission.js';
 import {
     schemaInvitation,
     schemaConnexionStaff,
@@ -51,12 +52,12 @@ staffRouter.get('/is-auth', authStaff, isStaffAuth);
 staffRouter.get('/logout', staffLogout);
 
 // ---- Gestion des comptes (admin uniquement) ----
-staffRouter.post('/invitations', authStaff, requireRole('admin', 'super_admin'), valider(schemaInvitation), createInvitation);
-staffRouter.get('/invitations', authStaff, requireRole('admin', 'super_admin'), listInvitations);
-staffRouter.get('/comptes', authStaff, requireRole('admin', 'super_admin'), listStaffAccounts);
-staffRouter.patch('/comptes/:id/statut', authStaff, requireRole('admin', 'super_admin'), valider(schemaStatutStaff), updateStaffStatus);
-staffRouter.patch('/comptes/:id/role', authStaff, requireRole('admin', 'super_admin'), valider(schemaRoleStaff), updateStaffRole);
-staffRouter.get('/comptes/:id/suppression', authStaff, requireRole('admin', 'super_admin'), getSuppressionApercu);
-staffRouter.delete('/comptes/:id', authStaff, requireRole('admin', 'super_admin'), deleteStaffAccount);
+staffRouter.post('/invitations', authStaff, requirePermission('admin.configure'), valider(schemaInvitation), createInvitation);
+staffRouter.get('/invitations', authStaff, requirePermission('admin.configure'), listInvitations);
+staffRouter.get('/comptes', authStaff, requirePermission('admin.configure'), listStaffAccounts);
+staffRouter.patch('/comptes/:id/statut', authStaff, requirePermission('admin.configure'), valider(schemaStatutStaff), updateStaffStatus);
+staffRouter.patch('/comptes/:id/role', authStaff, requirePermission('admin.configure'), valider(schemaRoleStaff), updateStaffRole);
+staffRouter.get('/comptes/:id/suppression', authStaff, requirePermission('admin.configure'), getSuppressionApercu);
+staffRouter.delete('/comptes/:id', authStaff, requirePermission('admin.configure'), deleteStaffAccount);
 
 export default staffRouter;

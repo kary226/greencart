@@ -122,7 +122,7 @@ orderRouter.get('/admin/user/:userId', authStaff, requireAnyPermission(['orders.
 orderRouter.get('/admin/recherche', authStaff, requirePermission('orders.view'), rechercherCommandeAdmin);
 
 // ✅ PHASE 4 : Route pour assigner un livreur (admin)
-orderRouter.post('/admin/assigner-livreur', authStaff, requireRole('admin', 'super_admin'), assignerLivreur);
+orderRouter.post('/admin/assigner-livreur', authStaff, requirePermission('deliveries.assign'), assignerLivreur);
 
 // ✅ PHASE 4 : Routes pour livreur
 orderRouter.get('/livreur/mes-livraisons', authStaff, requireRole('livreur'), getLivraisonsLivreur);
@@ -179,15 +179,15 @@ orderRouter.post('/commercant/confirmer', authStaff, requireRole('commercant'), 
 orderRouter.post('/commercant/disponibilite', authStaff, requireRole('commercant'), confirmerDisponibiliteCommercant);
 
 // Validation finale par l'admin : c'est elle qui libère les fonds.
-orderRouter.get('/admin/a-valider', authStaff, requireRole('admin', 'super_admin'), listCommandesAValider);
-orderRouter.post('/admin/confirmer', authStaff, requireRole('admin', 'super_admin'), confirmerCommandeAdmin);
+orderRouter.get('/admin/a-valider', authStaff, requirePermission('orders.approve'), listCommandesAValider);
+orderRouter.post('/admin/confirmer', authStaff, requirePermission('orders.approve'), confirmerCommandeAdmin);
 
 // [NOUVEAU] Litiges (doc §15) : un litige déclaré avant libération bloque
 // confirmerCommandeAdmin ; la résolution peut créer une retenue commerçant
 // ou un remboursement client exceptionnel.
-orderRouter.get('/admin/litiges', authStaff, requireRole('admin', 'super_admin'), listLitiges);
-orderRouter.post('/admin/litige/declarer', authStaff, requireRole('admin', 'super_admin'), declarerLitige);
-orderRouter.post('/admin/litige/resoudre', authStaff, requireRole('admin', 'super_admin'), resoudreLitige);
+orderRouter.get('/admin/litiges', authStaff, requirePermission('disputes.view'), listLitiges);
+orderRouter.post('/admin/litige/declarer', authStaff, requireAnyPermission(['disputes.open', 'disputes.respond']), declarerLitige);
+orderRouter.post('/admin/litige/resoudre', authStaff, requirePermission('exceptions.decide'), resoudreLitige);
 
 // Récupérer une commande par son ID (client)
 orderRouter.get('/:orderId', authUser, async (req, res) => {

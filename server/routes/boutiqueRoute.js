@@ -1,7 +1,7 @@
 import express from 'express';
 import { upload } from '../configs/multer.js';
 import authStaff, { requireRole } from '../middlewares/authStaff.js';
-import { requirePermission } from '../middlewares/permission.js';
+import { requirePermission, requireAnyPermission } from '../middlewares/permission.js';
 import { valider } from '../middlewares/valider.js';
 import { schemaStatutBoutique, schemaAutorisationsBoutique } from '../schemas/index.js';
 import {
@@ -40,10 +40,10 @@ boutiqueRouter.patch('/moi/zones-livraison', authStaff, requireRole('commercant'
 boutiqueRouter.get('/options', authStaff, requirePermission('catalog.view'), listBoutiqueOptions);
 
 // ✅ Routes ADMIN
-boutiqueRouter.get('/', authStaff, requireRole('admin', 'super_admin'), listAllBoutiques);
-boutiqueRouter.post('/', authStaff, requireRole('admin', 'super_admin'), createBoutiqueForCommercial);
-boutiqueRouter.patch('/:id/statut', authStaff, requireRole('admin', 'super_admin'), valider(schemaStatutBoutique), updateBoutiqueStatut);
-boutiqueRouter.patch('/:id/autorisations', authStaff, requireRole('admin', 'super_admin'), valider(schemaAutorisationsBoutique), updateAutorisationsBoutique);
+boutiqueRouter.get('/', authStaff, requireAnyPermission(['clients.view', 'shop.view']), listAllBoutiques);
+boutiqueRouter.post('/', authStaff, requirePermission('admin.configure'), createBoutiqueForCommercial);
+boutiqueRouter.patch('/:id/statut', authStaff, requirePermission('admin.configure'), valider(schemaStatutBoutique), updateBoutiqueStatut);
+boutiqueRouter.patch('/:id/autorisations', authStaff, requirePermission('admin.configure'), valider(schemaAutorisationsBoutique), updateAutorisationsBoutique);
 
 // ✅ Routes PUBLIQUES (avec paramètre :id) — DOIVENT être EN DERNIER
 boutiqueRouter.get('/:id/apercu', getBoutiqueApercu);

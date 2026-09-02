@@ -1,7 +1,7 @@
 import express from 'express';
 import { upload } from '../configs/multer.js';
-import authStaff, { requireRole } from '../middlewares/authStaff.js';
-import { requirePermission } from '../middlewares/permission.js';
+import authStaff from '../middlewares/authStaff.js';
+import { requirePermission, requireAnyPermission } from '../middlewares/permission.js';
 import requireBoutiqueActive from '../middlewares/requireBoutiqueActive.js';
 import requireDroitCreation from '../middlewares/requireDroitCreation.js';
 import attachStaffOptionnel from '../middlewares/attachStaffOptionnel.js';
@@ -102,7 +102,10 @@ productRouter.post('/check-availability', publicCatalogLimiter, checkAvailabilit
 // (qui ne s'applique de toute façon qu'au rôle commercant, absent de ces
 // pages).
 productRouter.get('/generate-sku', authStaff, requirePermission('catalog.create'), genererCodeArticle);
-productRouter.get('/staff/generate-sku', authStaff, requireRole('admin', 'super_admin'), genererCodeArticle);
+// Générer un SKU est une étape de CRÉATION d'article, pas une
+// consultation : même droit que son jumeau ci-dessus. Avec catalog.view,
+// l'Auditeur — qui a le droit de tout lire — y accédait.
+productRouter.get('/staff/generate-sku', authStaff, requirePermission('catalog.create'), genererCodeArticle);
 
 productRouter.post('/add', authStaff, requirePermission('catalog.create'), requireDroitCreation, (req, res, next) => {
     upload.fields([
@@ -131,15 +134,23 @@ productRouter.post('/sync-airtable', authStaff, requirePermission('catalog.edit'
 // ne supprime et ne publie plus aucun produit. Seul le Seller/Admin gère le
 // catalogue. Le Commerçant conserve uniquement la gestion de son stock et la
 // consultation de ses articles.
-productRouter.post('/staff/update', authStaff, requireRole('admin', 'super_admin'), requireBoutiqueActive, updateProduct);
-productRouter.post('/staff/delete', authStaff, requireRole('admin', 'super_admin'), requireBoutiqueActive, deleteProduct);
-productRouter.post('/staff/unarchive', authStaff, requireRole('admin', 'super_admin'), requireBoutiqueActive, unarchiveProduct);
-productRouter.get('/staff/admin-list', authStaff, requireRole('admin', 'super_admin', 'commercant'), adminProductList);
-productRouter.post('/staff/add-images', authStaff, requireRole('admin', 'super_admin'), requireBoutiqueActive, upload.array('images', 10), addProductImages);
-productRouter.post('/staff/sync-airtable', authStaff, requireRole('admin', 'super_admin'), syncAirtable);
+productRouter.post('/staff/update', authStaff, requirePermission('catalog.edit'), requireBoutiqueActive, updateProduct);
+productRouter.post('/staff/delete', authStaff, requirePermission('catalog.delete'), requireBoutiqueActive, deleteProduct);
+productRouter.post('/staff/unarchive', authStaff, requirePermission('catalog.edit'), requireBoutiqueActive, unarchiveProduct);
+// Route partagée : le Super Admin et le Catalogue y voient tout le
+// catalogue, le Commerçant sa propre boutique (le filtrage se fait dans
+// le contrôleur). 'shop.view' est la permission du Commerçant.
+productRouter.get('/staff/admin-list', authStaff, requireAnyPermission(['catalog.view', 'shop.view']), adminProductList);
+productRouter.post('/staff/add-images', authStaff, requirePermission('catalog.edit'), requireBoutiqueActive, upload.array('images', 10), addProductImages);
+productRouter.post('/staff/sync-airtable', authStaff, requirePermission('catalog.create'), syncAirtable);
 // Le Commerçant peut uniquement ajuster les quantités de produits déjà créés
 // par le Seller/Admin.
-productRouter.post('/staff/stock', authStaff, requireRole('admin', 'commercant'), requireBoutiqueActive, valider(schemaStock), changeStockCommercant);
-productRouter.post('/staff/assign-boutique', authStaff, requireRole('admin', 'super_admin'), valider(schemaAffectationBoutique), assignerBoutique);
+// [RAMCI §16] Ces routes listaient le rôle historique `admin` SANS
+// `super_admin`. Migrer le compte principal vers super_admin — ce que le
+// guide recommande — lui aurait donc fait perdre ces écrans du jour au
+// lendemain. Elles vérifient désormais une permission : le Super Admin
+// passe par admin.all, l'Assistant SHEIN par ses propres droits.
+productRouter.post('/staff/stock', authStaff, requireAnyPermission(['products.edit', 'catalog.edit', 'admin.all']), requireBoutiqueActive, valider(schemaStock), changeStockCommercant);
+productRouter.post('/staff/assign-boutique', authStaff, requirePermission('catalog.edit'), valider(schemaAffectationBoutique), assignerBoutique);
 
 export default productRouter;
