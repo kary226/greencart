@@ -60,9 +60,20 @@ const AdminBoutiques = () => {
     useEffect(() => {
         (async () => {
             try {
-                const { data } = await axios.get('/api/staff/is-auth');
-                if (data.success && ['admin', 'super_admin'].includes(data.staffUser?.role)) {
-                    setMoi(data.staffUser);
+                // [RAMCI §16] On demande les DROITS, pas le rôle.
+                // Boutiques : les domaines qui suivent les commerçants.
+                // Le test précédent (`role in ['admin','super_admin']`)
+                // refusait cet écran à des comptes que le serveur autorise :
+                // l'utilisateur voyait « accès refusé » sans comprendre
+                // pourquoi, puisque ses permissions étaient bonnes.
+                const { data } = await axios.get('/api/console/mes-droits');
+                const droits = data.permissions || [];
+                const autorise = data.estArbitre
+                    || droits.includes('admin.all')
+                    || ['shop.view', 'clients.view', 'orders.view'].some((p) => droits.includes(p));
+
+                if (data.success && autorise) {
+                    setMoi(data);
                     setAuthorized(true);
                 } else {
                     setAuthorized(false);
@@ -192,7 +203,7 @@ const AdminBoutiques = () => {
         <div className="min-h-screen bg-ink-50">
             <AdminNav
                 titre="Boutiques"
-                sousTitre={`${moi?.nom} · Administrateur · ${stats.total} boutique${stats.total > 1 ? 's' : ''}`}
+                sousTitre={`${moi?.nom || ''} · ${moi?.roleLibelle || ''} · ${stats.total} boutique${stats.total > 1 ? 's' : ''}`}
             />
 
             <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">

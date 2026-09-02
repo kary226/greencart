@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import toast from 'react-hot-toast';
-import { User, Mail, Phone, MapPin, Home, Building2, LogOut, Edit2, Save, X, Coins } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Home, Building2, LogOut, Edit2, Save, X, Coins, ChevronDown, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
 // Selecteur partage et accessible — remplace la copie locale inaccessible.
 import SelectSearch from '../components/SelectSearch';
 
@@ -15,6 +15,9 @@ const Account = () => {
     const [loadingCities, setLoadingCities] = useState(true);
     const [loadingCommunes, setLoadingCommunes] = useState(false);
     const [creditBalance, setCreditBalance] = useState(null);
+    // Historique RCoins : le solde seul ne disait pas D'OÙ venait l'argent.
+    const [mouvements, setMouvements] = useState([]);
+    const [historiqueOuvert, setHistoriqueOuvert] = useState(false);
     const [formData, setFormData] = useState({
         firstName: '',
         lastName: '',
@@ -60,6 +63,9 @@ const Account = () => {
         if (!user) return;
         axios.get('/api/order/user/credit')
             .then(({ data }) => { if (data.success) setCreditBalance(data.creditBalance) })
+            .catch(() => {})
+        axios.get('/api/order/user/credit/historique')
+            .then(({ data }) => { if (data.success) setMouvements(data.mouvements || []) })
             .catch(() => {})
     }, [user]);
 
@@ -185,21 +191,87 @@ const Account = () => {
                     </div>
                 </div>
 
-                {/* ── Solde RCoins ───────────────────────────────────────── */}
-                {creditBalance !== null && creditBalance > 0 && (
-                    <div className="rs-card mb-3 flex items-center gap-3">
-                        <div className="w-11 h-11 rounded-full bg-ramses-50 flex items-center justify-center shrink-0">
-                            <Coins size={20} className="text-ramses-600" />
-                        </div>
-                        <div className="min-w-0">
-                            <p className="text-[12px] text-ink-400">Mes RCoins</p>
-                            <p className="text-[16px] font-bold text-ink-900 tabular-nums">
-                                {creditBalance.toLocaleString()} FCFA
+                {/* ── Solde RCoins ───────────────────────────────────────────
+                    Affiché MÊME À ZÉRO. Avant, le bloc disparaissait sous
+                    `creditBalance > 0` : un client qui n'avait jamais été
+                    remboursé ignorait que les RCoins existaient, et celui qui
+                    venait de l'être voyait une somme surgir sans explication.
+                    Or c'est la voie normale de remboursement d'un retour.
+                    ────────────────────────────────────────────────────────── */}
+                {creditBalance !== null && (
+                    <div className="rs-card mb-3">
+                        <div className="flex items-center gap-3">
+                            <div className="w-11 h-11 rounded-full bg-ramses-50 flex items-center justify-center shrink-0">
+                                <Coins size={20} className="text-ramses-600" />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-[12px] text-ink-400">Mes RCoins</p>
+                                <p className="text-[16px] font-bold text-ink-900 tabular-nums">
+                                    {creditBalance.toLocaleString()} FCFA
+                                </p>
+                            </div>
+                            <p className="text-[11px] text-ink-300 ml-auto text-right max-w-[130px]">
+                                {creditBalance > 0
+                                    ? 'Déduits automatiquement de votre prochaine commande'
+                                    : 'Votre cagnotte se remplit lors d’un remboursement'}
                             </p>
                         </div>
-                        <p className="text-[11px] text-ink-300 ml-auto text-right max-w-[110px]">
-                            Utilisables au paiement de votre prochaine commande
-                        </p>
+
+                        {/* L'historique explique la provenance de chaque somme :
+                            c'est ce que le client demande au support quand un
+                            montant apparaît sans qu'il sache pourquoi. */}
+                        {mouvements.length > 0 && (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() => setHistoriqueOuvert((v) => !v)}
+                                    aria-expanded={historiqueOuvert}
+                                    className="mt-3 w-full flex items-center justify-between text-[12px] text-ink-500 hover:text-ink-800 transition"
+                                >
+                                    <span>{historiqueOuvert ? 'Masquer' : 'Voir'} l’historique ({mouvements.length})</span>
+                                    <ChevronDown
+                                        size={15}
+                                        className={`transition-transform ${historiqueOuvert ? 'rotate-180' : ''}`}
+                                    />
+                                </button>
+
+                                {historiqueOuvert && (
+                                    <ul className="mt-2 pt-2 border-t border-ink-100 space-y-2.5 list-none p-0">
+                                        {mouvements.map((m) => (
+                                            <li key={m.id} className="flex items-start gap-2.5">
+                                                <span
+                                                    className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                                                        m.sens === 'credit' ? 'bg-ok-50 text-ok-600' : 'bg-ink-100 text-ink-500'
+                                                    }`}
+                                                >
+                                                    {m.sens === 'credit'
+                                                        ? <ArrowDownLeft size={13} />
+                                                        : <ArrowUpRight size={13} />}
+                                                </span>
+                                                <span className="min-w-0 flex-1">
+                                                    <span className="block text-[12.5px] text-ink-800 leading-snug">
+                                                        {m.libelle}
+                                                    </span>
+                                                    <span className="block text-[11px] text-ink-400">
+                                                        {new Date(m.date).toLocaleDateString('fr-FR', {
+                                                            day: '2-digit', month: 'short', year: 'numeric',
+                                                        })}
+                                                        {m.commande ? ` · commande ${m.commande}` : ''}
+                                                    </span>
+                                                </span>
+                                                <span
+                                                    className={`text-[12.5px] font-semibold tabular-nums shrink-0 ${
+                                                        m.sens === 'credit' ? 'text-ok-600' : 'text-ink-500'
+                                                    }`}
+                                                >
+                                                    {m.sens === 'credit' ? '+' : '−'}{m.montant.toLocaleString()}
+                                                </span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </>
+                        )}
                     </div>
                 )}
 

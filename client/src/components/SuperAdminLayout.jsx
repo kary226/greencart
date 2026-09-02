@@ -27,6 +27,7 @@ const SuperAdminLayout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [staffUser, setStaffUser] = useState(null);
     const [permissions, setPermissions] = useState([]);
+    const [roleLibelle, setRoleLibelle] = useState('');
 
     // Fermer le tiroir automatiquement dès qu'on navigue
     useEffect(() => {
@@ -48,6 +49,14 @@ const SuperAdminLayout = () => {
                     setStaffUser(data.staffUser);
                     setPermissions(data.staffUser?.permissions || []);
                 }
+                // Le libellé du rôle vient de configs/roles.js : l'en-tête
+                // affichait « Admin » pour tout le monde sauf le Super Admin,
+                // donc un Admin Finance ne voyait nulle part qu'il était
+                // connecté en Finance.
+                try {
+                    const { data: droits } = await axios.get('/api/console/mes-droits');
+                    if (droits.success) setRoleLibelle(droits.roleLibelle || '');
+                } catch { /* l'en-tête retombe sur le rôle brut */ }
             } catch (error) {
                 console.error('Erreur chargement staff:', error);
             }
@@ -200,16 +209,32 @@ const SuperAdminLayout = () => {
                         <img src="/logo.png" alt="logo" className="h-6 sm:h-8 w-auto" />
                     </Link>
                     <span className="text-sm font-semibold text-gray-700 ml-2 hidden sm:block">
-                        Console Super Admin
+                        Console RAMCI
                     </span>
                 </div>
                 <div className="flex items-center gap-2 sm:gap-4 shrink-0">
                     <div className="hidden sm:flex items-center gap-2">
-                        <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                            {staffUser?.role === 'super_admin' ? 'SA' : 'A'}
+                        <div
+                            className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white font-semibold text-sm"
+                            title={staffUser?.nom || ''}
+                        >
+                            {/* Initiales du NOM, pas du rôle : c'est ce qui
+                                identifie la personne connectée quand plusieurs
+                                comptes partagent le même poste. */}
+                            {(staffUser?.nom || '?')
+                                .split(' ')
+                                .filter(Boolean)
+                                .slice(0, 2)
+                                .map((mot) => mot[0].toUpperCase())
+                                .join('')}
                         </div>
-                        <span className="text-sm font-medium text-gray-700">
-                            {staffUser?.role === 'super_admin' ? 'Super Admin' : 'Admin'}
+                        <span className="flex flex-col leading-tight">
+                            <span className="text-sm font-medium text-gray-700">
+                                {staffUser?.nom || ''}
+                            </span>
+                            <span className="text-[11px] text-gray-500">
+                                {roleLibelle || staffUser?.role || ''}
+                            </span>
                         </span>
                     </div>
                     <button

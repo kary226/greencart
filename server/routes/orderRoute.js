@@ -36,6 +36,7 @@ import {
 import { initiateJeko } from '../controllers/jekoController.js';
 import Order from '../models/Order.js';
 import User from '../models/User.js';
+import CustomerCreditTransaction from '../models/CustomerCreditTransaction.js';
 
 const orderRouter = express.Router();
 
@@ -47,6 +48,42 @@ orderRouter.get('/user/credit', authUser, async (req, res) => {
     try {
         const user = await User.findById(req.body.userId).select('creditBalance');
         return res.json({ success: true, creditBalance: user?.creditBalance || 0 });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// HISTORIQUE RCOINS DU CLIENT
+//
+// Manquait entièrement : le client voyait un solde, jamais son origine. Or
+// les RCOINS sont la voie normale de remboursement d'un retour — une somme
+// apparaissait donc sur son compte sans la moindre explication, et le
+// support n'avait rien à lui montrer. L'administration disposait déjà de
+// cette vue (/api/admin/rcoins/transactions) ; le client, non.
+//
+// Le filtre sur `req.body.userId` (posé par authUser depuis le jeton) est
+// ce qui garantit qu'on ne sert que SES lignes, jamais celles d'un autre.
+orderRouter.get('/user/credit/historique', authUser, async (req, res) => {
+    try {
+        const lignes = await CustomerCreditTransaction.find({ userId: req.body.userId })
+            .sort({ createdAt: -1 })
+            .limit(50)
+            .select('type amount description orderId createdAt')
+            .lean();
+
+        return res.json({
+            success: true,
+            mouvements: lignes.map((l) => ({
+                id: l._id,
+                sens: l.type,                       // 'credit' = reçu, 'debit' = utilisé
+                montant: l.amount,
+                libelle: l.description || (l.type === 'credit' ? 'Remboursement' : 'Utilisé sur une commande'),
+                // Référence courte : c'est ce que le client lit sur ses
+                // e-mails et ce qu'il cite au support.
+                commande: l.orderId ? String(l.orderId).slice(-6).toUpperCase() : null,
+                date: l.createdAt,
+            })),
+        });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }

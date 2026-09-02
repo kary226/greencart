@@ -29,28 +29,57 @@ const StaffLogin = () => {
             if (data.success) {
                 toast.success("Connexion réussie");
                 
-                // ✅ Redirection selon le rôle
+                // Redirection selon le DOMAINE du rôle, pas selon une liste
+                // de rôles recopiée ici.
+                //
+                // Cette liste en dur avait déjà pris du retard : le rôle
+                // « operations_admin » n'y figurait pas, si bien qu'un Admin
+                // Opérations se connectait avec succès puis atterrissait sur
+                // l'écran de repli — son compte marchait, mais il n'arrivait
+                // nulle part. Le domaine vient maintenant du serveur
+                // (configs/roles.js), donc un rôle ajouté un jour fonctionne
+                // sans qu'on ait à repasser ici.
                 const role = data.staffUser?.role;
-                const ROLES_ADMIN_UNIFIE = [
-                    'super_admin', 'finance_admin', 'warehouse_admin',
-                    'logistics_admin', 'catalog_admin', 'support_admin',
-                    'read_only_auditor',
-                ];
 
-                if (ROLES_ADMIN_UNIFIE.includes(role)) {
-                    navigate('/admin/dashboard');
-                } else if (role === 'admin') {
-                    // Ancien rôle plat, pré-RBAC, conservé pour compatibilité
-                    navigate('/admin/staff');
-                } else if (role === 'commercant') {
-                    navigate('/commercant/dashboard');
-                } else if (role === 'livreur') {
-                    navigate('/livreur/mes-livraisons');
-                } else if (role === 'assistant_shein') {
-                    // Phase 5 à venir
-                    navigate('/assistant/conversations');
+                let domaine = null;
+                try {
+                    const { data: droits } = await axios.get('/api/console/mes-droits');
+                    if (droits.success) domaine = droits.domaine;
+                } catch {
+                    // Le serveur n'a pas répondu : on retombe sur le rôle.
+                }
+
+                const ACCUEIL_PAR_DOMAINE = {
+                    direction: '/admin/console',
+                    finance: '/admin/console',
+                    operations: '/admin/console',
+                    support: '/admin/console',
+                    catalogue: '/admin/console',
+                    audit: '/admin/console',
+                    commercant: '/commercant/dashboard',
+                    livreur: '/livreur/mes-livraisons',
+                    shein: '/assistant/conversations',
+                };
+
+                // Repli si /mes-droits n'a rien donné : on couvre au moins les
+                // acteurs externes, dont l'écran n'est pas la console.
+                const ACCUEIL_PAR_ROLE = {
+                    commercant: '/commercant/dashboard',
+                    livreur: '/livreur/mes-livraisons',
+                    assistant_shein: '/assistant/conversations',
+                };
+
+                const destination = ACCUEIL_PAR_DOMAINE[domaine] || ACCUEIL_PAR_ROLE[role];
+
+                if (destination) {
+                    navigate(destination);
+                } else if (role) {
+                    // Un compte staff sans domaine connu va tout de même à la
+                    // console : elle n'affiche que ce que ses droits
+                    // autorisent, donc au pire une liste vide — bien plus
+                    // utile qu'un écran de repli sans action possible.
+                    navigate('/admin/console');
                 } else {
-                    // Fallback : afficher les infos du compte
                     setConnectedAccount(data.staffUser);
                 }
             } else {

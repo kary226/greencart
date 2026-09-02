@@ -44,6 +44,22 @@ const AdminComptes = () => {
     const [rolesDeprecies, setRolesDeprecies] = useState({});
     const ROLES = Object.keys(roleLabels);
 
+    // Les rôles dépréciés (Admin Entrepôt, Admin Logistique, Administrateur)
+    // ne sont PLUS proposés pour un nouveau compte : ils encombraient la
+    // liste alors que leur remplaçant — Admin Opérations, Super Admin —
+    // existe. On les garde visibles dans deux cas seulement :
+    //   · sur un compte qui porte déjà ce rôle, sinon son menu déroulant
+    //     afficherait une valeur absente de ses options ;
+    //   · dans le filtre, si au moins un compte le porte encore.
+    const rolesProposables = (roleActuel = null) =>
+        ROLES.filter((r) => !rolesDeprecies[r] || r === roleActuel);
+
+    const optionRole = (r) => (
+        <option key={r} value={r}>
+            {roleLabels[r]}{rolesDeprecies[r] ? ' (ancien)' : ''}
+        </option>
+    );
+
     useEffect(() => {
         (async () => {
             try {
@@ -290,9 +306,7 @@ const AdminComptes = () => {
                                 onChange={(e) => setInviteRole(e.target.value)}
                                 className="px-3 py-2.5 border border-ink-200 rounded-xl text-sm outline-none focus:border-ramses-600 focus:ring-1 focus:ring-ramses-600"
                             >
-                                {ROLES.map((r) => (
-                                    <option key={r} value={r}>{roleLabels[r]}{rolesDeprecies[r] ? ' (ancien)' : ''}</option>
-                                ))}
+                                {rolesProposables().map(optionRole)}
                             </select>
                             <button
                                 disabled={inviteLoading}
@@ -355,9 +369,9 @@ const AdminComptes = () => {
                                     className="px-3 py-1.5 border border-ink-200 rounded-xl text-sm outline-none focus:border-ramses-600 focus:ring-1 focus:ring-ramses-600"
                                 >
                                     <option value="">Tous les rôles</option>
-                                    {ROLES.map((r) => (
-                                        <option key={r} value={r}>{roleLabels[r]}{rolesDeprecies[r] ? ' (ancien)' : ''}</option>
-                                    ))}
+                                    {ROLES
+                                        .filter((r) => !rolesDeprecies[r] || comptes.some((c) => c.role === r))
+                                        .map(optionRole)}
                                 </select>
                                 <select
                                     value={filterStatus}
@@ -422,9 +436,7 @@ const AdminComptes = () => {
                                                             onChange={(e) => handleRoleChange(c, e.target.value)}
                                                             className="border border-ink-200 rounded-lg text-xs px-2 py-1 outline-none disabled:opacity-50 disabled:bg-ink-50"
                                                         >
-                                                            {ROLES.map((r) => (
-                                                                <option key={r} value={r}>{roleLabels[r]}{rolesDeprecies[r] ? ' (ancien)' : ''}</option>
-                                                            ))}
+                                                            {rolesProposables(c.role).map(optionRole)}
                                                         </select>
                                                     </td>
                                                     <td className="px-5 py-3">
