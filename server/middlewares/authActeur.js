@@ -44,6 +44,15 @@ export const acteurDepuisStaff = (staffUser) => ({
     role: staffUser.role,
     boutiqueId: staffUser.boutiqueId || null,
     nom: staffUser.nom,
+    // [FIX] authStaff charge déjà les permissions effectives sur
+    // staffUser.permissions (voir loadPermissions()) — mais cette fonction
+    // les perdait en cours de route en reconstruisant un acteur "léger"
+    // sans ce champ. Conséquence concrète : peutTransitionner() voyait
+    // toujours un tableau vide, donc refusait systématiquement toute
+    // transition protégée par une permission pour tout rôle non-admin
+    // (collecterArticle, reserverCollecte, etc.), quelle que soit la
+    // configuration réelle du compte en base.
+    permissions: staffUser.permissions || [],
 });
 
 // Le compte technique a exactement les pouvoirs d'un admin : le déclarer
