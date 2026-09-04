@@ -13,6 +13,10 @@ import MessageColis from '../models/MessageColis.js';
 import { posterMessageStatutAuto } from './colisSheinAdminController.js';
 import { crediterClient, debiterClient, rembourserCreditAnnulation } from '../models/CustomerCredit.js';
 import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../configs/email.js';
+// [MIGRATION GUICHET UNIQUE] le webhook de paiement est justement l'endroit
+// le plus sensible à laisser hors du contrôle central : il touche à
+// l'argent réel et déclenche la commande sans aucun humain dans la boucle.
+import { transitionner } from '../services/orderWorkflowService.js';
 
 // Même fenêtre que côté GeniusPay historiquement — 5 minutes.
 const WEBHOOK_MAX_AGE_MS = 5 * 60 * 1000;
@@ -101,7 +105,14 @@ export const confirmerCommandePayee = async (order, { reference, providerField }
     // Une commande composée uniquement du catalogue principal n'a aucun
     // commerçant à attendre : elle peut passer directement à Confirmed.
     if (!(order.items || []).some(item => item.boutiqueId)) {
-        order.status = 'Confirmed';
+        // Transition système déclenchée par le webhook Jèko — pas d'acteur
+        // humain, donc pas de contrôle de droits, mais on garde la même
+        // vérification de logique de transition et la même trace que
+        // partout ailleurs.
+        const transition = transitionner({ order, vers: 'Confirmed', acteur: null, note: 'paiement confirmé par Jèko (webhook)' });
+        if (!transition.ok) {
+            console.error(`⚠️ Transition refusée pour la commande ${order._id} après paiement Jèko : ${transition.message}`);
+        }
         order.confirmedAt = new Date();
         await order.save();
     }

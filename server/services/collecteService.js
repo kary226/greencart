@@ -1,4 +1,8 @@
 import Order from '../models/Order.js';
+// [MIGRATION GUICHET UNIQUE] transition système déclenchée automatiquement
+// (aucun humain), mais qui doit rester soumise à la même table de
+// transitions et laisser la même trace que les autres.
+import { transitionner } from './orderWorkflowService.js';
 
 // Réservation de collecte — expiration (doc §9-10).
 //
@@ -45,7 +49,13 @@ export const libererReservationsExpirees = async () => {
         );
         if (collecteDejaCommencee) continue;
 
-        order.status = 'Confirmed';
+        const transition = transitionner({ order, vers: 'Confirmed', acteur: null, note: 'réservation de collecte expirée sans collecte entamée' });
+        if (!transition.ok) {
+            // Ne devrait pas arriver (candidats déjà filtrés sur 'Collecting'),
+            // mais on ne bloque pas la libération des autres commandes pour ça.
+            console.error(`⚠️ Libération de réservation refusée pour la commande ${order._id} : ${transition.message}`);
+            continue;
+        }
         order.collecteLivreurId = null;
         order.collecteReserveeLe = null;
         order.collecteExpireLe = null;

@@ -314,7 +314,14 @@ export const placeOrderCOD = async (req, res) => {
         // Une commande composée uniquement du catalogue principal n'attend
         // aucun commerçant.
         if (!itemsWithPrice.some(item => item.boutiqueId)) {
-            order.status = 'Confirmed';
+            // [MIGRATION GUICHET UNIQUE] transition système (pas d'acteur
+            // humain) — passe par transitionner() pour garder une seule
+            // porte d'entrée sur order.status, avec la même table de
+            // transitions que partout ailleurs.
+            const transition = transitionner({ order, vers: 'Confirmed', acteur: null });
+            if (!transition.ok) {
+                console.error(`⚠️ Transition refusée pour la commande ${order._id} (COD, sans commerçant) : ${transition.message}`);
+            }
             order.confirmedAt = new Date();
             await order.save();
         }
@@ -641,7 +648,13 @@ export const collecterArticle = async (req, res) => {
         const actifs = order.items.filter(i => i.availabilityStatus !== 'unavailable');
         const tousCollectes = actifs.length > 0 && actifs.every(i => i.availabilityStatus === 'collected');
 
-        order.status = tousCollectes ? 'Ready for Shipment' : 'Collecting';
+        // [MIGRATION GUICHET UNIQUE] passe par transitionner() plutôt que
+        // par une écriture directe de order.status.
+        const cible = tousCollectes ? 'Ready for Shipment' : 'Collecting';
+        const transition = transitionner({ order, vers: cible, acteur: acteurDepuisRequete(req) });
+        if (!transition.ok) {
+            return res.status(transition.code || 409).json({ success: false, message: transition.message });
+        }
         await order.save();
 
         return res.json({
@@ -734,7 +747,13 @@ export const collecterArticleLivreur = async (req, res) => {
             order.collecteExpireLe = null;
             const actifs = order.items.filter(i => i.availabilityStatus !== 'unavailable');
             const tousCollectes = actifs.length > 0 && actifs.every(i => i.availabilityStatus === 'collected');
-            order.status = tousCollectes ? 'Ready for Shipment' : 'Collecting';
+            // [MIGRATION GUICHET UNIQUE] passe par transitionner() plutôt
+            // que par une écriture directe de order.status.
+            const cible = tousCollectes ? 'Ready for Shipment' : 'Collecting';
+            const transition = transitionner({ order, vers: cible, acteur: acteurDepuisRequete(req) });
+            if (!transition.ok) {
+                return res.status(transition.code || 409).json({ success: false, message: transition.message });
+            }
             await order.save();
         }
 
@@ -1447,8 +1466,14 @@ export const confirmerCommandeCommercant = async (req, res) => {
         // Les produits du catalogue principal n'ont pas de commerçant à
         // confirmer. Une fois toutes les boutiques concernées décidées, la
         // commande devient automatiquement Confirmed.
+        // [MIGRATION GUICHET UNIQUE] les deux écritures directes de
+        // order.status passent désormais par transitionner().
+        const acteur = acteurDepuisStaff(req.staffUser);
         if (allResponded) {
-            order.status = 'Confirmed';
+            const transition = transitionner({ order, vers: 'Confirmed', acteur, note: 'toutes les boutiques ont répondu' });
+            if (!transition.ok) {
+                return res.status(transition.code || 409).json({ success: false, message: transition.message });
+            }
             order.confirmedAt = now;
 
             // Le crédit en attente n'est créé qu'à ce moment : uniquement
@@ -1456,7 +1481,10 @@ export const confirmerCommandeCommercant = async (req, res) => {
             await order.save();
             await crediterVenteEnAttente(order);
         } else {
-            order.status = 'Checking Availability';
+            const transition = transitionner({ order, vers: 'Checking Availability', acteur, note: 'en attente d\'autres boutiques' });
+            if (!transition.ok) {
+                return res.status(transition.code || 409).json({ success: false, message: transition.message });
+            }
             await order.save();
         }
 
@@ -1579,13 +1607,22 @@ export const confirmerDisponibiliteCommercant = async (req, res) => {
             });
         }
 
+        // [MIGRATION GUICHET UNIQUE] les deux écritures directes de
+        // order.status passent désormais par transitionner().
+        const acteurDisponibilite = acteurDepuisStaff(req.staffUser);
         if (allResponded) {
-            order.status = 'Confirmed';
+            const transition = transitionner({ order, vers: 'Confirmed', acteur: acteurDisponibilite, note: 'toutes les boutiques ont répondu' });
+            if (!transition.ok) {
+                return res.status(transition.code || 409).json({ success: false, message: transition.message });
+            }
             order.confirmedAt = now;
             await order.save();
             await crediterVenteEnAttente(order);
         } else {
-            order.status = 'Checking Availability';
+            const transition = transitionner({ order, vers: 'Checking Availability', acteur: acteurDisponibilite, note: 'en attente d\'autres boutiques' });
+            if (!transition.ok) {
+                return res.status(transition.code || 409).json({ success: false, message: transition.message });
+            }
             await order.save();
         }
 
