@@ -16,7 +16,7 @@ import { sendOrderConfirmationEmail, sendAdminNotificationEmail } from '../confi
 // [MIGRATION GUICHET UNIQUE] le webhook de paiement est justement l'endroit
 // le plus sensible à laisser hors du contrôle central : il touche à
 // l'argent réel et déclenche la commande sans aucun humain dans la boucle.
-import { transitionner } from '../services/orderWorkflowService.js';
+import { transitionner, transitionnerAtomique } from '../services/orderWorkflowService.js';
 
 // Même fenêtre que côté GeniusPay historiquement — 5 minutes.
 const WEBHOOK_MAX_AGE_MS = 5 * 60 * 1000;
@@ -71,37 +71,44 @@ export function getRawBody(req) {
 
 // ============================================================================
 // Confirmation d'une commande payée — marquer payé, décrémenter le stock,
-// vider le panier, envoyer les emails. L'idempotence est gérée ICI, de façon
-// atomique (findOneAndUpdate conditionnel) : un simple `if (order.isPaid)`
-// lu puis écrit plus tard laisse une fenêtre où deux webhooks quasi
-// simultanés (retry Jèko, livraison en double) peuvent tous les deux lire
-// "pas encore payé" avant qu'aucun n'ait fini d'écrire.
+// vider le panier, envoyer les emails.
+// [MIGRATION GUICHET UNIQUE] passe par transitionnerAtomique() : l'ancien
+// filtre isPaid: {$ne:true} reste la protection contre deux webhooks quasi
+// simultanés (retry Jèko), mais le statut pending_payment → Checking
+// Availability, qui était écrit en dur ici sans passer par la table
+// TRANSITIONS, y est maintenant déclaré explicitement (voir
+// orderWorkflowService.js) et journalisé comme toute autre transition.
 // Retourne false si une autre requête a déjà traité cette commande.
 // ============================================================================
 export const confirmerCommandePayee = async (order, { reference, providerField } = {}) => {
     const { deliveryStart, deliveryEnd } = calculateEstimatedDeliveryDates(new Date());
 
-    const update = {
+    const champsSupplementaires = {
         isPaid: true,
-        status: "Checking Availability",
         estimatedDeliveryStart: deliveryStart,
         estimatedDeliveryEnd: deliveryEnd,
     };
     if (reference && providerField) {
-        update[providerField] = reference;
+        champsSupplementaires[providerField] = reference;
     }
 
-    const updated = await Order.findOneAndUpdate(
-        { _id: order._id, isPaid: { $ne: true } },
-        { $set: update },
-        { new: true }
-    );
+    const resultat = await transitionnerAtomique({
+        Order,
+        orderId: order._id,
+        vers: 'Checking Availability',
+        depuis: 'pending_payment',
+        filtreConcurrence: { isPaid: { $ne: true } },
+        champsSupplementaires,
+        acteur: null,
+        verifierDroits: false,
+        note: 'paiement confirmé par Jèko (webhook)',
+    });
 
-    if (!updated) {
+    if (!resultat.ok) {
         console.log(`ℹ️ Commande ${order._id} déjà confirmée par une autre requête (webhook en double), ignorer`);
         return false;
     }
-    order = updated;
+    order = await Order.findById(order._id);
     // Une commande composée uniquement du catalogue principal n'a aucun
     // commerçant à attendre : elle peut passer directement à Confirmed.
     if (!(order.items || []).some(item => item.boutiqueId)) {
@@ -818,10 +825,15 @@ export const handleJekoWebhook = async (req, res) => {
             // (voir initiateJeko). rembourserCreditAnnulation est protégée
             // par creditRefundedAt contre un double remboursement si le
             // client avait aussi appelé POST /order/cancel entre-temps.
-            await Order.findOneAndUpdate(
-                { _id: order._id, status: 'pending_payment' },
-                { $set: { status: 'Cancelled' } }
-            );
+            await transitionnerAtomique({
+                Order,
+                orderId: order._id,
+                vers: 'Cancelled',
+                depuis: 'pending_payment',
+                acteur: null,
+                verifierDroits: false,
+                note: `paiement Jèko échoué (statut: ${status})`,
+            });
             if (order.creditUsed > 0) {
                 await rembourserCreditAnnulation({
                     orderId: order._id,

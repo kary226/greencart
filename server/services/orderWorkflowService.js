@@ -50,7 +50,13 @@ export const ETAPES = Object.freeze({
  * §2 : « séparer le flux normal du flux exceptionnel ».
  */
 export const TRANSITIONS = Object.freeze({
-    pending_payment: ['Order Placed', 'Cancelled'],
+    // 'Checking Availability' ajouté ici : un paiement Jèko confirmé fait
+    // sauter l'étape « Order Placed » (qui n'a de sens que pour une
+    // commande COD passée manuellement) et va directement à la
+    // vérification de disponibilité. Avant cet ajout, confirmerCommandePayee
+    // écrivait ce statut en dehors de toute table — invisible ici, donc
+    // invérifiable.
+    pending_payment: ['Order Placed', 'Checking Availability', 'Cancelled'],
     'Order Placed': ['Checking Availability', 'Confirmed', 'Cancelled'],
     'Checking Availability': ['Confirmed', 'Checking Availability', 'Cancelled'],
     Confirmed: ['Collecting', 'Cancelled'],
@@ -199,6 +205,114 @@ export const transitionner = ({ order, vers, acteur = null, note = '', verifierD
 };
 
 /**
+ * Pour un statut cible donné, quels statuts de départ y mènent
+ * légalement ? Reconstruit une seule fois depuis TRANSITIONS — c'est
+ * l'inverse de la table, jamais une seconde source de vérité.
+ */
+const DEPUIS_POSSIBLES = Object.freeze(
+    Object.fromEntries(
+        Object.keys(TRANSITIONS).map((vers) => [
+            vers,
+            Object.entries(TRANSITIONS)
+                .filter(([, cibles]) => cibles.includes(vers))
+                .map(([depuis]) => depuis),
+        ])
+    )
+);
+
+/**
+ * Variante atomique de transitionner() — pour les endroits où la lecture
+ * (order.status) et l'écriture (order.save()) ne peuvent PAS être
+ * séparées par une fenêtre, parce qu'une requête concurrente réaliste
+ * (webhook dupliqué, double clic, deux livreurs) peut s'y engouffrer.
+ *
+ * Fait tenir en une seule opération Mongo : le contrôle de transition
+ * (TRANSITIONS), le gel en cas de litige, et les conditions métier
+ * propres à l'appelant (isPaid, collecteLivreurId, etc. — passées dans
+ * `filtreConcurrence`, plus besoin de les coder séparément à chaque
+ * site d'appel).
+ *
+ * @param {object} params
+ * @param {import('mongoose').Model} params.Order  le modèle (pas une instance)
+ * @param {string} params.orderId
+ * @param {string} params.vers
+ * @param {object} [params.filtreConcurrence]  conditions Mongo additionnelles
+ * @param {object} [params.champsSupplementaires]  autres champs à $set avec le statut
+ * @param {string|string[]} [params.depuis]  restreint les statuts de départ acceptés
+ *   (obligatoire si l'appelant connaît un départ précis plus strict que le FSM —
+ *   ex : un client ne peut annuler que depuis pending_payment, même si Cancelled
+ *   est atteignable depuis d'autres statuts pour le staff)
+ * @param {object} [params.acteur]
+ * @param {string} [params.note]
+ * @param {boolean} [params.verifierDroits]
+ * @returns {Promise<{ok:boolean, code?:number, message?:string, depuis?:string, order?:object}>}
+ */
+export const transitionnerAtomique = async ({
+    Order,
+    orderId,
+    vers,
+    filtreConcurrence = {},
+    champsSupplementaires = {},
+    depuis = null,
+    acteur = null,
+    note = '',
+    verifierDroits = true,
+}) => {
+    if (verifierDroits && acteur && !peutTransitionner(acteur, vers)) {
+        return {
+            ok: false,
+            code: 403,
+            message: `Vous n'avez pas le droit de passer une commande à « ${ETAPES[vers]?.libelle || vers} »`,
+        };
+    }
+
+    const autorises = depuis
+        ? (Array.isArray(depuis) ? depuis : [depuis]).filter((d) => (DEPUIS_POSSIBLES[vers] || []).includes(d))
+        : (DEPUIS_POSSIBLES[vers] || []);
+
+    if (autorises.length === 0) {
+        return { ok: false, code: 409, message: `Aucune transition légale vers « ${vers} » depuis le(s) statut(s) demandé(s)` };
+    }
+
+    const filtre = {
+        _id: orderId,
+        status: { $in: autorises },
+        // Un litige gèle le flux normal (§12) — sauf si la transition EST
+        // la résolution du litige.
+        ...(['Returned', 'Cancelled'].includes(vers) ? {} : { 'litige.enCours': { $ne: true } }),
+        ...filtreConcurrence,
+    };
+
+    const avant = await Order.findOneAndUpdate(
+        filtre,
+        { $set: { status: vers, ...champsSupplementaires } },
+        { new: false }
+    );
+
+    if (!avant) {
+        // Échec = mauvais statut de départ OU condition de concurrence
+        // perdue (paiement entre-temps, double clic, webhook dupliqué,
+        // litige déclaré entre-temps). On ne distingue pas les deux : dans
+        // les deux cas, la bonne réponse est « ne rien faire », jamais
+        // réessayer en forçant.
+        return { ok: false, code: 409, message: 'Transition refusée ou déjà appliquée ailleurs' };
+    }
+
+    // Contrairement à transitionner(), on journalise systématiquement —
+    // avec l'acteur « système » quand il n'y en a pas d'humain. C'est ce
+    // qui manquait aux webhooks et aux transitions atomiques jusqu'ici
+    // (point 4 : traçabilité complète, humaine ou pas).
+    journaliser({
+        acteur: acteur ? { id: acteur._id, nom: acteur.nom, role: acteur.role } : { nom: 'système' },
+        action: 'commande.transition',
+        cible: { id: orderId, libelle: `Commande ${orderId}` },
+        note: `${avant.status} → ${vers}${note ? ` — ${note}` : ''}`,
+    }).catch(() => {});
+
+    return { ok: true, depuis: avant.status, vers, avant };
+};
+
+/**
  * Résumé d'avancement destiné au client (§6 : « le client doit comprendre
  * le résultat, sans avoir besoin de comprendre toute la mécanique
  * interne »). On expose une étape sur six, pas un statut technique.
@@ -215,4 +329,4 @@ export const avancement = (order) => {
     };
 };
 
-export default { transitionner, verifierTransition, transitionsPossibles, avancement, TRANSITIONS, ETAPES };
+export default { transitionner, transitionnerAtomique, verifierTransition, transitionsPossibles, avancement, TRANSITIONS, ETAPES };
