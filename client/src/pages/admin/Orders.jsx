@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAppContext } from '../../context/AppContext';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { getPresetImageUrl } from '../../utils/cloudinaryImage';
 import {
@@ -12,13 +12,21 @@ import {
 
 const Orders = () => {
     const { currency, axios } = useAppContext();
+    // [FIX] Le lien "Litiges" du menu pointe vers /admin/orders?tab=disputes,
+    // mais cette page ignorait totalement ce paramètre : on atterrissait
+    // toujours sur "Tous les statuts", jamais sur les litiges. On lit
+    // maintenant le paramètre une fois au chargement pour préremplir le
+    // filtre de statut en conséquence.
+    const [searchParams] = useSearchParams();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [updating, setUpdating] = useState(null);
 
     // Filtres
     const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState('all');
+    const [statusFilter, setStatusFilter] = useState(
+        searchParams.get('tab') === 'disputes' ? 'Disputed' : 'all'
+    );
     const [dateFilter, setDateFilter] = useState('all');
     const [paymentFilter, setPaymentFilter] = useState('all');
     const [currentPage, setCurrentPage] = useState(1);
@@ -325,15 +333,11 @@ const Orders = () => {
                             Confirmer
                         </button>
                     )}
-                    {order.status === 'Confirmed' && (
-                        <button
-                            onClick={() => updateOrderStatus(order._id, 'Shipped')}
-                            disabled={updating === order._id}
-                            className="px-3 py-1.5 bg-purple-600 text-white text-xs font-medium rounded-xl hover:bg-purple-700 transition disabled:opacity-50"
-                        >
-                            Marquer expédiée
-                        </button>
-                    )}
+                    {/* [RETIRÉ] "Marquer expédiée" appelait Confirmed → Shipped, une transition qui n'existe
+                        pas dans TRANSITIONS : une commande confirmée doit d'abord être collectée par un
+                        livreur puis réceptionnée à l'entrepôt (page Entrepôt) avant de pouvoir passer à
+                        "Expédiée". Le bouton échouait à chaque clic — retiré plutôt que réparé, pour ne
+                        pas recréer un raccourci qui saute la collecte/réception. */}
                     {order.status === 'Shipped' && (
                         <button
                             onClick={() => updateOrderStatus(order._id, 'Out for Delivery')}
@@ -350,6 +354,19 @@ const Orders = () => {
                             className="px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-xl hover:bg-green-700 transition disabled:opacity-50"
                         >
                             Marquer livrée
+                        </button>
+                    )}
+                    {!['Out for Delivery', 'Delivered', 'Cancelled', 'Returned', 'Disputed'].includes(order.status) && (
+                        <button
+                            onClick={() => {
+                                if (window.confirm(`Annuler la commande #${order._id.slice(-6).toUpperCase()} ? Cette action est irréversible.`)) {
+                                    updateOrderStatus(order._id, 'Cancelled');
+                                }
+                            }}
+                            disabled={updating === order._id}
+                            className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs font-medium rounded-xl hover:bg-gray-200 transition disabled:opacity-50"
+                        >
+                            Annuler
                         </button>
                     )}
                     {!['Delivered', 'Cancelled', 'Returned', 'Disputed'].includes(order.status) && (
