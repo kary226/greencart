@@ -45,6 +45,7 @@ export const MENU = [
     {
         titre: "Livraisons", icone: "Truck", entrees: [
             { label: "Livraisons", chemin: "/admin/deliveries", droit: "deliveries.view" },
+            { label: "Réassigner un livreur", chemin: "/admin/reassignation-livreur", droit: "deliveries.assign" },
             { label: "Villes & communes", chemin: "/admin/locations", droit: "delivery_zones.configure" },
         ],
     },

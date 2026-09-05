@@ -11,6 +11,7 @@ import {
     updateOrderStatus, 
     getUserOrdersByAdmin,
     assignerLivreur,
+    listerLivreursActifs,
     getLivraisonsLivreur,
     getActiviteLivreur,
     updateLivraisonStatus,
@@ -124,6 +125,7 @@ orderRouter.get('/admin/user/:userId', authStaff, requireAnyPermission(['orders.
 orderRouter.get('/admin/recherche', authStaff, requirePermission('orders.view'), rechercherCommandeAdmin);
 
 // ✅ PHASE 4 : Route pour assigner un livreur (admin)
+orderRouter.get('/admin/livreurs-actifs', authStaff, requirePermission('deliveries.assign'), listerLivreursActifs);
 orderRouter.post('/admin/assigner-livreur', authStaff, requirePermission('deliveries.assign'), assignerLivreur);
 
 // ✅ PHASE 4 : Routes pour livreur

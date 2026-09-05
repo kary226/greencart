@@ -547,8 +547,10 @@ export const rechercherCommandeAdmin = async (req, res) => {
         const orders = await Order.find(filtre)
             .sort({ createdAt: -1 })
             .limit(10)
-            .select('_id userId amount deliveryPrice status retourEtat retourNote retourTraiteLe createdAt items')
+            .select('_id userId amount deliveryPrice status retourEtat retourNote retourTraiteLe createdAt items collecteLivreurId livreurId remiseLivreurConfirmee')
             .populate('userId', 'name email')
+            .populate('collecteLivreurId', 'nom email')
+            .populate('livreurId', 'nom email')
             .lean();
 
         return res.json({ success: true, orders });
@@ -935,6 +937,25 @@ export const listCommandesARemettre = async (req, res) => {
 // =============================================================
 // [FIX] Cette fonction était importée et déjà branchée sur la route
 // POST /admin/assigner-livreur dans routes/orderRoute.js, mais n'existait
+// [NOUVEAU] Liste des livreurs actifs, pour le sélecteur de l'écran de
+// réassignation. Volontairement gardée derrière la MÊME permission que
+// assignerLivreur ("deliveries.assign") — pas "admin.configure" comme le
+// ferait listStaffAccounts : un Admin Opérations a le droit de réassigner
+// un livreur (voir configs/roles.js) mais pas forcément celui de gérer
+// les comptes staff en général. Réutiliser un endpoint plus restrictif
+// l'aurait bloqué avec un 403 sur l'écran même conçu pour lui.
+export const listerLivreursActifs = async (req, res) => {
+    try {
+        const livreurs = await StaffUser.find({ role: 'livreur', statut: 'actif' })
+            .select('nom email')
+            .sort('nom');
+        return res.json({ success: true, livreurs });
+    } catch (error) {
+        console.error('Erreur listerLivreursActifs:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 // nulle part dans ce contrôleur : l'import échouait au démarrage
 // ("does not provide an export named 'assignerLivreur'"), ce qui empêchait
 // le serveur de démarrer, en local comme en production, indépendamment de

@@ -58,6 +58,7 @@ const AdminRetraits = lazy(() => import('./pages/admin/AdminRetraits'));
 const AdminWarehouse = lazy(() => import('./pages/admin/Warehouse'));
 const AdminReturns = lazy(() => import('./pages/admin/Returns'));
 const AdminReception = lazy(() => import('./pages/admin/Reception'));
+const AdminReassignationLivreur = lazy(() => import('./pages/admin/ReassignationLivreur'));
 
 // Phase 5
 const AdminRefunds = lazy(() => import('./pages/admin/Refunds'));
@@ -265,6 +266,7 @@ const App = () => {
               <Route path='returns' element={<AdminReturns />} />
               <Route path='returns/:id' element={<AdminReturns />} />
               <Route path='reception' element={<AdminReception />} />
+              <Route path='reassignation-livreur' element={<AdminReassignationLivreur />} />
 
               {/* Phase 5 */}
               <Route path='refunds' element={<AdminRefunds />} />
