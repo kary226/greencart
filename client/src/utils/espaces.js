@@ -37,6 +37,7 @@ export const MENU = [
     },
     {
         titre: "Entrepôt & retours", icone: "PackageCheck", entrees: [
+            { label: "Réception & remise", chemin: "/admin/reception", droit: ["orders.receive", "orders.ship"] },
             { label: "Entrepôt", chemin: "/admin/warehouse", droit: ["warehouse.scan", "orders.receive"] },
             { label: "Retours", chemin: "/admin/returns", droit: "returns.view" },
         ],

@@ -845,6 +845,26 @@ export const receptionnerColis = async (req, res) => {
 // encore `sellerMarkShipped`. Migration progressive demandée par le §17.2.
 export const sellerMarkShipped = receptionnerColis;
 
+// Opérations : file des commandes dont la collecte est terminée
+// (Ready for Shipment) et qui attendent d'être réceptionnées à
+// l'entrepôt — c'est l'écran qui manquait : jusqu'ici, la commande
+// affichait au livreur « Les Opérations doivent réceptionner le colis »,
+// mais aucun écran ne permettait aux Opérations de savoir laquelle
+// réceptionner ni de le faire.
+export const listCommandesAReceptionner = async (req, res) => {
+    try {
+        const orders = await Order.find({ status: 'Ready for Shipment' })
+            .populate('collecteLivreurId', 'nom email')
+            .select('items amount collecteLivreurId collecteReserveeLe createdAt')
+            .sort({ collecteReserveeLe: 1 });
+
+        return res.json({ success: true, orders });
+    } catch (error) {
+        console.error('Erreur listCommandesAReceptionner:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 // Opérations : confirme avoir physiquement remis le colis au livreur
 // assigné, juste avant que celui-ci ne parte livrer. Sans cette étape, un
 // livreur pouvait déclarer "En livraison" (updateLivraisonStatus) sur sa

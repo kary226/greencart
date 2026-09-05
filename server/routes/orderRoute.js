@@ -32,6 +32,7 @@ import {
     listLitiges,
     confirmerRemiseLivreur,
     listCommandesARemettre,
+    listCommandesAReceptionner,
     rechercherCommandeAdmin
 } from '../controllers/orderController.js';
 import { initiateJeko } from '../controllers/jekoController.js';
@@ -169,6 +170,10 @@ orderRouter.post(
     requireAnyPermission(['orders.receive', 'orders.ship']),
     sellerMarkShipped
 );
+
+// [NOUVEAU] File d'attente Opérations : commandes collectées, en attente
+// de réception à l'entrepôt (écran manquant jusqu'ici — voir Reception.jsx).
+orderRouter.get('/seller/a-receptionner', authStaff, requireAnyPermission(['orders.receive', 'orders.ship']), listCommandesAReceptionner);
 
 // [NOUVEAU] Remise physique du colis au livreur — verrou avant "En livraison".
 orderRouter.get('/seller/a-remettre', authStaff, requireAnyPermission(['orders.receive', 'orders.ship']), listCommandesARemettre);
