@@ -32,7 +32,7 @@ export const MENU = [
             // Commandes réceptionnées dont les fonds attendent d'être
             // libérés : du travail Finance, relié à aucune rubrique jusqu'ici.
             { label: "Fonds à libérer", chemin: "/admin/commandes", droit: "orders.approve" },
-            { label: "Litiges", chemin: "/admin/orders?tab=disputes", droit: "disputes.view" },
+            { label: "Litiges", chemin: "/admin/litiges", droit: "disputes.view" },
         ],
     },
     {

@@ -1965,6 +1965,11 @@ export const resoudreLitige = async (req, res) => {
 
 // GET /api/order/admin/litiges — Admin
 // ?enCours=false pour l'historique des litiges déjà résolus.
+// [FIX] listLitiges() existait déjà mais n'était utilisée par aucun
+// écran — la résolution d'un litige (resoudreLitige) n'avait donc, elle
+// non plus, aucun moyen d'être déclenchée : un litige déclaré restait
+// gelé pour toujours. Peuplée ici avec les boutiques concernées (pour le
+// choix "Retenue commerçant" côté écran) et le nom de qui a résolu.
 export const listLitiges = async (req, res) => {
     try {
         const filtre = req.query.enCours === 'false'
@@ -1975,6 +1980,12 @@ export const listLitiges = async (req, res) => {
             .sort({ 'litige.declareLe': -1 })
             .limit(100)
             .select('items amount status litige createdAt')
+            .populate({
+                path: 'items.product',
+                select: 'name boutiqueId',
+                populate: { path: 'boutiqueId', select: 'nom' },
+            })
+            .populate('litige.resoluPar', 'nom')
             .lean();
 
         return res.json({ success: true, litiges: orders });
