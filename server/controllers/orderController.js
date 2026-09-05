@@ -1142,78 +1142,71 @@ export const getLivraisonsLivreur = async (req, res) => {
 // =============================================================
 // ✅ PHASE 4 : METTRE À JOUR LE STATUT D'UNE LIVRAISON (Livreur)
 // =============================================================
+// [MIGRATION GUICHET UNIQUE] Cette fonction écrivait le statut avec un
+// findByIdAndUpdate direct, en dehors du guichet unique — passé inaperçu
+// jusqu'ici car la vérification qui cherchait ces écritures ne couvrait
+// pas cette variante précise de la méthode Mongo. Conséquence concrète :
+// "En livraison" et "Livrée", déclenchés par le livreur, n'étaient
+// JAMAIS journalisés — aucune trace de qui avait fait quoi, quand.
+// Les deux conditions métier propres à cette route (remise confirmée par
+// les Opérations avant "En livraison" ; passage obligé par "En livraison"
+// avant "Livrée") sont conservées, désormais via filtreConcurrence/depuis.
+// =============================================================
 export const updateLivraisonStatus = async (req, res) => {
     try {
         const { orderId, status } = req.body;
         const livreurId = req.staffUser._id;
-        
+
         const validStatuses = ['Out for Delivery', 'Delivered'];
         if (!validStatuses.includes(status)) {
             return res.status(400).json({ success: false, message: "Statut invalide pour un livreur" });
         }
-        
-        const order = await Order.findOne({ _id: orderId, livreurId: livreurId });
-        if (!order) {
-            return res.status(404).json({ success: false, message: "Commande non trouvée ou non assignée à ce livreur" });
-        }
 
-        // [NOUVEAU] Le livreur ne peut plus déclarer "En livraison" sur sa
-        // seule parole : il faut que les Opérations aient explicitement confirmé
-        // la remise physique du colis (voir confirmerRemiseLivreur). Avant
-        // cet ajout, rien ne garantissait qu'il avait vraiment le colis en
-        // main au moment de passer ce statut.
+        const filtreConcurrence = { livreurId };
+        const champsSupplementaires = {};
+        let depuis;
+
         if (status === 'Out for Delivery') {
-            if (order.status !== 'Shipped') {
-                return res.status(409).json({
-                    success: false,
-                    message: "La commande n'est pas (ou plus) au statut Expédiée.",
-                });
-            }
-            if (!order.remiseLivreurConfirmee) {
-                return res.status(409).json({
-                    success: false,
-                    message: "Les Opérations n'ont pas encore confirmé vous avoir remis ce colis.",
-                });
-            }
+            depuis = 'Shipped';
+            // Le livreur ne peut pas déclarer "En livraison" sur sa seule
+            // parole : il faut que les Opérations aient confirmé la remise
+            // physique du colis (voir confirmerRemiseLivreur).
+            filtreConcurrence.remiseLivreurConfirmee = true;
+        } else {
+            depuis = 'Out for Delivery';
+            champsSupplementaires.deliveredAt = new Date();
         }
 
-        // [NOUVEAU] Impossible de sauter directement à "Livrée" sans être
-        // passé par "En livraison" — même logique de progression forcée que
-        // pour la collecte (pas d'étape escamotée).
-        if (status === 'Delivered' && order.status !== 'Out for Delivery') {
-            return res.status(409).json({
-                success: false,
-                message: "La commande doit d'abord être passée à 'En livraison'.",
-            });
+        const resultat = await transitionnerAtomique({
+            Order,
+            orderId,
+            vers: status,
+            depuis,
+            filtreConcurrence,
+            champsSupplementaires,
+            acteur: acteurDepuisStaff(req.staffUser),
+            note: status === 'Out for Delivery' ? 'départ en livraison' : 'livraison confirmée par le livreur',
+        });
+
+        if (!resultat.ok) {
+            const message = status === 'Out for Delivery'
+                ? "La commande n'est pas (ou plus) au statut Expédiée, ou les Opérations n'ont pas encore confirmé vous avoir remis ce colis."
+                : "La commande doit d'abord être passée à 'En livraison'.";
+            return res.status(resultat.code || 409).json({ success: false, message });
         }
 
-        const updateData = { status };
-        if (status === 'Delivered') {
-            updateData.deliveredAt = new Date();
-        }
-        
-        await Order.findByIdAndUpdate(orderId, updateData);
-        
-        // Voir plus haut : crédit à la commande, reprise si annulation.
-        if (status === 'Cancelled') {
-            await annulerVenteEnAttente(order);
-        }
-        if (status === 'Returned') {
-            await traiterRetourColis(order);
-        }
-        
         const pushContent = orderStatusPushMessages[status];
         if (pushContent) {
-            sendPushToUser(order.userId, {
+            sendPushToUser(resultat.avant.userId, {
                 title: pushContent.title,
                 body: pushContent.body,
                 url: '/my-orders'
             });
         }
-        
-        return res.json({ 
-            success: true, 
-            message: "Statut de livraison mis à jour" 
+
+        return res.json({
+            success: true,
+            message: "Statut de livraison mis à jour"
         });
     } catch (error) {
         console.error('Erreur updateLivraisonStatus:', error.message);
