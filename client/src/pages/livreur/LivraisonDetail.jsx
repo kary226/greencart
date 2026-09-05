@@ -4,7 +4,7 @@ import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
 import {
     Package, MapPin, Phone, User, Calendar,
-    Clock, CheckCircle, Truck, Loader2, ArrowLeft
+    Clock, CheckCircle, Truck, Loader2, ArrowLeft, AlertTriangle, X
 } from 'lucide-react';
 
 const LivraisonDetail = () => {
@@ -15,6 +15,9 @@ const LivraisonDetail = () => {
     const [loading, setLoading] = useState(true);
     const [order, setOrder] = useState(null);
     const [updating, setUpdating] = useState(false);
+    const [showSignalement, setShowSignalement] = useState(false);
+    const [raison, setRaison] = useState('');
+    const [envoiSignalement, setEnvoiSignalement] = useState(false);
 
     useEffect(() => {
         const loadOrder = async () => {
@@ -67,6 +70,31 @@ const LivraisonDetail = () => {
             toast.error(error.response?.data?.message || error.message);
         } finally {
             setUpdating(false);
+        }
+    };
+
+    const signalerProbleme = async () => {
+        if (!raison.trim()) {
+            toast.error('Décris le problème constaté');
+            return;
+        }
+        setEnvoiSignalement(true);
+        try {
+            const { data } = await axios.post('/api/order/admin/litige/declarer', {
+                orderId: order._id,
+                raison: raison.trim(),
+            });
+            if (data.success) {
+                toast.success('Signalé — un responsable va traiter ça');
+                setShowSignalement(false);
+                setRaison('');
+            } else {
+                toast.error(data.message);
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || error.message);
+        } finally {
+            setEnvoiSignalement(false);
         }
     };
 
@@ -214,6 +242,18 @@ const LivraisonDetail = () => {
                                     Marquer comme livrée
                                 </button>
                             )}
+                            {/* [NOUVEAU] Le livreur est la seule personne présente si le
+                                client constate un problème à l'instant de la livraison
+                                (colis ouvert, mauvais article) — avant, il fallait
+                                attendre que le client contacte le support plus tard. */}
+                            {['Out for Delivery', 'Delivered'].includes(order.status) && (
+                                <button
+                                    onClick={() => setShowSignalement(true)}
+                                    className="flex items-center justify-center gap-2 w-full py-3 bg-white border border-red-200 text-red-600 rounded-xl font-medium hover:bg-red-50 transition"
+                                >
+                                    <AlertTriangle size={18} /> Signaler un problème
+                                </button>
+                            )}
                         </div>
                     </div>
                 )}
@@ -225,6 +265,37 @@ const LivraisonDetail = () => {
                     <ArrowLeft size={16} /> Retour aux livraisons
                 </button>
             </div>
+
+            {showSignalement && (
+                <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-2xl max-w-md w-full p-5">
+                        <div className="flex items-center justify-between mb-3">
+                            <h2 className="font-bold text-gray-900 flex items-center gap-2">
+                                <AlertTriangle size={18} className="text-red-500" /> Signaler un problème
+                            </h2>
+                            <button onClick={() => setShowSignalement(false)}><X size={20} className="text-gray-400" /></button>
+                        </div>
+                        <p className="text-sm text-gray-500 mb-3">
+                            Ce que tu écris ici est transmis directement à un responsable qui va trancher.
+                        </p>
+                        <textarea
+                            value={raison}
+                            onChange={(e) => setRaison(e.target.value)}
+                            rows={3}
+                            placeholder="Ex : le client dit avoir reçu un article différent de sa commande"
+                            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none resize-none mb-4"
+                        />
+                        <button
+                            onClick={signalerProbleme}
+                            disabled={envoiSignalement}
+                            className="w-full py-3 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                            {envoiSignalement ? <Loader2 size={18} className="animate-spin" /> : <AlertTriangle size={18} />}
+                            Envoyer le signalement
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

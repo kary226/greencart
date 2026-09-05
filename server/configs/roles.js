@@ -301,7 +301,12 @@ export const ROLES = {
         libelle: 'Livreur',
         domaine: 'livreur',
         description: 'Collectes et livraisons.',
-        permissions: [P.DELIVERIES_VIEW_OWN, P.DELIVERIES_UPDATE_STATUS],
+        // [NOUVEAU] DISPUTES_OPEN ajouté : le livreur est la seule personne
+        // physiquement présente quand un client constate un problème au
+        // moment même de la livraison (colis ouvert, mauvais article). Il
+        // peut désormais signaler un litige directement depuis son écran,
+        // au lieu que le client doive passer par le support plus tard.
+        permissions: [P.DELIVERIES_VIEW_OWN, P.DELIVERIES_UPDATE_STATUS, P.DISPUTES_OPEN],
     },
     assistant_shein: {
         libelle: 'Assistant SHEIN',

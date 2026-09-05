@@ -1810,7 +1810,9 @@ export const confirmerCommandeAdmin = async (req, res) => {
 
 const STATUTS_TERMINAUX = ['Delivered', 'Cancelled', 'Returned', 'Disputed'];
 
-// POST /api/order/admin/litige/declarer — Admin
+// POST /api/order/admin/litige/declarer — Admin, ou Livreur (voir DISPUTES_OPEN
+// dans configs/roles.js : il peut signaler lui-même un problème constaté au
+// moment de la livraison, sans attendre que le client contacte le support).
 export const declarerLitige = async (req, res) => {
     try {
         const { orderId, raison } = req.body;
