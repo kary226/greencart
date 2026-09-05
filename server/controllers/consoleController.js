@@ -72,7 +72,7 @@ export const maConsole = async (req, res) => {
                     cle: 'litiges',
                     libelle: litiges === 1 ? 'Litige en cours' : 'Litiges en cours',
                     nombre: litiges,
-                    lien: '/admin/commandes?litige=1',
+                    lien: '/admin/litiges',
                     urgence: 'haute',
                     domaine: 'direction',
                 }));
@@ -154,8 +154,34 @@ export const maConsole = async (req, res) => {
                     cle: 'reception',
                     libelle: 'Colis à réceptionner',
                     nombre: aReceptionner,
-                    lien: '/admin/warehouse',
+                    // [FIX] Pointait vers /admin/warehouse — l'écran de scan/
+                    // journal, qui ne fait avancer aucun statut de commande.
+                    // La vraie action (receptionnerColis) vit sur l'écran
+                    // "Réception & remise", ajouté depuis.
+                    lien: '/admin/reception',
                     urgence: 'haute',
+                    domaine: 'operations',
+                }));
+            }
+
+            // [NOUVEAU] Symétrique de la tâche ci-dessus, pour l'autre moitié
+            // du même écran : un colis peut être réceptionné (Shipped) sans
+            // que personne n'ait encore confirmé l'avoir remis en main au
+            // livreur — cette tâche n'existait pas du tout, donc "Réception
+            // & remise" n'avait jamais de compteur alors qu'il pouvait
+            // pourtant y avoir une action en attente.
+            const aRemettre = await Order.countDocuments({
+                status: 'Shipped',
+                livreurId: { $ne: null },
+                remiseLivreurConfirmee: { $ne: true },
+            });
+            if (aRemettre > 0) {
+                taches.push(tache({
+                    cle: 'remise_livreur',
+                    libelle: 'Remise(s) au livreur à confirmer',
+                    nombre: aRemettre,
+                    lien: '/admin/reception',
+                    urgence: 'normale',
                     domaine: 'operations',
                 }));
             }
@@ -184,7 +210,10 @@ export const maConsole = async (req, res) => {
                     cle: 'livreur_a_assigner',
                     libelle: 'Commande(s) sans livreur',
                     nombre: aAssigner,
-                    lien: '/admin/deliveries',
+                    // [FIX] Pointait vers /admin/deliveries — un écran de
+                    // suivi, sans aucun moyen d'assigner qui que ce soit.
+                    // L'action réelle vit sur l'écran "Réassigner un livreur".
+                    lien: '/admin/reassignation-livreur',
                     urgence: 'haute',
                     domaine: 'operations',
                 }));

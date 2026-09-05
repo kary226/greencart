@@ -1258,7 +1258,22 @@ export const getAllOrders = async (req, res) => {
     try {
         const orders = await Order.find({
             $or: [{ paymentType: "COD" }, { isPaid: true }]
-        }).populate("items.product address").sort({ createdAt: -1 });
+        })
+            .populate({
+                path: "items.product",
+                select: "name boutiqueId",
+                // [NOUVEAU] Nécessaire pour savoir QUI relancer quand une
+                // commande traîne en "Vérification" — jusqu'ici, la donnée
+                // existait (confirmationsBoutiques) mais rien ne la croisait
+                // avec les coordonnées du commerçant à contacter.
+                populate: {
+                    path: "boutiqueId",
+                    select: "nom ownerId",
+                    populate: { path: "ownerId", select: "nom email telephone" },
+                },
+            })
+            .populate("address")
+            .sort({ createdAt: -1 });
         res.json({ success: true, orders });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

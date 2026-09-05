@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { authenticator } from 'otplib';
 import StaffUser from '../models/StaffUser.js';
+import { NOMS_ROLES } from '../configs/roles.js';
 import Invitation from '../models/Invitation.js';
 import Boutique from '../models/Boutique.js';
 import Wallet from '../models/Wallet.js';
@@ -18,14 +19,14 @@ import { sendStaffInvitationEmail } from '../configs/email.js';
 import { TYPE_STAFF } from '../utils/jwtTypes.js';
 import { journaliser } from '../services/journalService.js';
 
-// [PHASE 1] Rôles historiques + rôles granulaires (voir models/RolePermission.js
-// pour le détail des permissions associées à chacun). 'super_admin' remplace
-// à terme 'admin', qui reste accepté pour compatibilité.
-const ROLES_VALIDES = [
-    'admin', 'commercant', 'livreur', 'assistant_shein',
-    'super_admin', 'finance_admin', 'warehouse_admin',
-    'logistics_admin', 'catalog_admin', 'support_admin', 'read_only_auditor',
-];
+// [FIX] Cette liste était recopiée à la main ici, séparément de la vraie
+// source (NOMS_ROLES, dérivée de configs/roles.js — la même que le schéma
+// StaffUser utilise pour son enum). Elle avait fini par diverger :
+// "operations_admin" existait bien comme rôle réel mais manquait ici,
+// donc toute tentative de créer ou modifier un compte avec ce rôle
+// échouait avec "Rôle invalide". On utilise directement NOMS_ROLES —
+// une seule liste, plus de copie qui peut se désynchroniser.
+const ROLES_VALIDES = NOMS_ROLES;
 const INVITATION_VALIDITE_MS = 48 * 60 * 60 * 1000; // 48 heures
 
 // [SÉCURITÉ] Empreinte d'un jeton d'invitation. La création et la

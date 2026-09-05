@@ -102,8 +102,13 @@ const AdminCommandes = () => {
     };
 
     const filtrees = useMemo(() => {
-        if (onglet === 'pretes') return orders.filter((o) => o.liberation?.eligible);
-        if (onglet === 'attente') return orders.filter((o) => !o.liberation?.eligible);
+        // [FIX] Filtrait sur o.liberation?.eligible — un champ que le
+        // serveur n'a jamais envoyé (listCommandesAValider renvoie
+        // toutesConfirmees). Résultat : le compteur en haut de page comptait
+        // juste, mais l'onglet "Libérables" — ouvert par défaut — affichait
+        // toujours une liste vide, quelle que soit la commande.
+        if (onglet === 'pretes') return orders.filter((o) => o.toutesConfirmees);
+        if (onglet === 'attente') return orders.filter((o) => !o.toutesConfirmees);
         return orders;
     }, [orders, onglet]);
 

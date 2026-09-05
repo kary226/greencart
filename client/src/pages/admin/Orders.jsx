@@ -10,6 +10,22 @@ import {
     ShoppingBag, User, MapPin, Phone, CreditCard, ArrowLeft
 } from 'lucide-react';
 
+// [NOUVEAU] Compare les boutiques réellement présentes dans la commande
+// (via items.product.boutiqueId, peuplé par getAllOrders) à celles qui ont
+// déjà confirmé (confirmationsBoutiques) — le reste est "en attente", avec
+// de quoi contacter le commerçant concerné.
+const boutiquesEnAttente = (order) => {
+    const confirmees = new Set((order.confirmationsBoutiques || []).map((c) => c.boutiqueId?.toString?.() || c.boutiqueId));
+    const vues = new Map();
+    for (const item of order.items || []) {
+        const b = item.product?.boutiqueId;
+        if (b?._id && !confirmees.has(b._id.toString())) {
+            vues.set(b._id, b);
+        }
+    }
+    return Array.from(vues.values());
+};
+
 const Orders = () => {
     const { currency, axios } = useAppContext();
     // [FIX] Le lien "Litiges" du menu pointe vers /admin/orders?tab=disputes,
@@ -313,6 +329,30 @@ const Orders = () => {
                         <p className="text-xs text-red-600 mt-1 font-medium">⚖️ Litige en cours</p>
                     )}
                 </div>
+
+                {/* [NOUVEAU] Qui relancer : la donnée existait déjà en base
+                    (confirmationsBoutiques) mais n'était affichée nulle part —
+                    une commande pouvait traîner en "Vérification" sans que
+                    personne ne sache qui contacter. */}
+                {order.status === 'Checking Availability' && (() => {
+                    const enAttente = boutiquesEnAttente(order);
+                    if (enAttente.length === 0) return null;
+                    return (
+                        <div className="bg-yellow-50 rounded-xl p-3 text-sm">
+                            <p className="font-medium text-yellow-800 mb-1.5">
+                                En attente de {enAttente.length} boutique(s)
+                            </p>
+                            {enAttente.map((b) => (
+                                <div key={b._id} className="text-xs text-yellow-700 flex flex-wrap gap-x-2 py-0.5">
+                                    <span className="font-medium">{b.nom}</span>
+                                    {b.ownerId?.nom && <span>— {b.ownerId.nom}</span>}
+                                    {b.ownerId?.telephone && <span className="flex items-center gap-1"><Phone size={11} /> {b.ownerId.telephone}</span>}
+                                    {b.ownerId?.email && <span>{b.ownerId.email}</span>}
+                                </div>
+                            ))}
+                        </div>
+                    );
+                })()}
 
                 {/* Actions */}
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-gray-100">
