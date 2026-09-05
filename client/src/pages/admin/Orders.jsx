@@ -369,7 +369,14 @@ const Orders = () => {
                             Annuler
                         </button>
                     )}
-                    {!['Delivered', 'Cancelled', 'Returned', 'Disputed'].includes(order.status) && (
+                    {/* [FIX] "Delivered" était dans cette liste d'exclusion, alors que
+                        Retour et Litige sont justement pensés pour s'appliquer APRÈS
+                        livraison (un client renvoie un article reçu, ou signale un
+                        problème une fois le colis en main) — declarerLitige() gère même
+                        explicitement ce cas côté serveur (il garde le statut "Livrée"
+                        intact et ajoute juste une annotation, au lieu de l'écraser).
+                        Le bouton disparaissait pile quand il devenait le plus utile. */}
+                    {!['Cancelled', 'Returned', 'Disputed'].includes(order.status) && (
                         <>
                             <button
                                 onClick={() => setShowReturnModal(order)}
