@@ -1325,7 +1325,20 @@ export const getAllOrders = async (req, res) => {
                 },
             })
             .populate("address")
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            // [PERF] .lean() : Mongoose ne construit plus de documents
+            // complets (avec toutes leurs méthodes internes) pour chaque
+            // commande, juste des objets JS simples — c'est tout ce dont
+            // cet écran a besoin, et c'est nettement moins de travail par
+            // requête. Correctif sûr, sans changement de comportement :
+            // rien ici n'appelle de méthode Mongoose sur les résultats.
+            // Cette requête n'a en revanche toujours PAS de limite — elle
+            // charge la totalité des commandes payées depuis toujours, ce
+            // qui deviendra un vrai problème une fois le volume élevé (voir
+            // discussion du 06/09) ; une vraie pagination reste à faire,
+            // mais suppose de revoir Orders.jsx (tri/filtre côté client
+            // aujourd'hui), pas juste ce fichier.
+            .lean();
         res.json({ success: true, orders });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
