@@ -41,10 +41,65 @@ const tache = ({ cle, libelle, nombre, lien, urgence = 'normale', domaine }) => 
     cle, libelle, nombre, lien, urgence, domaine,
 });
 
+// [NOUVEAU] Petit cache en mémoire, très court (5s). Depuis le passage du
+// menu à 15s d'intervalle (06/09), plusieurs comptes avec les MÊMES
+// permissions effectives (ex: deux Super Admin) qui ont le panneau ouvert
+// en même temps déclenchaient chacun, indépendamment, les mêmes 16
+// requêtes à la base. La clé est l'ensemble exact des permissions — pas le
+// rôle — pour rester correct même avec un compte aux permissions
+// personnalisées (voir StaffUser.permissions). Purement une optimisation :
+// en cas de repli (calcul, pas de doublon en cache), rien ne casse.
+const CACHE_TTL_MS = 5_000;
+const cacheConsole = new Map();
+
+const cleCache = (permissions) => [...(permissions || [])].sort().join(',');
+
 // ─── GET /api/console ──────────────────────────────────────────────
 export const maConsole = async (req, res) => {
     try {
         const staff = req.staffUser;
+
+        // Construit la même forme de réponse, que les tâches viennent d'un
+        // calcul frais ou du cache — acteur/message dépendent de CE compte
+        // précis (son nom), jamais du cache, qui lui n'est indexé que sur
+        // l'ensemble des permissions (partagé par plusieurs comptes).
+        const construireReponse = (taches, surveillance) => ({
+            success: true,
+            acteur: {
+                nom: staff.nom,
+                role: staff.role,
+                // Le libellé vient de configs/roles.js : plus aucun écran
+                // n'affiche « Seller » (§0, convention de nommage).
+                roleLibelle: libelleDuRole(staff.role),
+                domaine: domaineDuRole(staff.role),
+                description: ROLES[staff.role]?.description || '',
+            },
+            taches,
+            surveillance,
+            // Le message quand il n'y a rien : dire « rien à faire » vaut
+            // mieux qu'un écran vide, qui se lit comme un chargement raté.
+            // Un rôle de consultation n'a jamais de tâche : lui annoncer
+            // « rien ne vous attend » serait trompeur, son travail est ailleurs.
+            message: taches.length > 0
+                ? `${taches.reduce((n, t) => n + t.nombre, 0)} élément(s) attendent votre intervention.`
+                : surveillance.length > 0
+                    ? 'Aucune action ne vous revient — voici l’état du système.'
+                    : 'Rien ne vous attend pour le moment.',
+        });
+
+        // [NOUVEAU] Depuis le passage du menu à 15s d'intervalle (06/09),
+        // plusieurs comptes aux permissions identiques (ex: deux Super
+        // Admin) avec le panneau ouvert en même temps déclenchaient chacun,
+        // indépendamment, les mêmes 16 requêtes à la base. La clé du cache
+        // est l'ensemble exact des permissions — pas le rôle — pour rester
+        // correcte même avec un compte aux permissions personnalisées (voir
+        // StaffUser.permissions).
+        const cle = cleCache(staff.permissions);
+        const enCache = cacheConsole.get(cle);
+        if (enCache && Date.now() - enCache.ts < CACHE_TTL_MS) {
+            return res.json(construireReponse(enCache.taches, enCache.surveillance));
+        }
+
         const taches = [];
 
         // ── Direction : les exceptions d'abord (§1, §4, §12) ────────────
@@ -313,29 +368,9 @@ export const maConsole = async (req, res) => {
         const rangUrgence = { haute: 0, normale: 1, basse: 2 };
         taches.sort((a, b) => rangUrgence[a.urgence] - rangUrgence[b.urgence] || b.nombre - a.nombre);
 
-        return res.json({
-            success: true,
-            acteur: {
-                nom: staff.nom,
-                role: staff.role,
-                // Le libellé vient de configs/roles.js : plus aucun écran
-                // n'affiche « Seller » (§0, convention de nommage).
-                roleLibelle: libelleDuRole(staff.role),
-                domaine: domaineDuRole(staff.role),
-                description: ROLES[staff.role]?.description || '',
-            },
-            taches,
-            surveillance,
-            // Le message quand il n'y a rien : dire « rien à faire » vaut
-            // mieux qu'un écran vide, qui se lit comme un chargement raté.
-            // Un rôle de consultation n'a jamais de tâche : lui annoncer
-            // « rien ne vous attend » serait trompeur, son travail est ailleurs.
-            message: taches.length > 0
-                ? `${taches.reduce((n, t) => n + t.nombre, 0)} élément(s) attendent votre intervention.`
-                : surveillance.length > 0
-                    ? 'Aucune action ne vous revient — voici l’état du système.'
-                    : 'Rien ne vous attend pour le moment.',
-        });
+        cacheConsole.set(cle, { taches, surveillance, ts: Date.now() });
+
+        return res.json(construireReponse(taches, surveillance));
     } catch (error) {
         console.error('Erreur maConsole:', error.message);
         res.status(500).json({ success: false, message: error.message });
