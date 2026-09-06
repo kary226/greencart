@@ -822,18 +822,15 @@ export const receptionnerColis = async (req, res) => {
             });
         }
 
-        // [FIX] Sans ceci, la commande devient invisible pour le livreur qui
-        // vient de la collecter : getLivraisonsLivreur (onglet "Livraisons")
-        // filtre sur `livreurId`, un champ historiquement renseigné par
-        // l'assignation manuelle admin (assignerLivreur), jamais par le
-        // circuit de collecte qui ne renseigne que `collecteLivreurId`. Sans
-        // cette ligne, le colis passe Shipped puis disparaît de tous les
-        // écrans livreur — plus personne ne peut le livrer.
+        // [CHANGÉ] Avant, le livreur de la collecte était auto-assigné ici
+        // par défaut. Décision du 06/09 : plus d'assignation par défaut —
+        // un colis réceptionné reste disponible pour n'importe quel livreur
+        // (voir listColisDisponibles / prendreEnChargeLivraison), premier
+        // arrivé premier servi, comme pour la collecte. assignerLivreur
+        // reste possible pour forcer un cas particulier, mais n'est plus
+        // l'étape obligatoire du quotidien.
         order.shippedAt = new Date();
         order.shippedBy = req.staffUser?._id || null;
-        if (!order.livreurId && order.collecteLivreurId) {
-            order.livreurId = order.collecteLivreurId;
-        }
         await order.save();
 
         return res.json({ success: true, message: 'Commande reçue en entrepôt et marquée Expédiée.' });
@@ -863,6 +860,61 @@ export const listCommandesAReceptionner = async (req, res) => {
         return res.json({ success: true, orders });
     } catch (error) {
         console.error('Erreur listCommandesAReceptionner:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// [NOUVEAU] Livreur : colis réceptionnés, disponibles, que personne n'a
+// encore pris en charge — le marché ouvert qui remplace l'assignation
+// automatique par défaut.
+export const listColisDisponibles = async (req, res) => {
+    try {
+        const orders = await Order.find({ status: 'Shipped', livreurId: null })
+            .select('items amount address shippedAt')
+            .populate('address')
+            .sort({ shippedAt: 1 });
+        return res.json({ success: true, orders });
+    } catch (error) {
+        console.error('Erreur listColisDisponibles:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// [NOUVEAU] Premier arrivé, premier servi — même principe que
+// reserverCollecte : un findOneAndUpdate atomique avec livreurId: null
+// dans le filtre, pour qu'un seul des livreurs qui cliquent en même temps
+// obtienne réellement le colis. Ce n'est pas un changement de statut (la
+// commande reste "Shipped"), donc hors du périmètre de
+// transitionnerAtomique — mais même exigence d'atomicité, donc même
+// prudence : lecture et écriture en une seule opération Mongo.
+export const prendreEnChargeLivraison = async (req, res) => {
+    try {
+        const { orderId } = req.body;
+        const livreurId = req.staffUser._id;
+
+        const order = await Order.findOneAndUpdate(
+            { _id: orderId, status: 'Shipped', livreurId: null },
+            { $set: { livreurId } },
+            { new: false }
+        );
+
+        if (!order) {
+            return res.status(409).json({
+                success: false,
+                message: 'Ce colis vient d\'être pris en charge par un autre livreur.',
+            });
+        }
+
+        await journaliser({
+            acteur: { id: livreurId, nom: req.staffUser.nom, role: 'livreur' },
+            action: 'commande.transition',
+            cible: { id: orderId, libelle: `Commande ${orderId}` },
+            note: 'colis pris en charge par un livreur',
+        }).catch(() => {});
+
+        return res.json({ success: true, message: 'Colis pris en charge — la remise reste à confirmer par les Opérations.' });
+    } catch (error) {
+        console.error('Erreur prendreEnChargeLivraison:', error.message);
         res.status(500).json({ success: false, message: error.message });
     }
 };

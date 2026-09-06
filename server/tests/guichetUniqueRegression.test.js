@@ -100,6 +100,24 @@ const estUneExceptionAutorisee = (nomFichier, ligneTexte) =>
         (exception) => exception.fichier === nomFichier && ligneTexte.includes(exception.extrait)
     );
 
+// Même mécanisme, pour la boucle $set implicite (findOneAndUpdate/etc.) :
+// un appel peut légitimement avoir "status" dans son FILTRE
+// (ex: { status: 'Shipped', livreurId: null }) sans jamais l'écrire —
+// seul un autre champ est modifié. La fenêtre de recherche ne distingue
+// pas filtre et écriture, donc on nomme les cas vérifiés à la main.
+const EXCEPTIONS_SET_IMPLICITE = [
+    {
+        fichier: 'orderController.js',
+        // prendreEnChargeLivraison() : "status: 'Shipped'" est la condition
+        // de la requête (le colis doit être encore Expédié pour être pris),
+        // pas l'écriture — seul livreurId est modifié dans le $set.
+        extrait: "{ _id: orderId, status: 'Shipped', livreurId: null }",
+    },
+];
+
+const estUneExceptionSetImplicite = (nomFichier, fenetre) =>
+    EXCEPTIONS_SET_IMPLICITE.some((e) => e.fichier === nomFichier && fenetre.includes(e.extrait));
+
 describe('Guichet unique — garde-fou anti-régression (audit, point 3)', () => {
     for (const dossier of DOSSIERS_SURVEILLES) {
         const dossierAbsolu = path.join(SERVER_ROOT, dossier);
@@ -136,12 +154,18 @@ describe('Guichet unique — garde-fou anti-régression (audit, point 3)', () =>
                         `transitionnerAtomique() existe déjà pour ça, voir orderWorkflowService.js`
                 );
 
+                // [FIX] Même mécanisme d'exception que EXCEPTIONS_AUTORISEES ci-dessus,
+                // mais pour la boucle $set implicite : un appel peut légitimement avoir
+                // "status" dans son FILTRE (ex: { status: 'Shipped', livreurId: null })
+                // sans jamais l'écrire — seul un autre champ (livreurId) est modifié. La
+                // fenêtre de recherche ne distingue pas filtre et écriture, donc on
+                // nomme explicitement les cas vérifiés à la main, comme pour Disputed.
                 const violationsImplicites = [];
                 for (const appel of source.matchAll(REGEX_APPEL_UPDATE_ORDER)) {
                     const debutFenetre = Math.max(0, appel.index - FENETRE_AVANT_APPEL);
                     const finFenetre = Math.min(source.length, appel.index + appel[0].length + FENETRE_APRES_APPEL);
                     const fenetre = source.slice(debutFenetre, finFenetre);
-                    if (REGEX_STATUS_CLE_OBJET.test(fenetre)) {
+                    if (REGEX_STATUS_CLE_OBJET.test(fenetre) && !estUneExceptionSetImplicite(nomFichier, fenetre)) {
                         const ligneNo = source.slice(0, appel.index).split('\n').length;
                         violationsImplicites.push(`  ligne ${ligneNo}: ${appel[0]}...`);
                     }

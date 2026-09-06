@@ -34,6 +34,8 @@ import {
     confirmerRemiseLivreur,
     listCommandesARemettre,
     listCommandesAReceptionner,
+    listColisDisponibles,
+    prendreEnChargeLivraison,
     rechercherCommandeAdmin
 } from '../controllers/orderController.js';
 import { initiateJeko } from '../controllers/jekoController.js';
@@ -130,6 +132,10 @@ orderRouter.post('/admin/assigner-livreur', authStaff, requirePermission('delive
 
 // ✅ PHASE 4 : Routes pour livreur
 orderRouter.get('/livreur/mes-livraisons', authStaff, requireRole('livreur'), getLivraisonsLivreur);
+// [NOUVEAU] Marché ouvert des colis réceptionnés, non assignés — voir
+// receptionnerColis et la décision du 06/09 (plus d'auto-assignation).
+orderRouter.get('/livreur/colis-disponibles', authStaff, requireRole('livreur'), listColisDisponibles);
+orderRouter.post('/livreur/prendre-en-charge', authStaff, requireRole('livreur'), prendreEnChargeLivraison);
 // Bilan de ses tournées sur une période — voir getActiviteLivreur.
 orderRouter.get('/livreur/activite', authStaff, requireRole('livreur'), getActiviteLivreur);
 orderRouter.patch('/livreur/statut', authStaff, requireRole('livreur'), updateLivraisonStatus);

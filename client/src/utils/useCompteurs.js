@@ -23,7 +23,13 @@ import { notifier } from './notifications';
  *     un collègue qui a traité le dossier : ce n'est pas une nouvelle.
  */
 
-const INTERVALLE = 60_000;
+// [FIX] 60s -> 15s à la demande, MAIS avec une compensation : sans elle,
+// un onglet Admin oublié en arrière-plan toute la journée interrogerait le
+// serveur 4x plus souvent pour rien, ce qui pèse vraiment sur le budget
+// gratuit Vercel (chaque appel à /api/console fait 16 requêtes à la base).
+// On met donc en pause dès que l'onglet n'est plus visible, et on relance
+// immédiatement (pas d'attente jusqu'au prochain tick) dès qu'on y revient.
+const INTERVALLE = 15_000;
 
 export const useCompteurs = ({ actif = true } = {}) => {
     const { axios } = useAppContext();
@@ -73,8 +79,24 @@ export const useCompteurs = ({ actif = true } = {}) => {
         };
 
         charger();
-        const minuterie = setInterval(charger, INTERVALLE);
-        return () => { vivant = false; clearInterval(minuterie); };
+        let minuterie = setInterval(charger, INTERVALLE);
+
+        // Onglet en arrière-plan = plus de raison d'interroger le serveur
+        // toutes les 15 secondes ; on reprend, et on recharge tout de suite
+        // (pas d'attente jusqu'au prochain tick), dès qu'on revient dessus.
+        const surChangementVisibilite = () => {
+            clearInterval(minuterie);
+            if (document.hidden) return;
+            charger();
+            minuterie = setInterval(charger, INTERVALLE);
+        };
+        document.addEventListener('visibilitychange', surChangementVisibilite);
+
+        return () => {
+            vivant = false;
+            clearInterval(minuterie);
+            document.removeEventListener('visibilitychange', surChangementVisibilite);
+        };
     }, [axios, actif]);
 
     /**

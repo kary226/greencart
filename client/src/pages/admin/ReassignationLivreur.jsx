@@ -117,7 +117,13 @@ const ReassignationLivreur = () => {
                 <div className="space-y-3 mt-5">
                     {resultats.map((order) => {
                         const bloquee = STATUTS_INTERDITS.includes(order.status);
-                        const livreurActuel = order.livreurId?.nom || order.collecteLivreurId?.nom || null;
+                        // [FIX] Depuis la décision du 06/09 (plus d'auto-
+                        // assignation à la réception), collecteLivreurId ne
+                        // veut plus dire "c'est lui qui livre" — juste "c'est
+                        // lui qui a collecté". Les deux sont maintenant
+                        // distingués pour ne pas induire en erreur.
+                        const livreurLivraison = order.livreurId?.nom || null;
+                        const nonPrisEnCharge = !order.livreurId && order.status === 'Shipped';
 
                         return (
                             <div key={order._id} className="bg-white rounded-2xl border border-gray-200 p-5">
@@ -126,7 +132,8 @@ const ReassignationLivreur = () => {
                                         <p className="font-semibold text-gray-900">#{order._id.slice(-8).toUpperCase()}</p>
                                         <p className="text-xs text-gray-500 mt-1">
                                             {LABELS_STATUT[order.status] || order.status}
-                                            {livreurActuel && ` · Livreur actuel : ${livreurActuel}`}
+                                            {livreurLivraison && ` · Livreur actuel : ${livreurLivraison}`}
+                                            {nonPrisEnCharge && ` · Disponible, pas encore pris en charge`}
                                             {order.livreurId && (
                                                 order.remiseLivreurConfirmee
                                                     ? ' · Colis déjà remis'

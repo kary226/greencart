@@ -12,20 +12,23 @@ const MesLivraisons = () => {
     const [loading, setLoading] = useState(true);
     const [commandes, setCommandes] = useState([]);
     const [collectes, setCollectes] = useState([]);
+    const [disponibles, setDisponibles] = useState([]);
     const [historique, setHistorique] = useState([]);
     const [moi, setMoi] = useState(null);
     const [tab, setTab] = useState('collectes');
 
     const refresh = async () => {
-        const [liv, col] = await Promise.all([
+        const [liv, col, dispo] = await Promise.all([
             axios.get('/api/order/livreur/mes-livraisons'),
-            axios.get('/api/order/livreur/collectes')
+            axios.get('/api/order/livreur/collectes'),
+            axios.get('/api/order/livreur/colis-disponibles'),
         ]);
         if (liv.data.success) {
             setCommandes(liv.data.orders || []);
             setHistorique(liv.data.historique || []);
         }
         if (col.data.success) setCollectes(col.data.orders || []);
+        if (dispo.data.success) setDisponibles(dispo.data.orders || []);
     };
 
     useEffect(() => {
@@ -84,6 +87,22 @@ const MesLivraisons = () => {
         } catch (e) { toast.error(e.response?.data?.message || e.message); }
     };
 
+    // [NOUVEAU] Même principe que reserve() ci-dessus, mais pour un colis
+    // déjà réceptionné à l'entrepôt : premier arrivé, premier servi — voir
+    // prendreEnChargeLivraison (décision du 06/09, plus d'auto-assignation
+    // à la réception).
+    const prendreEnCharge = async (order) => {
+        try {
+            const { data } = await axios.post('/api/order/livreur/prendre-en-charge', { orderId: order._id });
+            if (data.success) {
+                toast.success('Colis pris en charge. Il disparaît maintenant des autres livreurs.');
+                await refresh();
+            } else {
+                toast.error(data.message);
+            }
+        } catch (e) { toast.error(e.response?.data?.message || e.message); }
+    };
+
     const collect = async (order, item) => {
         try {
             const { data } = await axios.post('/api/order/livreur/collectes/collecter', {
@@ -120,9 +139,15 @@ const MesLivraisons = () => {
             <div className="max-w-4xl mx-auto px-4 py-6">
                 {/* Trois onglets : ce qu'il y a à prendre, ce qu'il y a à
                     livrer, et le bilan de ce qui est fait. */}
-                <div className="grid grid-cols-3 gap-2 mb-6">
+                {/* Quatre onglets : ce qu'il y a à récupérer chez le
+                    commerçant, ce qu'il y a à prendre à l'entrepôt, ce qu'il
+                    y a à livrer, et le bilan de ce qui est fait. */}
+                <div className="grid grid-cols-4 gap-2 mb-6">
                     <button onClick={() => setTab('collectes')} className={`p-3 rounded-xl font-semibold flex items-center justify-center gap-1.5 text-sm ${tab==='collectes'?'bg-burgundy-600 text-white':'bg-white text-gray-600'}`}>
                         <Hand size={17}/> <span className="hidden sm:inline">Récupérer</span><span className="sm:hidden">Prendre</span> ({collectes.length})
+                    </button>
+                    <button onClick={() => setTab('disponibles')} className={`p-3 rounded-xl font-semibold flex items-center justify-center gap-1.5 text-sm ${tab==='disponibles'?'bg-burgundy-600 text-white':'bg-white text-gray-600'}`}>
+                        <Package size={17}/> <span className="hidden sm:inline">Entrepôt</span><span className="sm:hidden">Colis</span> ({disponibles.length})
                     </button>
                     <button onClick={() => setTab('livraisons')} className={`p-3 rounded-xl font-semibold flex items-center justify-center gap-1.5 text-sm ${tab==='livraisons'?'bg-burgundy-600 text-white':'bg-white text-gray-600'}`}>
                         <Truck size={17}/> Livrer ({commandes.length})
@@ -133,6 +158,28 @@ const MesLivraisons = () => {
                 </div>
 
                 {tab === 'activite' && <MonActivite />}
+
+                {tab === 'disponibles' && (
+                    <>
+                        <h2 className="font-semibold text-gray-800 mb-3 flex items-center gap-2"><Package size={18}/> Colis réceptionnés, disponibles</h2>
+                        <p className="text-xs text-gray-500 mb-3">Premier arrivé, premier servi — dès que tu prends un colis, il disparaît pour les autres livreurs.</p>
+                        {disponibles.length === 0 ? <div className="bg-white rounded-xl p-8 text-center"><Package className="mx-auto text-gray-400 mb-3" size={48}/><p className="text-gray-500">Aucun colis disponible pour l'instant.</p></div> :
+                            <div className="space-y-4">{disponibles.map(order => (
+                                <div key={order._id} className="bg-white rounded-xl shadow-sm border border-blush-300 p-4">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <p className="font-medium">Commande #{order._id.slice(-8)}</p>
+                                            <p className="text-xs text-gray-500 mt-1">{(order.items || []).length} article(s)</p>
+                                        </div>
+                                    </div>
+                                    <div className="mt-2 text-sm text-gray-600">
+                                        <div><MapPin size={14} className="inline"/> {order.address?.street || order.address?.name || ''}</div>
+                                    </div>
+                                    <button onClick={() => prendreEnCharge(order)} className="mt-3 w-full bg-burgundy-600 text-white py-2 rounded-lg">Prendre en charge ce colis</button>
+                                </div>
+                            ))}</div>}
+                    </>
+                )}
 
                 {tab === 'collectes' && (
                     <>
