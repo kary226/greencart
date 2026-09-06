@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
 import {
-    Package, Truck, RotateCcw, Banknote, Loader2, CalendarDays,
+    Package, Truck, RotateCcw, Loader2, CalendarDays,
 } from 'lucide-react';
 
 /**
@@ -49,7 +49,7 @@ const Carte = ({ icone: Icone, valeur, libelle, accent = false }) => (
 );
 
 const MonActivite = () => {
-    const { axios, currency } = useAppContext();
+    const { axios } = useAppContext();
     const [raccourci, setRaccourci] = useState('jour');
     const [depuis, setDepuis] = useState(enDateISO(new Date()));
     const [jusqu, setJusqu] = useState(enDateISO(new Date()));
@@ -128,14 +128,11 @@ const MonActivite = () => {
             ) : !donnees ? null : (
                 <>
                     {/* ── Résumé ──────────────────────────────────────── */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
                         <Carte icone={Package} valeur={donnees.resume.collectes}
                                libelle={`Collecte${donnees.resume.collectes > 1 ? 's' : ''} · ${donnees.resume.articlesCollectes} article(s)`} />
                         <Carte icone={Truck} valeur={donnees.resume.livraisons}
                                libelle={`Livraison${donnees.resume.livraisons > 1 ? 's' : ''} effectuée${donnees.resume.livraisons > 1 ? 's' : ''}`} accent />
-                        <Carte icone={Banknote}
-                               valeur={donnees.resume.montantLivre.toLocaleString('fr-FR')}
-                               libelle={`${currency} livrés`} />
                         <Carte icone={RotateCcw} valeur={donnees.resume.retours} libelle="Retour(s)" />
                     </div>
 
@@ -203,8 +200,7 @@ const MonActivite = () => {
                                             <span className="min-w-0">
                                                 <span className="block text-sm font-medium text-gray-800">#{l.reference}</span>
                                                 <span className="block text-[12px] text-gray-500">
-                                                    {l.montant?.toLocaleString('fr-FR')} {currency}
-                                                    {l.commune ? ` · ${l.commune}` : ''}
+                                                    {l.commune || 'Livrée'}
                                                 </span>
                                             </span>
                                             <span className="text-[12px] text-gray-400 tabular-nums shrink-0">{heure(l.le)}</span>
