@@ -79,7 +79,10 @@ const MonActivite = () => {
         setJusqu(r.jusqu());
     };
 
-    const heure = (d) => new Date(d).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    // [NOUVEAU] Ces deux listes peuvent couvrir plusieurs jours (selon la
+    // période choisie) — l'heure seule ne suffit pas à savoir de quel jour
+    // il s'agit, même si un créneau de livraison avait été fixé à l'avance.
+    const dateHeure = (d) => new Date(d).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
     const jourCourt = (d) => new Date(d).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
     return (
@@ -178,7 +181,7 @@ const MonActivite = () => {
                                                     {c.articles} article(s){c.commune ? ` · ${c.commune}` : ''}
                                                 </span>
                                             </span>
-                                            <span className="text-[12px] text-gray-400 tabular-nums shrink-0">{heure(c.le)}</span>
+                                            <span className="text-[12px] text-gray-400 tabular-nums shrink-0">{dateHeure(c.le)}</span>
                                         </li>
                                     ))}
                                 </ul>
@@ -203,7 +206,7 @@ const MonActivite = () => {
                                                     {l.commune || 'Livrée'}
                                                 </span>
                                             </span>
-                                            <span className="text-[12px] text-gray-400 tabular-nums shrink-0">{heure(l.le)}</span>
+                                            <span className="text-[12px] text-gray-400 tabular-nums shrink-0">{dateHeure(l.le)}</span>
                                         </li>
                                     ))}
                                 </ul>

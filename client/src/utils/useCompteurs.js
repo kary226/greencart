@@ -104,13 +104,24 @@ export const useCompteurs = ({ actif = true } = {}) => {
      * qu'à demander « combien pour ce lien ? ».
      */
     const parChemin = {};
+    // [NOUVEAU] Même regroupement, mais séparé par urgence : deux tâches
+    // différentes peuvent pointer vers le même écran (ex: "nouvelles
+    // commandes" et "collectes en cours" pointent toutes les deux vers
+    // /admin/orders) sans vouloir dire la même chose. `parChemin` reste le
+    // total fusionné (utile pour le sous-total d'une rubrique) ; ces deux-là
+    // permettent d'afficher une pastille rouge et une pastille grise
+    // distinctes sur le même lien.
+    const parCheminHaute = {};
+    const parCheminAutre = {};
     for (const t of taches) {
         const base = (t.lien || '').split('?')[0];
         if (!base) continue;
         parChemin[base] = (parChemin[base] || 0) + t.nombre;
+        const cible = t.urgence === 'haute' ? parCheminHaute : parCheminAutre;
+        cible[base] = (cible[base] || 0) + t.nombre;
     }
 
-    return { taches, total, parChemin };
+    return { taches, total, parChemin, parCheminHaute, parCheminAutre };
 };
 
 export default useCompteurs;

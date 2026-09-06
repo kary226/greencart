@@ -4,7 +4,7 @@ import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
 import {
     Package, MapPin, Phone, User, Calendar,
-    Clock, CheckCircle, Truck, Loader2, ArrowLeft, AlertTriangle, X
+    Clock, CheckCircle, Truck, Loader2, ArrowLeft, AlertTriangle, X, RotateCcw
 } from 'lucide-react';
 
 const LivraisonDetail = () => {
@@ -16,6 +16,9 @@ const LivraisonDetail = () => {
     const [order, setOrder] = useState(null);
     const [updating, setUpdating] = useState(false);
     const [showSignalement, setShowSignalement] = useState(false);
+    const [showRetour, setShowRetour] = useState(false);
+    const [motifRetour, setMotifRetour] = useState('');
+    const [envoiRetour, setEnvoiRetour] = useState(false);
     const [raison, setRaison] = useState('');
     const [envoiSignalement, setEnvoiSignalement] = useState(false);
 
@@ -95,6 +98,36 @@ const LivraisonDetail = () => {
             toast.error(error.response?.data?.message || error.message);
         } finally {
             setEnvoiSignalement(false);
+        }
+    };
+
+    // [NOUVEAU] Passe par le vrai circuit de retour (ouvrirRetour, via
+    // Support/Opérations/Finance — même chose que le bouton "Retour" côté
+    // Admin) plutôt que de changer le statut directement : la décision
+    // finale (rembourser, renvoyer au commerçant, refuser) reste à
+    // Opérations/Finance, le livreur ne fait qu'ouvrir le dossier.
+    const initierRetour = async () => {
+        if (!motifRetour.trim()) {
+            toast.error('Décris pourquoi le client refuse ou renvoie le colis');
+            return;
+        }
+        setEnvoiRetour(true);
+        try {
+            const { data } = await axios.post('/api/admin/returns', {
+                orderId: order._id,
+                motif: motifRetour.trim(),
+            });
+            if (data.success) {
+                toast.success('Retour enregistré — Opérations va le réceptionner');
+                setShowRetour(false);
+                setMotifRetour('');
+            } else {
+                toast.error(data.message);
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || error.message);
+        } finally {
+            setEnvoiRetour(false);
         }
     };
 
@@ -254,6 +287,14 @@ const LivraisonDetail = () => {
                                     <AlertTriangle size={18} /> Signaler un problème
                                 </button>
                             )}
+                            {['Out for Delivery', 'Delivered'].includes(order.status) && (
+                                <button
+                                    onClick={() => setShowRetour(true)}
+                                    className="flex items-center justify-center gap-2 w-full py-3 bg-white border border-gray-200 text-gray-600 rounded-xl font-medium hover:bg-gray-50 transition"
+                                >
+                                    <RotateCcw size={18} /> Le client refuse / renvoie le colis
+                                </button>
+                            )}
                         </div>
                     </div>
                 )}
@@ -292,6 +333,38 @@ const LivraisonDetail = () => {
                         >
                             {envoiSignalement ? <Loader2 size={18} className="animate-spin" /> : <AlertTriangle size={18} />}
                             Envoyer le signalement
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {showRetour && (
+                <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-2xl max-w-md w-full p-5">
+                        <div className="flex items-center justify-between mb-3">
+                            <h2 className="font-bold text-gray-900 flex items-center gap-2">
+                                <RotateCcw size={18} className="text-gray-600" /> Ouvrir un retour
+                            </h2>
+                            <button onClick={() => setShowRetour(false)}><X size={20} className="text-gray-400" /></button>
+                        </div>
+                        <p className="text-sm text-gray-500 mb-3">
+                            Le dossier part chez Opérations pour vérification, puis Finance s'occupe d'un
+                            éventuel remboursement — tu n'as pas à décider ça toi-même.
+                        </p>
+                        <textarea
+                            value={motifRetour}
+                            onChange={(e) => setMotifRetour(e.target.value)}
+                            rows={3}
+                            placeholder="Ex : le client refuse le colis, article abîmé à l'ouverture"
+                            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none resize-none mb-4"
+                        />
+                        <button
+                            onClick={initierRetour}
+                            disabled={envoiRetour}
+                            className="w-full py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                            {envoiRetour ? <Loader2 size={18} className="animate-spin" /> : <RotateCcw size={18} />}
+                            Ouvrir le retour
                         </button>
                     </div>
                 </div>

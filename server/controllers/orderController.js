@@ -1771,9 +1771,15 @@ export const confirmerDisponibiliteCommercant = async (req, res) => {
 // confirmé », donc qui relancer.
 export const listCommandesAValider = async (req, res) => {
     try {
+        // [FIX] Même correctif que le compteur "À faire" — sans
+        // 'items.boutiqueId': { $ne: null }, une commande faite uniquement
+        // d'articles du catalogue principal apparaissait ici comme "prête",
+        // alors qu'il n'y a littéralement aucun fonds commerçant à libérer
+        // pour elle (voir libererFonds).
         const orders = await Order.find({
             confirmeParAdminLe: null,
             status: 'Shipped',
+            'items.boutiqueId': { $ne: null },
         })
             .sort({ createdAt: -1 })
             .limit(100)

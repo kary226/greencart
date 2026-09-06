@@ -104,7 +104,7 @@ const SuperAdminLayout = () => {
 
     // Les compteurs ne se chargent qu'une fois les droits connus : les
     // demander avant, c'est un appel qui partira forcément en 401.
-    const { parChemin } = useCompteurs({ actif: !chargement });
+    const { parChemin, parCheminHaute, parCheminAutre } = useCompteurs({ actif: !chargement });
 
     // Fermer le tiroir dès qu'on navigue
     useEffect(() => { setTiroirOuvert(false); }, [location.pathname]);
@@ -333,7 +333,13 @@ const SuperAdminLayout = () => {
                                                 >
                                                     <span className="flex items-center gap-2">
                                                         <span className="truncate flex-1">{entree.label}</span>
-                                                        <Pastille nombre={parChemin[entree.chemin.split('?')[0]]} />
+                                                        {/* [NOUVEAU] Deux pastilles distinctes plutôt qu'un total
+                                                            fusionné : "nouvelles commandes" (rouge, urgent) et
+                                                            "collectes en cours" (grise, juste informatif) peuvent
+                                                            toutes les deux pointer vers "Toutes les commandes"
+                                                            sans se confondre en un seul chiffre ambigu. */}
+                                                        <Pastille nombre={parCheminHaute[entree.chemin.split('?')[0]]} />
+                                                        <Pastille nombre={parCheminAutre[entree.chemin.split('?')[0]]} discrete />
                                                     </span>
                                                 </NavLink>
                                             ))}

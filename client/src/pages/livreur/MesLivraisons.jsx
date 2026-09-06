@@ -4,7 +4,7 @@ import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
 import { notifier } from '../../utils/notifications';
 import MonActivite from './MonActivite';
-import { Package, MapPin, Clock, CheckCircle, Loader2, Truck, Eye, Calendar, Phone, User, Hand, Layers, BarChart3 } from 'lucide-react';
+import { Package, MapPin, Clock, CheckCircle, Loader2, Truck, Eye, Calendar, Phone, User, Hand, Layers, BarChart3, LogOut } from 'lucide-react';
 
 const MesLivraisons = () => {
     const { axios } = useAppContext();
@@ -16,6 +16,13 @@ const MesLivraisons = () => {
     const [historique, setHistorique] = useState([]);
     const [moi, setMoi] = useState(null);
     const [tab, setTab] = useState('collectes');
+
+    // [NOUVEAU] Aucune page livreur n'avait de bouton de déconnexion —
+    // même endpoint et même schéma que côté commerçant.
+    const handleLogout = async () => {
+        try { await axios.get('/api/staff/logout'); } catch { /* déconnexion best-effort */ }
+        navigate('/staff/login');
+    };
 
     const refresh = async () => {
         const [liv, col, dispo] = await Promise.all([
@@ -133,6 +140,9 @@ const MesLivraisons = () => {
             <div className="bg-burgundy-600 text-ivory-200 sticky top-0 z-10">
                 <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-3"><Truck size={24}/><div><h1 className="text-lg font-bold">Espace livreur</h1><p className="text-sm text-blush-300">{moi?.nom}</p></div></div>
+                    <button onClick={handleLogout} className="flex items-center gap-1.5 text-sm text-blush-200 hover:text-white transition">
+                        <LogOut size={16} /> <span className="hidden sm:inline">Déconnexion</span>
+                    </button>
                 </div>
             </div>
 

@@ -32,6 +32,11 @@ const ReassignationLivreur = () => {
     const [terme, setTerme] = useState('');
     const [resultats, setResultats] = useState([]);
     const [recherche, setRecherche] = useState(false);
+    // [FIX] La condition précédente (resultats vide + terme non vide)
+    // affichait "Aucune commande trouvée" dès la première frappe, avant
+    // même d'avoir cliqué "Chercher" — puisque resultats est vide par
+    // défaut. On ne montre ce message qu'après une vraie recherche.
+    const [aDejaCherche, setADejaCherche] = useState(false);
     const [livreurs, setLivreurs] = useState([]);
     const [choixParCommande, setChoixParCommande] = useState({});
     const [enCours, setEnCours] = useState(null);
@@ -57,6 +62,7 @@ const ReassignationLivreur = () => {
             toast.error(error.response?.data?.message || error.message);
         } finally {
             setRecherche(false);
+            setADejaCherche(true);
         }
     };
 
@@ -99,7 +105,7 @@ const ReassignationLivreur = () => {
                         <input
                             type="text"
                             value={terme}
-                            onChange={(e) => setTerme(e.target.value)}
+                            onChange={(e) => { setTerme(e.target.value); setADejaCherche(false); }}
                             placeholder="Ex : F7E6CD91"
                             className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-gray-400"
                         />
@@ -172,7 +178,7 @@ const ReassignationLivreur = () => {
                             </div>
                         );
                     })}
-                    {!recherche && resultats.length === 0 && terme && (
+                    {!recherche && aDejaCherche && resultats.length === 0 && terme && (
                         <div className="bg-white rounded-2xl border border-gray-200 p-10 text-center text-gray-400 text-sm">
                             Aucune commande trouvée pour "{terme}".
                         </div>

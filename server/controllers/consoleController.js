@@ -184,10 +184,19 @@ export const maConsole = async (req, res) => {
         if (aLeDroit(staff, P.ORDERS_APPROVE)) {
             // Commandes réceptionnées, sans litige, jamais libérées : ce sont
             // exactement celles que la règle du §8 rend payables.
+            //
+            // [FIX] 'items.boutiqueId': { $ne: null } ajouté : une commande
+            // dont TOUS les articles viennent de la boutique principale
+            // (boutiqueId null partout) n'a aucun commerçant à créditer —
+            // libererFonds() ne fait littéralement rien pour elle
+            // ("Aucun fonds commerçant à libérer"). Sans ce filtre, elle
+            // gonflait ce compteur pour une action qui n'a aucun effet
+            // financier réel.
             const aLiberer = await Order.countDocuments({
                 status: 'Shipped',
                 confirmeParAdminLe: null,
                 'litige.enCours': { $ne: true },
+                'items.boutiqueId': { $ne: null },
             });
             if (aLiberer > 0) {
                 taches.push(tache({
@@ -197,6 +206,38 @@ export const maConsole = async (req, res) => {
                     lien: '/admin/commandes?aValider=1',
                     urgence: 'normale',
                     domaine: 'finance',
+                }));
+            }
+        }
+
+        // [NOUVEAU] Deux indicateurs sur "Toutes les commandes" pour qu'un
+        // Admin voie de l'activité sans devoir ouvrir "À faire" ou le
+        // tableau de bord : une pastille rouge pour les commandes qui
+        // viennent d'arriver, une grise pour celles déjà en cours de
+        // collecte. Même mécanisme que les autres tâches (urgence => la
+        // couleur de la pastille), rien de nouveau à construire côté écran.
+        if (aLeDroit(staff, P.ORDERS_VIEW)) {
+            const nouvelles = await Order.countDocuments({ status: 'Checking Availability' });
+            if (nouvelles > 0) {
+                taches.push(tache({
+                    cle: 'nouvelles_commandes',
+                    libelle: 'Nouvelle(s) commande(s) — en vérification',
+                    nombre: nouvelles,
+                    lien: '/admin/orders',
+                    urgence: 'haute',
+                    domaine: 'operations',
+                }));
+            }
+
+            const enCollecte = await Order.countDocuments({ status: 'Collecting' });
+            if (enCollecte > 0) {
+                taches.push(tache({
+                    cle: 'collectes_en_cours',
+                    libelle: 'Collecte(s) en cours',
+                    nombre: enCollecte,
+                    lien: '/admin/orders',
+                    urgence: 'basse',
+                    domaine: 'operations',
                 }));
             }
         }
