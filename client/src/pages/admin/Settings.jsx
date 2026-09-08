@@ -27,17 +27,25 @@ const Settings = () => {
     });
     const [savingThresholds, setSavingThresholds] = useState(false);
 
+    // [NOUVEAU] À quel stade de livraison les fonds commerçant deviennent
+    // libérables — réglable ici plutôt que figé dans le code (demande du
+    // 07/09, suite à un bug où une commande livrée avant validation
+    // disparaissait de "Fonds à libérer" sans que personne n'ait pu agir).
+    const [statutLiberation, setStatutLiberation] = useState('Shipped');
+    const [savingStatutLiberation, setSavingStatutLiberation] = useState(false);
+
     // État de chargement des seuils
     const [loadingThresholds, setLoadingThresholds] = useState(true);
 
     useEffect(() => {
         const fetchSettings = async () => {
             try {
-                const [policyRes, paymentRes, colisRes, thresholdsRes] = await Promise.all([
+                const [policyRes, paymentRes, colisRes, thresholdsRes, liberationRes] = await Promise.all([
                     axios.get('/api/setting/return-policy'),
                     axios.get('/api/setting/paymentMethodsEnabled'),
                     axios.get('/api/setting/colisSheinActif'),
                     axios.get('/api/setting/financeApprovalThresholds'),
+                    axios.get('/api/setting/financeLiberationStatut'),
                 ]);
 
                 if (policyRes.data.success) setReturnPolicy(policyRes.data.data || '');
@@ -48,6 +56,9 @@ const Settings = () => {
                         wallet_adjust: thresholdsRes.data.data.wallet_adjust_threshold || 50000,
                         withdrawal: thresholdsRes.data.data.withdrawal_threshold || 100000,
                     });
+                }
+                if (liberationRes.data.success && liberationRes.data.data) {
+                    setStatutLiberation(liberationRes.data.data);
                 }
             } catch (error) {
                 console.error('Erreur chargement paramètres:', error);
@@ -98,6 +109,29 @@ const Settings = () => {
             setPaymentMethods(paymentMethods);
         } finally {
             setSavingPaymentMethods(false);
+        }
+    };
+
+    const changerStatutLiberation = async (nouveauStatut) => {
+        const precedent = statutLiberation;
+        setStatutLiberation(nouveauStatut);
+        setSavingStatutLiberation(true);
+        try {
+            const { data } = await axios.post('/api/setting/update', {
+                key: 'financeLiberationStatut',
+                value: nouveauStatut,
+            });
+            if (data.success) {
+                toast.success('Réglage enregistré ✓');
+            } else {
+                toast.error(data.message);
+                setStatutLiberation(precedent);
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || error.message);
+            setStatutLiberation(precedent);
+        } finally {
+            setSavingStatutLiberation(false);
         }
     };
 
@@ -224,6 +258,38 @@ const Settings = () => {
                             </div>
                         </div>
                     )}
+                </div>
+
+                {/* [NOUVEAU] Libération des fonds commerçants */}
+                <div className="bg-white rounded-2xl border border-gray-200 p-6">
+                    <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+                        <CreditCard size={18} /> Libération des fonds commerçants
+                    </h2>
+                    <p className="text-sm text-gray-500 mt-1 mb-4">
+                        À quel stade de la livraison une commande devient éligible à la libération des fonds,
+                        sur l'écran "Fonds à libérer". Le réglage change immédiatement, sans toucher au code.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {[
+                            { valeur: 'Shipped', titre: 'Expédiée', description: 'Dès la réception à l\'entrepôt (par défaut)' },
+                            { valeur: 'Out for Delivery', titre: 'En livraison', description: 'Une fois le livreur parti avec le colis' },
+                            { valeur: 'Delivered', titre: 'Livrée', description: 'Seulement après confirmation de livraison' },
+                        ].map((option) => (
+                            <button
+                                key={option.valeur}
+                                onClick={() => changerStatutLiberation(option.valeur)}
+                                disabled={savingStatutLiberation}
+                                className={`text-left border rounded-xl p-3.5 transition disabled:opacity-50 ${
+                                    statutLiberation === option.valeur
+                                        ? 'border-red-500 bg-red-50'
+                                        : 'border-gray-200 hover:border-gray-300'
+                                }`}
+                            >
+                                <p className="font-semibold text-sm text-gray-800">{option.titre}</p>
+                                <p className="text-xs text-gray-500 mt-0.5">{option.description}</p>
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 {/* Politique de retour */}

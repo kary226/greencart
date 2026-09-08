@@ -50,13 +50,15 @@ const ICONES = {
  * Au-delà de 9, on écrit « 9+ » — le nombre exact n'aide plus, et un
  * badge à trois chiffres déforme la ligne du menu.
  */
-const Pastille = ({ nombre, discrete = false }) => {
+// [NOUVEAU] "discrete" (gris) existait déjà pour les tâches non urgentes ;
+// "bleu" s'ajoute pour de l'information neutre (ex: "commande confirmée")
+// qui n'appelle aucune action mais mérite d'être vue.
+const Pastille = ({ nombre, discrete = false, bleu = false }) => {
     if (!nombre) return null;
+    const couleur = bleu ? 'bg-blue-500 text-white' : discrete ? 'bg-gray-200 text-gray-700' : 'bg-red-500 text-white';
     return (
         <span
-            className={`shrink-0 min-w-[1.25rem] h-5 px-1.5 grid place-items-center rounded-full text-[11px] font-semibold tabular-nums ${
-                discrete ? 'bg-gray-200 text-gray-700' : 'bg-red-500 text-white'
-            }`}
+            className={`shrink-0 min-w-[1.25rem] h-5 px-1.5 grid place-items-center rounded-full text-[11px] font-semibold tabular-nums ${couleur}`}
             aria-label={`${nombre} en attente`}
         >
             {nombre > 9 ? '9+' : nombre}
@@ -104,7 +106,7 @@ const SuperAdminLayout = () => {
 
     // Les compteurs ne se chargent qu'une fois les droits connus : les
     // demander avant, c'est un appel qui partira forcément en 401.
-    const { parChemin, parCheminHaute, parCheminAutre } = useCompteurs({ actif: !chargement });
+    const { parChemin, parCheminHaute, parCheminAutre, parCheminInfo } = useCompteurs({ actif: !chargement });
 
     // Fermer le tiroir dès qu'on navigue
     useEffect(() => { setTiroirOuvert(false); }, [location.pathname]);
@@ -339,6 +341,7 @@ const SuperAdminLayout = () => {
                                                             toutes les deux pointer vers "Toutes les commandes"
                                                             sans se confondre en un seul chiffre ambigu. */}
                                                         <Pastille nombre={parCheminHaute[entree.chemin.split('?')[0]]} />
+                                                        <Pastille nombre={parCheminInfo[entree.chemin.split('?')[0]]} bleu />
                                                         <Pastille nombre={parCheminAutre[entree.chemin.split('?')[0]]} discrete />
                                                     </span>
                                                 </NavLink>

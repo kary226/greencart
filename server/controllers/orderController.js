@@ -28,6 +28,7 @@ import {
     traiterRetourColis,
     etatConfirmations,
     ajusterPortefeuille,
+    statutsLiberables,
 } from "../services/walletService.js";
 import {
     libererReservationsExpirees,
@@ -1771,14 +1772,23 @@ export const confirmerDisponibiliteCommercant = async (req, res) => {
 // confirmé », donc qui relancer.
 export const listCommandesAValider = async (req, res) => {
     try {
-        // [FIX] Même correctif que le compteur "À faire" — sans
-        // 'items.boutiqueId': { $ne: null }, une commande faite uniquement
-        // d'articles du catalogue principal apparaissait ici comme "prête",
-        // alors qu'il n'y a littéralement aucun fonds commerçant à libérer
-        // pour elle (voir libererFonds).
+        // [FIX] Deux bugs corrigés ici en même temps :
+        // 1. 'items.boutiqueId': { $ne: null } — sans ça, une commande faite
+        //    uniquement d'articles du catalogue principal apparaissait comme
+        //    "prête", alors qu'il n'y a littéralement aucun fonds commerçant
+        //    à libérer pour elle (voir libererFonds).
+        // 2. status: 'Shipped' en dur remplacé par statutsLiberables() — le
+        //    filtre ne prenait QUE "Shipped" exactement, donc une commande
+        //    qui avançait à "Out for Delivery" ou "Delivered" avant que
+        //    l'Admin ait cliqué "Valider" disparaissait purement et
+        //    simplement de cette liste, fonds jamais réclamés (remonté le
+        //    07/09). Le statut déclencheur est configurable dans
+        //    Paramètres ; on inclut toujours ce statut ET tous ceux plus
+        //    avancés que lui.
+        const statutsAcceptes = await statutsLiberables();
         const orders = await Order.find({
             confirmeParAdminLe: null,
-            status: 'Shipped',
+            status: { $in: statutsAcceptes },
             'items.boutiqueId': { $ne: null },
         })
             .sort({ createdAt: -1 })
@@ -1802,13 +1812,22 @@ export const listCommandesAValider = async (req, res) => {
                 toutesConfirmees: etat.toutesConfirmees,
                 boutiquesConfirmees: etat.confirmees.map((id) => nomParBoutique.get(id) || 'Boutique'),
                 boutiquesManquantes: etat.manquantes.map((id) => nomParBoutique.get(id) || 'Boutique'),
+                // [FIX] C'est CETTE clé, "liberation", que l'écran lisait déjà
+                // (o.liberation?.eligible) — sauf qu'elle n'avait jamais été
+                // renseignée ici. Le bouton "Valider" ne s'affichait donc
+                // JAMAIS, quelle que soit la commande. etatLiberation() est
+                // la même règle, écrite une seule fois, que
+                // confirmerCommandeAdmin utilise pour accepter ou refuser —
+                // l'écran affiche maintenant exactement ce qui sera vérifié
+                // au clic, pas une approximation locale qui peut diverger.
+                liberation: etatLiberation(order, statutsAcceptes),
             };
         });
 
         return res.json({
             success: true,
             orders: resultat,
-            pretes: resultat.filter((o) => o.toutesConfirmees).length,
+            pretes: resultat.filter((o) => o.liberation.peutLiberer).length,
         });
     } catch (error) {
         console.error('Erreur listCommandesAValider:', error.message);
@@ -1831,7 +1850,11 @@ export const confirmerCommandeAdmin = async (req, res) => {
         // libéré, litige, réception, confirmations manquantes) étaient
         // recopiés ici en partie seulement : les confirmations boutique
         // n'étaient pas vérifiées à ce niveau.
-        const eligibilite = evaluerEligibilite(order);
+        // [FIX] evaluerEligibilite() vérifiait toujours "Shipped" en dur —
+        // désormais alignée sur le réglage de Paramètres, comme la liste
+        // ci-dessus et le compteur du menu (même appel, même résultat).
+        const statutsAcceptes = await statutsLiberables();
+        const eligibilite = evaluerEligibilite(order, statutsAcceptes);
         if (!eligibilite.eligible) {
             return res.status(409).json({
                 success: false,

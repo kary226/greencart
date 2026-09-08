@@ -46,9 +46,15 @@ export const MOTIFS = Object.freeze({
  * LA règle d'éligibilité. Fonction PURE : aucune I/O, entièrement testable.
  *
  * @param {object} order
+ * @param {string[]} [statutsAcceptes] - à quel(s) stade(s) de livraison la
+ *   libération devient possible. Par défaut [STATUT_REQUIS], pour ne rien
+ *   changer aux appelants existants qui ne le précisent pas. Les appelants
+ *   réels lisent ce réglage via statutsLiberables() (walletService.js),
+ *   configurable dans Paramètres — cette fonction reste pure, c'est
+ *   l'appelant qui fait la lecture (I/O) et la lui passe déjà résolue.
  * @returns {{eligible:boolean, motif?:string, message?:string, details?:object}}
  */
-export const evaluerEligibilite = (order) => {
+export const evaluerEligibilite = (order, statutsAcceptes = [STATUT_REQUIS]) => {
     if (!order) {
         return { eligible: false, motif: MOTIFS.RIEN_A_LIBERER, message: 'Commande introuvable' };
     }
@@ -79,12 +85,12 @@ export const evaluerEligibilite = (order) => {
     //    Le statut technique « Shipped » est cité dans le message : c'est
     //    lui qu'on lit dans les journaux et dans la base, et le masquer
     //    derrière le seul libellé métier rend le diagnostic plus lent.
-    if (order.status !== STATUT_REQUIS) {
+    if (!statutsAcceptes.includes(order.status)) {
         return {
             eligible: false,
             motif: MOTIFS.STATUT,
             message: `Les fonds ne peuvent être libérés qu’après réception du colis et passage à « Expédiée » (Shipped) par les Opérations`,
-            details: { statutActuel: order.status, statutRequis: STATUT_REQUIS },
+            details: { statutActuel: order.status, statutRequis: statutsAcceptes[0] },
         };
     }
 
@@ -121,8 +127,8 @@ export const estEligible = (order) => evaluerEligibilite(order).eligible;
  * maintenant »). Le frontend n'a plus à deviner la règle : il rend ce
  * qu'on lui donne.
  */
-export const etatLiberation = (order) => {
-    const evaluation = evaluerEligibilite(order);
+export const etatLiberation = (order, statutsAcceptes = [STATUT_REQUIS]) => {
+    const evaluation = evaluerEligibilite(order, statutsAcceptes);
     return {
         peutLiberer: evaluation.eligible && evaluation.motif !== MOTIFS.RIEN_A_LIBERER,
         dejaLibere: Boolean(order?.confirmeParAdminLe),

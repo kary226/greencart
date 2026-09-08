@@ -113,15 +113,16 @@ export const useCompteurs = ({ actif = true } = {}) => {
     // distinctes sur le même lien.
     const parCheminHaute = {};
     const parCheminAutre = {};
+    const parCheminInfo = {};
     for (const t of taches) {
         const base = (t.lien || '').split('?')[0];
         if (!base) continue;
         parChemin[base] = (parChemin[base] || 0) + t.nombre;
-        const cible = t.urgence === 'haute' ? parCheminHaute : parCheminAutre;
+        const cible = t.urgence === 'haute' ? parCheminHaute : t.urgence === 'info' ? parCheminInfo : parCheminAutre;
         cible[base] = (cible[base] || 0) + t.nombre;
     }
 
-    return { taches, total, parChemin, parCheminHaute, parCheminAutre };
+    return { taches, total, parChemin, parCheminHaute, parCheminAutre, parCheminInfo };
 };
 
 export default useCompteurs;

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
 import ImageCropper from '../../components/ImageCropper';
@@ -126,6 +127,15 @@ const IconButton = ({ onClick, variant = 'default', children, className = '' }) 
 
 const AddProduct = () => {
 
+    // [FIX] Cette page ne lisait jamais l'identifiant de l'URL — /products/edit/:id
+    // et /products/add rendaient exactement le même formulaire vide. Voir
+    // ProduitForm.jsx (commerçant) pour le modèle déjà en place et vérifié.
+    const { id } = useParams();
+    const isEdition = Boolean(id);
+    const navigate = useNavigate();
+    const [chargementEdition, setChargementEdition] = useState(isEdition);
+    const [existingImages, setExistingImages] = useState([]);
+
     const [files, setFiles] = useState([]);
     const [videoFile, setVideoFile] = useState(null);
     const [videoPreview, setVideoPreview] = useState('');
@@ -203,6 +213,101 @@ const AddProduct = () => {
         fetchCategories();
         fetchBoutiques();
     }, []);
+
+    // [NOUVEAU] Charge le produit existant et pré-remplit le formulaire —
+    // sans ça, éditer un produit revenait à repartir d'une fiche vierge.
+    // Même logique de reconstruction des variantes que ProduitForm.jsx
+    // (déjà vérifiée en production côté commerçant).
+    useEffect(() => {
+        if (!isEdition) return;
+        const chargerProduit = async () => {
+            try {
+                const { data } = await axios.get(`/api/product/id?id=${id}`);
+                if (!data.success || !data.product) {
+                    toast.error(data.message || 'Produit introuvable');
+                    navigate('/admin/products');
+                    return;
+                }
+                const p = data.product;
+                setName(p.name || '');
+                setSku(p.sku || '');
+                setDescription(p.description || '');
+                setSelectedCategories(p.categories || []);
+                setPrice(p.price ?? '');
+                setOfferPrice(p.offerPrice ?? '');
+                setPurchasePrice(p.purchasePrice ?? '');
+                setExternalLink(p.externalLink || '');
+                setExistingImages(p.image || []);
+                setLabelType(p.labelType || 'size');
+                // Chaîne vide, pas null : c'est ce que le <select> attend
+                // (voir plus bas, value={boutiqueId}).
+                setBoutiqueId(p.boutiqueId?._id || p.boutiqueId || '');
+
+                const hasVariants = p.variants && p.variants.length > 0;
+                if (!hasVariants) {
+                    setProductMode('simple');
+                    setSimpleStock(p.stock ?? '');
+                    setSimpleSize(p.size || '');
+                } else {
+                    const hasColors = p.variants.some(v => v.color);
+                    const hasSizes = p.variants.some(v => v.size);
+                    if (hasColors && hasSizes) {
+                        setProductMode('variants');
+                        const colors = [...new Set(p.variants.map(v => v.color).filter(Boolean))];
+                        const sizes = [...new Set(p.variants.map(v => v.size).filter(Boolean))];
+                        const cells = {};
+                        p.variants.forEach(v => {
+                            cells[cellKey(v.color, v.size)] = {
+                                stock: v.stock || 0,
+                                price: v.price ?? '',
+                                offerPrice: v.offerPrice ?? '',
+                            };
+                        });
+                        setVariantColors(colors.map(c => {
+                            // On reprend colorCode/startImageIndex de la première
+                            // occurrence trouvée pour cette couleur.
+                            const premiere = p.variants.find(v => v.color === c);
+                            return {
+                                name: c,
+                                colorCode: premiere?.colorCode || '#000000',
+                                startImageIndex: premiere?.startImageIndex || 0,
+                            };
+                        }));
+                        setVariantSizes(sizes);
+                        setVariantCells(cells);
+                    } else if (hasSizes) {
+                        setProductMode('multi-sizes');
+                        setSizesList(p.variants.map(v => ({
+                            size: v.size,
+                            stock: v.stock || 0,
+                            price: v.price ?? '',
+                            offerPrice: v.offerPrice ?? '',
+                        })));
+                    } else {
+                        // Variantes présentes mais sans couleur ni taille
+                        // exploitable (donnée historique atypique) : on
+                        // retombe sur "simple" plutôt que d'afficher un
+                        // formulaire de variantes vide et déroutant.
+                        setProductMode('simple');
+                        setSimpleStock(p.stock ?? '');
+                        setSimpleSize(p.size || '');
+                    }
+                }
+
+                if (p.video) {
+                    setVideoPreview(p.video);
+                }
+            } catch (error) {
+                console.error('Erreur chargement produit:', error);
+                toast.error(error.response?.data?.message || error.message);
+                navigate('/admin/products');
+            } finally {
+                setChargementEdition(false);
+            }
+        };
+        chargerProduit();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [id, isEdition]);
 
     const resetSizeForm = () => {
         setSizeInput('');
@@ -491,35 +596,70 @@ const AddProduct = () => {
         }
 
 
-        const formData = new FormData();
-        formData.append('productData', JSON.stringify(productData));
-
-        for (let i = 0; i < files.length; i++) {
-            formData.append('images', files[i])
-        }
-
-        if (videoFile) {
-            formData.append('video', videoFile);
-        }
-
-        // [FIX UX] Vercel plafonne le corps des Serverless Functions à 4.5MB,
-        // quelle que soit la limite Express configurée — au-delà, l'appel échoue
-        // en 403 sans message clair. On prévient avant l'envoi plutôt que de
-        // laisser l'utilisateur face à une erreur muette.
-        const totalBytes = files.reduce((sum, f) => sum + f.size, 0) + (videoFile ? videoFile.size : 0);
-        const VERCEL_BODY_LIMIT = 4.4 * 1024 * 1024;
-        if (totalBytes > VERCEL_BODY_LIMIT) {
-            console.warn(`⚠️ Taille totale: ${(totalBytes / 1024 / 1024).toFixed(2)}MB > ${(VERCEL_BODY_LIMIT / 1024 / 1024).toFixed(2)}MB`);
-            toast.error(
-                videoFile
-                    ? "Trop volumineux pour être envoyé en une fois. Retirez la vidéo ou réduisez le nombre de photos."
-                    : "Trop de photos pour être envoyées en une fois. Réduisez-en le nombre et réessayez."
-            );
-            return;
-        }
-
-
         try {
+            if (isEdition) {
+                // [NOUVEAU] Pas de FormData ici : /api/product/update attend
+                // un corps JSON classique (voir productController.js — il
+                // lit req.body directement, sans multer sur cette route).
+                // `image: existingImages` est explicite pour préserver les
+                // photos déjà là : le champ n'est touché que s'il est un
+                // tableau (voir updateProduct), donc l'omettre les aurait
+                // gardées aussi, mais autant être clair.
+                const { data } = await axios.post('/api/product/update', {
+                    id,
+                    ...productData,
+                    image: existingImages,
+                });
+
+                if (!data.success) {
+                    console.error('❌ Erreur serveur (data.success = false):', data.message);
+                    toast.error(data.message);
+                    return;
+                }
+
+                if (files.length > 0) {
+                    const imgForm = new FormData();
+                    imgForm.append('productId', id);
+                    for (let i = 0; i < files.length; i++) {
+                        imgForm.append('images', files[i]);
+                    }
+                    await axios.post('/api/product/add-images', imgForm, {
+                        headers: { 'Content-Type': 'multipart/form-data' },
+                    });
+                }
+
+                toast.success('Produit mis à jour');
+                navigate('/admin/products');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('productData', JSON.stringify(productData));
+
+            for (let i = 0; i < files.length; i++) {
+                formData.append('images', files[i])
+            }
+
+            if (videoFile) {
+                formData.append('video', videoFile);
+            }
+
+            // [FIX UX] Vercel plafonne le corps des Serverless Functions à 4.5MB,
+            // quelle que soit la limite Express configurée — au-delà, l'appel échoue
+            // en 403 sans message clair. On prévient avant l'envoi plutôt que de
+            // laisser l'utilisateur face à une erreur muette.
+            const totalBytes = files.reduce((sum, f) => sum + f.size, 0) + (videoFile ? videoFile.size : 0);
+            const VERCEL_BODY_LIMIT = 4.4 * 1024 * 1024;
+            if (totalBytes > VERCEL_BODY_LIMIT) {
+                console.warn(`⚠️ Taille totale: ${(totalBytes / 1024 / 1024).toFixed(2)}MB > ${(VERCEL_BODY_LIMIT / 1024 / 1024).toFixed(2)}MB`);
+                toast.error(
+                    videoFile
+                        ? "Trop volumineux pour être envoyé en une fois. Retirez la vidéo ou réduisez le nombre de photos."
+                        : "Trop de photos pour être envoyées en une fois. Réduisez-en le nombre et réessayez."
+                );
+                return;
+            }
+
             const { data } = await axios.post('/api/product/add', formData, {
                 withCredentials: true,
                 headers: {
@@ -572,11 +712,18 @@ const AddProduct = () => {
 
     return (
         <div className="no-scrollbar flex-1 h-[95vh] overflow-y-scroll bg-gray-50">
+            {chargementEdition ? (
+                <div className="flex items-center justify-center h-full">
+                    <Loader2 className="animate-spin text-gray-400" size={28} />
+                </div>
+            ) : (
             <form id="add-product-form" onSubmit={onSubmitHandler} className="max-w-3xl mx-auto p-4 md:p-8 pb-28 space-y-4">
 
                 <div className="mb-2">
-                    <h1 className="text-xl font-semibold text-gray-900">Nouveau produit</h1>
-                    <p className="text-sm text-gray-400 mt-0.5">Renseignez les informations ci-dessous pour publier un article.</p>
+                    <h1 className="text-xl font-semibold text-gray-900">{isEdition ? 'Modifier le produit' : 'Nouveau produit'}</h1>
+                    <p className="text-sm text-gray-400 mt-0.5">
+                        {isEdition ? 'Modifiez les informations ci-dessous puis enregistrez.' : 'Renseignez les informations ci-dessous pour publier un article.'}
+                    </p>
                 </div>
 
                 {/* Informations générales */}
@@ -1152,6 +1299,7 @@ const AddProduct = () => {
                     </div>
                 )}
             </form>
+            )}
 
             {/* Barre d'action collante */}
             <div className="sticky bottom-0 left-0 right-0 bg-white/90 backdrop-blur border-t border-gray-200 px-4 md:px-8 py-3">

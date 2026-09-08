@@ -2,6 +2,7 @@ import Wallet from '../models/Wallet.js';
 import WalletTransaction from '../models/WalletTransaction.js';
 import Boutique from '../models/Boutique.js';
 import Product from '../models/Product.js';
+import Setting from '../models/Setting.js';
 import { repartirCommission } from './commissionService.js';
 
 // [DURCISSEMENT IDEMPOTENCE] Un index unique en base (voir
@@ -571,6 +572,31 @@ export const ajusterPortefeuille = async ({
     }
 
     return transaction;
+};
+
+// [NOUVEAU] À quel stade de la livraison une commande devient éligible à la
+// libération des fonds commerçant — réglable dans Paramètres au lieu d'être
+// figé dans le code (voir Settings.jsx, section "Libération des fonds").
+// Par défaut, "Shipped" (réceptionnée à l'entrepôt) : c'est le point où le
+// risque d'annulation/non-collecte est déjà passé, sans attendre la
+// livraison elle-même.
+const ORDRE_STATUTS_LIVRAISON = ['Shipped', 'Out for Delivery', 'Delivered'];
+const STATUT_LIBERATION_PAR_DEFAUT = 'Shipped';
+
+/**
+ * Renvoie la liste des statuts "à ce stade ou après" pour la libération des
+ * fonds — pas juste le statut choisi seul. Sans ça, une commande réglée sur
+ * "Shipped" par exemple redeviendrait invisible dès qu'elle avance à "Out
+ * for Delivery" avant que quelqu'un ait cliqué "Valider" : c'est exactement
+ * le bug remonté le 07/09 (une commande marquée livrée avant validation
+ * disparaissait purement et simplement de "Fonds à libérer").
+ */
+export const statutsLiberables = async () => {
+    const reglage = await Setting.findOne({ key: 'financeLiberationStatut' });
+    const statutChoisi = ORDRE_STATUTS_LIVRAISON.includes(reglage?.value)
+        ? reglage.value
+        : STATUT_LIBERATION_PAR_DEFAUT;
+    return ORDRE_STATUTS_LIVRAISON.slice(ORDRE_STATUTS_LIVRAISON.indexOf(statutChoisi));
 };
 
 /**

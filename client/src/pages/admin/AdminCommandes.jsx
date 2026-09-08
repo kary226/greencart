@@ -102,13 +102,14 @@ const AdminCommandes = () => {
     };
 
     const filtrees = useMemo(() => {
-        // [FIX] Filtrait sur o.liberation?.eligible — un champ que le
-        // serveur n'a jamais envoyé (listCommandesAValider renvoie
-        // toutesConfirmees). Résultat : le compteur en haut de page comptait
-        // juste, mais l'onglet "Libérables" — ouvert par défaut — affichait
-        // toujours une liste vide, quelle que soit la commande.
-        if (onglet === 'pretes') return orders.filter((o) => o.toutesConfirmees);
-        if (onglet === 'attente') return orders.filter((o) => !o.toutesConfirmees);
+        // [FIX, deuxième passage] Ma première correction lisait
+        // o.toutesConfirmees (uniquement les confirmations commerçant) —
+        // ça ratait le litige et le statut de livraison. Le serveur
+        // renvoie maintenant liberation.peutLiberer, LA règle unique
+        // (fundsReleaseService.js) que confirmerCommandeAdmin vérifie
+        // aussi au clic : les deux ne peuvent plus diverger.
+        if (onglet === 'pretes') return orders.filter((o) => o.liberation.peutLiberer);
+        if (onglet === 'attente') return orders.filter((o) => !o.liberation.peutLiberer);
         return orders;
     }, [orders, onglet]);
 
@@ -188,13 +189,20 @@ const AdminCommandes = () => {
                                             <span className="font-semibold text-ink-900">#{o._id.slice(-6).toUpperCase()}</span>
                                             <span className="text-sm text-ink-600">{(o.amount || 0).toLocaleString('fr-FR')} FCFA</span>
                                             <span className="text-xs text-ink-400">{o.nombreArticles} article{o.nombreArticles > 1 ? 's' : ''}</span>
-                                            {o.liberation?.eligible ? (
+                                            {/* [FIX] Lisait o.liberation?.eligible — un champ que le serveur
+                                                n'a jamais envoyé. Résultat : cette pastille et le bouton "Valider"
+                                                juste en dessous ne s'affichaient JAMAIS, quelle que soit la
+                                                commande. On lit maintenant le vrai objet (liberation.peutLiberer),
+                                                la même règle que confirmerCommandeAdmin vérifie au clic — plus de
+                                                labels devinés localement ("Délai de sécurité", etc.), juste le
+                                                message que la règle elle-même a produit. */}
+                                            {o.liberation.peutLiberer ? (
                                                 <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium bg-ok-50 text-ok-500">
                                                     <CheckCircle2 size={12} /> Libérable
                                                 </span>
                                             ) : (
-                                                <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium bg-warn-50 text-warn-500">
-                                                    <AlertTriangle size={12} /> {o.status === 'Delivered' ? 'Délai de sécurité' : o.status === 'Out for Delivery' ? 'En livraison' : 'Pas encore livrée'}
+                                                <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium ${o.liberation.releveDuSuperAdmin ? 'bg-red-50 text-red-600' : 'bg-warn-50 text-warn-500'}`}>
+                                                    <AlertTriangle size={12} /> {o.liberation.releveDuSuperAdmin ? 'Litige — Super Admin' : o.liberation.message}
                                                 </span>
                                             )}
                                         </div>
@@ -212,7 +220,7 @@ const AdminCommandes = () => {
                                     </div>
 
                                     <div className="shrink-0">
-                                        {o.liberation?.eligible ? (
+                                        {o.liberation.peutLiberer ? (
                                             <button
                                                 onClick={() => valider(o._id, false)}
                                                 disabled={actionEnCours === o._id}
@@ -222,15 +230,7 @@ const AdminCommandes = () => {
                                             </button>
                                         ) : (
                                             <div className="text-right max-w-xs">
-                                                <p className="text-xs font-medium text-ink-500">
-                                                    {o.status === 'Delivered' && o.releaseEligibleAt
-                                                        ? `Libérable le ${new Date(o.releaseEligibleAt).toLocaleString('fr-FR')}`
-                                                        : o.status === 'Out for Delivery'
-                                                            ? 'Colis récupéré — livraison en cours'
-                                                            : o.status === 'Shipped'
-                                                                ? 'Expédiée — attente de récupération'
-                                                                : 'Attente de livraison'}
-                                                </p>
+                                                <p className="text-xs font-medium text-ink-500">{o.liberation.message}</p>
                                                 {o.toutesConfirmees && <p className="text-[11px] text-ink-400 mt-1">Boutiques confirmées</p>}
                                             </div>
                                         )}

@@ -7,6 +7,7 @@ import Refund from '../models/Refund.js';
 import JournalAction from '../models/JournalAction.js';
 import { ROLES, libelleDuRole, domaineDuRole, PERMISSIONS as P } from '../configs/roles.js';
 import { aLeDroit, aUnDesDroits } from '../middlewares/permission.js';
+import { statutsLiberables } from '../services/walletService.js';
 
 /**
  * CONSOLE  —  Guide RAMCI §14
@@ -192,8 +193,11 @@ export const maConsole = async (req, res) => {
             // ("Aucun fonds commerçant à libérer"). Sans ce filtre, elle
             // gonflait ce compteur pour une action qui n'a aucun effet
             // financier réel.
+            // [FIX] status: 'Shipped' en dur remplacé par statutsLiberables()
+            // — même règle que listCommandesAValider, configurable dans
+            // Paramètres au lieu d'être figée ici séparément.
             const aLiberer = await Order.countDocuments({
-                status: 'Shipped',
+                status: { $in: await statutsLiberables() },
                 confirmeParAdminLe: null,
                 'litige.enCours': { $ne: true },
                 'items.boutiqueId': { $ne: null },
@@ -210,12 +214,14 @@ export const maConsole = async (req, res) => {
             }
         }
 
-        // [NOUVEAU] Deux indicateurs sur "Toutes les commandes" pour qu'un
+        // [NOUVEAU] Trois indicateurs sur "Toutes les commandes" pour qu'un
         // Admin voie de l'activité sans devoir ouvrir "À faire" ou le
         // tableau de bord : une pastille rouge pour les commandes qui
-        // viennent d'arriver, une grise pour celles déjà en cours de
-        // collecte. Même mécanisme que les autres tâches (urgence => la
-        // couleur de la pastille), rien de nouveau à construire côté écran.
+        // viennent d'arriver, une bleue pour celles confirmées (information
+        // neutre, ne réclame aucune action), une grise pour celles déjà en
+        // cours de collecte. Même mécanisme que les autres tâches (urgence
+        // => la couleur de la pastille), rien de nouveau à construire côté
+        // écran une fois la pastille bleue ajoutée dans SuperAdminLayout.
         if (aLeDroit(staff, P.ORDERS_VIEW)) {
             const nouvelles = await Order.countDocuments({ status: 'Checking Availability' });
             if (nouvelles > 0) {
@@ -225,6 +231,18 @@ export const maConsole = async (req, res) => {
                     nombre: nouvelles,
                     lien: '/admin/orders',
                     urgence: 'haute',
+                    domaine: 'operations',
+                }));
+            }
+
+            const confirmees = await Order.countDocuments({ status: 'Confirmed' });
+            if (confirmees > 0) {
+                taches.push(tache({
+                    cle: 'commandes_confirmees',
+                    libelle: 'Commande(s) confirmée(s)',
+                    nombre: confirmees,
+                    lien: '/admin/orders',
+                    urgence: 'info',
                     domaine: 'operations',
                 }));
             }
@@ -406,7 +424,7 @@ export const maConsole = async (req, res) => {
             );
         }
 
-        const rangUrgence = { haute: 0, normale: 1, basse: 2 };
+        const rangUrgence = { haute: 0, normale: 1, basse: 2, info: 3 };
         taches.sort((a, b) => rangUrgence[a.urgence] - rangUrgence[b.urgence] || b.nombre - a.nombre);
 
         cacheConsole.set(cle, { taches, surveillance, ts: Date.now() });
