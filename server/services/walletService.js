@@ -177,8 +177,21 @@ export const libererFonds = async (order) => {
     // Import dynamique : fundsReleaseService importe etatConfirmations
     // depuis ce fichier. Le charger au moment de l'appel évite le cycle
     // d'imports statiques, sans changer le comportement.
+    //
+    // [FIX] Ce contrôle interne rappelait evaluerEligibilite() SANS lui
+    // passer statutsLiberables() — il retombait donc toujours sur le
+    // statut par défaut ("Shipped") câblé en dur, quel que soit le réglage
+    // choisi dans Paramètres. Résultat concret : confirmerCommandeAdmin
+    // vérifiait correctement avec le bon réglage et disait "éligible", mais
+    // libererFonds() refusait ensuite silencieusement (blocked:true) dès
+    // que le réglage était autre chose que "Shipped" — l'Admin voyait
+    // "Validé" sans qu'un seul FCFA ne bouge sur le portefeuille du
+    // commerçant.
     const { evaluerEligibilite } = await import('./fundsReleaseService.js');
-    const eligibilite = evaluerEligibilite({ ...order.toObject?.() ?? order, confirmeParAdminLe: null });
+    const eligibilite = evaluerEligibilite(
+        { ...order.toObject?.() ?? order, confirmeParAdminLe: null },
+        await statutsLiberables()
+    );
     if (!eligibilite.eligible) {
         return { liberees: 0, montantTotal: 0, blocked: true, reason: eligibilite.message };
     }
