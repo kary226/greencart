@@ -376,6 +376,11 @@ export const maConsole = async (req, res) => {
                 commercialId: staff._id,
                 statut: 'rejetee',
                 traiteLe: { $gte: new Date(Date.now() - 7 * 86400000) },
+                // [FIX] Sans ce filtre, le badge restait affiché jusqu'à 7
+                // jours même juste après que le commerçant ait ouvert
+                // "Retraits" et vu la nouvelle — rien ne distinguait "pas
+                // encore vu" de "déjà vu" (voir marquerRetraitsVus).
+                vuParCommercantLe: null,
             });
             if (retraitsRejetes > 0) {
                 taches.push(tache({

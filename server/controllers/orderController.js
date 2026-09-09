@@ -561,6 +561,29 @@ export const rechercherCommandeAdmin = async (req, res) => {
     }
 };
 
+// [NOUVEAU] Affiche par défaut les commandes qu'on peut réassigner, sans
+// attendre que l'Admin tape une recherche — la recherche reste possible en
+// plus, pour une commande précise plus ancienne.
+export const listCommandesReassignables = async (req, res) => {
+    try {
+        const orders = await Order.find({
+            status: { $nin: ['Delivered', 'Returned', 'Cancelled', 'pending_payment', 'Order Placed'] },
+        })
+            .sort({ createdAt: -1 })
+            .limit(20)
+            .select('_id userId amount deliveryPrice status retourEtat retourNote retourTraiteLe createdAt items collecteLivreurId livreurId remiseLivreurConfirmee')
+            .populate('userId', 'name email')
+            .populate('collecteLivreurId', 'nom email')
+            .populate('livreurId', 'nom email')
+            .lean();
+
+        return res.json({ success: true, orders });
+    } catch (error) {
+        console.error('Erreur listCommandesReassignables:', error.message);
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 // =============================================================
 // COLLECTE LIVREUR — une commande est visible par tous les livreurs,
 // mais une réservation est atomique et exclusive.

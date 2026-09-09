@@ -66,6 +66,24 @@ export const getMesRetraits = async (req, res) => {
     }
 };
 
+// [NOUVEAU] Appelé au chargement de l'écran "Retraits" côté commerçant —
+// éteint le badge "Retrait refusé" (voir consoleController.js) pour les
+// demandes qu'il vient de voir. Sans ça, rien ne distinguait "pas encore
+// vu" de "déjà vu" : le badge restait affiché jusqu'à 7 jours après le
+// refus, même juste après avoir ouvert cet écran.
+export const marquerRetraitsVus = async (req, res) => {
+    try {
+        await DemandeRetrait.updateMany(
+            { commercialId: req.staffUser._id, statut: 'rejetee', vuParCommercantLe: null },
+            { $set: { vuParCommercantLe: new Date() } }
+        );
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Erreur marquerRetraitsVus:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 // ─── GET /api/retraits ──────────────────────────────────────────────
 export const listAllRetraits = async (req, res) => {
     try {

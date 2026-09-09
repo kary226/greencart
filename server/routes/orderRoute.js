@@ -36,7 +36,8 @@ import {
     listCommandesAReceptionner,
     listColisDisponibles,
     prendreEnChargeLivraison,
-    rechercherCommandeAdmin
+    rechercherCommandeAdmin,
+    listCommandesReassignables
 } from '../controllers/orderController.js';
 import { initiateJeko } from '../controllers/jekoController.js';
 import Order from '../models/Order.js';
@@ -125,6 +126,7 @@ orderRouter.post('/status', authStaff, requirePermission('orders.edit'), updateO
 orderRouter.get('/admin/user/:userId', authStaff, requireAnyPermission(['orders.view', 'clients.view']), getUserOrdersByAdmin);
 // [NOUVEAU] Recherche de commande pour l'écran admin de retour colis.
 orderRouter.get('/admin/recherche', authStaff, requirePermission('orders.view'), rechercherCommandeAdmin);
+orderRouter.get('/admin/reassignables', authStaff, requirePermission('deliveries.assign'), listCommandesReassignables);
 
 // ✅ PHASE 4 : Route pour assigner un livreur (admin)
 orderRouter.get('/admin/livreurs-actifs', authStaff, requirePermission('deliveries.assign'), listerLivreursActifs);

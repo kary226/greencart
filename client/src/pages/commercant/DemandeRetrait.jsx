@@ -66,7 +66,13 @@ const DemandeRetrait = () => {
         }
     };
 
-    useEffect(() => { loadData(); }, []);
+    useEffect(() => {
+        loadData();
+        // [NOUVEAU] Éteint le badge "Retrait refusé" du menu — sans appel
+        // explicite, rien ne marquait la nouvelle comme vue, même après
+        // avoir ouvert cet écran (voir marquerRetraitsVus côté serveur).
+        axios.post('/api/retraits/marquer-vus').catch(() => {});
+    }, []);
 
     // Toute modification volontaire du formulaire = nouvelle intention de
     // retrait = nouvelle clé. On ne garde la même clé que pour rejouer

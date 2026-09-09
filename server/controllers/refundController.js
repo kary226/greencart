@@ -1,4 +1,5 @@
 import Refund from '../models/Refund.js';
+import mongoose from 'mongoose';
 import Order from '../models/Order.js';
 import User from '../models/User.js';
 import ApprovalRequest from '../models/ApprovalRequest.js';
@@ -78,18 +79,29 @@ export const getRefundById = async (req, res) => {
 // =============================================================
 export const createRefund = async (req, res) => {
     try {
-        const { orderId, itemIds, montant, methode, motif, noteInterne, noteClient } = req.body;
-        if (!orderId || !montant || !motif) {
+        const { orderId: orderIdSaisi, itemIds, montant, methode, motif, noteInterne, noteClient } = req.body;
+        if (!orderIdSaisi || !montant || !motif) {
             return res.status(400).json({
                 success: false,
                 message: 'orderId, montant et motif sont requis',
             });
         }
-        // Vérifier que la commande existe
-        const order = await Order.findById(orderId);
+        // [FIX] "ID Commande" ici acceptait un identifiant Mongo complet
+        // uniquement — mais partout ailleurs dans l'admin (recherche,
+        // réassignation), c'est la fin du numéro affiché à l'écran (ex:
+        // "849A76B3") qu'on saisit. Ce formulaire plantait avec une erreur
+        // Mongoose brute au lieu d'accepter le même format que le reste.
+        const order = mongoose.Types.ObjectId.isValid(orderIdSaisi) && orderIdSaisi.length === 24
+            ? await Order.findById(orderIdSaisi)
+            : await Order.findOne({ _id: { $regex: `${orderIdSaisi}$`, $options: 'i' } });
         if (!order) {
             return res.status(404).json({ success: false, message: 'Commande non trouvée' });
         }
+        // Le reste de la fonction utilise "orderId" en le supposant déjà
+        // résolu (Refund.create, le journal, la demande d'approbation…) —
+        // on le fixe ici, une seule fois, à l'identifiant réel de la
+        // commande trouvée, plutôt que de corriger chaque usage séparément.
+        const orderId = order._id;
         // Vérifier que le montant n'est pas supérieur au montant de la commande
         if (montant > order.amount) {
             return res.status(400).json({
@@ -142,7 +154,7 @@ export const createRefund = async (req, res) => {
             },
             action: 'refund.requested',
             cible: { id: refund._id, libelle: `Remboursement ${refundId.slice(-8)}` },
-            note: `Commande ${orderId.slice(-6).toUpperCase()} - ${montant} FCFA - ${motif}`,
+            note: `Commande ${orderId.toString().slice(-6).toUpperCase()} - ${montant} FCFA - ${motif}`,
         });
         // Vérifier si le montant dépasse le seuil de double approbation.
         //

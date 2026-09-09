@@ -88,7 +88,13 @@ app.use(cors({
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With', 'Accept'],
+    // [FIX] 'Idempotency-Key' manquait ici — Wallets.jsx l'envoie sur
+    // /api/wallet/admin/ajustement pour éviter un double crédit/débit en
+    // cas de double-clic ou de retry réseau, mais le navigateur bloquait
+    // la requête au niveau du préflight CORS avant même qu'elle
+    // n'atteigne le serveur : "Network Error" pour l'Admin, aucun ajustement
+    // possible, quel que soit le montant ou le motif saisi.
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With', 'Accept', 'Idempotency-Key'],
     exposedHeaders: ['Set-Cookie']
 }));
 

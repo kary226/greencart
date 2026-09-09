@@ -47,6 +47,17 @@ const ReassignationLivreur = () => {
             .catch((error) => toast.error(error.response?.data?.message || error.message));
     }, [axios]);
 
+    // [NOUVEAU] Affiche les commandes réassignables dès l'ouverture de
+    // l'écran — la recherche reste disponible en plus, pour retrouver une
+    // commande précise qui ne serait pas dans les 20 plus récentes.
+    const [chargementInitial, setChargementInitial] = useState(true);
+    useEffect(() => {
+        axios.get('/api/order/admin/reassignables')
+            .then(({ data }) => { if (data.success) setResultats(data.orders || []); })
+            .catch((error) => toast.error(error.response?.data?.message || error.message))
+            .finally(() => setChargementInitial(false));
+    }, [axios]);
+
     const chercher = async (e) => {
         e.preventDefault();
         if (terme.trim().length < 3) {
@@ -120,7 +131,16 @@ const ReassignationLivreur = () => {
                     </button>
                 </form>
 
-                <div className="space-y-3 mt-5">
+                {chargementInitial ? (
+                    <div className="flex items-center justify-center py-10">
+                        <Loader2 className="animate-spin text-gray-400" size={24} />
+                    </div>
+                ) : (
+                <>
+                {!aDejaCherche && (
+                    <p className="text-xs text-gray-400 mt-5 mb-1">Commandes récentes réassignables</p>
+                )}
+                <div className="space-y-3 mt-1">
                     {resultats.map((order) => {
                         const bloquee = STATUTS_INTERDITS.includes(order.status);
                         // [FIX] Depuis la décision du 06/09 (plus d'auto-
@@ -184,6 +204,8 @@ const ReassignationLivreur = () => {
                         </div>
                     )}
                 </div>
+                </>
+                )}
             </div>
         </div>
     );

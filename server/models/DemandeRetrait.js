@@ -126,6 +126,16 @@ const demandeRetraitSchema = new mongoose.Schema({
         default: '',
         trim: true,
     },
+    // [NOUVEAU] Sans ça, "Retrait refusé — fonds restitués" (voir
+    // consoleController.js) restait affiché jusqu'à 7 jours même après que
+    // le commerçant a ouvert l'écran "Retraits" et vu la nouvelle — rien ne
+    // distinguait "pas encore vu" de "déjà vu". Mis à jour par
+    // marquerRetraitsVus (retraitController.js), appelé au chargement de
+    // cet écran côté commerçant.
+    vuParCommercantLe: {
+        type: Date,
+        default: null,
+    },
 }, { timestamps: true });
 
 demandeRetraitSchema.index({ commercialId: 1, createdAt: -1 });

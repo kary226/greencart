@@ -6,6 +6,7 @@ import { PERMISSIONS as P } from '../configs/roles.js';
 import {
     createRetrait,
     getMesRetraits,
+    marquerRetraitsVus,
     listOperateurs,
     listAllRetraits,
     traiterRetrait,
@@ -29,6 +30,7 @@ retraitRouter.post(
     createRetrait
 );
 retraitRouter.get('/moi', authStaff, requirePermission(P.WALLET_VIEW_OWN), getMesRetraits);
+retraitRouter.post('/marquer-vus', authStaff, requirePermission(P.WALLET_VIEW_OWN), marquerRetraitsVus);
 retraitRouter.get(
     '/operateurs',
     authStaff,
