@@ -86,14 +86,17 @@ export const createRefund = async (req, res) => {
                 message: 'orderId, montant et motif sont requis',
             });
         }
-        // [FIX] "ID Commande" ici acceptait un identifiant Mongo complet
-        // uniquement — mais partout ailleurs dans l'admin (recherche,
-        // réassignation), c'est la fin du numéro affiché à l'écran (ex:
-        // "849A76B3") qu'on saisit. Ce formulaire plantait avec une erreur
-        // Mongoose brute au lieu d'accepter le même format que le reste.
+        // [FIX] Le premier correctif utilisait { _id: { $regex, $options } }
+        // directement sur _id — invalide, MongoDB ne peut pas appliquer une
+        // regex sur un champ ObjectId tel quel ("Can't use $options"),
+        // d'où le 500 en production. Même motif corrigé que
+        // rechercherCommandeAdmin un peu plus haut dans ce fichier :
+        // convertir _id en texte via $toString avant de le comparer.
         const order = mongoose.Types.ObjectId.isValid(orderIdSaisi) && orderIdSaisi.length === 24
             ? await Order.findById(orderIdSaisi)
-            : await Order.findOne({ _id: { $regex: `${orderIdSaisi}$`, $options: 'i' } });
+            : await Order.findOne({
+                $expr: { $regexMatch: { input: { $toString: '$_id' }, regex: `${orderIdSaisi}$`, options: 'i' } },
+            });
         if (!order) {
             return res.status(404).json({ success: false, message: 'Commande non trouvée' });
         }
