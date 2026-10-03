@@ -306,9 +306,10 @@ export const addProduct = async (req, res) => {
             apercu: apercuProduit(product),
         });
 
-        // Synchro Airtable en tâche de fond — ne doit jamais retarder ni
-        // faire échouer la réponse au vendeur.
-        syncProductToAirtable(product._id);
+        // Synchro Airtable — attendue avant de répondre : sur Vercel la fonction
+        // peut être arrêtée dès l'envoi de la réponse, ce qui coupait l'envoi
+        // en tâche de fond. La fonction n'échoue jamais (erreurs avalées).
+        await syncProductToAirtable(product._id);
 
         // [FIX] Même correctif — un nouvel article restait absent de la
         // vitrine jusqu'à 60s après sa création.
@@ -629,7 +630,7 @@ export const changeStock = async (req, res) => {
         const { id, inStock } = req.body;
         await Product.findByIdAndUpdate(id, { inStock });
 
-        syncProductToAirtable(id);
+        await syncProductToAirtable(id);
         // [FIX] Le catalogue public reste en cache jusqu'à 60s (voir
         // productCatalogue) — sans invalidation, un changement de stock mettait
         // jusqu'à une minute à apparaître n'importe où sur la vitrine, ce que
@@ -705,7 +706,7 @@ export const changeStockCommercant = async (req, res) => {
             note: product.inStock ? '' : 'Article retiré de la vente.',
         });
 
-        syncProductToAirtable(product._id);
+        await syncProductToAirtable(product._id);
 
         res.json({
             success: true,
@@ -746,7 +747,7 @@ export const assignerBoutique = async (req, res) => {
         product.boutiqueId = cible; // null = retour au catalogue principal
         await product.save();
 
-        syncProductToAirtable(product._id);
+        await syncProductToAirtable(product._id);
 
         const boutique = cible ? await Boutique.findById(cible).select('nom') : null;
 
@@ -942,7 +943,7 @@ export const updateProduct = async (req, res) => {
                 : '',
         });
 
-        syncProductToAirtable(id);
+        await syncProductToAirtable(id);
 
         res.json({
             success: true,
@@ -1006,7 +1007,7 @@ export const deleteProduct = async (req, res) => {
                 inStock: false,
             });
 
-            syncProductToAirtable(id); // reste dans Airtable, "En stock" décoché
+            await syncProductToAirtable(id); // reste dans Airtable, "En stock" décoché
             await invalidateCache(CACHE_KEYS.catalogueComplet);
 
             journaliser({
@@ -1062,7 +1063,7 @@ export const deleteProduct = async (req, res) => {
 
         await Product.findByIdAndDelete(id);
 
-        deleteProductFromAirtable(id);
+        await deleteProductFromAirtable(id);
         await invalidateCache(CACHE_KEYS.catalogueComplet);
 
         res.json({ success: true, archived: false, message: "Product Deleted" });
@@ -1098,7 +1099,7 @@ export const unarchiveProduct = async (req, res) => {
         await Product.findByIdAndUpdate(id, { isArchived: false, archivedAt: null });
         await invalidateCache(CACHE_KEYS.catalogueComplet);
 
-        syncProductToAirtable(id);
+        await syncProductToAirtable(id);
 
         res.json({ success: true, message: "Produit restauré" });
     } catch (error) {
