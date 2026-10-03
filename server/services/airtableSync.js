@@ -26,16 +26,26 @@ const AIRTABLE_API_BASE = 'https://api.airtable.com/v0';
 const UPSERT_MERGE_FIELD = 'ID Ramci';
 const BATCH_SIZE = 10; // limite imposée par l'API Airtable par requête
 
+// Table optionnelle "Variantes" : une ligne par couleur × taille, avec son
+// stock. Si AIRTABLE_VARIANTS_TABLE_ID n'est pas défini, elle est ignorée et
+// seule la table "Produits" est synchronisée (comportement d'origine).
+const VARIANT_MERGE_FIELD = 'ID Variante';  // clé d'upsert : produit + couleur + taille
+const VARIANT_PRODUCT_FIELD = 'ID Produit'; // rattache chaque ligne à son produit
+const PAUSE_ENTRE_LOTS_MS = 250; // Airtable tolère ~5 requêtes/seconde par base
+
+const pause = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 const getConfig = () => {
     const token = process.env.AIRTABLE_TOKEN;
     const baseId = process.env.AIRTABLE_BASE_ID;
     const tableId = process.env.AIRTABLE_TABLE_ID;
+    const variantsTableId = process.env.AIRTABLE_VARIANTS_TABLE_ID || null;
     if (!token || !baseId || !tableId) return null;
-    return { token, baseId, tableId };
+    return { token, baseId, tableId, variantsTableId };
 };
 
-const airtableClient = (config) => axios.create({
-    baseURL: `${AIRTABLE_API_BASE}/${config.baseId}/${config.tableId}`,
+const airtableClient = (config, tableId = config.tableId) => axios.create({
+    baseURL: `${AIRTABLE_API_BASE}/${config.baseId}/${tableId}`,
     headers: {
         Authorization: `Bearer ${config.token}`,
         'Content-Type': 'application/json',
@@ -113,13 +123,146 @@ const resoudreNomBoutique = async (boutiqueId) => {
     }
 };
 
-const upsertBatch = async (client, records) => {
+const upsertBatch = async (client, records, mergeField = UPSERT_MERGE_FIELD) => {
     if (records.length === 0) return;
     await client.patch('', {
-        performUpsert: { fieldsToMergeOn: [UPSERT_MERGE_FIELD] },
+        performUpsert: { fieldsToMergeOn: [mergeField] },
         records: records.map(fields => ({ fields })),
         typecast: true,
     });
+};
+
+// ---------------------------------------------------------------------------
+// Table "Variantes" — stock détaillé par couleur × taille
+// ---------------------------------------------------------------------------
+
+// Une ligne par variante. Produit simple (sans variantes) : une seule ligne,
+// avec sa taille éventuelle. Clé stable = produit + couleur + taille, car les
+// _id des variantes Mongo sont régénérés à chaque modification du produit.
+const construireLignesVariantes = (product, boutiqueNom) => {
+    const variants = product.variants || [];
+    const prixBarreBase = product.price || 0;
+    const prixVenteBase = product.offerPrice || product.price || 0;
+    const idProduit = product._id.toString();
+
+    const sources = variants.length > 0
+        ? variants.map(v => ({
+            couleur: v.color || '',
+            taille: v.size || '',
+            stock: v.stock || 0,
+            prixVente: v.offerPrice || v.price || prixVenteBase,
+            prixBarre: v.price || prixBarreBase,
+        }))
+        : [{
+            couleur: '',
+            taille: product.size || '',
+            stock: product.stock || 0,
+            prixVente: prixVenteBase,
+            prixBarre: prixBarreBase,
+        }];
+
+    // Deux variantes identiques (donnée historique) : on additionne le stock
+    // plutôt que d'envoyer deux fois la même clé dans une requête.
+    const parCle = new Map();
+    sources.forEach(s => {
+        const cle = `${idProduit}__${s.couleur}__${s.taille}`;
+        const existante = parCle.get(cle);
+        if (existante) {
+            existante['Stock'] += s.stock;
+            return;
+        }
+        parCle.set(cle, {
+            'Produit': product.name || '',
+            'Code produit': product.sku || '',
+            'Couleur': s.couleur,
+            'Taille / Variante': s.taille,
+            'Stock': s.stock,
+            'Prix de vente': s.prixVente,
+            'Prix barré': s.prixBarre,
+            'Boutique': boutiqueNom || '',
+            [VARIANT_PRODUCT_FIELD]: idProduit,
+            [VARIANT_MERGE_FIELD]: cle,
+            'Dernière synchro': new Date().toISOString(),
+        });
+    });
+
+    return [...parCle.values()];
+};
+
+// Lit les lignes déjà présentes dans la table Variantes (avec pagination).
+// Seuls les deux champs de clé sont demandés, pour garder la réponse légère.
+const listerLignesVariantes = async (client, formula) => {
+    const lignes = [];
+    let offset;
+    do {
+        const params = new URLSearchParams();
+        params.append('pageSize', '100');
+        params.append('fields[]', VARIANT_MERGE_FIELD);
+        params.append('fields[]', VARIANT_PRODUCT_FIELD);
+        if (formula) params.append('filterByFormula', formula);
+        if (offset) params.append('offset', offset);
+
+        const { data } = await client.get('', { params });
+        (data.records || []).forEach(r => lignes.push({
+            recordId: r.id,
+            cle: r.fields?.[VARIANT_MERGE_FIELD],
+            idProduit: r.fields?.[VARIANT_PRODUCT_FIELD],
+        }));
+        offset = data.offset;
+        if (offset) await pause(PAUSE_ENTRE_LOTS_MS);
+    } while (offset);
+    return lignes;
+};
+
+const supprimerLignesVariantes = async (client, recordIds) => {
+    for (let i = 0; i < recordIds.length; i += BATCH_SIZE) {
+        const params = new URLSearchParams();
+        recordIds.slice(i, i + BATCH_SIZE).forEach(id => params.append('records[]', id));
+        await client.delete('', { params });
+        await pause(PAUSE_ENTRE_LOTS_MS);
+    }
+};
+
+// Pousse les variantes de `products`, puis retire de la table les lignes
+// devenues inutiles (couleur ou taille supprimée du produit).
+//  - listerTout : lit toute la table au lieu de filtrer par produit
+//    (resynchro complète : une seule lecture plutôt qu'une par produit).
+//  - supprimerOrphelins : retire aussi les lignes dont le produit n'existe
+//    plus. Jamais pour une resynchro limitée à une boutique. Les lignes
+//    ajoutées à la main (sans "ID Produit") ne sont jamais touchées.
+const syncVariantes = async (config, products, nomParBoutique, { listerTout = false, supprimerOrphelins = false } = {}) => {
+    if (!config.variantsTableId) return;
+
+    const client = airtableClient(config, config.variantsTableId);
+    const lignes = products.flatMap(p => construireLignesVariantes(
+        p,
+        p.boutiqueId ? nomParBoutique.get(p.boutiqueId.toString()) : ''
+    ));
+
+    for (let i = 0; i < lignes.length; i += BATCH_SIZE) {
+        await upsertBatch(client, lignes.slice(i, i + BATCH_SIZE), VARIANT_MERGE_FIELD);
+        await pause(PAUSE_ENTRE_LOTS_MS);
+    }
+
+    const idsProduits = new Set(products.map(p => p._id.toString()));
+    if (idsProduits.size === 0 && !listerTout) return;
+
+    const clesAttendues = new Set(lignes.map(l => l[VARIANT_MERGE_FIELD]));
+    const formule = listerTout
+        ? undefined
+        : `OR(${[...idsProduits].map(id => `{${VARIANT_PRODUCT_FIELD}} = "${id}"`).join(',')})`;
+
+    const existantes = (await listerLignesVariantes(client, formule)).filter(l => l.idProduit);
+    const aSupprimer = existantes.filter(l => (
+        idsProduits.has(l.idProduit)
+            ? !clesAttendues.has(l.cle)
+            : supprimerOrphelins
+    ));
+    await supprimerLignesVariantes(client, aSupprimer.map(l => l.recordId));
+};
+
+const logErreurVariantes = (error) => {
+    console.error('❌ Erreur sync table Variantes:', error.response?.data || error.message);
 };
 
 // Synchronise UN produit (après ajout/modif/vente/changement de stock).
@@ -136,6 +279,9 @@ export const syncProductToAirtable = async (productId) => {
         const boutiqueNom = await resoudreNomBoutique(product.boutiqueId);
         const client = airtableClient(config);
         await upsertBatch(client, [construireChamps(product, boutiqueNom)]);
+
+        const nomParBoutique = new Map(product.boutiqueId ? [[product.boutiqueId.toString(), boutiqueNom]] : []);
+        await syncVariantes(config, [product], nomParBoutique).catch(logErreurVariantes);
     } catch (error) {
         console.error('❌ Erreur syncProductToAirtable:', error.response?.data || error.message);
     }
@@ -167,6 +313,8 @@ export const syncManyProductsToAirtable = async (productIds) => {
         for (let i = 0; i < champs.length; i += BATCH_SIZE) {
             await upsertBatch(client, champs.slice(i, i + BATCH_SIZE));
         }
+
+        await syncVariantes(config, products, nomParBoutique).catch(logErreurVariantes);
     } catch (error) {
         console.error('❌ Erreur syncManyProductsToAirtable:', error.response?.data || error.message);
     }
@@ -185,6 +333,18 @@ export const deleteProductFromAirtable = async (productId) => {
         const record = data?.records?.[0];
         if (record) {
             await client.delete('', { params: { 'records[]': record.id } });
+        }
+
+        // Retire aussi les lignes de stock détaillé de ce produit.
+        if (config.variantsTableId) {
+            const variantsClient = airtableClient(config, config.variantsTableId);
+            const lignes = await listerLignesVariantes(
+                variantsClient,
+                `{${VARIANT_PRODUCT_FIELD}} = "${productId.toString()}"`
+            ).catch(logErreurVariantes);
+            if (lignes?.length) {
+                await supprimerLignesVariantes(variantsClient, lignes.map(l => l.recordId)).catch(logErreurVariantes);
+            }
         }
     } catch (error) {
         console.error('❌ Erreur deleteProductFromAirtable:', error.response?.data || error.message);
@@ -221,6 +381,12 @@ export const resyncAllProducts = async (boutiqueId = null) => {
     for (let i = 0; i < champs.length; i += BATCH_SIZE) {
         await upsertBatch(client, champs.slice(i, i + BATCH_SIZE));
     }
+
+    // Ici les erreurs remontent à l'appelant, comme pour la table Produits.
+    await syncVariantes(config, products, nomParBoutique, {
+        listerTout: true,
+        supprimerOrphelins: !boutiqueId,
+    });
 
     return { total: products.length };
 };
