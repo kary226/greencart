@@ -98,17 +98,37 @@ export const listAllRetraits = async (req, res) => {
 
         const libelleOperateur = new Map(OPERATEURS_RETRAIT.map((o) => [o.code, o.libelle]));
 
+        // [FIX] aTraiter/escalades étaient calculés à partir de "demandes"
+        // — déjà filtrée par l'onglet actif. Résultat : ces deux chiffres
+        // n'étaient corrects que sur l'onglet "Toutes" ; sur "En cours" par
+        // exemple, "à traiter" retombait à 0 même s'il y en avait
+        // réellement. Les compteurs par statut sont maintenant calculés à
+        // part, sur l'ensemble des demandes, peu importe l'onglet ouvert —
+        // de quoi aussi afficher un chiffre sur chaque onglet sans avoir à
+        // cliquer dessus pour le découvrir.
+        const parStatut = await DemandeRetrait.aggregate([
+            { $group: { _id: '$statut', total: { $sum: 1 } } },
+        ]);
+        const compteurs = Object.fromEntries(parStatut.map((s) => [s._id, s.total]));
+
         res.json({
             success: true,
             demandes: demandes.map((d) => ({
                 ...d,
                 operateurLibelle: libelleOperateur.get(d.operateur) || d.operateur,
             })),
-            aTraiter: demandes.filter((d) => d.statut === 'en_attente').length,
+            aTraiter: compteurs.en_attente || 0,
             // Séparer explicitement ce qui attend le Super Admin de ce qui
             // attend Finance : §14, « chaque acteur doit d'abord voir ce
             // qu'il doit faire maintenant ».
-            escalades: demandes.filter((d) => d.statut === 'escalade').length,
+            escalades: compteurs.escalade || 0,
+            compteurs: {
+                en_attente: compteurs.en_attente || 0,
+                en_cours: compteurs.en_cours || 0,
+                escalade: compteurs.escalade || 0,
+                payee: compteurs.payee || 0,
+                rejetee: compteurs.rejetee || 0,
+            },
         });
     } catch (error) {
         console.error('Erreur listAllRetraits:', error.message);

@@ -166,6 +166,10 @@ const AdminRetraits = () => {
 
     const [demandes, setDemandes] = useState([]);
     const [aTraiter, setATraiter] = useState(0);
+    // [NOUVEAU] Un chiffre par onglet, indépendant de celui actuellement
+    // ouvert — sans ça, il fallait cliquer sur chaque onglet l'un après
+    // l'autre pour savoir ce qu'il contenait.
+    const [compteurs, setCompteurs] = useState({});
     const [loading, setLoading] = useState(true);
     const [filtreStatut, setFiltreStatut] = useState('en_attente');
 
@@ -180,6 +184,7 @@ const AdminRetraits = () => {
             if (data.success) {
                 setDemandes(data.demandes || []);
                 setATraiter(data.aTraiter || 0);
+                setCompteurs(data.compteurs || {});
             } else {
                 toast.error(data.message);
             }
@@ -345,17 +350,27 @@ const AdminRetraits = () => {
 
                 {/* Filtres */}
                 <div className="flex items-center gap-1 bg-white rounded-xl p-1 border border-ink-100 w-fit overflow-x-auto max-w-full">
-                    {ONGLETS_STATUT.map((o) => (
-                        <button
-                            key={o.value}
-                            onClick={() => setFiltreStatut(o.value)}
-                            className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition whitespace-nowrap ${
-                                filtreStatut === o.value ? 'bg-ramses-600 text-white' : 'text-ink-500 hover:text-ink-800'
-                            }`}
-                        >
-                            {o.label}
-                        </button>
-                    ))}
+                    {ONGLETS_STATUT.map((o) => {
+                        // "Toutes" additionne les 5 compteurs plutôt que de
+                        // dépendre d'un sixième chiffre séparé côté serveur.
+                        const compte = o.value === ''
+                            ? Object.values(compteurs).reduce((n, v) => n + v, 0)
+                            : compteurs[o.value] || 0;
+                        return (
+                            <button
+                                key={o.value}
+                                onClick={() => setFiltreStatut(o.value)}
+                                className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition whitespace-nowrap flex items-center gap-1.5 ${
+                                    filtreStatut === o.value ? 'bg-ramses-600 text-white' : 'text-ink-500 hover:text-ink-800'
+                                }`}
+                            >
+                                {o.label}
+                                <span className={`text-xs px-1.5 rounded-full ${filtreStatut === o.value ? 'bg-white/20' : 'bg-ink-100'}`}>
+                                    {compte}
+                                </span>
+                            </button>
+                        );
+                    })}
                 </div>
 
                 {/* Liste */}

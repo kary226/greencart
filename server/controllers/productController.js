@@ -4,7 +4,7 @@ import Order from "../models/Order.js";
 import Boutique from "../models/Boutique.js";
 import mongoose from "mongoose";
 import { scrapeProductPreview, fetchImagesAsDataUrls } from "../services/scraper.js";
-import { withCache, CACHE_KEYS } from "../configs/redisCache.js";
+import { withCache, invalidateCache, CACHE_KEYS } from "../configs/redisCache.js";
 import { appliquerFiltreBoutiquesActives, getIdsBoutiquesSuspendues } from "../services/boutiqueService.js";
 import { genererSkuUnique, normaliserSku, skuEstDisponible, skuEstValide } from "../utils/sku.js";
 import { estErreurUrlBloquee } from "../utils/urlGuard.js";
@@ -309,6 +309,10 @@ export const addProduct = async (req, res) => {
         // Synchro Airtable en tâche de fond — ne doit jamais retarder ni
         // faire échouer la réponse au vendeur.
         syncProductToAirtable(product._id);
+
+        // [FIX] Même correctif — un nouvel article restait absent de la
+        // vitrine jusqu'à 60s après sa création.
+        await invalidateCache(CACHE_KEYS.catalogueComplet);
 
         res.json({ 
             success: true, 
@@ -626,6 +630,12 @@ export const changeStock = async (req, res) => {
         await Product.findByIdAndUpdate(id, { inStock });
 
         syncProductToAirtable(id);
+        // [FIX] Le catalogue public reste en cache jusqu'à 60s (voir
+        // productCatalogue) — sans invalidation, un changement de stock mettait
+        // jusqu'à une minute à apparaître n'importe où sur la vitrine, ce que
+        // le commerçant vivait comme "très lent". Même geste que pour les
+        // bannières/catégories/zones de livraison, jamais fait ici jusque-là.
+        await invalidateCache(CACHE_KEYS.catalogueComplet);
 
         res.json({ success: true, message: "Stock Updated" });
     } catch (error) {
@@ -680,6 +690,11 @@ export const changeStockCommercant = async (req, res) => {
         product.inStock = determinerDisponibilite(product.stock, inStock === false);
 
         await product.save();
+
+        // [FIX] Même correctif que changeStock ci-dessus — c'est justement
+        // CE endpoint que le commerçant utilise au quotidien (réassort,
+        // rupture), donc celui où la lenteur perçue était la plus visible.
+        await invalidateCache(CACHE_KEYS.catalogueComplet);
 
         journaliser({
             acteur: acteurDepuisRequete(req),
@@ -912,6 +927,10 @@ export const updateProduct = async (req, res) => {
 
         await Product.findByIdAndUpdate(id, updateData);
 
+        // [FIX] Même correctif — un produit édité (prix, stock, disponibilité)
+        // restait visible avec ses anciennes valeurs jusqu'à 60s sur la vitrine.
+        await invalidateCache(CACHE_KEYS.catalogueComplet);
+
         journaliser({
             acteur: acteurProduit,
             action: 'produit.modification',
@@ -988,6 +1007,7 @@ export const deleteProduct = async (req, res) => {
             });
 
             syncProductToAirtable(id); // reste dans Airtable, "En stock" décoché
+            await invalidateCache(CACHE_KEYS.catalogueComplet);
 
             journaliser({
                 acteur: acteurDepuisRequete(req),
@@ -1043,6 +1063,7 @@ export const deleteProduct = async (req, res) => {
         await Product.findByIdAndDelete(id);
 
         deleteProductFromAirtable(id);
+        await invalidateCache(CACHE_KEYS.catalogueComplet);
 
         res.json({ success: true, archived: false, message: "Product Deleted" });
     } catch (error) {
@@ -1075,6 +1096,7 @@ export const unarchiveProduct = async (req, res) => {
         }
 
         await Product.findByIdAndUpdate(id, { isArchived: false, archivedAt: null });
+        await invalidateCache(CACHE_KEYS.catalogueComplet);
 
         syncProductToAirtable(id);
 

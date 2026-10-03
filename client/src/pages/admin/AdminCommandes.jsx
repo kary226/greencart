@@ -162,17 +162,31 @@ const AdminCommandes = () => {
                 )}
 
                 <div className="flex items-center gap-1 bg-white rounded-xl p-1 border border-ink-100 w-fit overflow-x-auto max-w-full">
-                    {ONGLETS.map((o) => (
-                        <button
-                            key={o.value}
-                            onClick={() => setOnglet(o.value)}
-                            className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition whitespace-nowrap ${
-                                onglet === o.value ? 'bg-ramses-600 text-white' : 'text-ink-500 hover:text-ink-800'
-                            }`}
-                        >
-                            {o.label}
-                        </button>
-                    ))}
+                    {ONGLETS.map((o) => {
+                        // [FIX] Les onglets n'affichaient aucun chiffre — il
+                        // fallait cliquer sur chacun pour savoir combien il
+                        // contenait. "orders" a déjà tout chargé d'un coup,
+                        // donc calculer ces comptes ne coûte rien de plus.
+                        const compte = o.value === 'pretes'
+                            ? orders.filter((c) => c.liberation.peutLiberer).length
+                            : o.value === 'attente'
+                                ? orders.filter((c) => !c.liberation.peutLiberer).length
+                                : orders.length;
+                        return (
+                            <button
+                                key={o.value}
+                                onClick={() => setOnglet(o.value)}
+                                className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition whitespace-nowrap flex items-center gap-1.5 ${
+                                    onglet === o.value ? 'bg-ramses-600 text-white' : 'text-ink-500 hover:text-ink-800'
+                                }`}
+                            >
+                                {o.label}
+                                <span className={`text-xs px-1.5 rounded-full ${onglet === o.value ? 'bg-white/20' : 'bg-ink-100'}`}>
+                                    {compte}
+                                </span>
+                            </button>
+                        );
+                    })}
                 </div>
 
                 <div className="bg-white rounded-2xl border border-ink-100 overflow-hidden">
