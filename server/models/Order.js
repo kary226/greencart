@@ -16,6 +16,10 @@ const orderItemSchema = new mongoose.Schema({
     name: { type: String, default: null },
     image: { type: String, default: null },
     sku: { type: String, default: null },
+    // Instantané du droit de retour AU MOMENT de l'achat : si l'admin
+    // change la règle du produit plus tard, la commande déjà passée garde
+    // les conditions auxquelles le client a acheté.
+    retourPossible: { type: Boolean, default: true },
     availabilityStatus: {
         type: String,
         enum: ['pending', 'available', 'unavailable', 'collected'],

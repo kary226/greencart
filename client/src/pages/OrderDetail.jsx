@@ -210,6 +210,9 @@ export default function OrderDetail() {
                                 <p className="text-[12px] text-ink-400 mt-0.5">
                                     {[item.color, item.size].filter((v) => v && v !== 'null').join(' | ')}
                                 </p>
+                                {item.retourPossible === false && (
+                                    <p className="text-[11px] font-semibold text-red-600 mt-0.5">Aucun retour possible</p>
+                                )}
                                 <p className="text-[13px] font-bold text-ink-900 mt-1 tabular-nums">
                                     {(item.priceAtOrder || item.product?.offerPrice || 0).toLocaleString()} {currency}
                                 </p>

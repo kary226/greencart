@@ -213,7 +213,7 @@ const Account = () => {
                             <p className="text-[11px] text-ink-300 ml-auto text-right max-w-[130px]">
                                 {creditBalance > 0
                                     ? 'Déduits automatiquement de votre prochaine commande'
-                                    : 'Votre cagnotte se remplit lors d’un remboursement'}
+                                    : 'Rembourssement'}
                             </p>
                         </div>
 

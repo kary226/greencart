@@ -782,6 +782,12 @@ const ProductDetails = () => {
             </p>
           )}
 
+          {product?.retourPossible === false && (
+            <p className="pd-no-return" role="note">
+              Aucun retour possible pour cet article
+            </p>
+          )}
+
           {uniqueColors.length > 0 && (
             <div
               ref={colorSectionRef}

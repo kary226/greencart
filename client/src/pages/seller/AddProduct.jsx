@@ -186,6 +186,8 @@ const AddProduct = () => {
     const [isConverting, setIsConverting] = useState(false);
 
     const [labelType, setLabelType] = useState('size');
+    // true = article retournable (comportement historique) ; false = « aucun retour possible »
+    const [retourPossible, setRetourPossible] = useState(true);
 
     const { axios } = useAppContext()
 
@@ -239,6 +241,7 @@ const AddProduct = () => {
                 setExternalLink(p.externalLink || '');
                 setExistingImages(p.image || []);
                 setLabelType(p.labelType || 'size');
+                setRetourPossible(p.retourPossible !== false);
                 // Chaîne vide, pas null : c'est ce que le <select> attend
                 // (voir plus bas, value={boutiqueId}).
                 setBoutiqueId(p.boutiqueId?._id || p.boutiqueId || '');
@@ -581,6 +584,7 @@ const AddProduct = () => {
             externalLink: externalLink.trim() || null,
             variants,
             labelType: labelType,
+            retourPossible,
             // Chaîne vide = catalogue principal : le serveur la traite
             // comme « aucune boutique ».
             boutiqueId: boutiqueId || null,
@@ -1008,6 +1012,32 @@ const AddProduct = () => {
                             className={inputClass}
                         />
                     </Field>
+                </Section>
+
+                {/* Politique de retour */}
+                <Section icon={RotateCcw} title="Retour de l'article" subtitle="Indiquez si le client pourra demander un retour pour cet article">
+                    <label className="flex items-start justify-between gap-4 cursor-pointer">
+                        <span className="flex flex-col gap-1">
+                            <span className="text-sm font-medium text-gray-800">Aucun retour possible</span>
+                            <span className="text-xs text-gray-400">
+                                Activé : le client est prévenu avant l'achat et aucun retour ne pourra être ouvert pour cet article.
+                            </span>
+                        </span>
+                        <input
+                            type="checkbox"
+                            role="switch"
+                            checked={!retourPossible}
+                            onChange={(e) => setRetourPossible(!e.target.checked)}
+                            className="mt-1 h-5 w-5 shrink-0 accent-red-600 cursor-pointer"
+                            aria-label="Aucun retour possible"
+                        />
+                    </label>
+                    {!retourPossible && (
+                        <p className="flex items-start gap-1.5 text-xs text-red-600 mt-3">
+                            <AlertCircle size={13} className="mt-[1px] shrink-0" />
+                            <span>Cet article sera affiché « Aucun retour possible » sur sa fiche, dans le panier et dans la commande du client.</span>
+                        </p>
+                    )}
                 </Section>
 
                 {/* Stock & variantes */}

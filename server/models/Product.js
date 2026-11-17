@@ -105,6 +105,14 @@ const productSchema = new mongoose.Schema({
         trim: true,
     },
 
+    // ✅ RETOUR : false = « aucun retour possible » pour cet article (vente
+    // ferme). Défaut true : tous les articles déjà en base restent
+    // retournables, rien ne change rétroactivement pour eux.
+    retourPossible: {
+        type: Boolean,
+        default: true,
+    },
+
     // ✅ ARCHIVAGE : un produit déjà commandé n'est JAMAIS supprimé en dur
     // (ça casserait l'historique de commande des clients qui l'ont acheté).
     // À la place on l'archive : il disparaît de la boutique et des

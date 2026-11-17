@@ -546,6 +546,11 @@ const Cart = () => {
                                                                     Taille : {product.selectedSize}
                                                                 </span>
                                                             )}
+                                                            {product.retourPossible === false && (
+                                                                <span className="text-[10px] font-semibold bg-red-50 text-red-600 px-2 py-0.5 rounded-full">
+                                                                    Aucun retour possible
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     </div>
 

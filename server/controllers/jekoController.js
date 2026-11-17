@@ -343,6 +343,7 @@ export const initiateJeko = async (req, res) => {
                 name: product.name,
                 image: product.image?.[0] || null,
                 sku: product.sku || null,
+                retourPossible: product.retourPossible !== false,
             });
         }
 

@@ -343,6 +343,9 @@ const Products = () => {
                                                             {product.sku && (
                                                                 <span className="block font-mono text-[11px] tracking-wide text-gray-400">{product.sku}</span>
                                                             )}
+                                                            {product.retourPossible === false && (
+                                                                <span className="mt-0.5 inline-block text-[10px] font-semibold uppercase tracking-wide bg-red-50 text-red-600 px-1.5 py-0.5 rounded">Aucun retour</span>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </td>

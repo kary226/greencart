@@ -217,6 +217,7 @@ export const placeOrderCOD = async (req, res) => {
                 name: product.name,
                 image: product.image?.[0] || null,
                 sku: product.sku || null,
+                retourPossible: product.retourPossible !== false,
             };
         }));
 

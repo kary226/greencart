@@ -106,6 +106,14 @@ const resoudreBoutiqueDemandee = async (boutiqueIdDemande) => {
     return boutique ? boutique._id : INVALIDE;
 };
 
+/**
+ * Lit un booléen venu d'un corps de requête (JSON ou multipart).
+ * `false`, "false", 0 et "0" donnent false ; tout le reste donne true.
+ * Sert à `retourPossible` : on ne désactive le retour que sur un false
+ * explicite, une valeur absente ou illisible laisse l'article retournable.
+ */
+const lireBooleen = (valeur) => !(valeur === false || valeur === 'false' || valeur === 0 || valeur === '0');
+
 // ✅ Add Product - AVEC VIDÉO ET BOUTIQUE
 export const addProduct = async (req, res) => {
     try {
@@ -290,6 +298,7 @@ export const addProduct = async (req, res) => {
             video: videoUrl,
             videoPublicId: videoPublicId,
             labelType: labelType,
+            retourPossible: lireBooleen(productData.retourPossible),
             boutiqueId: boutiqueId,
             // Qui a saisi la fiche décide de qui pourra en changer le prix
             // et les médias plus tard (voir productService). C'est figé à la
@@ -434,7 +443,7 @@ export const checkAvailability = async (req, res) => {
 // ou une carte. Tout le reste (description, vidéo, et surtout purchasePrice /
 // externalLink qui sont des informations internes) est exclu explicitement :
 // une liste publique ne doit jamais transporter la marge de la boutique.
-const CHAMPS_CATALOGUE = 'name sku price offerPrice image categories variants stock inStock salesCount labelType size boutiqueId createdAt';
+const CHAMPS_CATALOGUE = 'name sku price offerPrice image categories variants stock inStock salesCount labelType size retourPossible boutiqueId createdAt';
 
 // GET /api/product/catalogue — Catalogue complet allégé (public)
 //
@@ -767,7 +776,7 @@ export const assignerBoutique = async (req, res) => {
 // ✅ UPDATE PRODUCT - VERSION CORRIGÉE
 export const updateProduct = async (req, res) => {
     try {
-        const { id, name, description, categories, price, offerPrice, purchasePrice, externalLink, variants, stock, size, videoUrl, videoPublicId, labelType, image, sku } = req.body;
+        const { id, name, description, categories, price, offerPrice, purchasePrice, externalLink, variants, stock, size, videoUrl, videoPublicId, labelType, image, sku, retourPossible } = req.body;
         const videoFile = req.file;
 
 
@@ -856,6 +865,10 @@ export const updateProduct = async (req, res) => {
             stock: totalStock,
             inStock,
             labelType: labelType || 'size',
+            // Touché seulement s'il est transmis : un formulaire qui ne gère
+            // pas le champ ne doit pas rendre un article retournable par
+            // accident (même logique que `sku` et `externalLink`).
+            ...(retourPossible !== undefined ? { retourPossible: lireBooleen(retourPossible) } : {}),
         };
 
         if (!hasVariants) {

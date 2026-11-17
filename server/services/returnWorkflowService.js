@@ -92,6 +92,29 @@ export const ouvrirRetour = async ({ orderId, acteur, motif, itemIds = [], bouti
         return { ok: false, code: 409, message: 'Un retour est déjà ouvert sur cette commande', retour: existant };
     }
 
+    // Articles vendus « aucun retour possible » : l'instantané pris à la
+    // commande fait foi (voir models/Order.js), pas l'état actuel du produit.
+    const idsDemandes = (itemIds || []).map(String);
+    const articlesConcernes = idsDemandes.length > 0
+        ? order.items.filter((i) => idsDemandes.includes(String(i._id)))
+        : order.items;
+    const sansRetour = articlesConcernes.filter((i) => i.retourPossible === false);
+    const retournables = articlesConcernes.filter((i) => i.retourPossible !== false);
+
+    if (sansRetour.length > 0 && (idsDemandes.length > 0 || retournables.length === 0)) {
+        const noms = sansRetour.map((i) => i.name || i.sku || String(i._id)).join(', ');
+        return {
+            ok: false,
+            code: 409,
+            message: `Aucun retour possible pour : ${noms}`,
+        };
+    }
+    // Commande entière demandée avec un mélange : on ne retourne que ce qui
+    // peut l'être, plutôt que de refuser tout le colis.
+    if (idsDemandes.length === 0 && sansRetour.length > 0) {
+        itemIds = retournables.map((i) => i._id);
+    }
+
     const retour = await ReturnCase.create({
         orderId,
         boutiqueId,
