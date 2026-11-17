@@ -15,6 +15,7 @@ import {
     changeStock, 
     productList, 
     productById, 
+    adminProductById,
     updateProduct, 
     deleteProduct, 
     unarchiveProduct,
@@ -122,6 +123,7 @@ productRouter.post('/stock', authStaff, requirePermission('catalog.edit'), chang
 productRouter.post('/update', authStaff, requirePermission('catalog.edit'), updateProduct);
 productRouter.post('/delete', authStaff, requirePermission('catalog.delete'), deleteProduct);
 productRouter.post('/unarchive', authStaff, requirePermission('catalog.edit'), unarchiveProduct);
+productRouter.get('/admin-id', authStaff, requirePermission('catalog.edit'), adminProductById);
 productRouter.get('/admin-list', authStaff, requirePermission('catalog.view'), adminProductList);
 productRouter.post('/scrape-import', authStaff, requirePermission('catalog.create'), scrapeImport);
 // Attribution d'un article existant à une boutique (ou retour au catalogue

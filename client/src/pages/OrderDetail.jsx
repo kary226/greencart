@@ -41,6 +41,18 @@ const formatDateTime = (dateString) => {
     })
 }
 
+// Fenêtre de livraison estimée (calculée à la commande côté serveur) :
+// « du 24 novembre 2026 au 27 novembre 2026 ». Null si absente (anciennes
+// commandes) ou si la commande n'a plus de livraison à attendre.
+const formatDateLongue = (d) =>
+    new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+
+const fenetreLivraison = (order) => {
+    if (!order?.estimatedDeliveryStart || !order?.estimatedDeliveryEnd) return null
+    if (['Delivered', 'Cancelled', 'Returned'].includes(order.status)) return null
+    return `${formatDateLongue(order.estimatedDeliveryStart)} au ${formatDateLongue(order.estimatedDeliveryEnd)}`
+}
+
 export default function OrderDetail() {
     const { orderId } = useParams()
     const { currency, axios, user } = useAppContext()
@@ -160,6 +172,16 @@ export default function OrderDetail() {
                         </span>
                     </div>
                     <p className="text-ink-400 text-[12.5px] mt-1">{formatDateTime(order.createdAt)}</p>
+                    {fenetreLivraison(order) && (
+                        <span className="rs-badge rs-badge--info mt-3">
+                            Livraison estimée du {fenetreLivraison(order)}
+                        </span>
+                    )}
+                    {isDelivered && order.deliveredAt && (
+                        <span className="rs-badge rs-badge--ok mt-3">
+                            Livrée le {formatDateLongue(order.deliveredAt)}
+                        </span>
+                    )}
                 </div>
 
                 {/* [NOUVEAU] Colis retourné : le client ne voyait nulle part

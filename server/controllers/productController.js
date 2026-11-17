@@ -633,6 +633,27 @@ export const productById = async (req, res) => {
     }
 };
 
+// Fiche COMPLÈTE d'un article pour le formulaire d'édition du back-office :
+// /api/product/admin-id. Contrairement à `productById` (public, qui masque
+// `purchasePrice` et `externalLink`), celle-ci renvoie tout — sans quoi le
+// formulaire s'ouvrait avec ces champs vides et, à l'enregistrement, les
+// écrasait (prix d'achat remis à 0, lien effacé). Jamais mise en cache : un
+// formulaire d'édition doit toujours partir de l'état réel de la base.
+export const adminProductById = async (req, res) => {
+    try {
+        const id = req.query?.id || req.body?.id;
+        const product = await Product.findOne({ _id: id, isArchived: { $ne: true } }).lean();
+        if (!product) {
+            return res.status(404).json({ success: false, message: 'Produit introuvable' });
+        }
+        res.set('Cache-Control', 'no-store');
+        res.json({ success: true, product });
+    } catch (error) {
+        console.log(error.message);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 // Change Product inStock : /api/product/stock
 export const changeStock = async (req, res) => {
     try {

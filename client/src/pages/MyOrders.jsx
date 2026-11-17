@@ -45,6 +45,17 @@ const SORTS = [
     { key: 'amount_asc', label: 'Montant : croissant' },
 ]
 
+// Fenêtre de livraison estimée (calculée à la commande côté serveur).
+// Null si absente (anciennes commandes) ou si plus de livraison à attendre.
+const formatDateCourte = (d) =>
+    new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
+
+const fenetreLivraison = (order) => {
+    if (!order?.estimatedDeliveryStart || !order?.estimatedDeliveryEnd) return null
+    if (['Delivered', 'Cancelled', 'Returned'].includes(order.status)) return null
+    return `${formatDateCourte(order.estimatedDeliveryStart)} au ${formatDateCourte(order.estimatedDeliveryEnd)}`
+}
+
 // Petite pastille de statut réutilisée sur la carte fermée.
 const StatusPill = ({ status }) => {
     const st = STATUS_MAP[status] || { text: status, color: '#888', bg: '#f5f5f5' }
@@ -373,6 +384,12 @@ export default function MyOrders() {
                                                     {order.amount.toLocaleString()} {currency}
                                                 </span>
                                             </div>
+
+                                            {fenetreLivraison(order) && (
+                                                <p className="text-[12px] text-info-500 mt-2">
+                                                    Livraison estimée du {fenetreLivraison(order)}
+                                                </p>
+                                            )}
                                         </button>
                                     </li>
                                 )

@@ -224,7 +224,10 @@ const AddProduct = () => {
         if (!isEdition) return;
         const chargerProduit = async () => {
             try {
-                const { data } = await axios.get(`/api/product/id?id=${id}`);
+                // Route back-office : renvoie aussi prix d'achat et lien externe,
+                // que la route publique /api/product/id masque (et qui
+                // s'affichaient donc vides, puis étaient écrasés à l'enregistrement).
+                const { data } = await axios.get(`/api/product/admin-id?id=${id}`);
                 if (!data.success || !data.product) {
                     toast.error(data.message || 'Produit introuvable');
                     navigate('/admin/products');
@@ -887,6 +890,30 @@ const AddProduct = () => {
                             </div>
 
                             <div className="grid grid-cols-4 sm:grid-cols-5 gap-2.5">
+                                {/* Photos déjà enregistrées (édition) : sans ce bloc elles
+                                    n'apparaissaient nulle part et semblaient perdues. */}
+                                {existingImages.map((url, index) => (
+                                    <div key={`existante-${url}-${index}`} className="relative group aspect-square">
+                                        <img
+                                            className="w-full h-full object-cover rounded-xl border border-gray-200"
+                                            src={url}
+                                            alt={`Photo enregistrée ${index + 1}`}
+                                        />
+                                        {index === 0 && (
+                                            <span className="absolute bottom-1 left-1 text-[10px] bg-gray-900/80 text-white px-1.5 py-0.5 rounded">
+                                                Couverture
+                                            </span>
+                                        )}
+                                        <button
+                                            type="button"
+                                            aria-label={`Retirer la photo ${index + 1}`}
+                                            onClick={() => setExistingImages(existingImages.filter((_, i) => i !== index))}
+                                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-500 hover:text-red-600 hover:border-red-200 transition opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                                        >
+                                            <X size={12} />
+                                        </button>
+                                    </div>
+                                ))}
                                 {files.map((file, index) => (
                                     <button
                                         key={index}
@@ -899,7 +926,7 @@ const AddProduct = () => {
                                             src={URL.createObjectURL(file)}
                                             alt={`Produit ${index + 1}`}
                                         />
-                                        {index === 0 && (
+                                        {index === 0 && existingImages.length === 0 && (
                                             <span className="absolute bottom-1 left-1 text-[10px] bg-gray-900/80 text-white px-1.5 py-0.5 rounded">
                                                 Couverture
                                             </span>
@@ -935,11 +962,13 @@ const AddProduct = () => {
                         <div>
                             <span className="text-sm font-medium text-gray-800">Vidéo (optionnel)</span>
                             <div className="flex flex-wrap items-center gap-3 mt-2">
-                                <label className="flex items-center gap-2 px-3.5 py-2.5 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition">
-                                    <input onChange={handleVideoSelect} type="file" accept="video/*" className="hidden" />
-                                    <Video size={16} className="text-gray-400" />
-                                    <span className="text-sm text-gray-500">Choisir une vidéo</span>
-                                </label>
+                                {!isEdition && (
+                                    <label className="flex items-center gap-2 px-3.5 py-2.5 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition">
+                                        <input onChange={handleVideoSelect} type="file" accept="video/*" className="hidden" />
+                                        <Video size={16} className="text-gray-400" />
+                                        <span className="text-sm text-gray-500">Choisir une vidéo</span>
+                                    </label>
+                                )}
                                 {videoPreview && (
                                     <div className="relative">
                                         <video
@@ -948,17 +977,21 @@ const AddProduct = () => {
                                             controls
                                             muted
                                         />
-                                        <button
+                                        {!isEdition && <button
                                             type="button"
                                             onClick={removeVideo}
                                             className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center text-gray-500 hover:text-red-600 hover:border-red-200 transition"
                                         >
                                             <X size={12} />
-                                        </button>
+                                        </button>}
                                     </div>
                                 )}
                             </div>
-                            <Hint>Format MP4, WebM ou MOV, 100 Mo maximum. La vidéo s'affiche sur la fiche produit.</Hint>
+                            <Hint>
+                                {isEdition
+                                    ? "La vidéo déjà enregistrée est conservée telle quelle (elle ne se modifie pas depuis ce formulaire)."
+                                    : "Format MP4, WebM ou MOV, 100 Mo maximum. La vidéo s'affiche sur la fiche produit."}
+                            </Hint>
                         </div>
                     </div>
                 </Section>
