@@ -29,10 +29,14 @@ const PaymentSuccess = () => {
                     setCartItems({});
                     localStorage.removeItem('greencart_cart');
                     sessionStorage.removeItem('pendingOrderId');
-                    toast.success('Commande confirmée !');
                     clearInterval(intervalId);
                     clearTimeout(timeoutId);
-                    setTimeout(() => navigate('/my-orders'), 2000);
+                    // Même page de confirmation que le paiement à la livraison
+                    // (remplace le toast + la redirection différée de 2 s).
+                    navigate(`/order-success/${orderId}`, {
+                        replace: true,
+                        state: { order: data.order },
+                    });
                     return true;
                 }
                 return false;

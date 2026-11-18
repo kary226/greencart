@@ -21,6 +21,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import AllCategories from './pages/AllCategories';
 import PaymentSuccess from './pages/PaymentSuccess';
+const OrderSuccess = lazy(() => import('./pages/OrderSuccess'));
 import PaymentError from './pages/PaymentError';
 import Loading from './components/Loading';
 import BottomNav from './components/BottomNav';
@@ -153,11 +154,14 @@ const App = () => {
     location.pathname === "/valider-panier-shein" ||
     location.pathname.startsWith("/colis-shein/");
   const isChatFullScreenPath = location.pathname.startsWith("/colis-shein/");
+  // Page de confirmation de commande : plein écran, sans barres de navigation
+  // (le client a un seul geste à faire : continuer ou suivre sa commande).
+  const isOrderSuccessPath = location.pathname.startsWith("/order-success/");
 
   // Affichage des éléments
-  const showFooter = !isAdminPath && !isColisSheinPath && !isLivreurPath && !isCommercantPath && !isAssistantPath;
-  const showBottomNav = !isAdminPath && !isLivreurPath && !isCommercantPath && !isAssistantPath && !isChatFullScreenPath && !(showUserLogin && !user);
-  const showNavbar = !isAdminPath && !isChatFullScreenPath && !isLivreurPath && !isCommercantPath && !isAssistantPath && !(showUserLogin && !user);
+  const showFooter = !isAdminPath && !isOrderSuccessPath && !isColisSheinPath && !isLivreurPath && !isCommercantPath && !isAssistantPath;
+  const showBottomNav = !isAdminPath && !isOrderSuccessPath && !isLivreurPath && !isCommercantPath && !isAssistantPath && !isChatFullScreenPath && !(showUserLogin && !user);
+  const showNavbar = !isAdminPath && !isOrderSuccessPath && !isChatFullScreenPath && !isLivreurPath && !isCommercantPath && !isAssistantPath && !(showUserLogin && !user);
 
   return (
     <div className='text-default min-h-screen text-gray-700 bg-white'>
@@ -197,7 +201,7 @@ const App = () => {
         }}
       />
 
-      <div className={`${isAdminPath || isChatFullScreenPath || isLivreurPath || isCommercantPath || isAssistantPath ? "" : "px-4 pb-20"}`}>
+      <div className={`${isAdminPath || isOrderSuccessPath || isChatFullScreenPath || isLivreurPath || isCommercantPath || isAssistantPath ? "" : "px-4 pb-20"}`}>
         <Suspense fallback={<PageLoader />}>
           <Routes>
 
@@ -218,6 +222,7 @@ const App = () => {
             <Route path='/confidentialite' element={<Confidentialite />} />
             <Route path='/account' element={<Account />} />
             <Route path='/payment/success' element={<PaymentSuccess />} />
+            <Route path='/order-success/:orderId' element={<OrderSuccess />} />
             <Route path='/payment/error' element={<PaymentError />} />
             <Route path='/forgot-password' element={<ForgotPassword />} />
             <Route path='/reset-password' element={<ResetPassword />} />

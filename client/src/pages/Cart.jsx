@@ -358,9 +358,20 @@ const Cart = () => {
                     deliveryType: selectedDeliveryType?.name
                 })
                 if (data.success) {
-                    toast.success(data.message)
                     selectedArray.forEach(item => removeFromCart(item.cartKey))
-                    navigate('/my-orders')
+                    if (data.orderId) {
+                        // Page de confirmation plein écran (remplace le toast).
+                        // `replace` : le bouton Retour ne ramène pas au panier
+                        // vidé, ce qui laisserait croire qu'il faut recommander.
+                        navigate(`/order-success/${data.orderId}`, {
+                            replace: true,
+                            state: { order: data.order },
+                        })
+                    } else {
+                        // Serveur pas encore mis à jour : ancien comportement.
+                        toast.success(data.message)
+                        navigate('/my-orders')
+                    }
                 } else {
                     setPlacingOrder(false)
                     toast.error(data.message)

@@ -345,7 +345,21 @@ export const placeOrderCOD = async (req, res) => {
             await sendAdminNotificationEmail(order._id.toString(), amount, `${user.name}`, user.email);
         }
 
-        return res.status(201).json({ success: true, message: "Order Placed Successfully" });
+        // Résumé de la commande : la page de confirmation côté client
+        // s'affiche tout de suite avec ces données, sans requête de plus.
+        return res.status(201).json({
+            success: true,
+            message: "Order Placed Successfully",
+            orderId: order._id,
+            order: {
+                _id: order._id,
+                amount: order.amount,
+                paymentType: order.paymentType,
+                createdAt: order.createdAt,
+                estimatedDeliveryStart: order.estimatedDeliveryStart,
+                estimatedDeliveryEnd: order.estimatedDeliveryEnd,
+            },
+        });
     } catch (error) {
         console.error('Erreur placeOrderCOD:', error.message);
         return res.status(500).json({ success: false, message: error.message });
