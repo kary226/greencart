@@ -5,7 +5,7 @@ import User from '../models/User.js';
 import ApprovalRequest from '../models/ApprovalRequest.js';
 import Setting from '../models/Setting.js';
 import { journaliser } from '../services/journalService.js';
-import { crediterClient } from '../models/CustomerCredit.js';
+import { crediterClient, evaluerRepriseRcoins, reprendreRcoinsRemboursementOrigine } from '../models/CustomerCredit.js';
 // [CORRECTIF AUDIT — 23 août 2026] nécessaire pour le garde-fou
 // d'exclusivité RCOINS / remboursement monétaire ci-dessous.
 import CustomerCreditTransaction from '../models/CustomerCreditTransaction.js';
@@ -123,15 +123,29 @@ export const createRefund = async (req, res) => {
         // sécurité. Un remboursement monétaire ne peut donc pas être créé
         // sur une commande qui a déjà reçu un crédit RCOINS, et
         // réciproquement (voir orderController.resoudreLitige).
+        //
+        // Exception : un remboursement PAR MOYEN D'ORIGINE reste possible sur
+        // une commande déjà créditée en RCOINS (ex. le client a été remboursé
+        // automatiquement en RCOINS mais veut son argent). Dans ce cas les
+        // RCOINS du même montant sont REPRIS au client à l'exécution, ce qui
+        // évite de le payer deux fois — voir executerRefund. On vérifie ici
+        // que la reprise sera possible, pour échouer tout de suite avec un
+        // message clair plutôt qu'après avoir créé la demande.
         const creditRcoinsExistant = await CustomerCreditTransaction.findOne({
             orderId,
             type: 'credit',
         });
         if (creditRcoinsExistant) {
-            return res.status(409).json({
-                success: false,
-                message: "Cette commande a déjà reçu un crédit RCOINS. Un remboursement monétaire sur la même commande est exclu — les deux voies ne peuvent pas coexister.",
-            });
+            if ((methode || 'rcoins') !== 'moyen_paiement_origine') {
+                return res.status(409).json({
+                    success: false,
+                    message: "Cette commande a déjà reçu un crédit RCOINS. Un second remboursement en RCOINS est exclu — choisissez « Moyen d'origine » pour rembourser le client avec son argent (les RCOINS déjà versés seront alors repris).",
+                });
+            }
+            const evaluation = await evaluerRepriseRcoins({ userId: order.userId, orderId, amount: montant });
+            if (!evaluation.ok) {
+                return res.status(409).json({ success: false, message: evaluation.message });
+            }
         }
 
         // Générer un refundId unique
@@ -202,7 +216,10 @@ export const createRefund = async (req, res) => {
         refund.approuveLe = new Date();
         await refund.save();
         // Exécuter le remboursement
-        await executerRefund(refund, req.staffUser);
+        const execution = await executerRefund(refund, req.staffUser);
+        if (!execution.ok) {
+            return res.status(409).json({ success: false, message: execution.message, refund });
+        }
         return res.status(201).json({
             success: true,
             message: 'Remboursement créé et approuvé',
@@ -291,7 +308,10 @@ export const approveRefund = async (req, res) => {
             note: `Montant: ${refund.montantApprouve} FCFA - ${refund.motif}`,
         });
         // Exécuter le remboursement
-        await executerRefund(refund, req.staffUser);
+        const execution = await executerRefund(refund, req.staffUser);
+        if (!execution.ok) {
+            return res.status(409).json({ success: false, message: execution.message, refund });
+        }
         // Notifier le demandeur
         await notifierDemandeurRefund(refund, 'approuve');
         return res.status(200).json({
@@ -459,7 +479,14 @@ export const completeRefund = async (req, res) => {
 // ─── Fonctions internes ────────────────────────────────────────────────
 
 /**
- * Exécute un remboursement (crédit RCOINS).
+ * Exécute un remboursement.
+ *  - 'rcoins'                 : crédite le client en RCOINS.
+ *  - 'moyen_paiement_origine' : si la commande avait déjà été créditée en
+ *    RCOINS, reprend les RCOINS du même montant (le client ne doit pas être
+ *    payé deux fois) ; le versement lui-même reste manuel, confirmé ensuite
+ *    par « Marquer terminé ».
+ * Retourne { ok: true } ou { ok: false, message } — en cas d'échec de la
+ * reprise, le remboursement passe en 'failed' avec la raison en note interne.
  */
 const executerRefund = async (refund, acteur) => {
     if (refund.methode === 'rcoins') {
@@ -505,11 +532,47 @@ const executerRefund = async (refund, acteur) => {
             cible: { id: refund._id, libelle: `Remboursement ${refund.refundId.slice(-8)}` },
             note: `${refund.montantApprouve} FCFA crédités en RCOINS`,
         });
-    } else {
-        // Moyen d'origine - marquer en attente de confirmation manuelle
-        refund.statut = 'processing';
-        await refund.save();
+        return { ok: true };
     }
+
+    // Moyen d'origine
+    const order = await Order.findById(refund.orderId);
+    if (!order) {
+        throw new Error('Commande non trouvée');
+    }
+    const reprise = await reprendreRcoinsRemboursementOrigine({
+        userId: order.userId,
+        orderId: order._id,
+        refundId: refund._id,
+        amount: refund.montantApprouve,
+        description: `Remboursement par moyen d'origine  (commande ${order._id})`,
+    });
+    if (!reprise.ok) {
+        refund.statut = 'failed';
+        refund.noteInterne = [refund.noteInterne, `Échec : ${reprise.message}`].filter(Boolean).join('\n');
+        await refund.save();
+        return { ok: false, message: reprise.message };
+    }
+
+    // Marquer en attente de confirmation manuelle du versement
+    refund.statut = 'processing';
+    if (reprise.repris > 0) {
+        refund.noteInterne = [refund.noteInterne, `${reprise.repris} RCOINS repris au client.`].filter(Boolean).join('\n');
+    }
+    await refund.save();
+    await journaliser({
+        acteur: {
+            id: acteur._id,
+            nom: acteur.nom,
+            role: acteur.role,
+        },
+        action: 'refund.executed',
+        cible: { id: refund._id, libelle: `Remboursement ${refund.refundId.slice(-8)}` },
+        note: reprise.repris > 0
+            ? `${refund.montantApprouve} FCFA à rembourser par moyen d'origine — ${reprise.repris} RCOINS repris`
+            : `${refund.montantApprouve} FCFA à rembourser par moyen d'origine`,
+    });
+    return { ok: true };
 };
 
 /**

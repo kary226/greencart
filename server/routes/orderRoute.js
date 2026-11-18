@@ -41,6 +41,7 @@ import {
 } from '../controllers/orderController.js';
 import { initiateJeko } from '../controllers/jekoController.js';
 import Order from '../models/Order.js';
+import Refund from '../models/Refund.js';
 import User from '../models/User.js';
 import CustomerCreditTransaction from '../models/CustomerCreditTransaction.js';
 
@@ -74,22 +75,48 @@ orderRouter.get('/user/credit/historique', authUser, async (req, res) => {
         const lignes = await CustomerCreditTransaction.find({ userId: req.body.userId })
             .sort({ createdAt: -1 })
             .limit(50)
-            .select('type amount description orderId createdAt')
+            .select('type amount description orderId itemId nature createdAt')
             .lean();
 
-        return res.json({
-            success: true,
-            mouvements: lignes.map((l) => ({
-                id: l._id,
-                sens: l.type,                       // 'credit' = reçu, 'debit' = utilisé
-                montant: l.amount,
-                libelle: l.description || (l.type === 'credit' ? 'Remboursement' : 'Utilisé sur une commande'),
-                // Référence courte : c'est ce que le client lit sur ses
-                // e-mails et ce qu'il cite au support.
-                commande: l.orderId ? String(l.orderId).slice(-6).toUpperCase() : null,
-                date: l.createdAt,
-            })),
-        });
+        const mouvements = lignes.map((l) => ({
+            id: l._id,
+            sens: l.type,                       // 'credit' = reçu, 'debit' = utilisé
+            nature: l.nature || null,
+            montant: l.amount,
+            libelle: l.description || (l.type === 'credit' ? 'Remboursement' : 'Utilisé sur une commande'),
+            // Référence courte : c'est ce que le client lit sur ses
+            // e-mails et ce qu'il cite au support.
+            commande: l.orderId ? String(l.orderId).slice(-6).toUpperCase() : null,
+            date: l.createdAt,
+        }));
+
+        // Remboursements par moyen d'origine SANS RCOINS à reprendre (la
+        // commande n'avait jamais été créditée) : aucune ligne RCOINS n'existe,
+        // le client ne verrait donc nulle part qu'il a été remboursé. Ceux qui
+        // ont repris des RCOINS ont déjà leur ligne ci-dessus (itemId = id du
+        // remboursement) : on ne les double pas.
+        const dejaAffiches = new Set(lignes.filter((l) => l.nature).map((l) => String(l.itemId)));
+        const commandes = await Order.find({ userId: req.body.userId }).select('_id').lean();
+        const remboursements = await Refund.find({
+            orderId: { $in: commandes.map((c) => c._id) },
+            methode: 'moyen_paiement_origine',
+            statut: { $in: ['processing', 'completed'] },
+        }).select('montantApprouve orderId createdAt').lean();
+        for (const r of remboursements) {
+            if (dejaAffiches.has(String(r._id))) continue;
+            mouvements.push({
+                id: r._id,
+                sens: 'origine',                // sans effet sur le solde RCOINS
+                nature: 'remboursement_moyen_origine',
+                montant: r.montantApprouve,
+                libelle: "Remboursement par moyen d'origine",
+                commande: String(r.orderId).slice(-6).toUpperCase(),
+                date: r.createdAt,
+            });
+        }
+        mouvements.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        return res.json({ success: true, mouvements: mouvements.slice(0, 50) });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }

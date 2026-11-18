@@ -213,7 +213,7 @@ const Account = () => {
                             <p className="text-[11px] text-ink-300 ml-auto text-right max-w-[130px]">
                                 {creditBalance > 0
                                     ? 'Déduits automatiquement de votre prochaine commande'
-                                    : 'Rembourssement'}
+                                    : 'Votre cagnotte se remplit lors d’un remboursement'}
                             </p>
                         </div>
 
@@ -252,6 +252,16 @@ const Account = () => {
                                                     <span className="block text-[12.5px] text-ink-800 leading-snug">
                                                         {m.libelle}
                                                     </span>
+                                                    {m.sens === 'origine' && (
+                                                        <span className="block text-[11px] text-ink-500">
+                                                            Versé sur votre moyen de paiement — sans effet sur vos RCoins
+                                                        </span>
+                                                    )}
+                                                    {m.sens === 'debit' && m.nature === 'remboursement_moyen_origine' && (
+                                                        <span className="block text-[11px] text-ink-500">
+                                                            Ces RCoins ont été retirés car vous avez été remboursé sur votre moyen de paiement
+                                                        </span>
+                                                    )}
                                                     <span className="block text-[11px] text-ink-400">
                                                         {new Date(m.date).toLocaleDateString('fr-FR', {
                                                             day: '2-digit', month: 'short', year: 'numeric',
@@ -264,7 +274,7 @@ const Account = () => {
                                                         m.sens === 'credit' ? 'text-ok-600' : 'text-ink-500'
                                                     }`}
                                                 >
-                                                    {m.sens === 'credit' ? '+' : '−'}{m.montant.toLocaleString()}
+                                                    {m.sens === 'credit' ? '+' : m.sens === 'origine' ? '' : '−'}{m.montant.toLocaleString()}
                                                 </span>
                                             </li>
                                         ))}
