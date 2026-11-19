@@ -2,10 +2,25 @@
 import "../styles/navbar.css";
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
+import { flushSync } from "react-dom";
 import { useAppContext } from "../context/AppContext";
 import { buildSearchIndex, searchProductsAndCategories } from "../utils/searchEngine";
 import { Search, ShoppingCart, Heart, ArrowLeft, X } from "lucide-react";
 import { ouvrirChat } from '../utils/tawk';
+
+const RECENT_KEY = "ramci_recent_searches";
+const MAX_RECENT = 8;
+// Modifie cette liste comme tu veux
+const POPULAR_SEARCHES = ["Robes femme", "Robe sexy", "Robe de soirée", "Tops", "Ensembles", "Jupes"];
+
+const readRecents = () => {
+  try {
+    const v = JSON.parse(localStorage.getItem(RECENT_KEY));
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+};
 
 const Navbar = () => {
   const { cartItems, wishlist, user, searchQuery, setSearchQuery, axios, products, logoutUser, setShowUserLogin, canInstallPWA, isPWAInstalled, installPWA, subscribeToPushNotifications, colisSheinActif } = useAppContext();
@@ -16,6 +31,7 @@ const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
+  const [recents, setRecents] = useState(readRecents);
   const suggestionsRef = useRef(null);
   const menuRef = useRef(null);
   const searchInputRef = useRef(null);
@@ -110,10 +126,10 @@ const Navbar = () => {
   };
 
   const openSearchModal = () => {
-    setShowSearchModal(true);
-    setTimeout(() => {
-      searchInputRef.current?.focus();
-    }, 100);
+    // flushSync : l'input existe dans le DOM tout de suite, donc le focus a lieu
+    // dans le geste du clic, ce qui est obligatoire pour ouvrir le clavier mobile.
+    flushSync(() => setShowSearchModal(true));
+    searchInputRef.current?.focus();
   };
 
   const closeSearchModal = () => {
@@ -122,13 +138,35 @@ const Navbar = () => {
     setQuery("");
   };
 
+  const saveRecent = (term) => {
+    const t = term.trim();
+    if (!t) return;
+    const next = [t, ...recents.filter((x) => x.toLowerCase() !== t.toLowerCase())].slice(0, MAX_RECENT);
+    setRecents(next);
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify(next)); } catch { /* stockage indisponible */ }
+  };
+
+  const clearRecents = () => {
+    setRecents([]);
+    try { localStorage.removeItem(RECENT_KEY); } catch { /* stockage indisponible */ }
+  };
+
+  const runSearch = (term) => {
+    const t = term.trim();
+    if (!t) return;
+    saveRecent(t);
+    setSearchQuery && setSearchQuery(t);
+    closeSearchModal();
+    navigate(`/products?search=${encodeURIComponent(t)}`);
+  };
+
   // Le drawer se ferme via l'overlay, le bouton X ou un clic sur un item —
   // pas besoin d'un handler "clic extérieur" générique ici.
 
   useEffect(() => {
-    document.body.style.overflow = menuOpen ? "hidden" : "";
+    document.body.style.overflow = (menuOpen || showSearchModal) ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
-  }, [menuOpen]);
+  }, [menuOpen, showSearchModal]);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -171,23 +209,16 @@ const Navbar = () => {
 
   const handleSearch = (e) => {
     e?.preventDefault();
-    if (query.trim()) {
-      setShowSuggestions(false);
-      setSearchQuery && setSearchQuery(query.trim());
-      closeSearchModal();
-      navigate(`/products?search=${encodeURIComponent(query.trim())}`);
-    }
+    runSearch(query);
   };
 
   const handleSuggestionClick = (s) => {
-    setShowSuggestions(false);
-    closeSearchModal();
     if (s._type === 'category') {
+      setShowSuggestions(false);
+      closeSearchModal();
       navigate(`/products?categories=${encodeURIComponent(s.slug)}`);
     } else {
-      setQuery(s.text);
-      setSearchQuery && setSearchQuery(s.text);
-      navigate(`/products?search=${encodeURIComponent(s.text)}`);
+      runSearch(s.text);
     }
   };
 
@@ -443,16 +474,10 @@ const Navbar = () => {
         </div>
       </aside>
 
-      {/* Modal de recherche avec bouton filtre */}
+      {/* Recherche plein écran */}
       {showSearchModal && (
         <div className="search-modal-overlay" onClick={closeSearchModal}>
           <div className="search-modal-container" onClick={(e) => e.stopPropagation()}>
-            {/* Le bandeau affichait une flèche retour, le wordmark « RAMCI » et
-                un espaceur vide : on ouvrait la recherche et on tombait sur un
-                écran titré du nom du site, qui ressemblait à une page cassée
-                plutôt qu'à un panneau de recherche.
-                Le champ remonte donc dans le bandeau, à côté de la flèche —
-                c'est le motif de la recherche plein écran (Nike, awesome-design-md). */}
             <form className="search-modal-form" onSubmit={handleSearch} ref={suggestionsRef}>
               <div className="search-modal-header">
                 <button type="button" className="search-modal-back" onClick={closeSearchModal} aria-label="Fermer la recherche">
@@ -461,73 +486,106 @@ const Navbar = () => {
 
                 <div className="search-modal-input-wrapper">
                   <Search size={17} strokeWidth={2} className="search-modal-icon" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  placeholder="Rechercher un article ou une catégorie..."
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  className="search-modal-input"
-                />
-                
-                {/* Bouton Filtre */}
-                <button 
-                  type="button" 
-                  onClick={() => {
-                    closeSearchModal();
-                    setShowFilters(true);
-                  }} 
-                  className="search-modal-filter-btn"
-                  aria-label="Filtres"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2">
-                    <line x1="4" y1="6" x2="20" y2="6"/>
-                    <line x1="8" y1="12" x2="16" y2="12"/>
-                    <line x1="11" y1="18" x2="13" y2="18"/>
-                  </svg>
-                  {hasActiveFilters() && <span className="filter-active-dot"></span>}
-                </button>
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    inputMode="search"
+                    enterKeyHint="search"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    placeholder="Rechercher un article ou une catégorie..."
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    className="search-modal-input"
+                  />
 
-                {query && (
-                  /* L'icône d'origine dessinait un « + » dans un cercle, pas une
-                     croix : le bouton « effacer » ressemblait à un bouton d'ajout. */
-                  <button type="button" className="search-modal-clear" onClick={() => setQuery("")} aria-label="Effacer la recherche">
-                    <X size={16} strokeWidth={2.4} />
+                  {/* Bouton Filtre */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closeSearchModal();
+                      setShowFilters(true);
+                    }}
+                    className="search-modal-filter-btn"
+                    aria-label="Filtres"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2">
+                      <line x1="4" y1="6" x2="20" y2="6"/>
+                      <line x1="8" y1="12" x2="16" y2="12"/>
+                      <line x1="11" y1="18" x2="13" y2="18"/>
+                    </svg>
+                    {hasActiveFilters() && <span className="filter-active-dot"></span>}
                   </button>
-                )}
+
+                  {query && (
+                    <button type="button" className="search-modal-clear" onClick={() => { setQuery(""); searchInputRef.current?.focus(); }} aria-label="Effacer la recherche">
+                      <X size={16} strokeWidth={2.4} />
+                    </button>
+                  )}
                 </div>
               </div>
 
-              {showSuggestions && (
-                <div className="search-modal-suggestions">
-                  {suggestions.length > 0 ? (
-                    <>
-                      {suggestions.map((s, idx) => (
-                        <div
-                          key={idx}
-                          className="search-suggestion-item"
-                          onMouseDown={(e) => { e.preventDefault(); handleSuggestionClick(s); }}
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="2">
-                            <circle cx="11" cy="11" r="8"/>
-                            <path d="m21 21-4.35-4.35"/>
-                          </svg>
-                          <span className="search-suggestion-text">{s.text}</span>
+              {query.trim() ? (
+                showSuggestions && (
+                  <div className="search-modal-suggestions">
+                    {suggestions.length > 0 ? (
+                      <>
+                        {suggestions.map((s, idx) => (
+                          <div
+                            key={idx}
+                            className="search-suggestion-item"
+                            onMouseDown={(e) => { e.preventDefault(); handleSuggestionClick(s); }}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="2">
+                              <circle cx="11" cy="11" r="8"/>
+                              <path d="m21 21-4.35-4.35"/>
+                            </svg>
+                            <span className="search-suggestion-text">{s.text}</span>
+                          </div>
+                        ))}
+                        <div className="search-suggestion-footer">
+                          <button
+                            type="submit"
+                            className="search-suggestion-see-all"
+                            onMouseDown={(e) => e.preventDefault()}
+                          >
+                            Voir tous les résultats pour «{query}»
+                          </button>
                         </div>
-                      ))}
-                      <div className="search-suggestion-footer">
-                        <button
-                          type="submit"
-                          className="search-suggestion-see-all"
-                          onMouseDown={(e) => e.preventDefault()}
-                        >
-                          Voir tous les résultats pour «{query}»
-                        </button>
+                      </>
+                    ) : (
+                      <div className="search-suggestion-empty">Aucun résultat pour «{query}»</div>
+                    )}
+                  </div>
+                )
+              ) : (
+                <div className="search-modal-body">
+                  {recents.length > 0 && (
+                    <section className="search-block">
+                      <div className="search-block-head">
+                        <h4 className="search-block-title">Recherches récentes</h4>
+                        <button type="button" className="search-block-clear" onClick={clearRecents}>Tout effacer</button>
                       </div>
-                    </>
-                  ) : (
-                    <div className="search-suggestion-empty">Aucun résultat pour «{query}»</div>
+                      <div className="search-chips">
+                        {recents.map((r) => (
+                          <button type="button" key={r} className="search-chip" onClick={() => runSearch(r)}>{r}</button>
+                        ))}
+                      </div>
+                    </section>
                   )}
+
+                  <section className="search-block">
+                    <div className="search-block-head">
+                      <h4 className="search-block-title">Recherches populaires</h4>
+                    </div>
+                    <div className="search-chips">
+                      {POPULAR_SEARCHES.map((p) => (
+                        <button type="button" key={p} className="search-chip" onClick={() => runSearch(p)}>{p}</button>
+                      ))}
+                    </div>
+                  </section>
                 </div>
               )}
             </form>

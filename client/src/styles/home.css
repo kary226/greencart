@@ -166,9 +166,13 @@
 
 .ramci-section-tabs {
   display: flex;
-  border-bottom: 1px solid var(--color-ink-100);
   margin-bottom: 16px;
+  /* Séparateur en ombre interne : plus de border-bottom, donc plus besoin du
+     margin-bottom:-1px sur les onglets qui faisait déborder la rangée. */
+  box-shadow: inset 0 -1px 0 var(--color-ink-100);
   overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }
@@ -189,7 +193,6 @@
   cursor: pointer;
   white-space: nowrap;
   transition: color .15s ease, border-color .15s ease;
-  margin-bottom: -1px;
 }
 .ramci-stab:hover { color: var(--color-ink-700); }
 .ramci-stab:focus-visible { outline: none; box-shadow: var(--rs-focus); border-radius: var(--rs-r-md); }

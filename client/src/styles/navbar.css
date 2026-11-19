@@ -335,18 +335,17 @@
 .search-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(11, 11, 13, .5);
+  background: var(--color-ink-0);
   z-index: 1002;
-  animation: ramci-fade-in .2s ease;
+  animation: ramci-fade-in .15s ease;
 }
 
 .search-modal-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   background: var(--color-ink-0);
-  height: auto;
-  max-height: 80vh;
-  border-radius: 0 0 20px 20px;
-  overflow: hidden;
-  animation: ramci-slide-down .3s ease;
+  padding-top: env(safe-area-inset-top);
 }
 
 /* Le champ vit desormais DANS le bandeau, a cote de la fleche retour :
@@ -459,11 +458,81 @@
 .search-modal-clear:hover { background: var(--color-ink-100); color: var(--color-ink-900); }
 
 .search-modal-suggestions {
-  margin-top: 14px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: var(--color-ink-0);
-  border-radius: 14px;
-  overflow: hidden;
-  border: 1px solid var(--color-ink-100);
+}
+
+/* Recherches récentes / populaires */
+.search-modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 16px 24px;
+}
+.search-block { padding-top: 16px; }
+.search-block + .search-block { margin-top: 12px; }
+
+.search-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 36px;
+  border-bottom: 1px solid var(--color-ink-100);
+  margin-bottom: 12px;
+}
+.search-block-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--color-ink-500);
+}
+.search-block-clear {
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ramses-600);
+  cursor: pointer;
+  min-height: 36px;
+  padding: 0 4px;
+}
+
+.search-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.search-chip {
+  border: none;
+  background: var(--color-ink-50);
+  color: var(--color-ink-800);
+  font-family: inherit;
+  font-size: 14px;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: var(--rs-r-pill);
+  cursor: pointer;
+  transition: background-color .15s ease;
+}
+.search-chip:hover,
+.search-chip:active { background: var(--color-ink-100); }
+
+/* Sur grand écran : panneau centré avec fond assombri */
+@media (min-width: 768px) {
+  .search-modal-overlay { background: rgba(11, 11, 13, .5); }
+  .search-modal-container {
+    max-width: 640px;
+    min-height: 320px;
+    max-height: 80vh;
+    height: auto;
+    margin: 0 auto;
+    padding-top: 0;
+    border-radius: 0 0 20px 20px;
+    overflow: hidden;
+  }
 }
 
 .search-suggestion-item {
