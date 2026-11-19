@@ -26,15 +26,12 @@ const PRESETS = [
     { label: '9:16', value: 9 / 16 },
 ];
 
-// react-easy-crop a besoin d'un ratio numérique non-nul même en mode "libre" ;
-// on simule le "libre" avec un ratio très permissif proche du conteneur.
 const FREE_ASPECT = 1;
 
 const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null, cropShape = 'rect', lockAspectRatio = false }) => {
-    const [imgSrc, setImgSrc] = useState(null); // source brute (object URL du fichier)
-    const [displaySrc, setDisplaySrc] = useState(null); // source affichée/recadrée = imgSrc avec flip "cuit"
+    const [imgSrc, setImgSrc] = useState(null);
+    const [displaySrc, setDisplaySrc] = useState(null);
 
-    // Transformations
     const [crop, setCrop] = useState({ x: 0, y: 0 });
     const [zoom, setZoom] = useState(1);
     const [rotation, setRotation] = useState(0);
@@ -43,27 +40,21 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
     const [ratio, setRatio] = useState(aspectRatio || null);
     const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
-    // Réglages colorimétriques (appliqués à l'aperçu ET au rendu final)
     const [brightness, setBrightness] = useState(100);
     const [contrast, setContrast] = useState(100);
     const [saturate, setSaturate] = useState(100);
 
-    // Calques additionnels — un texte et une zone floutée, positionnés en
-    // coordonnées fractionnaires (0 à 1) relatives à la zone de recadrage.
-    const [textOverlay, setTextOverlay] = useState(null); // { content, size, color, fx, fy }
-    const [blurZone, setBlurZone] = useState(null); // { size, fx, fy }
+    const [textOverlay, setTextOverlay] = useState(null);
+    const [blurZone, setBlurZone] = useState(null);
 
     const overlayStageRef = useRef(null);
 
-    // Charger l'image source
     useEffect(() => {
         const url = URL.createObjectURL(imageFile);
         setImgSrc(url);
         return () => URL.revokeObjectURL(url);
     }, [imageFile]);
 
-    // "Cuire" le flip dans l'image affichée (react-easy-crop ne gère pas le
-    // miroir nativement). Se refait seulement quand flipH/flipV changent.
     useEffect(() => {
         if (!imgSrc) return;
         let cancelled = false;
@@ -84,7 +75,6 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
         setCroppedAreaPixels(pixels);
     }, []);
 
-    // Raccourcis clavier
     useEffect(() => {
         const onKey = (e) => {
             if (e.key === 'Escape') onCancel();
@@ -98,8 +88,6 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Déplacement du calque texte / de la zone floutée — position stockée en
-    // fraction (0..1) de la zone de recadrage affichée à l'écran.
     const startOverlayDrag = (kind) => (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -145,7 +133,6 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
     return (
         <div className="ic-overlay" role="dialog" aria-modal="true">
             <div className="ic-modal">
-                {/* Header */}
                 <div className="ic-header">
                     <div className="ic-title">
                         <span className="ic-title-main">Recadrer l'image</span>
@@ -159,7 +146,6 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                 </div>
 
                 <div className="ic-body">
-                    {/* Zone de travail */}
                     <div className="ic-stage">
                         <div className="ic-image-wrap">
                             {displaySrc && (
@@ -184,8 +170,6 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                                 />
                             )}
 
-                            {/* Calques texte / flou, positionnés par-dessus la zone de crop
-                                de react-easy-crop (toujours centrée et de taille connue). */}
                             {croppedAreaPixels && (blurZone || textOverlay) && (
                                 <div className="ic-overlay-layer" style={getOverlayBoxStyle(ratio)}>
                                     {blurZone && (
@@ -229,9 +213,7 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                         </div>
                     </div>
 
-                    {/* Panneau latéral de contrôles */}
                     <div className="ic-controls">
-                        {/* Formats */}
                         {!lockAspectRatio && (
                             <div className="ic-section">
                                 <span className="ic-section-label">Format</span>
@@ -249,7 +231,6 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                             </div>
                         )}
 
-                        {/* Zoom */}
                         <div className="ic-section">
                             <div className="ic-section-head">
                                 <span className="ic-section-label">Zoom</span>
@@ -267,7 +248,6 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                             </div>
                         </div>
 
-                        {/* Rotation */}
                         <div className="ic-section">
                             <div className="ic-section-head">
                                 <span className="ic-section-label">Rotation</span>
@@ -289,7 +269,6 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                             </div>
                         </div>
 
-                        {/* Miroir */}
                         <div className="ic-section">
                             <span className="ic-section-label">Miroir</span>
                             <div className="ic-flip-row">
@@ -304,7 +283,6 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                             </div>
                         </div>
 
-                        {/* Réglages colorimétriques */}
                         <div className="ic-section">
                             <span className="ic-section-label">Réglages</span>
                             <div className="ic-slider-row">
@@ -321,7 +299,6 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                             </div>
                         </div>
 
-                        {/* Texte sur l'image */}
                         <div className="ic-section">
                             <span className="ic-section-label">Texte</span>
                             {!textOverlay ? (
@@ -353,7 +330,6 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                             )}
                         </div>
 
-                        {/* Zone floutée */}
                         <div className="ic-section">
                             <span className="ic-section-label">Zone floutée</span>
                             {!blurZone ? (
@@ -372,7 +348,6 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                             )}
                         </div>
 
-                        {/* Réinitialiser */}
                         <button className="ic-reset" onClick={handleReset}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 4v6h6" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" /></svg>
                             Réinitialiser
@@ -380,7 +355,6 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                     </div>
                 </div>
 
-                {/* Footer */}
                 <div className="ic-footer">
                     <button onClick={onCancel} className="ic-btn ic-btn-ghost">Annuler</button>
                     <button onClick={handleApply} className="ic-btn ic-btn-primary" disabled={!croppedAreaPixels}>Appliquer le recadrage</button>
@@ -460,7 +434,6 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                     .ic-body { flex-direction: column; overflow-y: auto; }
                 }
 
-                /* --- Zone de travail --- */
                 .ic-stage {
                     flex: 1;
                     min-width: 0;
@@ -491,8 +464,6 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                     .ic-image-wrap { height: 100%; max-height: none; flex: 1; min-height: 320px; }
                 }
 
-                /* Calque texte/flou positionné par-dessus la zone de crop de
-                   react-easy-crop, qui est toujours centrée dans le conteneur. */
                 .ic-overlay-layer {
                     position: absolute;
                     left: 50%;
@@ -569,7 +540,6 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                     letter-spacing: 0.01em;
                 }
 
-                /* --- Panneau de contrôles --- */
                 .ic-controls {
                     width: 280px;
                     flex-shrink: 0;
@@ -744,7 +714,6 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                 }
                 .ic-reset:hover { color: #fff; border-color: #3d3e48; }
 
-                /* --- Footer --- */
                 .ic-footer {
                     display: flex;
                     justify-content: flex-end;
@@ -783,9 +752,6 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
     );
 };
 
-// Boîte dans laquelle on positionne les calques texte/flou : correspond à la
-// zone de crop de react-easy-crop (toujours carrée/rectangulaire selon le
-// ratio choisi, centrée, occupant au mieux le conteneur disponible).
 function getOverlayBoxStyle(ratio) {
     const effectiveRatio = ratio || FREE_ASPECT;
     return {
@@ -796,8 +762,4 @@ function getOverlayBoxStyle(ratio) {
     };
 }
 
-<<<<<<< HEAD
 export default ImageCropper;
-=======
-export default ImageCropper;
->>>>>>> f304c575a1d2258ae00d18bdf249a42709f91024
