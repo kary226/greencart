@@ -26,6 +26,7 @@
     "react-dom": "^19.0.0",
     "react-easy-crop": "^6.2.5",
     "react-helmet-async": "^2.0.5",
+    "react-easy-crop": "^6.2.5",
     "react-hot-toast": "^2.5.2",
     "react-image-file-resizer": "^0.4.8",
     "react-quill-new": "^3.8.3",

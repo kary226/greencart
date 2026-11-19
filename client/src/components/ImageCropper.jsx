@@ -796,4 +796,8 @@ function getOverlayBoxStyle(ratio) {
     };
 }
 
+<<<<<<< HEAD
 export default ImageCropper;
+=======
+export default ImageCropper;
+>>>>>>> f304c575a1d2258ae00d18bdf249a42709f91024
