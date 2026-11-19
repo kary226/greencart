@@ -1,7 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import Cropper from 'react-easy-crop';
+import 'react-easy-crop/react-easy-crop.css';
+import { getCroppedImg, getFlippedImage } from '../utils/cropImage';
 
 /**
- * ImageCropper — recadrage libre, moderne, desktop-first.
+ * ImageCropper — recadrage tactile (pinch-to-zoom, drag à un doigt), basé sur
+ * react-easy-crop pour l'interaction, avec les mêmes réglages qu'avant
+ * (rotation, miroir, filtres, texte, zone floutée).
  *
  * Props :
  * - imageFile : File | Blob — l'image à recadrer
@@ -9,6 +14,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
  * - onCancel() — fermeture sans appliquer
  * - aspectRatio (optionnel) — ratio initial (ex: 16/9). Laisser undefined pour "libre".
  * - cropShape ('rect' | 'round') — forme du masque de prévisualisation
+ * - lockAspectRatio (optionnel) — masque les presets de format si true
  */
 
 const PRESETS = [
@@ -20,206 +26,89 @@ const PRESETS = [
     { label: '9:16', value: 9 / 16 },
 ];
 
-const MIN_CROP = 40;
+// react-easy-crop a besoin d'un ratio numérique non-nul même en mode "libre" ;
+// on simule le "libre" avec un ratio très permissif proche du conteneur.
+const FREE_ASPECT = 1;
 
 const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null, cropShape = 'rect', lockAspectRatio = false }) => {
-    const containerRef = useRef(null);
-    const cropLayerRef = useRef(null);
-    const imgRef = useRef(null);
-    const [imgSrc, setImgSrc] = useState(null);
-    const [naturalSize, setNaturalSize] = useState({ w: 0, h: 0 });
-    const [displaySize, setDisplaySize] = useState({ w: 0, h: 0 });
+    const [imgSrc, setImgSrc] = useState(null); // source brute (object URL du fichier)
+    const [displaySrc, setDisplaySrc] = useState(null); // source affichée/recadrée = imgSrc avec flip "cuit"
 
-    // Transformations de l'image (zoom / rotation / flip)
+    // Transformations
+    const [crop, setCrop] = useState({ x: 0, y: 0 });
     const [zoom, setZoom] = useState(1);
     const [rotation, setRotation] = useState(0);
     const [flipH, setFlipH] = useState(false);
     const [flipV, setFlipV] = useState(false);
+    const [ratio, setRatio] = useState(aspectRatio || null);
+    const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
     // Réglages colorimétriques (appliqués à l'aperçu ET au rendu final)
     const [brightness, setBrightness] = useState(100);
     const [contrast, setContrast] = useState(100);
     const [saturate, setSaturate] = useState(100);
 
-    // Calques additionnels — un texte et une zone floutée, positionnés en coordonnées
-    // fractionnaires (0 à 1) RELATIVES à la zone de recadrage, pour rester cohérents
-    // quelle que soit la taille finale exportée.
+    // Calques additionnels — un texte et une zone floutée, positionnés en
+    // coordonnées fractionnaires (0 à 1) relatives à la zone de recadrage.
     const [textOverlay, setTextOverlay] = useState(null); // { content, size, color, fx, fy }
     const [blurZone, setBlurZone] = useState(null); // { size, fx, fy }
 
-    // Zone de recadrage en coordonnées d'affichage (px, relatives au conteneur d'image)
-    const [crop, setCrop] = useState({ x: 0, y: 0, w: 0, h: 0 });
-    const [ratio, setRatio] = useState(aspectRatio);
+    const overlayStageRef = useRef(null);
 
-    const dragState = useRef(null);
-
-    // Charger l'image
+    // Charger l'image source
     useEffect(() => {
         const url = URL.createObjectURL(imageFile);
         setImgSrc(url);
         return () => URL.revokeObjectURL(url);
     }, [imageFile]);
 
-    const computeLayout = useCallback(() => {
-        const img = imgRef.current;
-        const container = containerRef.current;
-        if (!img || !container || !naturalSize.w) return;
-
-        const cw = container.clientWidth;
-        const ch = container.clientHeight;
-        const scale = Math.min(cw / naturalSize.w, ch / naturalSize.h);
-        const dw = naturalSize.w * scale;
-        const dh = naturalSize.h * scale;
-        setDisplaySize({ w: dw, h: dh });
-
-        // Crop initial centré, le plus grand possible selon le ratio
-        let cropW, cropH;
-        if (ratio) {
-            if (dw / dh > ratio) {
-                cropH = dh * 0.9;
-                cropW = cropH * ratio;
-            } else {
-                cropW = dw * 0.9;
-                cropH = cropW / ratio;
-            }
-        } else {
-            cropW = dw * 0.8;
-            cropH = dh * 0.8;
-        }
-        setCrop({
-            x: (dw - cropW) / 2,
-            y: (dh - cropH) / 2,
-            w: cropW,
-            h: cropH,
-        });
-    }, [naturalSize, ratio]);
-
-    const handleImgLoad = (e) => {
-        setNaturalSize({ w: e.target.naturalWidth, h: e.target.naturalHeight });
-    };
-
+    // "Cuire" le flip dans l'image affichée (react-easy-crop ne gère pas le
+    // miroir nativement). Se refait seulement quand flipH/flipV changent.
     useEffect(() => {
-        computeLayout();
-        const onResize = () => computeLayout();
-        window.addEventListener('resize', onResize);
-        return () => window.removeEventListener('resize', onResize);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [naturalSize]);
+        if (!imgSrc) return;
+        let cancelled = false;
+        let objectUrlToRevoke = null;
+        (async () => {
+            const result = await getFlippedImage(imgSrc, flipH, flipV);
+            if (cancelled) return;
+            if (result !== imgSrc) objectUrlToRevoke = result;
+            setDisplaySrc(result);
+        })();
+        return () => {
+            cancelled = true;
+            if (objectUrlToRevoke) URL.revokeObjectURL(objectUrlToRevoke);
+        };
+    }, [imgSrc, flipH, flipV]);
 
-    // Recalcule la zone de crop quand le ratio change (sans recharger l'image)
+    const onCropAreaComplete = useCallback((_croppedArea, pixels) => {
+        setCroppedAreaPixels(pixels);
+    }, []);
+
+    // Raccourcis clavier
     useEffect(() => {
-        if (!displaySize.w) return;
-        setCrop((prev) => {
-            const cx = prev.x + prev.w / 2;
-            const cy = prev.y + prev.h / 2;
-            let w = prev.w;
-            let h = prev.h;
-            if (ratio) {
-                // Conserve l'aire approx., ajuste au ratio
-                const area = w * h;
-                h = Math.sqrt(area / ratio);
-                w = h * ratio;
-                w = Math.min(w, displaySize.w);
-                h = Math.min(h, displaySize.h);
-                if (w / h > ratio) w = h * ratio; else h = w / ratio;
-            }
-            let x = cx - w / 2;
-            let y = cy - h / 2;
-            x = Math.max(0, Math.min(x, displaySize.w - w));
-            y = Math.max(0, Math.min(y, displaySize.h - h));
-            return { x, y, w, h };
-        });
+        const onKey = (e) => {
+            if (e.key === 'Escape') onCancel();
+            if (e.key === '+' || e.key === '=') setZoom((z) => Math.min(4, +(z + 0.1).toFixed(2)));
+            if (e.key === '-') setZoom((z) => Math.max(1, +(z - 0.1).toFixed(2)));
+            if (e.key.toLowerCase() === 'r' && !e.shiftKey) setRotation((r) => (r + 90) % 360);
+            if (e.key.toLowerCase() === 'r' && e.shiftKey) setRotation((r) => (r - 90 + 360) % 360);
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [ratio]);
-
-    // --- Interaction : déplacement / redimensionnement ---
-    const clampCrop = (c) => {
-        let { x, y, w, h } = c;
-        w = Math.max(MIN_CROP, Math.min(w, displaySize.w));
-        h = Math.max(MIN_CROP, Math.min(h, displaySize.h));
-        x = Math.max(0, Math.min(x, displaySize.w - w));
-        y = Math.max(0, Math.min(y, displaySize.h - h));
-        return { x, y, w, h };
-    };
-
-    const onPointerDownMove = (e) => {
-        e.preventDefault();
-        dragState.current = {
-            type: 'move',
-            startX: e.clientX,
-            startY: e.clientY,
-            crop: { ...crop },
-        };
-        window.addEventListener('pointermove', onPointerMove);
-        window.addEventListener('pointerup', onPointerUp);
-    };
-
-    const onPointerDownResize = (handle) => (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        dragState.current = {
-            type: 'resize',
-            handle,
-            startX: e.clientX,
-            startY: e.clientY,
-            crop: { ...crop },
-        };
-        window.addEventListener('pointermove', onPointerMove);
-        window.addEventListener('pointerup', onPointerUp);
-    };
-
-    const onPointerMove = (e) => {
-        const ds = dragState.current;
-        if (!ds) return;
-        const dx = e.clientX - ds.startX;
-        const dy = e.clientY - ds.startY;
-
-        if (ds.type === 'move') {
-            setCrop(clampCrop({ ...ds.crop, x: ds.crop.x + dx, y: ds.crop.y + dy }));
-            return;
-        }
-
-        // Resize
-        let { x, y, w, h } = ds.crop;
-        const handle = ds.handle;
-
-        if (handle.includes('e')) w = ds.crop.w + dx;
-        if (handle.includes('s')) h = ds.crop.h + dy;
-        if (handle.includes('w')) { w = ds.crop.w - dx; x = ds.crop.x + dx; }
-        if (handle.includes('n')) { h = ds.crop.h - dy; y = ds.crop.y + dy; }
-
-        if (ratio) {
-            // Recalcule h (ou w) selon le ratio en fonction du côté dominant
-            if (handle.includes('e') || handle.includes('w')) {
-                h = w / ratio;
-                if (handle.includes('n')) y = ds.crop.y + ds.crop.h - h;
-            } else {
-                w = h * ratio;
-                if (handle.includes('w')) x = ds.crop.x + ds.crop.w - w;
-            }
-        }
-
-        w = Math.max(MIN_CROP, w);
-        h = Math.max(MIN_CROP, h);
-
-        setCrop(clampCrop({ x, y, w, h }));
-    };
-
-    const onPointerUp = () => {
-        dragState.current = null;
-        window.removeEventListener('pointermove', onPointerMove);
-        window.removeEventListener('pointerup', onPointerUp);
-    };
+    }, []);
 
     // Déplacement du calque texte / de la zone floutée — position stockée en
-    // fraction (0..1) de la boîte de recadrage courante.
+    // fraction (0..1) de la zone de recadrage affichée à l'écran.
     const startOverlayDrag = (kind) => (e) => {
         e.preventDefault();
         e.stopPropagation();
         const move = (ev) => {
-            const rect = cropLayerRef.current.getBoundingClientRect();
-            const fx = Math.min(1, Math.max(0, (ev.clientX - rect.left - crop.x) / crop.w));
-            const fy = Math.min(1, Math.max(0, (ev.clientY - rect.top - crop.y) / crop.h));
+            const rect = overlayStageRef.current.getBoundingClientRect();
+            const clientX = ev.touches ? ev.touches[0].clientX : ev.clientX;
+            const clientY = ev.touches ? ev.touches[0].clientY : ev.clientY;
+            const fx = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+            const fy = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height));
             if (kind === 'text') setTextOverlay((prev) => (prev ? { ...prev, fx, fy } : prev));
             if (kind === 'blur') setBlurZone((prev) => (prev ? { ...prev, fx, fy } : prev));
         };
@@ -231,111 +120,27 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
         window.addEventListener('pointerup', up);
     };
 
-    // Molette = zoom
-    const onWheel = (e) => {
-        e.preventDefault();
-        const delta = e.deltaY > 0 ? -0.05 : 0.05;
-        setZoom((z) => Math.min(4, Math.max(0.2, +(z + delta).toFixed(2))));
-    };
-
-    // Raccourcis clavier
-    useEffect(() => {
-        const onKey = (e) => {
-            if (e.key === 'Escape') onCancel();
-            if (e.key === '+' || e.key === '=') setZoom((z) => Math.min(4, +(z + 0.1).toFixed(2)));
-            if (e.key === '-') setZoom((z) => Math.max(0.2, +(z - 0.1).toFixed(2)));
-            if (e.key.toLowerCase() === 'r' && !e.shiftKey) setRotation((r) => r + 90);
-            if (e.key.toLowerCase() === 'r' && e.shiftKey) setRotation((r) => r - 90);
-        };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    // --- Rendu final ---
-    const handleApply = async () => {
-        const img = imgRef.current;
-        if (!img || !displaySize.w) return;
-
-        const scaleX = naturalSize.w / displaySize.w;
-        const scaleY = naturalSize.h / displaySize.h;
-        const outW = Math.max(1, Math.round(crop.w * scaleX));
-        const outH = Math.max(1, Math.round(crop.h * scaleY));
-
-        // Canvas intermédiaire : reproduit exactement ce qui est visible dans .ic-image-wrap,
-        // mais à l'échelle naturelle (1 unité displaySize = scaleX/scaleY unités naturelles).
-        const sceneW = displaySize.w * scaleX;
-        const sceneH = displaySize.h * scaleY;
-
-        const scene = document.createElement('canvas');
-        scene.width = sceneW;
-        scene.height = sceneH;
-        const sctx = scene.getContext('2d');
-
-        sctx.save();
-        sctx.translate(sceneW / 2, sceneH / 2);
-        sctx.rotate((rotation * Math.PI) / 180);
-        sctx.scale((flipH ? -1 : 1) * zoom, (flipV ? -1 : 1) * zoom);
-        sctx.filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturate}%)`;
-        sctx.drawImage(img, -naturalSize.w / 2, -naturalSize.h / 2, naturalSize.w, naturalSize.h);
-        sctx.restore();
-
-        // Découpe la zone de crop (convertie de coordonnées d'affichage vers coordonnées "scene")
-        const canvas = document.createElement('canvas');
-        canvas.width = outW;
-        canvas.height = outH;
-        const ctx = canvas.getContext('2d');
-
-        ctx.drawImage(
-            scene,
-            crop.x * scaleX,
-            crop.y * scaleY,
-            crop.w * scaleX,
-            crop.h * scaleY,
-            0, 0, outW, outH
-        );
-
-        // Zone floutée — on floute une copie du rendu déjà recadré, puis on ne
-        // recopie que le patch concerné par-dessus l'image nette.
-        if (blurZone) {
-            const bw = Math.max(4, blurZone.size * Math.min(outW, outH));
-            const bx = blurZone.fx * outW - bw / 2;
-            const by = blurZone.fy * outH - bw / 2;
-            const blurCanvas = document.createElement('canvas');
-            blurCanvas.width = outW;
-            blurCanvas.height = outH;
-            const bctx = blurCanvas.getContext('2d');
-            bctx.filter = `blur(${Math.max(2, bw * 0.12)}px)`;
-            bctx.drawImage(canvas, 0, 0);
-            ctx.save();
-            ctx.beginPath();
-            ctx.rect(bx, by, bw, bw);
-            ctx.clip();
-            ctx.drawImage(blurCanvas, 0, 0);
-            ctx.restore();
-        }
-
-        // Texte — dessiné en dernier, par-dessus tout le reste, avec un léger
-        // contour sombre pour rester lisible sur n'importe quel fond.
-        if (textOverlay && textOverlay.content.trim()) {
-            const fontPx = (textOverlay.size / 100) * Math.min(outW, outH);
-            ctx.font = `700 ${fontPx}px -apple-system, "Segoe UI", Roboto, sans-serif`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.lineWidth = Math.max(1, fontPx * 0.08);
-            ctx.strokeStyle = 'rgba(0,0,0,0.4)';
-            ctx.strokeText(textOverlay.content, textOverlay.fx * outW, textOverlay.fy * outH);
-            ctx.fillStyle = textOverlay.color;
-            ctx.fillText(textOverlay.content, textOverlay.fx * outW, textOverlay.fy * outH);
-        }
-
-        canvas.toBlob((blob) => {
-            if (blob) onCropComplete(blob);
-        }, 'image/png', 0.95);
-    };
-
-    const imgTransform = `translate(-50%, -50%) rotate(${rotation}deg) scale(${zoom * (flipH ? -1 : 1)}, ${zoom * (flipV ? -1 : 1)})`;
     const cssFilter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturate}%)`;
+
+    const handleApply = async () => {
+        if (!croppedAreaPixels || !displaySrc) return;
+        const blob = await getCroppedImg(displaySrc, croppedAreaPixels, 0, cssFilter, blurZone, textOverlay);
+        if (blob) onCropComplete(blob);
+    };
+
+    const handleReset = () => {
+        setZoom(1);
+        setCrop({ x: 0, y: 0 });
+        setRotation(0);
+        setFlipH(false);
+        setFlipV(false);
+        setRatio(aspectRatio || null);
+        setBrightness(100);
+        setContrast(100);
+        setSaturate(100);
+        setTextOverlay(null);
+        setBlurZone(null);
+    };
 
     return (
         <div className="ic-overlay" role="dialog" aria-modal="true">
@@ -355,98 +160,62 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
 
                 <div className="ic-body">
                     {/* Zone de travail */}
-                    <div className="ic-stage" ref={containerRef} onWheel={onWheel}>
+                    <div className="ic-stage">
                         <div className="ic-image-wrap">
-                            <img
-                                ref={imgRef}
-                                src={imgSrc}
-                                onLoad={handleImgLoad}
-                                alt="à recadrer"
-                                className="ic-image"
-                                style={{
-                                    width: displaySize.w,
-                                    height: displaySize.h,
-                                    transform: imgTransform,
-                                    filter: cssFilter,
-                                }}
-                                draggable={false}
-                            />
+                            {displaySrc && (
+                                <Cropper
+                                    image={displaySrc}
+                                    crop={crop}
+                                    zoom={zoom}
+                                    rotation={rotation}
+                                    aspect={ratio || FREE_ASPECT}
+                                    cropShape={cropShape}
+                                    showGrid
+                                    zoomSpeed={0.5}
+                                    minZoom={1}
+                                    maxZoom={4}
+                                    restrictPosition
+                                    mediaProps={{ style: { filter: cssFilter } }}
+                                    onCropChange={setCrop}
+                                    onZoomChange={setZoom}
+                                    onRotationChange={setRotation}
+                                    onCropComplete={onCropAreaComplete}
+                                    setCropperRef={(ref) => { overlayStageRef.current = ref?.current || null; }}
+                                />
+                            )}
 
-                            {displaySize.w > 0 && (
-                                <div ref={cropLayerRef} className="ic-crop-layer" style={{ width: displaySize.w, height: displaySize.h }}>
-                                    {/* Voile sombre avec trou = zone de crop */}
-                                    <svg className="ic-mask" width={displaySize.w} height={displaySize.h}>
-                                        <defs>
-                                            <mask id="ic-hole">
-                                                <rect width="100%" height="100%" fill="white" />
-                                                {cropShape === 'round' ? (
-                                                    <ellipse
-                                                        cx={crop.x + crop.w / 2}
-                                                        cy={crop.y + crop.h / 2}
-                                                        rx={crop.w / 2}
-                                                        ry={crop.h / 2}
-                                                        fill="black"
-                                                    />
-                                                ) : (
-                                                    <rect x={crop.x} y={crop.y} width={crop.w} height={crop.h} fill="black" />
-                                                )}
-                                            </mask>
-                                        </defs>
-                                        <rect width="100%" height="100%" fill="rgba(10,10,14,0.6)" mask="url(#ic-hole)" />
-                                    </svg>
-
-                                    {/* Cadre + poignées */}
-                                    <div
-                                        className={`ic-crop-frame ${cropShape === 'round' ? 'is-round' : ''}`}
-                                        style={{ left: crop.x, top: crop.y, width: crop.w, height: crop.h }}
-                                        onPointerDown={onPointerDownMove}
-                                    >
-                                        {/* Grille des tiers */}
-                                        <div className="ic-grid">
-                                            <span /><span /><span /><span />
+                            {/* Calques texte / flou, positionnés par-dessus la zone de crop
+                                de react-easy-crop (toujours centrée et de taille connue). */}
+                            {croppedAreaPixels && (blurZone || textOverlay) && (
+                                <div className="ic-overlay-layer" style={getOverlayBoxStyle(ratio)}>
+                                    {blurZone && (
+                                        <div
+                                            className="ic-blur-layer"
+                                            onPointerDown={startOverlayDrag('blur')}
+                                            style={{
+                                                left: `${blurZone.fx * 100}%`,
+                                                top: `${blurZone.fy * 100}%`,
+                                                width: `${blurZone.size * 100}%`,
+                                                aspectRatio: '1 / 1',
+                                                transform: 'translate(-50%, -50%)',
+                                            }}
+                                        />
+                                    )}
+                                    {textOverlay && (
+                                        <div
+                                            className="ic-text-layer"
+                                            onPointerDown={startOverlayDrag('text')}
+                                            style={{
+                                                left: `${textOverlay.fx * 100}%`,
+                                                top: `${textOverlay.fy * 100}%`,
+                                                fontSize: `${textOverlay.size}%`,
+                                                color: textOverlay.color,
+                                                transform: 'translate(-50%, -50%)',
+                                            }}
+                                        >
+                                            {textOverlay.content || 'Texte'}
                                         </div>
-
-                                        {/* Poignées (cachées si rond, sauf coins pour resize global) */}
-                                        {['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'].map((h) => (
-                                            <div
-                                                key={h}
-                                                className={`ic-handle ic-handle-${h}`}
-                                                onPointerDown={onPointerDownResize(h)}
-                                            />
-                                        ))}
-
-                                        {/* Calque zone floutée */}
-                                        {blurZone && (
-                                            <div
-                                                className="ic-blur-layer"
-                                                onPointerDown={startOverlayDrag('blur')}
-                                                style={{
-                                                    left: crop.w * blurZone.fx,
-                                                    top: crop.h * blurZone.fy,
-                                                    width: Math.min(crop.w, crop.h) * blurZone.size,
-                                                    height: Math.min(crop.w, crop.h) * blurZone.size,
-                                                    transform: 'translate(-50%, -50%)',
-                                                }}
-                                            />
-                                        )}
-
-                                        {/* Calque texte */}
-                                        {textOverlay && (
-                                            <div
-                                                className="ic-text-layer"
-                                                onPointerDown={startOverlayDrag('text')}
-                                                style={{
-                                                    left: crop.w * textOverlay.fx,
-                                                    top: crop.h * textOverlay.fy,
-                                                    fontSize: (textOverlay.size / 100) * Math.min(crop.w, crop.h),
-                                                    color: textOverlay.color,
-                                                    transform: 'translate(-50%, -50%)',
-                                                }}
-                                            >
-                                                {textOverlay.content || 'Texte'}
-                                            </div>
-                                        )}
-                                    </div>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -456,7 +225,7 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                                 <circle cx="12" cy="12" r="10" />
                                 <path d="M12 16v-4M12 8h.01" />
                             </svg>
-                            Molette pour zoomer · glisser pour déplacer · poignées pour redimensionner
+                            Pincez pour zoomer · glissez pour déplacer
                         </div>
                     </div>
 
@@ -487,9 +256,9 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                                 <span className="ic-value">{Math.round(zoom * 100)}%</span>
                             </div>
                             <div className="ic-slider-row">
-                                <button className="ic-icon-btn" onClick={() => setZoom(z => Math.max(0.2, +(z - 0.1).toFixed(2)))} aria-label="Diminuer le zoom">−</button>
+                                <button className="ic-icon-btn" onClick={() => setZoom(z => Math.max(1, +(z - 0.1).toFixed(2)))} aria-label="Diminuer le zoom">−</button>
                                 <input
-                                    type="range" min={0.2} max={4} step={0.01}
+                                    type="range" min={1} max={4} step={0.01}
                                     value={zoom}
                                     onChange={(e) => setZoom(parseFloat(e.target.value))}
                                     className="ic-slider"
@@ -505,16 +274,16 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                                 <span className="ic-value">{rotation % 360}°</span>
                             </div>
                             <div className="ic-slider-row">
-                                <button className="ic-icon-btn" onClick={() => setRotation(r => r - 90)} aria-label="Rotation -90°" title="Rotation -90° (Shift+R)">
+                                <button className="ic-icon-btn" onClick={() => setRotation(r => (r - 90 + 360) % 360)} aria-label="Rotation -90°" title="Rotation -90° (Shift+R)">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 14L4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" /></svg>
                                 </button>
                                 <input
                                     type="range" min={-180} max={180} step={1}
                                     value={((rotation % 360) + 540) % 360 - 180}
-                                    onChange={(e) => setRotation(parseInt(e.target.value, 10))}
+                                    onChange={(e) => setRotation((parseInt(e.target.value, 10) + 360) % 360)}
                                     className="ic-slider"
                                 />
-                                <button className="ic-icon-btn" onClick={() => setRotation(r => r + 90)} aria-label="Rotation +90°" title="Rotation +90° (R)">
+                                <button className="ic-icon-btn" onClick={() => setRotation(r => (r + 90) % 360)} aria-label="Rotation +90°" title="Rotation +90° (R)">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 14l5-5-5-5" /><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" /></svg>
                                 </button>
                             </div>
@@ -604,7 +373,7 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                         </div>
 
                         {/* Réinitialiser */}
-                        <button className="ic-reset" onClick={() => { setZoom(1); setRotation(0); setFlipH(false); setFlipV(false); setRatio(aspectRatio); setBrightness(100); setContrast(100); setSaturate(100); setTextOverlay(null); setBlurZone(null); computeLayout(); }}>
+                        <button className="ic-reset" onClick={handleReset}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 4v6h6" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" /></svg>
                             Réinitialiser
                         </button>
@@ -614,7 +383,7 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                 {/* Footer */}
                 <div className="ic-footer">
                     <button onClick={onCancel} className="ic-btn ic-btn-ghost">Annuler</button>
-                    <button onClick={handleApply} className="ic-btn ic-btn-primary">Appliquer le recadrage</button>
+                    <button onClick={handleApply} className="ic-btn ic-btn-primary" disabled={!croppedAreaPixels}>Appliquer le recadrage</button>
                 </div>
             </div>
 
@@ -704,108 +473,34 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                         repeating-linear-gradient(45deg, #1a1b21 0 12px, #181920 12px 24px);
                     position: relative;
                     gap: 14px;
-                    touch-action: none;
                 }
                 @media (max-width: 640px) {
-                    .ic-stage { padding: 14px; flex: none; }
+                    .ic-stage { padding: 14px; flex: 1; }
                 }
 
                 .ic-image-wrap {
                     position: relative;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    overflow: hidden;
                     width: 100%;
                     height: 480px;
                     max-height: 60vh;
                     border-radius: 4px;
                     background: #0c0d11;
+                    overflow: hidden;
                 }
                 @media (max-width: 640px) {
-                    .ic-image-wrap { height: 62vw; max-height: 46vh; }
+                    .ic-image-wrap { height: 100%; max-height: none; flex: 1; min-height: 320px; }
                 }
 
-                .ic-image {
+                /* Calque texte/flou positionné par-dessus la zone de crop de
+                   react-easy-crop, qui est toujours centrée dans le conteneur. */
+                .ic-overlay-layer {
                     position: absolute;
-                    top: 50%;
                     left: 50%;
-                    object-fit: contain;
-                    transition: transform 0.05s linear;
-                    will-change: transform;
-                    user-select: none;
-                    -webkit-user-drag: none;
-                }
-
-                .ic-crop-layer {
-                    position: absolute;
                     top: 50%;
-                    left: 50%;
                     transform: translate(-50%, -50%);
                     pointer-events: none;
                 }
-
-                .ic-mask {
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    pointer-events: none;
-                }
-
-                .ic-crop-frame {
-                    position: absolute;
-                    box-shadow: 0 0 0 1px rgba(255,255,255,0.85);
-                    cursor: move;
-                    pointer-events: auto;
-                    touch-action: none;
-                }
-
-                .ic-crop-frame.is-round { border-radius: 50%; }
-
-                .ic-grid {
-                    position: absolute;
-                    inset: 0;
-                    display: grid;
-                    grid-template-columns: 1fr 1fr 1fr;
-                    grid-template-rows: 1fr 1fr 1fr;
-                    pointer-events: none;
-                    opacity: 0.55;
-                }
-                .ic-grid span {
-                    border-right: 1px solid rgba(255,255,255,0.35);
-                    border-bottom: 1px solid rgba(255,255,255,0.35);
-                }
-                .ic-grid span:nth-child(3n) { border-right: none; }
-                .ic-grid span:nth-child(n+7) { border-bottom: none; }
-
-                .ic-handle {
-                    position: absolute;
-                    width: 14px;
-                    height: 14px;
-                    background: #fff;
-                    border: 1.5px solid #15161b;
-                    border-radius: 4px;
-                    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
-                    touch-action: none;
-                }
-                /* Zone de préhension tactile agrandie sans changer la taille visuelle,
-                   pour rester facile à saisir du bout du doigt sans imprécision. */
-                .ic-handle::before {
-                    content: '';
-                    position: absolute;
-                    inset: -12px;
-                }
-
-                .ic-handle-nw { top: -7px; left: -7px; cursor: nwse-resize; }
-                .ic-handle-ne { top: -7px; right: -7px; cursor: nesw-resize; }
-                .ic-handle-sw { bottom: -7px; left: -7px; cursor: nesw-resize; }
-                .ic-handle-se { bottom: -7px; right: -7px; cursor: nwse-resize; }
-                .ic-handle-n { top: -7px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
-                .ic-handle-s { bottom: -7px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
-                .ic-handle-e { right: -7px; top: 50%; transform: translateY(-50%); cursor: ew-resize; }
-                .ic-handle-w { left: -7px; top: 50%; transform: translateY(-50%); cursor: ew-resize; }
-
-                .is-round .ic-handle { border-radius: 50%; }
+                .ic-overlay-layer > * { pointer-events: auto; }
 
                 .ic-blur-layer {
                     position: absolute;
@@ -894,7 +589,6 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                         border-top: 1px solid #25262d;
                         flex-direction: row;
                         flex-wrap: wrap;
-                        gap: 16px;
                     }
                     .ic-section { flex: 1 1 130px; }
                 }
@@ -1082,10 +776,24 @@ const ImageCropper = ({ imageFile, onCropComplete, onCancel, aspectRatio = null,
                     color: #fff;
                     box-shadow: 0 4px 14px rgba(91,95,247,0.35);
                 }
-                .ic-btn-primary:hover { background: #6e72ff; }
+                .ic-btn-primary:hover:not(:disabled) { background: #6e72ff; }
+                .ic-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
             `}</style>
         </div>
     );
 };
+
+// Boîte dans laquelle on positionne les calques texte/flou : correspond à la
+// zone de crop de react-easy-crop (toujours carrée/rectangulaire selon le
+// ratio choisi, centrée, occupant au mieux le conteneur disponible).
+function getOverlayBoxStyle(ratio) {
+    const effectiveRatio = ratio || FREE_ASPECT;
+    return {
+        width: effectiveRatio >= 1 ? '100%' : `${100 * effectiveRatio}%`,
+        aspectRatio: `${effectiveRatio}`,
+        maxHeight: '100%',
+        maxWidth: '100%',
+    };
+}
 
 export default ImageCropper;
